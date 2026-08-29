@@ -65,6 +65,23 @@ function makeShape(shape: ShapeName, color: string, size: number, name: string):
     return { mesh, comp, shape, color };
 }
 
+/** Frame the whole arrangement with margin — the hero is a wide, short strip. */
+function refitCamera(immediate: boolean) {
+    const orbit = findObjectOfType(OrbitControls);
+    if (!orbit || !entries.length) return;
+    try {
+        orbit.fitCamera({
+            objects: entries.map(e => e.mesh),
+            immediate,
+            fitOffset: 1.15,
+            fov: 22,
+            relativeTargetOffset: { y: .05 },
+        });
+    } catch (err) {
+        console.debug("[needle-webmcp] camera fit skipped:", err);
+    }
+}
+
 function applyLayout(layout: Layout) {
     currentLayout = layout;
     const n = entries.length;
@@ -215,6 +232,7 @@ function makeHeroTools() {
                 const layout = (["ring", "line", "grid", "scatter"] as const).find(l => l === args?.layout);
                 if (!layout) return toolResult(`Unknown layout "${args?.layout}". Use ring, line, grid or scatter.`, undefined, true);
                 applyLayout(layout);
+                refitCamera(false);
                 return toolResult(`Shapes are moving into a ${layout}.`, describe());
             },
         },
@@ -286,6 +304,7 @@ onStart(context => {
         orbit.enableZoom = false;
         orbit.enablePan = false;
     }
+    refitCamera(true);
 
     registerTools(makeHeroTools());
 });

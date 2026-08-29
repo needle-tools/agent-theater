@@ -66,8 +66,8 @@
         Machine-readable version: <a href="/registry.json">registry.json</a>.
     </p>
     <div class="cards">
-        {#each apps as app}
-            <article class="card">
+        {#each apps as app, i}
+            <article class="card" style="animation-delay: {80 + i * 70}ms">
                 <div class="card-head">
                     <span class="card-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
@@ -118,14 +118,16 @@
 </section>
 
 <style>
+    /* Full-bleed banner: escapes the centered page column to span the viewport. */
     .hero {
         position: relative;
-        border-radius: var(--radius-panel);
+        width: 100vw;
+        margin-left: calc(50% - 50vw);
         overflow: hidden;
         background: var(--surface-page-elevated);
-        border: 1px solid var(--border-subtle);
-        box-shadow: var(--shadow-panel);
-        min-height: min(76vh, 680px);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 40vh;
+        min-height: 380px;
     }
 
     .hero-copy {
@@ -137,9 +139,9 @@
         align-items: center;
         justify-content: center;
         text-align: center;
-        padding: 2rem 1.5rem;
+        padding: 3.6rem 1.5rem 1.2rem;
         pointer-events: none;
-        background: radial-gradient(ellipse 62% 48% at center,
+        background: radial-gradient(ellipse 62% 58% at center,
                 color-mix(in srgb, var(--surface-page-elevated) 92%, transparent) 0%,
                 color-mix(in srgb, var(--surface-page-elevated) 55%, transparent) 55%,
                 transparent 78%);
@@ -154,10 +156,49 @@
         pointer-events: auto;
     }
 
+    /* Split + staggered enter: each block rises in on its own beat. */
+    .hero-copy > * {
+        animation: rise 0.65s cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
+    .hero-copy > *:nth-child(2) {
+        animation-delay: 0.09s;
+    }
+
+    .hero-copy > *:nth-child(3) {
+        animation-delay: 0.18s;
+    }
+
+    .hero-copy > *:nth-child(4) {
+        animation-delay: 0.27s;
+    }
+
+    @keyframes rise {
+        from {
+            opacity: 0;
+            translate: 0 14px;
+            filter: blur(4px);
+        }
+
+        to {
+            opacity: 1;
+            translate: 0 0;
+            filter: blur(0);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+        .hero-copy > *,
+        .card {
+            animation: none;
+        }
+    }
+
     .hero-copy h1 {
-        margin: 0 0 0.7rem;
+        margin: 0 0 0.5rem;
         font-family: var(--font-family-display);
-        font-size: var(--type-display-size);
+        font-size: clamp(2.4rem, 4.5vw, 3.6rem);
         font-weight: var(--type-display-weight);
         line-height: var(--type-display-line-height);
         letter-spacing: var(--type-display-tracking);
@@ -186,7 +227,7 @@
     .hero-actions {
         display: flex;
         gap: 0.7rem;
-        margin: 1.2rem 0 0.6rem;
+        margin: 0.9rem 0 0.4rem;
         pointer-events: auto;
         flex-wrap: wrap;
         justify-content: center;
@@ -252,9 +293,12 @@
 
     .card {
         background: var(--surface-panel);
-        border: 1px solid var(--border-subtle);
+        border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
         border-radius: var(--radius-card);
-        box-shadow: var(--shadow-subtle);
+        /* Layered soft shadow instead of a hard edge. */
+        box-shadow:
+            0 1px 2px rgba(34, 44, 32, 0.04),
+            0 6px 18px rgba(34, 44, 32, 0.05);
         padding: var(--space-panel-padding);
         display: flex;
         flex-direction: column;
@@ -262,10 +306,13 @@
         transition-property: box-shadow, translate;
         transition-duration: 0.18s;
         transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+        animation: rise 0.55s cubic-bezier(0.2, 0, 0, 1) both;
     }
 
     .card:hover {
-        box-shadow: var(--shadow-panel);
+        box-shadow:
+            0 2px 4px rgba(34, 44, 32, 0.05),
+            0 14px 34px rgba(34, 44, 32, 0.09);
         translate: 0 -2px;
     }
 

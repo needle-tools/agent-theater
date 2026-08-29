@@ -120,9 +120,12 @@
         }
     }
 
+    /* The pill floats above the full-bleed hero and stays put on scroll. */
     .header-pill-shell {
-        position: sticky;
+        position: fixed;
         top: 0;
+        left: 0;
+        right: 0;
         z-index: 10;
     }
 
@@ -156,6 +159,10 @@
     .header-pill {
         padding-left: 1.4rem;
         padding-right: 0.8rem;
+        /* Floats over content now — a soft layered shadow sells the elevation. */
+        box-shadow:
+            0 1px 2px rgba(34, 44, 32, 0.06),
+            0 10px 26px rgba(34, 44, 32, 0.08);
     }
 
     .header-pill-brand {
