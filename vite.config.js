@@ -8,12 +8,11 @@ export default defineConfig(async ({ command }) => {
         plugins: [
             needlePlugins(command, needleConfig, {
                 noPoster: true,
-                // The compression pipeline polls for dist/assets, which never exists
-                // in this SvelteKit setup (assets live in dist/_app/immutable and
-                // adapter-static writes dist after the client build) - so it times
-                // out in CI. There are no glTF assets to compress here anyway, and
-                // Needle Cloud compresses on deploy.
-                buildPipeline: { enabled: false },
+                // dist/assets never exists in this SvelteKit setup (assets live in
+                // dist/_app/immutable), so the pipeline waits and then skips with
+                // "nothing to compress" (engine fix in 6.0.0-canary...c23278827).
+                // Short wait keeps that no-op cheap in CI.
+                buildPipeline: { maxWaitDuration: 5000 },
             }),
             sveltekit(),
         ],
