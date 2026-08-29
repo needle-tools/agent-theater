@@ -80,9 +80,11 @@
                     </span>
                 </div>
                 <h3><a href={app.url} target="_blank" rel="noopener">{app.name}</a></h3>
-                <p>{app.description}</p>
+                <p>{app.tagline ?? app.description}</p>
                 <details>
-                    <summary>{app.tools.length} tool{app.tools.length === 1 ? "" : "s"}</summary>
+                    <summary>{app.tools.some(t => t.name === "…")
+                        ? `${app.tools.length - 1}+ tools (dynamic)`
+                        : `${app.tools.length} tool${app.tools.length === 1 ? "" : "s"}`}</summary>
                     <ul>
                         {#each app.tools as tool}
                             <li><code>{tool.name}</code> — {tool.description}</li>
@@ -202,15 +204,15 @@
 
     section {
         scroll-margin-top: var(--space-scroll-margin-top);
-        margin-top: 2.6rem;
+        margin-top: 4.5rem;
     }
 
     h2 {
-        margin: 0 0 0.4rem;
-        font-size: var(--type-section-title-size);
-        font-weight: var(--type-section-title-weight);
-        line-height: var(--type-section-title-line-height);
-        letter-spacing: var(--type-section-title-tracking);
+        margin: 0 0 0.6rem;
+        font-size: var(--type-page-title-size);
+        font-weight: var(--type-page-title-weight);
+        line-height: var(--type-page-title-line-height);
+        letter-spacing: var(--type-page-title-tracking);
         text-wrap: balance;
     }
 
@@ -245,7 +247,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
         gap: var(--space-cluster-gap);
-        margin-top: 0.8rem;
+        margin-top: 1.6rem;
     }
 
     .card {
@@ -321,7 +323,7 @@
         margin: 0;
         flex: 1;
         color: var(--text-secondary);
-        font-size: 0.93rem;
+        font-size: var(--type-body-size);
     }
 
     .card details {

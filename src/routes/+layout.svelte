@@ -82,6 +82,32 @@
         gap: var(--space-section-gap);
     }
 
+    .footer-area {
+        margin-top: 4.5rem;
+        border: none;
+        border-top: 1px solid var(--border-subtle);
+        border-radius: 0;
+        background: none;
+        padding: 3rem 0 1rem;
+        gap: 2.5rem;
+    }
+
+    .footer-area-main {
+        grid-template-columns: minmax(18rem, 1.6fr) 1fr 1fr;
+        gap: 3rem;
+    }
+
+    .footer-area-brand {
+        max-width: 26rem;
+        align-content: start;
+    }
+
+    @media (max-width: 980px) {
+        .footer-area-main {
+            grid-template-columns: 1fr;
+        }
+    }
+
     .header-pill-shell {
         position: sticky;
         top: 0;
