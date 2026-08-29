@@ -13,18 +13,19 @@
 <div class="page">
     <div class="header-pill-shell">
         <header class="header-pill">
-            <a class="header-pill-brand" href="/">
-                <img class="header-pill-logo" src="/logos/logo_needle_black_no_padding.svg" alt="Needle" />
+            <a class="header-pill-brand" href="/" draggable="false">
+                <img class="header-pill-logo" src="/logos/logo_needle_black_no_padding.svg" alt="Needle"
+                    draggable="false" />
                 <span class="header-pill-brand-label">WebMCP</span>
             </a>
             <nav class="header-pill-nav" aria-label="Main">
-                <a class="header-pill-link" href="/#apps">Apps</a>
-                <a class="header-pill-link" href="/#try">Try it</a>
-                <a class="header-pill-link" href="/registry.json">Registry</a>
+                <a class="header-pill-link" href="/#apps" draggable="false">Apps</a>
+                <a class="header-pill-link" href="/#try" draggable="false">Try it</a>
+                <a class="header-pill-link" href="/registry.json" draggable="false">Registry</a>
             </nav>
             <div class="header-pill-actions">
                 <a class="header-pill-button" href="https://github.com/needle-tools/webmcp" target="_blank"
-                    rel="noopener">
+                    rel="noopener" draggable="false">
                     <svg class="button-icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor"
                         aria-hidden="true">
                         <path
