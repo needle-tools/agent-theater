@@ -121,6 +121,7 @@
     /* Full-bleed banner: escapes the centered page column to span the viewport. */
     .hero {
         position: relative;
+        margin-top: 0;
         width: 100vw;
         margin-left: calc(50% - 50vw);
         overflow: hidden;
