@@ -1,40 +1,33 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import registry from "../../registry.json";
     import NeedleHero from "$lib/NeedleHero.svelte";
 
-    const apps = registry.apps.filter(a => a.id !== "needle-webmcp");
+    // One prompt, two exits: copy it for any AI, or open ChatGPT with it prefilled.
+    const promptFor = (origin: string) =>
+        `Open ${origin} — it exposes WebMCP tools for 3D web development. ` +
+        `List the Needle apps and tools you find, try the 3D scene tools on this page, ` +
+        `and call get_workflow to see what we can do together across apps.`;
 
-    // Deep link into ChatGPT with a prompt pointing at this page — in a
-    // WebMCP-capable browser the agent lands here with the tools available.
+    let prompt = $state(promptFor("https://webmcp.needle.tools"));
     let chatgptUrl = $state("https://chatgpt.com/");
+    let copied = $state(false);
+
     onMount(() => {
-        const prompt =
-            `Open ${location.origin} — the page exposes WebMCP tools. ` +
-            `List the Needle apps you can operate through WebMCP for 3D web development, ` +
-            `and suggest what we should try first.`;
+        prompt = promptFor(location.origin);
         chatgptUrl = "https://chatgpt.com/?q=" + encodeURIComponent(prompt);
     });
 
-    // Lucide-style stroke icons, one per registry app.
-    const icons: Record<string, string> = {
-        "needle-docs":
-            '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
-        "mesh-baker":
-            '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
-        "fastcut":
-            '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/>',
-        "needle-inspector":
-            '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
-        "needle-cloud":
-            '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
-    };
+    async function copyPrompt() {
+        await navigator.clipboard.writeText(prompt);
+        copied = true;
+        setTimeout(() => (copied = false), 1800);
+    }
 </script>
 
 <svelte:head>
     <title>Needle × WebMCP — tools for 3D web development</title>
     <meta name="description"
-        content="A registry of WebMCP tools across Needle web apps. Optimize models, remove backgrounds, inspect live scenes and search the Needle knowledge base — through the AI agent in your browser." />
+        content="Needle web apps hand typed tools to the AI agent in your browser. Optimize models, remove backgrounds, inspect live scenes and search the Needle knowledge base — no install, no server, no API key." />
 </svelte:head>
 
 <section class="hero">
@@ -42,74 +35,35 @@
     <div class="hero-copy">
         <h1>Needle <span class="hero-times">×</span> <span class="hero-grad">WebMCP</span></h1>
         <p>Needle web apps hand typed tools to the AI agent in your browser.</p>
+
+        <div class="prompt-box">
+            <code>{prompt}</code>
+            <button class="copy-button" onclick={copyPrompt} aria-label="Copy prompt">
+                {#if copied}
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Copied
+                {:else}
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="9" y="9" width="13" height="13" rx="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    Copy
+                {/if}
+            </button>
+        </div>
+
         <div class="hero-actions">
             <a class="header-pill-button header-pill-button-primary" href={chatgptUrl} target="_blank" rel="noopener">
-                Try it with ChatGPT
+                Open in ChatGPT
             </a>
-            <a class="header-pill-button" href="#apps">See the apps</a>
         </div>
-        <p class="hero-hint">
-            Ask your agent: <em>“rearrange the shapes and make them pink”</em>
-        </p>
     </div>
-</section>
-
-<section id="apps">
-    <h2>The apps</h2>
-    <div class="cards">
-        {#each apps as app, i}
-            <article class="card" style="animation-delay: {80 + i * 70}ms">
-                <div class="card-head">
-                    <span class="card-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            {@html icons[app.id] ?? ""}
-                        </svg>
-                    </span>
-                    <span class="tag" class:tag-muted={app.status !== "live"}>
-                        {app.status === "live" ? "Live" : "In development"}
-                    </span>
-                </div>
-                <h3><a href={app.url} target="_blank" rel="noopener">{app.name}</a></h3>
-                <p>{app.tagline ?? app.description}</p>
-                <details>
-                    <summary>{app.tools.some(t => t.name === "…")
-                        ? `${app.tools.length - 1}+ tools (dynamic)`
-                        : `${app.tools.length} tool${app.tools.length === 1 ? "" : "s"}`}</summary>
-                    <ul>
-                        {#each app.tools as tool}
-                            <li><code>{tool.name}</code> — {tool.description}</li>
-                        {/each}
-                    </ul>
-                </details>
-            </article>
-        {/each}
-    </div>
-</section>
-
-<section id="try">
-    <h2>Trying it</h2>
-    <p class="section-intro">
-        Two pieces have to line up: a browser that implements WebMCP, and an agent that calls the tools it finds.
-    </p>
-    <ul class="support-list">
-        <li><strong>ChatGPT Atlas</strong> — native, no flag.</li>
-        <li><strong>Microsoft Edge 147+</strong> — native.</li>
-        <li>
-            <strong>Chrome 149+</strong> — origin trial; Needle apps ship a trial token, so they just work. For your own
-            pages, enable <code>chrome://flags/#enable-webmcp-testing</code>.
-        </li>
-        <li><strong>Firefox, Safari</strong> — not yet implemented.</li>
-    </ul>
-    <p>
-        <a href="https://developer.chrome.com/docs/ai/webmcp" target="_blank" rel="noopener">Chrome's WebMCP guide</a>
-        tracks the current state. Not in a browser? The Needle knowledge base is also a public HTTP API:
-        <a href="https://search.needle.tools/api-docs" target="_blank" rel="noopener">search.needle.tools/api-docs</a>.
-    </p>
 </section>
 
 <style>
-    /* Full-bleed banner: escapes the centered page column to span the viewport. */
+    /* One fullscreen act: the 3D scene, the title, one prompt to hand to an agent. */
     .hero {
         position: relative;
         margin-top: 0;
@@ -117,9 +71,8 @@
         margin-left: calc(50% - 50vw);
         overflow: hidden;
         background: var(--surface-page-elevated);
-        border-bottom: 1px solid var(--border-subtle);
-        height: 54vh;
-        min-height: 460px;
+        height: 100dvh;
+        min-height: 560px;
     }
 
     .hero-copy {
@@ -144,7 +97,7 @@
     .hero-copy h1,
     .hero-copy p,
     .hero-copy a,
-    .hero-copy em {
+    .prompt-box {
         pointer-events: auto;
     }
 
@@ -180,9 +133,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-
-        .hero-copy > *,
-        .card {
+        .hero-copy > * {
             animation: none;
         }
     }
@@ -192,9 +143,12 @@
         font-family: var(--font-family-display);
         font-size: clamp(2.4rem, 4.5vw, 3.6rem);
         font-weight: var(--type-display-weight);
-        line-height: var(--type-display-line-height);
+        /* Roomier than the display default (0.95) — the tight leading can
+           shave descenders and gradient glyph bottoms. */
+        line-height: 1.08;
         letter-spacing: var(--type-display-tracking);
         text-wrap: balance;
+        padding-bottom: 0.06em;
     }
 
     .hero-times {
@@ -210,200 +164,81 @@
     }
 
     .hero-copy p {
-        margin: 0.3rem auto;
+        margin: 0.3rem auto 1.1rem;
         max-width: 40rem;
         color: var(--text-secondary);
         text-wrap: pretty;
     }
 
-    .hero-actions {
+    /* The copy-paste thing: a soft panel holding the prompt and its button. */
+    .prompt-box {
         display: flex;
-        gap: 0.7rem;
-        margin: 0.9rem 0 0.4rem;
-        pointer-events: auto;
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    .hero-hint {
-        font-size: 0.95rem;
-        color: var(--text-muted);
-    }
-
-    .hero-hint em {
-        font-family: var(--font-family-accent-serif);
-        font-style: italic;
-    }
-
-    section {
-        scroll-margin-top: var(--space-scroll-margin-top);
-        margin-top: 4.5rem;
-    }
-
-    h2 {
-        margin: 0 0 0.6rem;
-        font-size: var(--type-page-title-size);
-        font-weight: var(--type-page-title-weight);
-        line-height: var(--type-page-title-line-height);
-        letter-spacing: var(--type-page-title-tracking);
-        text-wrap: balance;
-    }
-
-    /* Prose stays at a readable measure; only the card grid uses the full page width. */
-    .section-intro,
-    .support-list,
-    section > p {
-        max-width: 46rem;
-    }
-
-    .section-intro {
-        margin: 0 0 0.6rem;
-        color: var(--text-secondary);
-        text-wrap: pretty;
-    }
-
-    p a,
-    li a {
-        color: var(--text-link);
-    }
-
-    code {
-        font-family: var(--font-family-code);
-        font-size: 0.85em;
-        background: var(--surface-code);
-        border: 1px solid var(--border-subtle);
-        border-radius: 6px;
-        padding: 0.08em 0.35em;
-    }
-
-    .cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-        gap: var(--space-cluster-gap);
-        margin-top: 1.6rem;
-    }
-
-    .card {
+        align-items: stretch;
+        gap: 0.6rem;
+        max-width: 44rem;
         background: var(--surface-panel);
         border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
         border-radius: var(--radius-card);
-        /* Layered soft shadow instead of a hard edge. */
         box-shadow:
             0 1px 2px rgba(34, 44, 32, 0.04),
             0 6px 18px rgba(34, 44, 32, 0.05);
-        padding: var(--space-panel-padding);
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        transition-property: box-shadow, translate;
-        transition-duration: 0.18s;
-        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-        animation: rise 0.55s cubic-bezier(0.2, 0, 0, 1) both;
+        padding: 0.8rem 0.8rem 0.8rem 1rem;
+        text-align: left;
     }
 
-    .card:hover {
-        box-shadow:
-            0 2px 4px rgba(34, 44, 32, 0.05),
-            0 14px 34px rgba(34, 44, 32, 0.09);
-        translate: 0 -2px;
+    .prompt-box code {
+        font-family: var(--font-family-code);
+        font-size: 0.82rem;
+        line-height: 1.5;
+        color: var(--text-secondary);
+        user-select: all;
     }
 
-    .card-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .card-icon {
+    .copy-button {
         display: inline-flex;
         align-items: center;
-        justify-content: center;
-        width: 34px;
-        height: 34px;
-        border-radius: 10px;
-        color: var(--accent-brand-deep);
-        background: var(--surface-panel-muted);
-        border: 1px solid var(--border-subtle);
-    }
-
-    .card .tag {
-        align-self: flex-start;
-        font-size: var(--type-micro-label-size);
-        font-weight: var(--type-micro-label-weight);
-        letter-spacing: var(--type-micro-label-tracking);
-        text-transform: uppercase;
-        color: var(--text-success);
-        background: var(--surface-callout-success);
+        gap: 0.4em;
+        align-self: center;
+        flex: none;
+        min-height: 40px;
+        padding: 0 0.9rem;
         border-radius: var(--radius-pill);
-        padding: 0.15rem 0.6rem;
-    }
-
-    .card .tag-muted {
-        color: var(--text-muted);
+        border: 1px solid var(--border-subtle);
         background: var(--surface-panel-muted);
-    }
-
-    .card h3 {
-        margin: 0;
-        font-size: var(--type-panel-title-size);
-        font-weight: var(--type-panel-title-weight);
-    }
-
-    .card h3 a {
         color: var(--text-primary);
-        text-decoration: none;
-    }
-
-    .card h3 a:hover {
-        color: var(--accent-brand-deep);
-    }
-
-    .card > p {
-        margin: 0;
-        flex: 1;
-        color: var(--text-secondary);
-        font-size: var(--type-body-size);
-    }
-
-    .card details {
-        font-size: 0.88rem;
-        border-radius: 8px;
-        padding: 0 0.5rem;
-    }
-
-    /* Open state borrows the Inspector's selection language:
-       tinted background + subtle brand ring. */
-    .card details[open] {
-        background: color-mix(in srgb, var(--accent-brand) 7%, transparent);
-        outline: 1px solid color-mix(in srgb, var(--accent-brand) 40%, var(--border-subtle));
-        padding-bottom: 0.5rem;
-    }
-
-    .card summary {
+        font-family: var(--font-family-body);
+        font-size: 0.85rem;
+        font-weight: 600;
         cursor: pointer;
-        color: var(--text-muted);
-        padding: 0.4rem 0;
-        transition-property: color;
-        transition-duration: 0.12s;
+        transition-property: background, border-color, scale;
+        transition-duration: 0.16s;
     }
 
-    .card summary:hover {
-        color: var(--text-primary);
+    .copy-button:hover {
+        background: var(--surface-panel-strong);
+        border-color: var(--border-strong);
     }
 
-    .card details ul {
-        margin: 0.5rem 0 0;
-        padding-left: 1.1rem;
-        color: var(--text-secondary);
+    .copy-button:active {
+        scale: 0.96;
     }
 
-    .support-list {
-        margin: 0.4rem 0;
-        padding-left: 1.2rem;
-        color: var(--text-secondary);
+    .copy-button svg {
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
     }
 
-    .support-list li {
-        margin: 0.25rem 0;
+    .hero-actions {
+        display: flex;
+        gap: 0.7rem;
+        margin: 1.1rem 0 0;
+        pointer-events: auto;
+        flex-wrap: wrap;
+        justify-content: center;
     }
 </style>

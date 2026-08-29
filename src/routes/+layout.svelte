@@ -31,19 +31,6 @@
                 <span class="header-pill-brand-label">WebMCP</span>
             </a>
             <nav class="header-pill-nav" aria-label="Main">
-                <a class="header-pill-link" href="/#apps" draggable="false">
-                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                        <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                        <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                        <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                    </svg>
-                    Apps</a>
-                <a class="header-pill-link" href="/#try" draggable="false">
-                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
-                        <polygon points="6 3 20 12 6 21 6 3" />
-                    </svg>
-                    Try it</a>
                 <a class="header-pill-link" href="/registry.json" draggable="false">
                     <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
                         <line x1="8" y1="6" x2="21" y2="6" />
@@ -73,71 +60,13 @@
         {@render children()}
     </main>
 
-    <footer class="footer-area">
-        <div class="footer-area-main">
-            <div class="footer-area-brand">
-                <img src="/logos/logo_needle_black_no_padding.svg" alt="Needle" />
-                <p class="footer-area-summary">
-                    Needle builds tools for working with 3D on the web. Our apps describe what they can do to the AI
-                    agent in your browser — no install, no server, no API key.
-                </p>
-            </div>
-            <div class="footer-area-column">
-                <span class="footer-area-column-title">WebMCP</span>
-                <a href="https://github.com/webmachinelearning/webmcp" target="_blank" rel="noopener">Specification</a>
-                <a href="https://developer.chrome.com/docs/ai/webmcp" target="_blank" rel="noopener">Chrome guide</a>
-                <a href="https://engine.needle.tools/docs/ai/webmcp" target="_blank" rel="noopener">Needle WebMCP docs</a>
-            </div>
-            <div class="footer-area-column">
-                <span class="footer-area-column-title">Needle</span>
-                <a href="https://needle.tools" target="_blank" rel="noopener">needle.tools</a>
-                <a href="https://cloud.needle.tools" target="_blank" rel="noopener">Needle Cloud</a>
-                <a href="https://engine.needle.tools/docs" target="_blank" rel="noopener">Documentation</a>
-                <a href="https://discord.needle.tools" target="_blank" rel="noopener">Discord</a>
-            </div>
-        </div>
-        <div class="footer-area-legal">
-            <span>Made with <a href="https://needle.tools" target="_blank" rel="noopener">Needle</a> ·
-                <a href="https://github.com/needle-tools/webmcp" target="_blank" rel="noopener">Source on GitHub</a> ·
-                MIT</span>
-        </div>
-    </footer>
 </div>
 
 <style>
+    /* The page is a single fullscreen act — no column, no padding. */
     .page {
-        max-width: 72rem;
-        margin: 0 auto;
-        padding: 0 var(--space-page-padding) var(--space-page-padding);
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-section-gap);
-    }
-
-    .footer-area {
-        margin-top: 4.5rem;
-        border: none;
-        border-top: 1px solid var(--border-subtle);
-        border-radius: 0;
-        background: none;
-        padding: 3rem 0 1rem;
-        gap: 2.5rem;
-    }
-
-    .footer-area-main {
-        grid-template-columns: minmax(18rem, 1.6fr) 1fr 1fr;
-        gap: 3rem;
-    }
-
-    .footer-area-brand {
-        max-width: 26rem;
-        align-content: start;
-    }
-
-    @media (max-width: 980px) {
-        .footer-area-main {
-            grid-template-columns: 1fr;
-        }
+        margin: 0;
+        padding: 0;
     }
 
     /* The pill floats above the full-bleed hero and stays put on scroll. */
