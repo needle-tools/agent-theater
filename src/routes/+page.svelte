@@ -1,8 +1,34 @@
 <script lang="ts">
+    import { onMount } from "svelte";
     import registry from "../../registry.json";
     import NeedleHero from "$lib/NeedleHero.svelte";
 
     const apps = registry.apps.filter(a => a.id !== "needle-webmcp");
+
+    // Deep link into ChatGPT with a prompt pointing at this page — in a
+    // WebMCP-capable browser the agent lands here with the tools available.
+    let chatgptUrl = $state("https://chatgpt.com/");
+    onMount(() => {
+        const prompt =
+            `Open ${location.origin} — the page exposes WebMCP tools. ` +
+            `List the Needle apps you can operate through WebMCP for 3D web development, ` +
+            `and suggest what we should try first.`;
+        chatgptUrl = "https://chatgpt.com/?q=" + encodeURIComponent(prompt);
+    });
+
+    // Lucide-style stroke icons, one per registry app.
+    const icons: Record<string, string> = {
+        "needle-docs":
+            '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+        "mesh-baker":
+            '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+        "fastcut":
+            '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/>',
+        "needle-inspector":
+            '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+        "needle-cloud":
+            '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+    };
 </script>
 
 <svelte:head>
@@ -14,11 +40,17 @@
 <section class="hero">
     <NeedleHero />
     <div class="hero-copy">
-        <h1>Needle × WebMCP</h1>
+        <h1>Needle <span class="hero-times">×</span> <span class="hero-grad">WebMCP</span></h1>
         <p>
             Needle web apps hand typed tools to the AI agent in your browser. Ask for what you want — the agent calls
             the app's own functions instead of guessing which button to click.
         </p>
+        <div class="hero-actions">
+            <a class="header-pill-button header-pill-button-primary" href={chatgptUrl} target="_blank" rel="noopener">
+                Try it with ChatGPT
+            </a>
+            <a class="header-pill-button" href="#apps">See the apps</a>
+        </div>
         <p class="hero-hint">
             This page registers tools too. If your browser's agent speaks WebMCP, ask it:
             <em>“which Needle apps expose WebMCP tools?”</em>
@@ -36,9 +68,17 @@
     <div class="cards">
         {#each apps as app}
             <article class="card">
-                <span class="tag" class:tag-muted={app.status !== "live"}>
-                    {app.status === "live" ? "Live" : "In development"}
-                </span>
+                <div class="card-head">
+                    <span class="card-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            {@html icons[app.id] ?? ""}
+                        </svg>
+                    </span>
+                    <span class="tag" class:tag-muted={app.status !== "live"}>
+                        {app.status === "live" ? "Live" : "In development"}
+                    </span>
+                </div>
                 <h3><a href={app.url} target="_blank" rel="noopener">{app.name}</a></h3>
                 <p>{app.description}</p>
                 <details>
@@ -83,19 +123,24 @@
         background: var(--surface-page-elevated);
         border: 1px solid var(--border-subtle);
         box-shadow: var(--shadow-panel);
-        min-height: min(64vh, 560px);
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
+        min-height: min(76vh, 680px);
     }
 
     .hero-copy {
-        position: relative;
+        position: absolute;
+        inset: 0;
         z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         text-align: center;
-        padding: 1.5rem 1.5rem 2.2rem;
+        padding: 2rem 1.5rem;
         pointer-events: none;
-        background: linear-gradient(to bottom, transparent, var(--surface-page-elevated) 85%);
+        background: radial-gradient(ellipse 62% 48% at center,
+                color-mix(in srgb, var(--surface-page-elevated) 92%, transparent) 0%,
+                color-mix(in srgb, var(--surface-page-elevated) 55%, transparent) 55%,
+                transparent 78%);
     }
 
     .hero-copy a,
@@ -104,20 +149,41 @@
     }
 
     .hero-copy h1 {
-        margin: 0 0 0.5rem;
+        margin: 0 0 0.7rem;
         font-family: var(--font-family-display);
-        font-size: clamp(2.4rem, 5vw, 3.6rem);
+        font-size: var(--type-display-size);
         font-weight: var(--type-display-weight);
         line-height: var(--type-display-line-height);
         letter-spacing: var(--type-display-tracking);
         text-wrap: balance;
     }
 
+    .hero-times {
+        font-weight: 300;
+        color: var(--text-muted);
+    }
+
+    .hero-grad {
+        background: var(--gradient-cta);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
     .hero-copy p {
         margin: 0.3rem auto;
-        max-width: 44rem;
+        max-width: 40rem;
         color: var(--text-secondary);
         text-wrap: pretty;
+    }
+
+    .hero-actions {
+        display: flex;
+        gap: 0.7rem;
+        margin: 1.2rem 0 0.6rem;
+        pointer-events: auto;
+        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .hero-hint {
@@ -150,7 +216,8 @@
         text-wrap: pretty;
     }
 
-    a {
+    p a,
+    li a {
         color: var(--text-link);
     }
 
@@ -187,6 +254,24 @@
     .card:hover {
         box-shadow: var(--shadow-panel);
         translate: 0 -2px;
+    }
+
+    .card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .card-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        color: var(--accent-brand-deep);
+        background: var(--surface-panel-muted);
+        border: 1px solid var(--border-subtle);
     }
 
     .card .tag {
