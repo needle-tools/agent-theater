@@ -1,0 +1,40 @@
+{
+  "name": "needle-webmcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Registry and hub of WebMCP tools across Needle web apps — built for 3D web development.",
+  "scripts": {
+    "dev": "vite dev --host",
+    "start": "npm run dev",
+    "build": "vite build -- --production",
+    "build:production": "npm run build",
+    "build:dev": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && npx --yes needle-cloud deploy dist --token"
+  },
+  "dependencies": {
+    "@needle-tools/engine": "6.0.0-alpha.3",
+    "three": "npm:@needle-tools/three@0.185.2-alpha.1"
+  },
+  "devDependencies": {
+    "@needle-tools/helper": "^1.11.4",
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@types/three": "0.185.0",
+    "svelte": "^5.57.0",
+    "typescript": "^5.0.4",
+    "vite": "^8.2.2"
+  },
+  "author": {
+    "name": "Needle Tools",
+    "email": "hi@needle.tools",
+    "url": "https://needle.tools"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/needle-tools/webmcp"
+  }
+}

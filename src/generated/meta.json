@@ -1,0 +1,17 @@
+{
+  "needleEditor": {
+    "enabled": true,
+    "components": true,
+    "materials": true,
+    "sceneCamera": false
+  },
+  "meta": null,
+  "absolutePath": "https://localhost:3000",
+  "sceneName": "Needle × WebMCP",
+  "deployOnly": false,
+  "generator": "Needle Engine for Unity 3.5.9-pre.2",
+  "gzip": true,
+  "allowHotReload": true,
+  "license": "basic",
+  "useRapier": true
+}

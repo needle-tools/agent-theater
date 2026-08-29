@@ -1,0 +1,13 @@
+**/node_modules
+include/draco/
+include/ktx2/
+include/three/
+include/console/
+include/three-mesh-ui-assets/
+include/fonts/
+build.log
+dist
+.DS_Store
+custom-elements.json
+.svelte-kit/
+build/

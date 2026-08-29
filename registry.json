@@ -1,0 +1,111 @@
+{
+  "name": "Needle WebMCP Registry",
+  "description": "WebMCP tools across Needle web apps — built for 3D web development. Each entry is a web app that registers tools with the browser's AI agent via document.modelContext.",
+  "spec": "https://github.com/webmachinelearning/webmcp",
+  "repository": "https://github.com/needle-tools/webmcp",
+  "apps": [
+    {
+      "id": "needle-docs",
+      "name": "Needle Documentation",
+      "url": "https://engine.needle.tools/docs",
+      "description": "Every documentation page exposes semantic search over the entire Needle knowledge base: documentation, API reference, forum posts, Discord threads and source code. The same knowledge base is reachable over plain HTTP at https://search.needle.tools/api-docs.",
+      "status": "live",
+      "tools": [
+        {
+          "name": "search-needle-knowledge-base",
+          "description": "Search the Needle knowledge base. Returns embedding-ranked excerpts with the URL of each source."
+        }
+      ]
+    },
+    {
+      "id": "mesh-baker",
+      "name": "Needle Mesh Baker",
+      "url": "https://mesh-baker.needle.tools",
+      "description": "Optimize 3D models in the browser: load a model, bake it to a triangle budget, compress it, compare before/after, download or publish to Needle Cloud. On capable machines it can also generate 3D models from a text prompt or an image — everything runs locally in the browser.",
+      "status": "live",
+      "tools": [
+        { "name": "get_workbench_state", "description": "Loaded model, current settings, whether a result is ready. Call this first." },
+        { "name": "load_model_from_url", "description": "Fetch and load a GLB, glTF, OBJ, FBX or ZIP bundle." },
+        { "name": "load_model_from_base64", "description": "Load a file sent inline, up to 32 MB." },
+        { "name": "set_bake_settings", "description": "Change output mode, triangle budget, material mode, impostor settings." },
+        { "name": "bake_model", "description": "Run the bake and wait for it. Returns the full report." },
+        { "name": "compress_baked_model", "description": "Basis Universal compression, impostor output only." },
+        { "name": "get_bake_report", "description": "The report for the current result, without re-baking." },
+        { "name": "set_workbench_layout", "description": "Hide the settings pane, leaving the header, the tools and the two views." },
+        { "name": "get_preview_screenshot", "description": "Render the input model, the baked result, or both, and return them as images." },
+        { "name": "download_baked_model", "description": "Save the GLB to the user's downloads folder." },
+        { "name": "upload_baked_model", "description": "Upload to a Needle Cloud team, return a link." },
+        { "name": "list_cloud_teams", "description": "The teams the signed-in user belongs to, and which one is active." },
+        { "name": "set_cloud_team", "description": "Switch which team the workbench is working with." },
+        { "name": "list_cloud_assets", "description": "The active team's bakeable 3D assets." },
+        { "name": "load_cloud_asset", "description": "Load one of them into the workbench." },
+        { "name": "get_baked_model_base64", "description": "Return the GLB inline. Capped at 2 MB." },
+        { "name": "search_needle_knowledge_base", "description": "Search Needle's docs, API reference, forum and Discord." },
+        { "name": "get_generation_status", "description": "Whether this machine can generate, what the generator is doing, what a run would download." },
+        { "name": "prepare_generation", "description": "Download the model weights on their own, ahead of generating." },
+        { "name": "generate_model", "description": "Generate a model from a prompt and load it into the workbench." },
+        { "name": "generate_model_from_image", "description": "Generate a model from a picture of one object." },
+        { "name": "continue_model", "description": "Refine the last generation, or re-prompt the shape it found." },
+        { "name": "abort_generation", "description": "Stop whichever generation is running." }
+      ]
+    },
+    {
+      "id": "fastcut",
+      "name": "Needle FastCut",
+      "url": "https://fastcut.needle.tools",
+      "description": "Remove image backgrounds in the browser, split sprite sheets, assemble grids and export — a natural companion to the Mesh Baker's image-to-3D generation. An agent that can open a second tab can cut a photo out here and bring the transparent PNG back.",
+      "status": "live",
+      "tools": [
+        { "name": "fastcut_list_images", "description": "List the images and grids on the canvas, with id, name, status, size and method." },
+        { "name": "fastcut_get_settings", "description": "Read the current settings: method, model, output format, progress." },
+        { "name": "fastcut_add_image", "description": "Load an image (http(s) or data: URL) and remove its background." },
+        { "name": "fastcut_set_method", "description": "Choose the background-removal method: AI model, magic wand, unmult or source alpha." },
+        { "name": "fastcut_set_output_format", "description": "Set the export format: PNG or WebP." },
+        { "name": "fastcut_reprocess", "description": "Run background removal again on one image or on all of them." },
+        { "name": "fastcut_split_sprites", "description": "Detect separate objects in a cut-out and split them into individual images." },
+        { "name": "fastcut_create_grid", "description": "Add an empty grid tile that collects images into one sprite sheet." },
+        { "name": "fastcut_add_to_grid", "description": "Move an image into a grid so it becomes one cell of that sprite sheet." },
+        { "name": "fastcut_export_grid", "description": "Assemble a grid into a single sprite-sheet image and save it." },
+        { "name": "fastcut_download", "description": "Save results to the download folder — one tile, or everything as a ZIP." },
+        { "name": "fastcut_get_image", "description": "Return a finished cut-out as base64 image data." },
+        { "name": "fastcut_remove_image", "description": "Remove one image or grid from the canvas." },
+        { "name": "fastcut_clear", "description": "Remove every image and grid from the canvas." }
+      ]
+    },
+    {
+      "id": "needle-inspector",
+      "name": "Needle Inspector",
+      "url": "https://chromewebstore.google.com/detail/jonplpbnhmanoekkgcepnedhghflblmo",
+      "description": "DevTools for three.js and Needle Engine, as a Chrome extension. Inspect and edit the live 3D scene on any page: scene graph, materials, performance. Tools are registered dynamically from the Inspector's command set, so ask your agent what it can do on the page you have open.",
+      "status": "live",
+      "tools": [
+        { "name": "get_current_website", "description": "Which page the Inspector is attached to." },
+        { "name": "get_selected_object", "description": "The currently selected scene object." },
+        { "name": "get_edits", "description": "The edits made in the Inspector session." },
+        { "name": "…", "description": "The full set is dynamic — discovered from the page at runtime." }
+      ]
+    },
+    {
+      "id": "needle-cloud",
+      "name": "Needle Cloud",
+      "url": "https://cloud.needle.tools",
+      "description": "Hosting and asset management for 3D web projects. WebMCP tools for searching and inspecting your hosted assets are in development.",
+      "status": "in-development",
+      "tools": [
+        { "name": "search_content", "description": "Search your hosted content." },
+        { "name": "get_file_info", "description": "Details about a hosted file or asset." }
+      ]
+    },
+    {
+      "id": "needle-webmcp",
+      "name": "This registry",
+      "url": "https://github.com/needle-tools/webmcp",
+      "description": "The registry website itself registers WebMCP tools: list the apps in this registry and search the Needle knowledge base.",
+      "status": "live",
+      "tools": [
+        { "name": "list_needle_webmcp_apps", "description": "The machine-readable contents of this registry." },
+        { "name": "search_needle_knowledge_base", "description": "Search Needle's docs, API reference, forum and Discord." }
+      ]
+    }
+  ]
+}
