@@ -66,9 +66,27 @@ const allTools: any[] = [];
  * Register tools with the browser. Callable more than once (page tools first,
  * hero tools once the 3D scene is up); a no-op where WebMCP is absent.
  */
+let warnedAbsent = false;
+
 export async function registerTools(tools: any[]) {
     const modelContext = getModelContext();
-    if (!modelContext) return false;
+    if (!modelContext) {
+        // Silence here cost us a debugging session once — say why the tools are missing.
+        if (!warnedAbsent) {
+            warnedAbsent = true;
+            if (!window.isSecureContext) {
+                console.info(
+                    "[needle-webmcp] WebMCP unavailable: this page is not a secure context " +
+                    `(${location.origin}). Use https or localhost — a plain-http LAN IP won't work.`);
+            } else {
+                console.info(
+                    "[needle-webmcp] WebMCP unavailable in this browser. " +
+                    "Chrome needs the origin trial token or chrome://flags/#enable-webmcp-testing; " +
+                    "see https://developer.chrome.com/docs/ai/webmcp");
+            }
+        }
+        return false;
+    }
     const fresh = tools.filter(t => !allTools.some(existing => existing.name === t.name));
     allTools.push(...fresh);
     try {
