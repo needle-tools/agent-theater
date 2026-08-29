@@ -214,6 +214,13 @@
         text-wrap: balance;
     }
 
+    /* Prose stays at a readable measure; only the card grid uses the full page width. */
+    .section-intro,
+    .support-list,
+    section > p {
+        max-width: 46rem;
+    }
+
     .section-intro {
         margin: 0 0 0.6rem;
         color: var(--text-secondary);
