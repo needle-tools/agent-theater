@@ -143,6 +143,10 @@
                 transparent 78%);
     }
 
+    /* The overlay itself passes drags through to the 3D scene, but the text
+       must receive pointer events or it can't be selected. */
+    .hero-copy h1,
+    .hero-copy p,
     .hero-copy a,
     .hero-copy em {
         pointer-events: auto;
