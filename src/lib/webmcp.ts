@@ -2,9 +2,15 @@
  * WebMCP tools for the registry page itself.
  *
  * WebMCP (https://github.com/webmachinelearning/webmcp) lets a page expose
- * typed tools to a browser-integrated AI agent. This page registers two:
- * one that returns the registry contents, and one that searches the public
- * Needle knowledge base.
+ * typed tools to a browser-integrated AI agent. This page registers four:
+ *
+ *  - list_needle_webmcp_apps — the registry contents
+ *  - find_tool_for_task      — route a task to the right app + tool
+ *  - get_workflow            — cross-app recipes the agent can execute across tabs
+ *  - search_needle_knowledge_base — semantic search over all Needle content
+ *
+ * The hero scene registers its own tools on top (see scene.ts) through the
+ * shared registerTools() helper.
  *
  * The entry point is `document.modelContext` (`navigator.modelContext` is a
  * deprecated alias kept by Chrome's origin trial); older trial builds only
@@ -13,7 +19,7 @@
 
 const SEARCH_ENDPOINT = "https://search.needle.tools/api/semantic-search";
 
-type Registry = {
+export type Registry = {
     name: string;
     description: string;
     apps: Array<{
@@ -21,8 +27,17 @@ type Registry = {
         name: string;
         url: string;
         description: string;
+        tagline?: string;
         status: string;
         tools: Array<{ name: string; description: string }>;
+    }>;
+    workflows?: Array<{
+        id: string;
+        title: string;
+        goal: string;
+        keywords?: string[];
+        steps: Array<{ app: string; url: string; tools: string[]; instruction: string }>;
+        note?: string;
     }>;
 };
 
@@ -38,6 +53,49 @@ const result = (summary: string, structured?: object, isError = false) => ({
     ...(isError ? { isError: true } : {}),
 });
 
+function getModelContext(): ModelContextLike | undefined {
+    if (typeof document === "undefined") return undefined;
+    return (document as any).modelContext ?? (globalThis.navigator as any)?.modelContext;
+}
+
+/** Everything registered so far — old provideContext() builds replace the whole
+ *  set on each call, so late registrations (hero tools) must re-provide it all. */
+const allTools: any[] = [];
+
+/**
+ * Register tools with the browser. Callable more than once (page tools first,
+ * hero tools once the 3D scene is up); a no-op where WebMCP is absent.
+ */
+export async function registerTools(tools: any[]) {
+    const modelContext = getModelContext();
+    if (!modelContext) return false;
+    const fresh = tools.filter(t => !allTools.some(existing => existing.name === t.name));
+    allTools.push(...fresh);
+    try {
+        if (typeof modelContext.registerTool === "function") {
+            for (const tool of fresh) await modelContext.registerTool(tool);
+        } else if (typeof modelContext.provideContext === "function") {
+            modelContext.provideContext({ tools: allTools });
+        } else {
+            return false;
+        }
+        return true;
+    } catch (err) {
+        // NotAllowedError means the `tools` permission is off for this document — nothing to do about it.
+        console.debug("[needle-webmcp] tool registration skipped:", err);
+        return false;
+    }
+}
+
+/** Crude but dependency-free relevance: how many query words hit the haystack. */
+function score(query: string, haystack: string): number {
+    const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
+    const target = haystack.toLowerCase();
+    let hits = 0;
+    for (const w of words) if (target.includes(w)) hits++;
+    return words.length ? hits / words.length : 0;
+}
+
 function makeTools(registry: Registry) {
     const listTool = {
         name: "list_needle_webmcp_apps",
@@ -47,12 +105,108 @@ function makeTools(registry: Registry) {
             "List the Needle web apps that expose WebMCP tools for 3D web development — " +
             "model optimization, background removal, live scene inspection, docs search — " +
             "with the URL of each app and the tools it registers. " +
-            "Open an app's URL to use its tools there.",
+            "Open an app's URL to use its tools there. " +
+            "For multi-app tasks, call get_workflow; to route a single task, call find_tool_for_task.",
         inputSchema: { type: "object", properties: {} },
         async execute() {
             const lines = registry.apps.map(a =>
                 `- ${a.name} (${a.status}) — ${a.url}\n  ${a.description}\n  Tools: ${a.tools.map(t => t.name).join(", ")}`);
             return result(`${registry.description}\n\n${lines.join("\n\n")}`, registry);
+        },
+    };
+
+    const routerTool = {
+        name: "find_tool_for_task",
+        title: "Find the right Needle tool for a task",
+        annotations: { readOnlyHint: true },
+        description:
+            "Route a 3D-webdev task to the right Needle app and WebMCP tool. " +
+            "Pass what the user wants to do (e.g. 'remove the background from this photo', " +
+            "'reduce this model to 5000 triangles', 'why is this scene slow') and get back " +
+            "ranked matches with the app URL to open and the tool to call there. " +
+            "Tools register when the app's page loads — open the URL in a new tab first.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                task: { type: "string", description: "What the user wants to accomplish, in plain words." },
+            },
+            required: ["task"],
+        },
+        async execute(args: { task?: string }) {
+            const task = (args?.task ?? "").trim();
+            if (!task) return result("Missing \"task\".", { error: "Missing task" }, true);
+            const matches = registry.apps.flatMap(app =>
+                app.tools.filter(t => t.name !== "…").map(tool => ({
+                    app: app.name,
+                    appId: app.id,
+                    url: app.url,
+                    status: app.status,
+                    tool: tool.name,
+                    toolDescription: tool.description,
+                    relevance: Math.round(100 * (
+                        score(task, `${tool.name} ${tool.description}`) * 2 +
+                        score(task, `${app.name} ${app.tagline ?? ""} ${app.description}`))) / 100,
+                })))
+                .filter(m => m.relevance > 0)
+                .sort((a, b) => b.relevance - a.relevance)
+                .slice(0, 5);
+            if (!matches.length) {
+                return result(
+                    `No direct tool match for "${task}". Call list_needle_webmcp_apps for the full registry, ` +
+                    `or search_needle_knowledge_base to research how Needle handles it.`,
+                    { task, matches: [] });
+            }
+            const text = matches.map((m, i) =>
+                `${i + 1}. ${m.tool} — ${m.app} (${m.url})\n   ${m.toolDescription}`).join("\n");
+            return result(
+                `Best Needle tools for "${task}" (open the app URL in a new tab, the tool registers when the page loads):\n\n${text}`,
+                { task, matches });
+        },
+    };
+
+    const workflowTool = {
+        name: "get_workflow",
+        title: "Get a cross-app Needle workflow",
+        annotations: { readOnlyHint: true },
+        description:
+            "Get a step-by-step recipe that chains multiple Needle apps' WebMCP tools to reach a goal — " +
+            "e.g. photo → background removal (FastCut) → image-to-3D + bake (Mesh Baker) → publish (Needle Cloud). " +
+            "Each step names the app URL to open and the tools to call there, in order. " +
+            "WebMCP tools are per-page, so an agent that can use more than one tab can execute the whole pipeline. " +
+            "Call without a goal to list all available workflows.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                goal: { type: "string", description: "What the user wants to achieve. Omit to list all workflows." },
+            },
+        },
+        async execute(args: { goal?: string }) {
+            const workflows = registry.workflows ?? [];
+            const goal = (args?.goal ?? "").trim();
+            const overview = workflows.map(w => `- ${w.id}: ${w.title} — ${w.goal}`).join("\n");
+            if (!goal) {
+                return result(`Available Needle workflows:\n\n${overview}\n\nCall again with a goal to get the full steps.`,
+                    { workflows: workflows.map(({ id, title, goal }) => ({ id, title, goal })) });
+            }
+            const ranked = workflows
+                .map(w => ({
+                    workflow: w,
+                    relevance: score(goal, `${w.id} ${w.title} ${w.goal} ${(w.keywords ?? []).join(" ")}`),
+                }))
+                .sort((a, b) => b.relevance - a.relevance);
+            const best = ranked[0];
+            if (!best || best.relevance === 0) {
+                return result(
+                    `No workflow matches "${goal}". Available:\n\n${overview}\n\n` +
+                    `find_tool_for_task may still route the task to a single tool.`,
+                    { goal, workflows: workflows.map(({ id, title, goal }) => ({ id, title, goal })) });
+            }
+            const w = best.workflow;
+            const steps = w.steps.map((s, i) =>
+                `${i + 1}. [${s.app}] ${s.url}\n   Tools: ${s.tools.join(", ")}\n   ${s.instruction}`).join("\n\n");
+            return result(
+                `Workflow "${w.title}" — ${w.goal}\n\n${steps}${w.note ? `\n\nNote: ${w.note}` : ""}`,
+                { goal, workflow: w });
         },
     };
 
@@ -105,32 +259,10 @@ function makeTools(registry: Registry) {
         },
     };
 
-    return [listTool, searchTool];
+    return [listTool, routerTool, workflowTool, searchTool];
 }
 
-let registered = false;
-
-/** Registers the page's tools with the browser. Safe to call more than once; a no-op where WebMCP is absent. */
+/** Registers the page's tools with the browser. Safe to call more than once. */
 export async function registerWebMcpTools(registry: Registry) {
-    if (registered || typeof document === "undefined") return;
-    const modelContext: ModelContextLike | undefined =
-        (document as any).modelContext ?? (globalThis.navigator as any)?.modelContext;
-    if (!modelContext) return;
-    registered = true;
-
-    try {
-        const tools = makeTools(registry);
-        if (typeof modelContext.registerTool === "function") {
-            for (const tool of tools) await modelContext.registerTool(tool);
-        } else if (typeof modelContext.provideContext === "function") {
-            // Older origin-trial builds only shipped the batch API.
-            modelContext.provideContext({ tools });
-        } else {
-            registered = false;
-        }
-    } catch (err) {
-        // NotAllowedError means the `tools` permission is off for this document — nothing to do about it.
-        registered = false;
-        console.debug("[needle-webmcp] tool registration skipped:", err);
-    }
+    await registerTools(makeTools(registry));
 }

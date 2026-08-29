@@ -52,8 +52,8 @@
             <a class="header-pill-button" href="#apps">See the apps</a>
         </div>
         <p class="hero-hint">
-            This page registers tools too. If your browser's agent speaks WebMCP, ask it:
-            <em>“which Needle apps expose WebMCP tools?”</em>
+            This page registers tools too — even the scene above is one. If your browser's agent speaks WebMCP, ask it:
+            <em>“rearrange the shapes into a grid and make them pink”</em>
         </p>
     </div>
 </section>

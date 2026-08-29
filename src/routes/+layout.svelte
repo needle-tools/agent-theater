@@ -10,6 +10,13 @@
     });
 </script>
 
+<svelte:head>
+    {#if import.meta.env.VITE_WEBMCP_ORIGIN_TRIAL_TOKEN}
+        <!-- Chrome ships WebMCP behind an origin trial; the token is baked in at build time. -->
+        <meta http-equiv="origin-trial" content={import.meta.env.VITE_WEBMCP_ORIGIN_TRIAL_TOKEN} />
+    {/if}
+</svelte:head>
+
 <div class="page">
     <div class="header-pill-shell">
         <header class="header-pill">

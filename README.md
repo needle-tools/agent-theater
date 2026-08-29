@@ -86,6 +86,16 @@ The spec is a moving draft — the entry point moved from `navigator` to `docume
 - [Needle WebMCP docs](https://engine.needle.tools/docs/ai/webmcp) — the user-facing overview
 - [Needle MCP Server](https://engine.needle.tools/docs/ai/needle-mcp-server) — for agents living in your editor instead of your browser
 
+## What this page itself can do
+
+The registry website is a WebMCP app in its own right. It registers:
+
+- **`list_needle_webmcp_apps`** — the registry, machine-readable.
+- **`find_tool_for_task`** — route a task ("remove this photo's background") to the right app and tool, with the URL to open.
+- **`get_workflow`** — cross-app recipes: WebMCP tools are per-page, but an agent with more than one tab can chain them. `registry.json` ships pipelines like *photo → FastCut cut-out → Mesh Baker image-to-3D → bake → publish to Needle Cloud*, each step naming the app URL and the tools to call there.
+- **`search_needle_knowledge_base`** — semantic search over all Needle content.
+- **`hero_*`** — the 3D scene at the top of the page is agent-controllable: add shapes, recolor, rearrange into a ring/line/grid/scatter, change the animation speed. Ask your agent to redecorate.
+
 ## Development
 
 The website is a [SvelteKit](https://svelte.dev/docs/kit) project on Vite 8, using the latest [Needle Engine](https://engine.needle.tools/docs) (which brings three.js) for the 3D hero scene, and Needle's brand system from [branding.needle.tools](https://branding.needle.tools). The page renders the registry from `registry.json` (also served as [`/registry.json`](https://github.com/needle-tools/webmcp/blob/main/src/routes/registry.json/%2Bserver.ts)) and registers its own WebMCP tools (`src/lib/webmcp.ts`).
@@ -97,6 +107,8 @@ npm run build    # production build into ./dist
 ```
 
 Pushes to `main` deploy automatically to Needle Cloud via [`deploy-to-needle-cloud-action`](https://github.com/needle-tools/deploy-to-needle-cloud-action) — see [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The deploy token lives in the repository's GitHub secrets (`NEEDLE_CLOUD_TOKEN`), never in the repo.
+
+Chrome ships WebMCP behind an origin trial. To make this page's tools available in plain Chrome (no flag), [register the deployed origin for the WebMCP trial](https://developer.chrome.com/origintrials) and put the token in the repository **variable** `WEBMCP_ORIGIN_TRIAL_TOKEN` — the build bakes it into a `<meta http-equiv="origin-trial">` tag. Without it, the tools still work in ChatGPT's browser and Edge, and in Chrome with `chrome://flags/#enable-webmcp-testing`.
 
 ## Contributing
 

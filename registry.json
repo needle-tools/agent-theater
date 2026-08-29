@@ -246,7 +246,7 @@
       "id": "needle-webmcp",
       "name": "This registry",
       "url": "https://github.com/needle-tools/webmcp",
-      "description": "The registry website itself registers WebMCP tools: list the apps in this registry and search the Needle knowledge base.",
+      "description": "The registry website itself registers WebMCP tools: list the apps, route a task to the right tool, get cross-app workflows, search the Needle knowledge base — and control the 3D scene on the page.",
       "status": "live",
       "tools": [
         {
@@ -254,11 +254,152 @@
           "description": "The machine-readable contents of this registry."
         },
         {
+          "name": "find_tool_for_task",
+          "description": "Route a 3D-webdev task to the right Needle app and tool."
+        },
+        {
+          "name": "get_workflow",
+          "description": "Step-by-step recipes that chain multiple Needle apps' tools across tabs."
+        },
+        {
           "name": "search_needle_knowledge_base",
           "description": "Search Needle's docs, API reference, forum and Discord."
+        },
+        {
+          "name": "hero_get_scene",
+          "description": "Describe the controllable 3D scene at the top of the page."
+        },
+        {
+          "name": "hero_add_shape",
+          "description": "Add a cube, sphere or cylinder to the scene in any color."
+        },
+        {
+          "name": "hero_set_colors",
+          "description": "Recolor the shapes in the scene."
+        },
+        {
+          "name": "hero_arrange",
+          "description": "Rearrange the shapes: ring, line, grid or scatter."
+        },
+        {
+          "name": "hero_set_speed",
+          "description": "Speed up, calm down or freeze the scene."
+        },
+        {
+          "name": "hero_reset",
+          "description": "Restore the scene's default state."
         }
       ],
-      "tagline": "The registry you are looking at."
+      "tagline": "The registry you are looking at — and its 3D scene is a tool too."
+    }
+  ],
+  "workflows": [
+    {
+      "id": "photo-to-3d",
+      "title": "Photo to optimized 3D model",
+      "goal": "Turn a photo of an object into a clean, web-ready 3D model.",
+      "keywords": ["photo", "image", "picture", "generate", "3d model", "create model", "image to 3d"],
+      "steps": [
+        {
+          "app": "fastcut",
+          "url": "https://fastcut.needle.tools",
+          "tools": ["fastcut_add_image", "fastcut_get_image"],
+          "instruction": "Open FastCut and load the photo with fastcut_add_image (use a data: URL for a local file). When the cut finishes, read the transparent PNG back with fastcut_get_image."
+        },
+        {
+          "app": "mesh-baker",
+          "url": "https://mesh-baker.needle.tools",
+          "tools": ["get_generation_status", "generate_model_from_image", "bake_model"],
+          "instruction": "Open the Mesh Baker in a second tab. Check get_generation_status, generate with generate_model_from_image from the transparent PNG, then bake_model to the requested triangle budget."
+        },
+        {
+          "app": "mesh-baker",
+          "url": "https://mesh-baker.needle.tools",
+          "tools": ["get_preview_screenshot", "download_baked_model", "upload_baked_model"],
+          "instruction": "Verify the silhouette with get_preview_screenshot. Then download_baked_model, or upload_baked_model to Needle Cloud for a shareable link."
+        }
+      ],
+      "note": "Needs an agent that can work across two tabs. The Mesh Baker's image tools point at FastCut for background removal by design — a photo with background becomes a photo-shaped lump otherwise."
+    },
+    {
+      "id": "optimize-model",
+      "title": "Optimize an existing 3D model",
+      "goal": "Bake a GLB, glTF, OBJ or FBX down to a triangle budget and publish it.",
+      "keywords": ["optimize", "bake", "reduce", "triangles", "polycount", "compress", "lod", "impostor"],
+      "steps": [
+        {
+          "app": "mesh-baker",
+          "url": "https://mesh-baker.needle.tools",
+          "tools": ["get_workbench_state", "load_model_from_url", "list_cloud_assets", "load_cloud_asset"],
+          "instruction": "Open the Mesh Baker. Load the model from a URL with load_model_from_url, or pick one of the user's own assets via list_cloud_assets and load_cloud_asset."
+        },
+        {
+          "app": "mesh-baker",
+          "url": "https://mesh-baker.needle.tools",
+          "tools": ["set_bake_settings", "bake_model", "get_preview_screenshot"],
+          "instruction": "Set the triangle budget with set_bake_settings, run bake_model, and compare before/after with get_preview_screenshot — the report says how many triangles are left, the screenshot says whether the silhouette survived."
+        },
+        {
+          "app": "mesh-baker",
+          "url": "https://mesh-baker.needle.tools",
+          "tools": ["download_baked_model", "upload_baked_model"],
+          "instruction": "Save the result with download_baked_model, or upload_baked_model to the user's Needle Cloud team and return the link."
+        }
+      ]
+    },
+    {
+      "id": "sprite-sheet",
+      "title": "Cut-outs to sprite sheet",
+      "goal": "Remove backgrounds from a set of images and pack them into one sprite sheet.",
+      "keywords": ["sprite", "sprite sheet", "atlas", "background removal", "cut out", "transparent", "pack"],
+      "steps": [
+        {
+          "app": "fastcut",
+          "url": "https://fastcut.needle.tools",
+          "tools": ["fastcut_add_image", "fastcut_set_method", "fastcut_split_sprites"],
+          "instruction": "Open FastCut and add each image with fastcut_add_image. Adjust the method per image with fastcut_set_method if a cut looks wrong; fastcut_split_sprites separates multi-object images."
+        },
+        {
+          "app": "fastcut",
+          "url": "https://fastcut.needle.tools",
+          "tools": ["fastcut_create_grid", "fastcut_add_to_grid", "fastcut_export_grid"],
+          "instruction": "Create a grid with fastcut_create_grid, move the cut-outs in with fastcut_add_to_grid, then fastcut_export_grid writes the packed sheet."
+        }
+      ]
+    },
+    {
+      "id": "debug-scene",
+      "title": "Debug a live three.js scene",
+      "goal": "Find out why a 3D page looks wrong or runs slow.",
+      "keywords": ["debug", "slow", "performance", "inspect", "scene graph", "materials", "three.js", "broken"],
+      "steps": [
+        {
+          "app": "needle-inspector",
+          "url": "https://chromewebstore.google.com/detail/jonplpbnhmanoekkgcepnedhghflblmo",
+          "tools": ["get_current_website", "get_selected_object", "hierarchy.search.nodes"],
+          "instruction": "With the Needle Inspector extension installed, open the page in question. Use get_current_website to confirm the target, then walk and search the scene graph to find heavy objects, transparent materials, or misconfigured nodes."
+        },
+        {
+          "app": "needle-docs",
+          "url": "https://engine.needle.tools/docs",
+          "tools": ["search-needle-knowledge-base"],
+          "instruction": "Search the Needle knowledge base for the specific symptom to cross-check known fixes and best practices."
+        }
+      ]
+    },
+    {
+      "id": "learn-needle",
+      "title": "Answer any Needle question",
+      "goal": "Ground answers about Needle Engine, exporting, XR or deployment in the real knowledge base.",
+      "keywords": ["how to", "learn", "docs", "documentation", "question", "help", "api"],
+      "steps": [
+        {
+          "app": "needle-webmcp",
+          "url": "https://github.com/needle-tools/webmcp",
+          "tools": ["search_needle_knowledge_base"],
+          "instruction": "Search right from this page — the tool returns embedding-ranked excerpts with source URLs. Cite the URLs; follow them for detail."
+        }
+      ]
     }
   ]
 }

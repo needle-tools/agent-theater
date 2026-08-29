@@ -31,6 +31,11 @@ jobs:
         run: npm run build:production
         env:
           NEEDLE_CLOUD_TOKEN: ${{ secrets.NEEDLE_CLOUD_TOKEN }}
+          # Chrome origin trial token for WebMCP (repository variable, not a
+          # secret — it ends up in the page anyway). Optional; without it the
+          # page's tools work in ChatGPT's browser and Edge, and in Chrome
+          # only with the enable-webmcp-testing flag.
+          VITE_WEBMCP_ORIGIN_TRIAL_TOKEN: ${{ vars.WEBMCP_ORIGIN_TRIAL_TOKEN }}
 
       - name: Deploy to Needle Cloud
         uses: needle-tools/deploy-to-needle-cloud-action@v1
