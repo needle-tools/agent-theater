@@ -5,16 +5,21 @@
 
     let { children } = $props();
 
+    // Chrome ships WebMCP behind an origin trial. This is the needle.tools
+    // subdomain-matched token (same one the Mesh Baker ships, expires
+    // 2026-11-17) — it only takes effect when the site is served from a
+    // *.needle.tools origin. Override with VITE_WEBMCP_ORIGIN_TRIAL_TOKEN.
+    const originTrialToken =
+        import.meta.env.VITE_WEBMCP_ORIGIN_TRIAL_TOKEN ||
+        "ArulNF59jmGx6OwxGl6DaZU8g60uiQKkwKLC1ml/1gjTEeNQ1+pB4ujxawuK6rj7RIyCgDOU5YGDT8NxFwDQuAgAAABfeyJvcmlnaW4iOiJodHRwczovL25lZWRsZS50b29sczo0NDMiLCJmZWF0dXJlIjoiV2ViTUNQIiwiZXhwaXJ5IjoxNzk0ODczNjAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=";
+
     onMount(() => {
         registerWebMcpTools(registry);
     });
 </script>
 
 <svelte:head>
-    {#if import.meta.env.VITE_WEBMCP_ORIGIN_TRIAL_TOKEN}
-        <!-- Chrome ships WebMCP behind an origin trial; the token is baked in at build time. -->
-        <meta http-equiv="origin-trial" content={import.meta.env.VITE_WEBMCP_ORIGIN_TRIAL_TOKEN} />
-    {/if}
+    <meta http-equiv="origin-trial" content={originTrialToken} />
 </svelte:head>
 
 <div class="page">

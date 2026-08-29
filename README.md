@@ -108,7 +108,7 @@ npm run build    # production build into ./dist
 
 Pushes to `main` deploy automatically to Needle Cloud via [`deploy-to-needle-cloud-action`](https://github.com/needle-tools/deploy-to-needle-cloud-action) — see [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The deploy token lives in the repository's GitHub secrets (`NEEDLE_CLOUD_TOKEN`), never in the repo.
 
-Chrome ships WebMCP behind an origin trial. To make this page's tools available in plain Chrome (no flag), [register the deployed origin for the WebMCP trial](https://developer.chrome.com/origintrials) and put the token in the repository **variable** `WEBMCP_ORIGIN_TRIAL_TOKEN` — the build bakes it into a `<meta http-equiv="origin-trial">` tag. Without it, the tools still work in ChatGPT's browser and Edge, and in Chrome with `chrome://flags/#enable-webmcp-testing`.
+Chrome ships WebMCP behind an origin trial. The build bakes a `<meta http-equiv="origin-trial">` token into the page — by default Needle's subdomain-matched token for `needle.tools` (expires 2026-11-17), so the tools work in plain Chrome whenever the site is served from a `*.needle.tools` origin. For a different origin, [register it for the WebMCP trial](https://developer.chrome.com/origintrials) and set the repository **variable** `WEBMCP_ORIGIN_TRIAL_TOKEN`. Without a matching token, the tools still work in ChatGPT's browser and Edge, and in Chrome with `chrome://flags/#enable-webmcp-testing`.
 
 ## Contributing
 
