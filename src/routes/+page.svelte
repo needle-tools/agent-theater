@@ -104,18 +104,20 @@
     }
 
     .hero-copy h1 {
-        margin: 0 0 0.4rem;
+        margin: 0 0 0.5rem;
         font-family: var(--font-family-display);
-        font-size: var(--type-page-title-size);
-        font-weight: var(--type-page-title-weight);
-        line-height: var(--type-page-title-line-height);
-        letter-spacing: var(--type-page-title-tracking);
+        font-size: clamp(2.4rem, 5vw, 3.6rem);
+        font-weight: var(--type-display-weight);
+        line-height: var(--type-display-line-height);
+        letter-spacing: var(--type-display-tracking);
+        text-wrap: balance;
     }
 
     .hero-copy p {
         margin: 0.3rem auto;
         max-width: 44rem;
         color: var(--text-secondary);
+        text-wrap: pretty;
     }
 
     .hero-hint {
@@ -130,19 +132,22 @@
 
     section {
         scroll-margin-top: var(--space-scroll-margin-top);
+        margin-top: 2.6rem;
     }
 
     h2 {
-        margin: 1.4rem 0 0.4rem;
+        margin: 0 0 0.4rem;
         font-size: var(--type-section-title-size);
         font-weight: var(--type-section-title-weight);
         line-height: var(--type-section-title-line-height);
         letter-spacing: var(--type-section-title-tracking);
+        text-wrap: balance;
     }
 
     .section-intro {
         margin: 0 0 0.6rem;
         color: var(--text-secondary);
+        text-wrap: pretty;
     }
 
     a {
@@ -174,6 +179,14 @@
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
+        transition-property: box-shadow, translate;
+        transition-duration: 0.18s;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .card:hover {
+        box-shadow: var(--shadow-panel);
+        translate: 0 -2px;
     }
 
     .card .tag {
@@ -222,6 +235,13 @@
     .card summary {
         cursor: pointer;
         color: var(--text-muted);
+        padding: 0.4rem 0;
+        transition-property: color;
+        transition-duration: 0.12s;
+    }
+
+    .card summary:hover {
+        color: var(--text-primary);
     }
 
     .card details ul {

@@ -2,32 +2,29 @@ import { onStart, addComponent, ContactShadows, ObjectUtils, OrbitControls, find
 import * as THREE from "three";
 import registry from "../../registry.json";
 
-/** One floating shape per app in the registry, arranged in a ring. Brand palette. */
+/**
+ * One floating shape per app in the registry, arranged in a ring on a plain
+ * background that matches the hero panel — no ground, just soft contact
+ * shadows, so the 3D blends into the page instead of sitting in a grey box.
+ */
 onStart(context => {
     const scene = context.scene;
 
-    context.mainCamera.position.set(0, 1.6, 6);
-
-    const ground = ObjectUtils.createPrimitive("Cylinder", {
-        scale: [3.2, .04, 3.2],
-        position: [0, -.02, 0],
-        material: new THREE.MeshStandardMaterial({ color: new THREE.Color("#FFFFFF"), metalness: .05, roughness: .55 }),
-    });
-    scene.add(ground);
+    context.mainCamera.position.set(0, 1.1, 5.2);
 
     const shapes = ["Cube", "Sphere", "Cylinder"] as const;
     const palette = ["#99CC33", "#0BA398", "#826AED", "#D7DB0A", "#74AF52", "#62D399"];
     const apps = registry.apps;
-    const radius = 1.8;
+    const radius = 1.6;
     for (let i = 0; i < apps.length; i++) {
         const angle = (i / apps.length) * Math.PI * 2;
         const mesh = ObjectUtils.createPrimitive(shapes[i % shapes.length], {
-            scale: [.45, .45, .45],
-            position: [Math.cos(angle) * radius, 1, Math.sin(angle) * radius],
+            scale: [.42, .42, .42],
+            position: [Math.cos(angle) * radius, .9, Math.sin(angle) * radius],
             material: new THREE.MeshStandardMaterial({
                 color: new THREE.Color(palette[i % palette.length]),
-                metalness: .25,
-                roughness: .3,
+                metalness: .2,
+                roughness: .35,
             }),
         });
         mesh.name = apps[i].name;
@@ -36,13 +33,13 @@ onStart(context => {
     }
 
     const contactshadows = ContactShadows.auto();
-    contactshadows.darkness = .6;
-    contactshadows.opacity = .7;
+    contactshadows.darkness = .45;
+    contactshadows.opacity = .5;
 
     const orbit = findObjectOfType(OrbitControls);
     if (orbit) {
         orbit.autoRotate = true;
-        orbit.autoRotateSpeed = .6;
+        orbit.autoRotateSpeed = .5;
         orbit.enableZoom = false;
         orbit.enablePan = false;
     }

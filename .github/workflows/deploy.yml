@@ -29,6 +29,8 @@ jobs:
 
       - name: Build
         run: npm run build:production
+        env:
+          NEEDLE_CLOUD_TOKEN: ${{ secrets.NEEDLE_CLOUD_TOKEN }}
 
       - name: Deploy to Needle Cloud
         uses: needle-tools/deploy-to-needle-cloud-action@v1

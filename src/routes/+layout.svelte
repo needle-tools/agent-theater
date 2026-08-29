@@ -87,5 +87,15 @@
         font-family: var(--font-family-body);
         font-size: var(--type-body-size);
         line-height: var(--type-body-line-height);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    :global(.header-pill-button) {
+        transition-property: background, border-color, scale;
+        transition-duration: 0.16s;
+    }
+
+    :global(.header-pill-button:active) {
+        scale: 0.96;
     }
 </style>
