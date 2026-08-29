@@ -319,6 +319,16 @@
 
     .card details {
         font-size: 0.88rem;
+        border-radius: 8px;
+        padding: 0 0.5rem;
+    }
+
+    /* Open state borrows the Inspector's selection language:
+       tinted background + subtle brand ring. */
+    .card details[open] {
+        background: color-mix(in srgb, var(--accent-brand) 7%, transparent);
+        outline: 1px solid color-mix(in srgb, var(--accent-brand) 40%, var(--border-subtle));
+        padding-bottom: 0.5rem;
     }
 
     .card summary {

@@ -98,6 +98,23 @@
         -webkit-font-smoothing: antialiased;
     }
 
+    /* Selection, focus and scrollbars follow the Needle Inspector's design
+       language: semi-transparent brand green selection, a 2px brand focus
+       ring, and thin scrollbars derived from the border colors. */
+    :global(::selection) {
+        background: color-mix(in srgb, var(--accent-brand) 40%, transparent);
+    }
+
+    :global(:focus-visible) {
+        outline: 2px solid var(--border-focus);
+        outline-offset: 2px;
+    }
+
+    :global(html) {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+
     .header-pill {
         padding-left: 1.4rem;
         padding-right: 0.8rem;
