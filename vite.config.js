@@ -10,7 +10,7 @@ export default defineConfig(async ({ command }) => {
                 noPoster: true,
                 // The compression pipeline polls for dist/assets, which never exists
                 // in this SvelteKit setup (assets live in dist/_app/immutable and
-                // adapter-static writes dist after the client build) — so it times
+                // adapter-static writes dist after the client build) - so it times
                 // out in CI. There are no glTF assets to compress here anyway, and
                 // Needle Cloud compresses on deploy.
                 buildPipeline: { enabled: false },
