@@ -56,11 +56,6 @@
 
 <section id="apps">
     <h2>The apps</h2>
-    <p class="section-intro">
-        Every entry registers its tools with <code>document.modelContext</code> — the
-        <a href="https://github.com/webmachinelearning/webmcp" target="_blank" rel="noopener">WebMCP</a> browser API.
-        Machine-readable version: <a href="/registry.json">registry.json</a>.
-    </p>
     <div class="cards">
         {#each apps as app, i}
             <article class="card" style="animation-delay: {80 + i * 70}ms">

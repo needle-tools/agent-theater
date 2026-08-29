@@ -31,9 +31,29 @@
                 <span class="header-pill-brand-label">WebMCP</span>
             </a>
             <nav class="header-pill-nav" aria-label="Main">
-                <a class="header-pill-link" href="/#apps" draggable="false">Apps</a>
-                <a class="header-pill-link" href="/#try" draggable="false">Try it</a>
-                <a class="header-pill-link" href="/registry.json" draggable="false">Registry</a>
+                <a class="header-pill-link" href="/#apps" draggable="false">
+                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                    </svg>
+                    Apps</a>
+                <a class="header-pill-link" href="/#try" draggable="false">
+                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <polygon points="6 3 20 12 6 21 6 3" />
+                    </svg>
+                    Try it</a>
+                <a class="header-pill-link" href="/registry.json" draggable="false">
+                    <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                    </svg>
+                    Registry</a>
             </nav>
             <div class="header-pill-actions">
                 <a class="header-pill-button" href="https://github.com/needle-tools/webmcp" target="_blank"
@@ -176,6 +196,21 @@
 
     .header-pill-link {
         font-size: 0.95rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35em;
+    }
+
+    .nav-icon {
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        opacity: 0.75;
+        flex: none;
     }
 
     .header-pill-actions .header-pill-button {
