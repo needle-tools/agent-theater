@@ -41,10 +41,7 @@
     <NeedleHero />
     <div class="hero-copy">
         <h1>Needle <span class="hero-times">×</span> <span class="hero-grad">WebMCP</span></h1>
-        <p>
-            Needle web apps hand typed tools to the AI agent in your browser. Ask for what you want — the agent calls
-            the app's own functions instead of guessing which button to click.
-        </p>
+        <p>Needle web apps hand typed tools to the AI agent in your browser.</p>
         <div class="hero-actions">
             <a class="header-pill-button header-pill-button-primary" href={chatgptUrl} target="_blank" rel="noopener">
                 Try it with ChatGPT
@@ -52,8 +49,7 @@
             <a class="header-pill-button" href="#apps">See the apps</a>
         </div>
         <p class="hero-hint">
-            This page registers tools too — even the scene above is one. If your browser's agent speaks WebMCP, ask it:
-            <em>“rearrange the shapes into a grid and make them pink”</em>
+            Ask your agent: <em>“rearrange the shapes and make them pink”</em>
         </p>
     </div>
 </section>
@@ -127,8 +123,8 @@
         overflow: hidden;
         background: var(--surface-page-elevated);
         border-bottom: 1px solid var(--border-subtle);
-        height: 40vh;
-        min-height: 380px;
+        height: 54vh;
+        min-height: 460px;
     }
 
     .hero-copy {
@@ -142,10 +138,10 @@
         text-align: center;
         padding: 3.6rem 1.5rem 1.2rem;
         pointer-events: none;
-        background: radial-gradient(ellipse 62% 58% at center,
-                color-mix(in srgb, var(--surface-page-elevated) 92%, transparent) 0%,
-                color-mix(in srgb, var(--surface-page-elevated) 55%, transparent) 55%,
-                transparent 78%);
+        background: radial-gradient(ellipse 48% 44% at center,
+                color-mix(in srgb, var(--surface-page-elevated) 80%, transparent) 0%,
+                color-mix(in srgb, var(--surface-page-elevated) 40%, transparent) 55%,
+                transparent 75%);
     }
 
     /* The overlay itself passes drags through to the 3D scene, but the text

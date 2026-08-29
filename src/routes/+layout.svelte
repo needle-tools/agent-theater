@@ -157,12 +157,31 @@
     }
 
     .header-pill {
-        padding-left: 1.4rem;
-        padding-right: 0.8rem;
+        min-height: 44px;
+        padding: 0.25rem 0.55rem 0.25rem 1.1rem;
+        gap: 1.1rem;
         /* Floats over content now — a soft layered shadow sells the elevation. */
         box-shadow:
             0 1px 2px rgba(34, 44, 32, 0.06),
             0 10px 26px rgba(34, 44, 32, 0.08);
+    }
+
+    .header-pill-logo {
+        width: 84px;
+    }
+
+    .header-pill-nav {
+        gap: 1rem;
+    }
+
+    .header-pill-link {
+        font-size: 0.95rem;
+    }
+
+    .header-pill-actions .header-pill-button {
+        min-height: 34px;
+        padding: 0 0.8rem;
+        font-size: 0.85rem;
     }
 
     .header-pill-brand {
@@ -170,7 +189,7 @@
     }
 
     .header-pill-brand-label {
-        font-size: 1.1rem;
+        font-size: 1rem;
     }
 
     .button-icon {
