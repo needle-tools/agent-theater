@@ -1,4 +1,4 @@
-import { onStart, addComponent, ContactShadows, ObjectUtils, OrbitControls, findObjectOfType, Behaviour } from "@needle-tools/engine";
+import { onStart, addComponent, ContactShadows, ObjectUtils, OrbitControls, findObjectOfType, Behaviour, Context } from "@needle-tools/engine";
 import * as THREE from "three";
 import registry from "../../registry.json";
 import { registerTools } from "./webmcp.js";
@@ -287,7 +287,12 @@ function spawnDefaults(scene: THREE.Object3D) {
     for (const e of entries) e.mesh.position.copy(e.comp.targetBase);
 }
 
-onStart(context => {
+let setupDone = false;
+
+function setup(context: Context) {
+    if (setupDone) return;
+    setupDone = true;
+
     sceneRef = context.scene;
     context.mainCamera.position.set(0, 1.5, 5.4);
 
@@ -307,4 +312,19 @@ onStart(context => {
     refitCamera(true);
 
     registerTools(makeHeroTools());
-});
+}
+
+onStart(context => setup(context));
+
+// onStart only fires for hooks registered before the engine's first frame.
+// This module is imported dynamically, so the engine may already be running —
+// poll briefly and set up directly against the current context.
+const bootstrap = setInterval(() => {
+    if (setupDone) return clearInterval(bootstrap);
+    const current = Context.Current;
+    if (current?.scene && current.mainCamera) {
+        clearInterval(bootstrap);
+        setup(current);
+    }
+}, 200);
+setTimeout(() => clearInterval(bootstrap), 20000);
