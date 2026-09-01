@@ -23,7 +23,12 @@
  * photo-shaped rectangles.
  */
 
-const DEFAULT_HANDOFF_URL = "https://fastcut.needle.tools/handoff.html";
+/**
+ * A directory, not a `.html` file. The deploy does not route bare top-level
+ * HTML files — they 404, and the path then falls through to FastCut's app,
+ * which would boot the whole editor in the frame and never answer.
+ */
+const DEFAULT_HANDOFF_URL = "https://fastcut.needle.tools/handoff/";
 
 /**
  * Where the handoff lives.
@@ -42,7 +47,10 @@ function resolveHandoffUrl(): string {
         const url = new URL(override, location.href);
         const trusted =
             /^(localhost|127\.0\.0\.1)$/.test(url.hostname) ||
-            /(^|\.)needle\.tools$/.test(url.hostname);
+            /(^|\.)needle\.tools$/.test(url.hostname) ||
+            // Needle Cloud gives every deployment its own needle.run address,
+            // which is how a build is tried before a domain points at it.
+            /(^|\.)needle\.run$/.test(url.hostname);
         if (!trusted) {
             console.warn(`[collage] ignoring ?fastcut=${override} — only localhost or needle.tools.`);
             return fallback;
