@@ -172,14 +172,20 @@
     }
 
     /* Each tone carries its own edge, so the outline belongs to the bubble
-       rather than looking painted on. */
+       rather than looking painted on.
+
+       --accent-error is declared only in brand.css's dark block, so in light
+       mode it resolves to nothing — and an invalid color-mix takes the whole
+       declaration with it, which left error bubbles as bare text on the canvas.
+       The fallback is the light-mode counterpart of the dark #FF6B8F. */
     .bubble--error {
-        --edge: color-mix(in srgb, var(--accent-error) 55%, transparent);
-        background: color-mix(in srgb, var(--accent-error) 14%, var(--surface-panel));
+        --error: var(--accent-error, #D93A62);
+        --edge: color-mix(in srgb, var(--error) 55%, transparent);
+        background: color-mix(in srgb, var(--error) 13%, var(--surface-panel));
     }
 
     .bubble--error:hover {
-        background: color-mix(in srgb, var(--accent-error) 20%, var(--surface-panel));
+        background: color-mix(in srgb, var(--error) 20%, var(--surface-panel));
     }
 
     .bubble--busy {

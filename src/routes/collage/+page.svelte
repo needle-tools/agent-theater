@@ -31,6 +31,12 @@
     let toolsRegistered = $state(false);
     let editOpen = $state(false);
     let menu = $state<{ x: number; y: number; items: MenuItem[] } | null>(null);
+    /**
+     * Canvas point the menu was opened at. Whatever the menu adds goes here —
+     * "add text" should put the text where you asked for it, not wherever the
+     * automatic spiral had got to.
+     */
+    let menuPoint: { x: number; y: number } | null = null;
     let canvas = $state<CollageCanvas | null>(null);
     let fileInput: HTMLInputElement | null = $state(null);
     let restored = $state(false);
@@ -57,9 +63,14 @@
         toolsRegistered = await registerTools(createCollageTools(studio));
     });
 
+    /** Where the next batch of images should land, if somewhere was pointed at. */
+    let dropPoint: { x: number; y: number } | null = null;
+
     async function addFiles(files: FileList | File[]) {
         const images = [...files].filter(f => f.type.startsWith("image/"));
         if (!images.length) return;
+        const near = dropPoint;
+        dropPoint = null;
         const many = images.length > 1;
         const toast = toasts.push(many ? `Cutting out ${images.length} images…` : "Cutting it out…", "busy");
         let cut = 0;
@@ -70,6 +81,8 @@
                 const url = await readAsDataUrl(file);
                 const { background } = await studio.addImage(url, {
                     label: file.name.replace(/\.[^.]+$/, ""),
+                    // Land where they were dropped; several fan out from there.
+                    near: near ?? undefined,
                     // The whole point of dropping a photo here is the cut-out.
                     removeBackground: true,
                     onProgress: progress => {
@@ -86,12 +99,8 @@
             }
             toast.close();
             if (failed) {
-                // Short here; the long version is in the tool result an agent
-                // reads, and in the console for whoever is debugging it.
                 console.warn("[collage] background removal unavailable:", failed);
-                toasts.push(
-                    `Added ${images.length}, but the background remover is unavailable. Cut them at fastcut.needle.tools.`,
-                    "error");
+                toasts.push(`Added ${images.length}. ${shortFailure(failed)}`, "error");
             } else {
                 toasts.push(cut
                     ? `${cut === 1 ? "Cut it out" : `Cut out ${cut}`} and added.`
@@ -102,6 +111,20 @@
             toast.close();
             toasts.push(`Could not read that — ${message(error)}`, "error");
         }
+    }
+
+    /**
+     * One sentence a person can act on.
+     *
+     * The underlying reasons are written for an agent — they name module URLs
+     * and fetch errors so it can route around the problem. Shown to a person
+     * they are just a wall of text where a bubble should be.
+     */
+    function shortFailure(reason: string | null): string {
+        if (reason && /could not load|unavailable|fetch/i.test(reason)) {
+            return "Background removal is not available right now — the images went in as they are.";
+        }
+        return "The background could not be removed — the images went in as they are.";
     }
 
     function readAsDataUrl(file: File): Promise<string> {
@@ -116,7 +139,9 @@
     function onDrop(event: DragEvent) {
         event.preventDefault();
         dragging = false;
-        if (event.dataTransfer?.files.length) void addFiles(event.dataTransfer.files);
+        if (!event.dataTransfer?.files.length) return;
+        dropPoint = canvas?.canvasPoint(event.clientX, event.clientY) ?? null;
+        void addFiles(event.dataTransfer.files);
     }
 
     function onPaste(event: ClipboardEvent) {
@@ -187,6 +212,7 @@
 
     function openMenu(info: { x: number; y: number; layerId: string | null }) {
         const layer = info.layerId ? collage.get(info.layerId) : null;
+        menuPoint = canvas?.canvasPoint(info.x, info.y) ?? null;
         menu = {
             x: info.x,
             y: info.y,
@@ -202,8 +228,8 @@
 
     function canvasMenu(): MenuItem[] {
         return [
-            { label: "Add images…", icon: "image", onSelect: () => fileInput?.click() },
-            { label: "Add text", icon: "text", onSelect: () => addText() },
+            { label: "Add images…", icon: "image", onSelect: () => { dropPoint = menuPoint; fileInput?.click(); } },
+            { label: "Add text", icon: "text", onSelect: () => addText(menuPoint) },
             {
                 label: "Arrange",
                 icon: "layout",
@@ -230,11 +256,6 @@
         const each = (change: (layerId: string) => void) => () => ids.forEach(change);
 
         return [
-            {
-                label: many ? `Copy ${ids.length} as an image` : "Copy as an image",
-                icon: "image",
-                onSelect: () => void copySelection(ids),
-            },
             ...(image
                 ? [
                     {
@@ -293,24 +314,6 @@
         ];
     }
 
-    /**
-     * Put a picture of the selection on the clipboard.
-     *
-     * The same capture an agent gets from collage_capture — so what a person
-     * pastes into an image tool and what an agent sends to one are the same
-     * pixels.
-     */
-    async function copySelection(ids: string[]) {
-        try {
-            const shot = await studio.capture({ ids, maxSize: 1400 });
-            const blob = await (await fetch(shot.dataUrl)).blob();
-            await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-            toasts.push(`Copied ${shot.width}×${shot.height} to the clipboard.`);
-        } catch (error) {
-            toasts.push(`Could not copy that — ${message(error)}`, "error");
-        }
-    }
-
     async function recut(ids: string[]) {
         const toast = toasts.push(ids.length > 1 ? `Cutting out ${ids.length}…` : "Cutting it out…", "busy");
         let done = 0;
@@ -322,13 +325,19 @@
         }
         toast.close();
         if (done) toasts.push(done > 1 ? `Cut out ${done}.` : "Cut it out.");
-        else toasts.push(failed ?? "That did not work.", "error");
+        else {
+            // A bubble is a sentence, not a stack trace. The reason names URLs
+            // and module errors — that belongs in the console.
+            if (failed) console.warn("[collage] background removal failed:", failed);
+            toasts.push(shortFailure(failed), "error");
+        }
     }
 
-    function addText() {
-        const layer = collage.addText({ text: "Double-click to rename", fontSize: 64 });
-        studio.setSelection([layer.id]);
-        toasts.push("Added a text layer.");
+    function addText(near?: { x: number; y: number } | null) {
+        const layer = collage.addText({ text: "Text", fontSize: 64, near: near ?? undefined });
+        // Straight into editing with the word selected, so the first thing you
+        // type replaces it. Better than a placeholder telling you what to do.
+        canvas?.edit(layer.id);
     }
 
     function message(error: unknown): string {

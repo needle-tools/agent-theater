@@ -53,6 +53,30 @@ describe("layers", () => {
         expect(taller.width / taller.height).toBeCloseTo(ratio, 5);
     });
 
+    it("scales the type when a text layer is resized", () => {
+        // Widening the box alone changes nothing you can see, which is what
+        // made the resize handle look broken on text.
+        const collage = new Collage();
+        const text = collage.addText({ text: "Summer", fontSize: 40 });
+        const wider = collage.update(text.id, { width: text.width * 2 }) as typeof text;
+        expect(wider.fontSize).toBeCloseTo(80, 3);
+        expect(wider.height).toBeCloseTo(80 * 1.25, 3);
+
+        const smaller = collage.update(text.id, { width: wider.width / 4 }) as typeof text;
+        expect(smaller.fontSize).toBeCloseTo(20, 3);
+    });
+
+    it("fits a text box to its content without touching the type size", () => {
+        // What a finished edit needs: the box hugs the new words, but the
+        // letters stay the size they were.
+        const collage = new Collage();
+        const text = collage.addText({ text: "Text", fontSize: 64 });
+        const fitted = collage.fitText(text.id, 240, 80)!;
+        expect(fitted.width).toBe(240);
+        expect(fitted.height).toBe(80);
+        expect(fitted.fontSize).toBe(64);
+    });
+
     it("stacks new layers in front and can reorder them", () => {
         const { collage, layers } = collageWith(3);
         expect(collage.list().map(l => l.id)).toEqual(layers.map(l => l.id));
@@ -60,6 +84,51 @@ describe("layers", () => {
         expect(collage.list()[0].id).toBe(layers[2].id);
         collage.bringToFront(layers[0].id);
         expect(collage.list().at(-1)!.id).toBe(layers[0].id);
+    });
+
+    it("puts a layer where it was asked for", () => {
+        const collage = new Collage();
+        // A right-click or a drop names a point; the first thing added lands on
+        // it rather than wherever the automatic spiral had got to.
+        const text = collage.addText({ text: "Summer", fontSize: 40, near: { x: 900, y: -250 } });
+        expect(text.x + text.width / 2).toBeCloseTo(900, 3);
+        expect(text.y + 20).toBeCloseTo(-250, 3);
+
+        const image = collage.addImage({
+            src: "x", natural: { width: 200, height: 200 }, width: 100, near: { x: -400, y: 600 },
+        });
+        // Its own point, not pushed along by what came before it.
+        expect(image.x + image.width / 2).toBeCloseTo(-400, 3);
+        expect(image.y + image.height / 2).toBeCloseTo(600, 3);
+    });
+
+    it("fans several out around the point instead of stacking them on it", () => {
+        const collage = new Collage();
+        const at = { x: 100, y: 100 };
+        const placed = Array.from({ length: 4 }, () =>
+            collage.addImage({ src: "x", natural: { width: 100, height: 100 }, width: 80, near: at }));
+        const spots = new Set(placed.map(l => `${Math.round(l.x)},${Math.round(l.y)}`));
+        expect(spots.size).toBe(4);
+        // Still gathered around where they were dropped.
+        for (const layer of placed) {
+            expect(Math.hypot(layer.x + 40 - at.x, layer.y + 40 - at.y)).toBeLessThan(250);
+        }
+    });
+
+    it("takes x and y from the same point on the spiral", () => {
+        // They were read from two separate calls, so each layer got its x from
+        // one position and its y from the next — and the spiral advanced twice
+        // per layer.
+        const collage = new Collage();
+        const a = collage.addImage({ src: "a", natural: { width: 100, height: 100 }, width: 100 });
+        const b = collage.addImage({ src: "b", natural: { width: 100, height: 100 }, width: 100 });
+
+        const centre = (l: typeof a) => ({ x: l.x + l.width / 2, y: l.y + l.height / 2 });
+        // Index 0 of the spiral is angle 0 at radius 60: dead on the x axis.
+        expect(centre(a).x).toBeCloseTo(60, 3);
+        expect(centre(a).y).toBeCloseTo(0, 3);
+        // And the second is one step along, not two.
+        expect(Math.hypot(centre(b).x, centre(b).y)).toBeCloseTo(60 + 90, 3);
     });
 
     it("spreads unpositioned layers instead of stacking them at the origin", () => {

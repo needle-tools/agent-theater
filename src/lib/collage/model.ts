@@ -198,6 +198,8 @@ export interface AddImageSpec {
     /** Restore an existing id, so a reloaded layer keeps the id agents saw. */
     id?: string;
     z?: number;
+    /** Put it here — a right-click, a drop — rather than on the auto spiral. */
+    near?: { x: number; y: number };
     x?: number;
     y?: number;
     /** Canvas-unit width. Height follows from the cropped aspect ratio. */
@@ -211,6 +213,8 @@ export interface AddTextSpec {
     label?: string;
     id?: string;
     z?: number;
+    /** Put it here — a right-click, a drop — rather than on the auto spiral. */
+    near?: { x: number; y: number };
     x?: number;
     y?: number;
     width?: number;
@@ -269,6 +273,8 @@ export class Collage {
     private readonly changed = new Set<() => void>();
     private readonly newId: (prefix: string) => string;
     private counter = 0;
+    private nearCounter = 0;
+    private lastOrigin: string | null = null;
     private topZ = 0;
 
     constructor(options?: CollageOptions) {
@@ -311,6 +317,9 @@ export class Collage {
         const croppedHeight = Math.max(1, spec.natural.height * crop.height);
         const width = spec.width ?? Math.min(croppedWidth, 420);
         const height = width * (croppedHeight / croppedWidth);
+        // Once, not once per axis: calling nextSpot() separately for x and y
+        // took each from a different point on the spiral and advanced it twice.
+        const spot = spec.x === undefined || spec.y === undefined ? this.nextSpot(spec.near) : null;
         const layer: ImageLayer = {
             id: spec.id ?? this.newId("img"),
             kind: "image",
@@ -319,8 +328,8 @@ export class Collage {
             storageKey: spec.storageKey ?? null,
             natural: { ...spec.natural },
             crop: { ...crop },
-            x: spec.x ?? this.nextSpot().x - width / 2,
-            y: spec.y ?? this.nextSpot().y - height / 2,
+            x: spec.x ?? spot!.x - width / 2,
+            y: spec.y ?? spot!.y - height / 2,
             width,
             height,
             rotation: spec.rotation ?? 0,
@@ -336,13 +345,14 @@ export class Collage {
     addText(spec: AddTextSpec): TextLayer {
         const fontSize = spec.fontSize ?? 48;
         const width = spec.width ?? Math.max(120, spec.text.length * fontSize * 0.5);
+        const spot = spec.x === undefined || spec.y === undefined ? this.nextSpot(spec.near) : null;
         const layer: TextLayer = {
             id: spec.id ?? this.newId("txt"),
             kind: "text",
             label: spec.label ?? spec.text.slice(0, 24),
             text: spec.text,
-            x: spec.x ?? this.nextSpot().x - width / 2,
-            y: spec.y ?? this.nextSpot().y,
+            x: spec.x ?? spot!.x - width / 2,
+            y: spec.y ?? spot!.y - fontSize / 2,
             width,
             height: fontSize * 1.25,
             rotation: spec.rotation ?? 0,
@@ -384,6 +394,24 @@ export class Collage {
             const croppedHeight = Math.max(1, next.natural.height * next.crop.height);
             next.height = next.width * (croppedHeight / croppedWidth);
         }
+        this.layers.set(id, next);
+        this.emit();
+        return next;
+    }
+
+    /**
+     * Resize a text layer's box to fit what it now says, leaving the type size
+     * alone. Separate from `update` because a width change there means "make
+     * the type bigger", which is the opposite of what a finished edit wants.
+     */
+    fitText(id: string, width: number, height: number): TextLayer | null {
+        const current = this.layers.get(id);
+        if (!current || current.kind !== "text") return null;
+        const next: TextLayer = {
+            ...current,
+            width: Math.max(8, width),
+            height: Math.max(8, height),
+        };
         this.layers.set(id, next);
         this.emit();
         return next;
@@ -436,6 +464,12 @@ export class Collage {
             if (typeof patch.fontSize === "number" && patch.fontSize > 0) {
                 next.fontSize = patch.fontSize;
                 next.height = patch.fontSize * 1.25;
+            } else if (typeof patch.width === "number" && patch.width > 0) {
+                // Dragging a text layer's handle has to change the type size.
+                // Widening the box alone does nothing you can see — it was the
+                // resize that "did not work".
+                next.fontSize = Math.max(4, current.fontSize * (patch.width / current.width));
+                next.height = next.fontSize * 1.25;
             }
         }
 
@@ -534,13 +568,32 @@ export class Collage {
         return unionBounds(layers.map(bounds));
     }
 
-    private nextSpot(): { x: number; y: number } {
-        // A golden-angle spiral, so five images dropped without positions read
-        // as five images rather than one stack the agent has to untangle.
-        const index = this.counter++;
+    /**
+     * Where to put something nobody gave a position for.
+     *
+     * A golden-angle spiral, so five images dropped at once read as five images
+     * rather than one stack. Given a point — a right-click, a drop — the first
+     * lands exactly on it and the rest fan out around it, because "it should
+     * appear where I clicked" is only true of the thing you just asked for.
+     */
+    private nextSpot(near?: { x: number; y: number }): { x: number; y: number } {
+        if (!near) {
+            const index = this.counter++;
+            const angle = index * 2.399963;
+            const radius = 60 + 90 * Math.sqrt(index);
+            return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+        }
+        // A new point starts its own spiral, so the next click is not pushed
+        // out by however much was added at the last one.
+        const key = `${Math.round(near.x)},${Math.round(near.y)}`;
+        if (key !== this.lastOrigin) {
+            this.lastOrigin = key;
+            this.nearCounter = 0;
+        }
+        const index = this.nearCounter++;
         const angle = index * 2.399963;
-        const radius = 60 + 90 * Math.sqrt(index);
-        return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+        const radius = 110 * Math.sqrt(index);
+        return { x: near.x + Math.cos(angle) * radius, y: near.y + Math.sin(angle) * radius };
     }
 
     private emit() {

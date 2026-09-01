@@ -44,6 +44,8 @@ export interface AddImageOptions {
     x?: number;
     y?: number;
     width?: number;
+    /** Place it here rather than on the automatic spiral. */
+    near?: { x: number; y: number };
     /**
      * Cut the background out before placing it. On by default: a collage is
      * made of cut-outs, and a photo dropped in with its background is almost
@@ -485,6 +487,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 crop: original.crop,
                 x: options.x,
                 y: options.y,
+                near: options.near,
                 width: options.width,
             });
 

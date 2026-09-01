@@ -308,8 +308,11 @@
         opacity: 0.5;
     }
 
+    /* brand.css declares --accent-error in its dark block only, so this needs a
+       light-mode fallback or Delete renders in the same colour as everything
+       else. */
     .item--danger {
-        color: var(--accent-error);
+        color: var(--accent-error, #D93A62);
     }
 
     .label {

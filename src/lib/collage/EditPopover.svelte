@@ -271,8 +271,9 @@
     }
 
     .quiet:hover {
-        color: var(--accent-error);
-        background: color-mix(in srgb, var(--accent-error) 8%, transparent);
+        /* Fallback because --accent-error only exists in brand.css's dark block. */
+        color: var(--accent-error, #D93A62);
+        background: color-mix(in srgb, var(--accent-error, #D93A62) 8%, transparent);
         border-color: transparent;
     }
 

@@ -66,11 +66,98 @@
     let drag: Drag | null = null;
     /** The rubber band, in screen coordinates. */
     let marquee = $state<{ x: number; y: number; width: number; height: number } | null>(null);
+    /** The text layer being typed into, if any. */
+    let editingId = $state<string | null>(null);
+
+    /**
+     * Commit an edit.
+     *
+     * The DOM owns the text while it is being typed — Svelte writing to a
+     * contenteditable on every keystroke would fight the caret — so the value
+     * only comes back into the model here, when editing ends.
+     */
+    /** New layers open with their placeholder selected; edits do not. */
+    let selectOnEdit = false;
+
+    function commitEdit(element: HTMLElement, id: string) {
+        if (editingId !== id) return;
+        const text = (element.textContent ?? "").trim();
+        // Measured before the model changes, in layout pixels — scrollWidth is
+        // unaffected by the world's CSS transform, so it is already in canvas
+        // units.
+        const width = element.scrollWidth;
+        const height = element.scrollHeight;
+        editingId = null;
+        // The caret's own selection would otherwise stay painted on the layer
+        // after it stops being editable.
+        window.getSelection()?.removeAllRanges();
+
+        const layer = studio.collage.get(id);
+        if (!layer) return;
+        if (!text) {
+            // An empty text layer is invisible and unselectable — nothing but a
+            // thing to be confused by later.
+            studio.collage.remove(id);
+            studio.setSelection([]);
+            return;
+        }
+        if (text !== (layer as TextLayer).text) {
+            studio.collage.update(id, { text });
+            studio.record("layer-styled", `A person set a text layer to "${text.slice(0, 40)}".`, "human", { id });
+        }
+        // Hug what it now says, rather than keeping the box the placeholder had.
+        studio.collage.fitText(id, width, height);
+    }
+
+    /** Focus a freshly editable node, and select its contents if it is new. */
+    function focusForEditing(node: HTMLElement) {
+        node.focus();
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        // Selecting everything paints the layer with the selection colour, which
+        // is only wanted when the content is a placeholder to be typed over.
+        if (!selectOnEdit) range.collapse(false);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        selectOnEdit = false;
+    }
+
+    /** Finish any edit in progress — clicking elsewhere means "done". */
+    function stopEditing() {
+        if (!editingId) return;
+        const node = viewport?.querySelector<HTMLElement>(".layer--editing");
+        if (node) commitEdit(node, editingId);
+        else editingId = null;
+    }
+
+    function onDoubleClick(event: MouseEvent) {
+        const layer = layerAt(event.clientX, event.clientY);
+        if (layer?.kind !== "text") return;
+        event.preventDefault();
+        editingId = layer.id;
+    }
     /** A drag that has not moved yet is a click; used to keep selection sane. */
     let moved = false;
 
     export function getView() {
         return { ...view };
+    }
+
+    /** Screen point to canvas units, for callers placing something where you clicked. */
+    export function canvasPoint(clientX: number, clientY: number) {
+        return toCanvas(clientX, clientY);
+    }
+
+    /** Put a text layer straight into editing, with its text selected. */
+    export function edit(id: string) {
+        const layer = studio.collage.get(id);
+        if (layer?.kind !== "text") return;
+        studio.setSelection([id]);
+        // A brand-new layer says "Text"; selecting it means the first keystroke
+        // replaces it rather than appending to it.
+        selectOnEdit = true;
+        editingId = id;
     }
 
     export function setView(next: { x: number; y: number; zoom: number }) {
@@ -183,6 +270,17 @@
     function onPointerDown(event: PointerEvent) {
         if (event.button === 2) return; // The context menu handler deals with it.
         if (event.button !== 0 && event.button !== 1) return;
+
+        // A pointer down anywhere but inside the text being typed ends the edit.
+        // preventDefault below stops the browser moving focus for us, so this
+        // has to be explicit — otherwise the caret and its green selection stay
+        // on the layer after you have clicked away.
+        if (editingId) {
+            const target = event.target;
+            const inside = target instanceof Node && (target as Element).closest?.(".layer--editing");
+            if (inside) return;
+            stopEditing();
+        }
         // Stops the drag from turning into a text selection, which is what makes
         // panning across a frame label paint it green instead of moving the view.
         event.preventDefault();
@@ -438,6 +536,7 @@
     onpointerup={onPointerUp}
     onpointercancel={onPointerUp}
     oncontextmenu={onContextMenuEvent}
+    ondblclick={onDoubleClick}
 >
     <div class="world" style:transform="translate({view.x}px, {view.y}px) scale({view.zoom})">
         {#if showPage}
@@ -467,12 +566,26 @@
                 <p
                     class="layer layer--text"
                     class:layer--selected={selectedIds.length > 1 && isSelected(layer.id)}
+                    class:layer--editing={editingId === layer.id}
+                    contenteditable={editingId === layer.id ? "plaintext-only" : "false"}
                     style={textStyle(layer)}
+                    {@attach node => { if (editingId === layer.id) focusForEditing(node); }}
+                    onblur={event => commitEdit(event.currentTarget as HTMLElement, layer.id)}
+                    onkeydown={event => {
+                        if (event.key === "Escape" || (event.key === "Enter" && !event.shiftKey)) {
+                            event.preventDefault();
+                            (event.currentTarget as HTMLElement).blur();
+                        }
+                        // Everything else is typing, not a canvas shortcut.
+                        event.stopPropagation();
+                    }}
                 >{layer.text}</p>
             {/if}
         {/each}
 
-        {#if single}
+        <!-- Never both: the editing outline is the indicator while typing, and
+             a handles box drawn on top of it read as a box inside a box. -->
+        {#if single && editingId !== single.id}
             <div
                 class="handles"
                 style:left="{single.x}px"
@@ -584,6 +697,20 @@
         overflow: visible;
         white-space: pre-wrap;
         text-wrap: pretty;
+    }
+
+    /* Layers are pointer-events: none so hit testing can run against the alpha.
+       The one being typed into has to take the pointer back, or there is no
+       caret to place. */
+    .layer--editing {
+        pointer-events: auto;
+        user-select: text;
+        -webkit-user-select: text;
+        cursor: text;
+        /* One thin mark. It sits alone — the handles box is suppressed while
+           editing — so it does not need to shout. */
+        outline: 1px solid var(--accent-brand);
+        outline-offset: 3px;
     }
 
     /*
