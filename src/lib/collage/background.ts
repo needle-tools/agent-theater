@@ -23,8 +23,37 @@
  * photo-shaped rectangles.
  */
 
-const HANDOFF_URL =
-    import.meta.env.VITE_FASTCUT_HANDOFF_URL || "https://fastcut.needle.tools/handoff.html";
+const DEFAULT_HANDOFF_URL = "https://fastcut.needle.tools/handoff.html";
+
+/**
+ * Where the handoff lives.
+ *
+ * `?fastcut=…` overrides it, so a local FastCut can be tried without a rebuild
+ * or an env var — but only pointing at localhost or needle.tools. The override
+ * arrives in a URL, and a link is something anyone can send: without the check
+ * one could aim a person's cut-outs at a server of their choosing.
+ */
+function resolveHandoffUrl(): string {
+    const fallback = import.meta.env.VITE_FASTCUT_HANDOFF_URL || DEFAULT_HANDOFF_URL;
+    if (typeof location === "undefined") return fallback;
+    try {
+        const override = new URLSearchParams(location.search).get("fastcut");
+        if (!override) return fallback;
+        const url = new URL(override, location.href);
+        const trusted =
+            /^(localhost|127\.0\.0\.1)$/.test(url.hostname) ||
+            /(^|\.)needle\.tools$/.test(url.hostname);
+        if (!trusted) {
+            console.warn(`[collage] ignoring ?fastcut=${override} — only localhost or needle.tools.`);
+            return fallback;
+        }
+        return url.href;
+    } catch {
+        return fallback;
+    }
+}
+
+const HANDOFF_URL = resolveHandoffUrl();
 
 const CHANNEL = "fastcut";
 /** Long enough for a cold model download on a slow line, short enough to give up. */
