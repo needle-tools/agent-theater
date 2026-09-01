@@ -146,7 +146,8 @@
             return;
         }
         const count = studio.arrange(pageFrame().id, mode, { seed: Math.floor(Math.random() * 1000) });
-        if (count) toasts.push(`Arranged ${count} — ${mode}.`);
+        // A control that reports nothing is indistinguishable from a broken one.
+        toasts.push(count ? `Arranged ${count} — ${mode}.` : "Nothing moved — try again?", count ? "info" : "error");
     }
 
     /** Short, human phrasing. The long version goes to agents, not to a toast. */

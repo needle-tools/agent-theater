@@ -413,10 +413,18 @@ export function createStudio(collage = new Collage()): CollageStudio {
         },
 
         arrange(frameId, mode, options = {}) {
+            // A free page has no size of its own; catch it up before asking
+            // what it contains, or it answers with a rect from before the
+            // pictures arrived.
+            this.refitPage();
             const frame = frameOrThrow(frameId);
             const inside = options.ids?.length
                 ? options.ids.map(id => collage.get(id)).filter((l): l is Layer => !!l)
-                : layersOf(frameId);
+                // Nothing on the page means the page is somewhere else — a
+                // fixed size sitting where the work is not. Laying everything
+                // out brings it onto the page, which is what was being asked
+                // for. Doing nothing at all, silently, is never the answer.
+                : layersOf(frameId).length ? layersOf(frameId) : collage.list();
             if (!inside.length) return 0;
             const placements = computeLayout(inside, frame, mode, options);
             for (const placement of placements) {
@@ -429,6 +437,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 });
             }
             record("arranged", `${placements.length} layers were arranged as a ${mode}.`, "human", { mode, count: placements.length });
+            // The page follows the work, so a free page has to catch up again
+            // now that the work has moved.
+            this.refitPage();
             return placements.length;
         },
 
