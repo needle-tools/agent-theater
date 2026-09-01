@@ -645,11 +645,24 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 // for. Doing nothing at all, silently, is never the answer.
                 : layersOf(frameId).length ? layersOf(frameId) : collage.list();
             if (!inside.length) return 0;
-            const placements = computeLayout(inside, frame, mode, options);
+            // A packing layout may resize to fill a chosen paper size, but must
+            // not on the free canvas: there the page is refitted to the
+            // contents, so "fill the page" closes a loop that takes a few
+            // percent off the collage every time it is arranged.
+            const placements = computeLayout(inside, frame, mode, {
+                fill: pagePreset !== FREE_PAGE,
+                ...options,
+            });
             for (const placement of placements) {
                 const layer = collage.get(placement.id);
                 if (!layer) continue;
-                if (options.resize) {
+                // A dense pack IS its sizes — items are fitted against each
+                // other, so keeping the old ones would put everything back on
+                // top of everything. It is safe here in a way it was not
+                // before: the packer solves for the scale that fills the page
+                // rather than scaling by height alone, so a second pass lands
+                // on the same scale instead of shrinking again.
+                if (options.resize ?? mode === "collage") {
                     collage.update(placement.id, {
                         x: placement.x,
                         y: placement.y,

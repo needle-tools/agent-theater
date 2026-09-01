@@ -3,7 +3,14 @@ import {
     Collage, bounds, outputSize, placementIn, presetCanvasSize, findPreset,
     type Frame, type ImageLayer,
 } from "../src/lib/collage/model.js";
-import { arrange } from "../src/lib/collage/layout.js";
+import { arrange, placementBounds, type Placement } from "../src/lib/collage/layout.js";
+
+/** Do any two placements share a pixel? */
+function overlapping(placements: Placement[]): boolean {
+    return placements.some((a, i) => placements.slice(i + 1).some(b =>
+        a.x < b.x + b.width - 0.01 && a.x + a.width - 0.01 > b.x
+        && a.y < b.y + b.height - 0.01 && a.y + a.height - 0.01 > b.y));
+}
 import { checkFrame } from "../src/lib/collage/quality.js";
 import { alphaBounds, alphaCoverage, dominantColors } from "../src/lib/collage/imaging.js";
 
@@ -278,27 +285,61 @@ describe("layouts", () => {
         expect(quadrants.size).toBe(4);
     });
 
-    it("makes the middle of a collage the biggest thing in it", () => {
-        const { layers } = collageWith(9);
-        const placements = arrange(layers, area, "collage", { seed: 11 });
-        const centerX = area.x + area.width / 2;
-        const centerY = area.y + area.height / 2;
-        const byDistance = [...placements].sort((a, b) =>
-            Math.hypot(a.x + a.width / 2 - centerX, a.y + a.height / 2 - centerY) -
-            Math.hypot(b.x + b.width / 2 - centerX, b.y + b.height / 2 - centerY));
-        const innermost = byDistance[0].width * byDistance[0].height;
-        const outermost = byDistance.at(-1)!.width * byDistance.at(-1)!.height;
-        expect(innermost).toBeGreaterThan(outermost);
+    it("never puts one cut-out on top of another", () => {
+        // The whole appeal of a plate of cut-outs is seeing all of them. The
+        // old collage mode overlapped on purpose and buried half of them.
+        const { layers } = collageWith(14);
+        const placements = arrange(layers, area, "collage", { seed: 2 });
+        expect(overlapping(placements)).toBe(false);
     });
 
-    it("overlaps in collage mode and does not in packed", () => {
-        const { layers } = collageWith(6);
-        const overlapping = (ps: ReturnType<typeof arrange>) => ps.some((a, i) =>
-            ps.slice(i + 1).some(b =>
-                a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y));
+    it("still does not overlap when the shapes are wildly different", () => {
+        const wide = collageWith(5, { width: 1600, height: 200 }).layers;
+        const tall = collageWith(5, { width: 200, height: 1600 }).layers;
+        expect(overlapping(arrange([...wide, ...tall], area, "collage", { seed: 9 }))).toBe(false);
+    });
 
-        expect(overlapping(arrange(layers, area, "collage", { seed: 2 }))).toBe(true);
-        expect(overlapping(arrange(layers, area, "packed"))).toBe(false);
+    it("fills the area instead of huddling in the middle", () => {
+        const { layers } = collageWith(20);
+        const placements = arrange(layers, area, "collage", { seed: 4 });
+        const packed = placementBounds(placements)!;
+        // Within the page, and using most of it — the old version left the
+        // corners bare while piling everything into the centre.
+        expect(packed.width).toBeGreaterThan(area.width * 0.7);
+        expect(packed.height).toBeGreaterThan(area.height * 0.7);
+        expect(packed.width).toBeLessThanOrEqual(area.width + 1);
+        expect(packed.height).toBeLessThanOrEqual(area.height + 1);
+    });
+
+    it("settles rather than shrinking a little more every pass", () => {
+        // The reason arranging used to melt a collage: each pass re-fitted, and
+        // scaling by height alone overshoots because area goes as the square.
+        const { layers } = collageWith(12);
+        const first = arrange(layers, area, "collage", { seed: 3 });
+        const grown = layers.map(layer => {
+            const p = first.find(q => q.id === layer.id)!;
+            return { ...layer, x: p.x, y: p.y, width: p.width, height: p.height };
+        });
+        const second = arrange(grown, area, "collage", { seed: 3 });
+
+        for (const p of second) {
+            const before = first.find(q => q.id === p.id)!;
+            expect(p.width / before.width).toBeGreaterThan(0.9);
+            expect(p.width / before.width).toBeLessThan(1.1);
+        }
+    });
+
+    it("keeps every piece upright", () => {
+        // Rotation and tight packing are incompatible: a tilted item's swept box
+        // is bigger than the item, so gutters would have to grow to hide it.
+        const { layers } = collageWith(8);
+        for (const p of arrange(layers, area, "collage", { seed: 6 })) {
+            expect(p.rotation).toBe(0);
+        }
+    });
+
+    it("does not overlap in packed either", () => {
+        expect(overlapping(arrange(collageWith(6).layers, area, "packed"))).toBe(false);
     });
 });
 

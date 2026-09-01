@@ -121,20 +121,66 @@ describe("undo", () => {
 });
 
 describe("arranging does not shrink things", () => {
-    it("keeps every size when run again and again", () => {
+    function studioOf(count: number) {
         const studio = createStudio();
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < count; i++) {
             studio.collage.addImage({
                 src: `${i}`, natural: { width: 800, height: 600 }, x: i * 40, y: 0, width: 200,
             });
         }
+        return studio;
+    }
+
+    it("settles: the same arrange twice changes nothing the second time", () => {
+        // The collage layout packs items against each other, so it does set
+        // sizes — it has to. What it must not do is set a *different* size
+        // every time, which is how the collage used to melt a little per pass.
+        const studio = studioOf(6);
+        const page = studio.setPage(FREE_PAGE);
+
+        studio.arrange(page.id, "collage", { seed: 1 });
+        const settled = studio.collage.list().map(l => Math.round(l.width));
+        for (let pass = 0; pass < 4; pass++) studio.arrange(page.id, "collage", { seed: 1 });
+
+        expect(studio.collage.list().map(l => Math.round(l.width))).toEqual(settled);
+    });
+
+    it("does not trend downward across different arrangements", () => {
+        // A fresh seed is a genuinely different picture, so sizes move — but
+        // they must move around a stable point, not walk towards zero.
+        const studio = studioOf(6);
+        const page = studio.setPage(FREE_PAGE);
+        const area = () => studio.collage.list().reduce((sum, l) => sum + l.width * l.height, 0);
+
+        studio.arrange(page.id, "collage", { seed: 0 });
+        const first = area();
+        for (let pass = 1; pass < 8; pass++) studio.arrange(page.id, "collage", { seed: pass });
+
+        expect(area()).toBeGreaterThan(first * 0.75);
+        expect(area()).toBeLessThan(first * 1.35);
+    });
+
+    it("settles on a chosen paper size too, where it does resize", () => {
+        // A4 is the case the free canvas cannot cover: here the layout really
+        // does set sizes, to fill the sheet. It still has to land on the same
+        // ones the second time.
+        const studio = studioOf(8);
+        const page = studio.setPage("a4-portrait");
+
+        studio.arrange(page.id, "collage", { seed: 2 });
+        const settled = studio.collage.list().map(l => Math.round(l.width));
+        for (let pass = 0; pass < 4; pass++) studio.arrange(page.id, "collage", { seed: 2 });
+
+        expect(studio.collage.list().map(l => Math.round(l.width))).toEqual(settled);
+    });
+
+    it("leaves sizes alone in the layouts that only move things", () => {
+        const studio = studioOf(6);
         const page = studio.setPage(FREE_PAGE);
         const before = studio.collage.list().map(l => Math.round(l.width));
 
-        for (let pass = 0; pass < 5; pass++) studio.arrange(page.id, "collage", { seed: pass });
+        for (let pass = 0; pass < 5; pass++) studio.arrange(page.id, "grid", { seed: pass });
 
-        // Each pass used to re-fit everything into the page, so sizes compounded
-        // downward and the collage quietly melted.
         expect(studio.collage.list().map(l => Math.round(l.width))).toEqual(before);
     });
 

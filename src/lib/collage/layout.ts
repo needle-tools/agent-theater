@@ -24,6 +24,16 @@ export interface LayoutOptions {
     seed?: number;
     /** Max degrees of tilt for `scatter`. */
     jitter?: number;
+    /**
+     * Whether a packing layout may resize things to fill the area.
+     *
+     * True for a chosen paper size, where filling the page is the point. False
+     * for the free canvas, which has no size of its own — there, resizing to
+     * fit is a loop: the page refits to the contents, the layout fills a
+     * fraction of the page, the page refits to that, and the collage shrinks a
+     * few percent on every single arrange.
+     */
+    fill?: boolean;
 }
 
 export interface Placement {
@@ -149,47 +159,196 @@ function scatter(layers: Layer[], area: Rect, gap: number, options: LayoutOption
 }
 
 /**
- * The actual collage look: overlapping, tilted, unevenly sized.
+ * The specimen plate: everything packed tight, nothing on top of anything.
  *
- * The difference from `scatter` is that this one is *composed*. Items are
- * sized by distance from the centre, so the middle of the frame carries the
- * biggest picture and the edges get the smaller ones — which is what makes a
- * collage read as having a subject rather than as a pile. Cells deliberately
- * overlap, because a collage with visible gutters is just an untidy grid.
+ * This used to be a grid of deliberately oversized cells, which piled the
+ * cut-outs on each other and left the corners bare. A collage of cut-outs
+ * wants the opposite — the appeal is *seeing all of them*, each whole, each
+ * given exactly as much room as it needs and no more. Overlap hides the very
+ * thing that made cutting them out worth doing.
+ *
+ * So: a skyline packer. The frontier is the profile of everything placed so
+ * far; each next item goes wherever that profile is lowest, which is what
+ * makes items slide sideways into the gap under a tall neighbour instead of
+ * starting a new row. Big things first, because a small item can fill a hole a
+ * big one could never have fitted into.
+ *
+ * The result reads as irregular, but nothing here is random except which item
+ * is which size. The texture comes from the shapes disagreeing.
  */
 function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOptions): Placement[] {
     const random = mulberry32(options.seed ?? 7);
-    const jitter = options.jitter ?? 9;
-    const { columns, rows } = gridShape(layers.length, area);
-    // Overlap rather than separate: cells are wider than their share.
-    const spread = 1 + (1 - gap) * 0.22;
-    const cellWidth = (area.width / columns) * spread;
-    const cellHeight = (area.height / rows) * spread;
-    const centerX = area.x + area.width / 2;
-    const centerY = area.y + area.height / 2;
-    const maxDistance = Math.hypot(area.width, area.height) / 2;
+    // Gutters are deliberately tight. This is the difference between a plate of
+    // specimens and a noticeboard.
+    const spacing = Math.min(area.width, area.height) * gap * 0.09;
 
-    return shuffled(layers, random).map((layer, i) => {
-        // Cells are oversized, so they have to be re-anchored to keep the block
-        // centred on the frame rather than spilling off the bottom right.
-        const cellX = area.x + (i % columns) * ((area.width - cellWidth) / Math.max(1, columns - 1));
-        const cellY = area.y + Math.floor(i / columns) * ((area.height - cellHeight) / Math.max(1, rows - 1));
-        const cx = cellX + cellWidth / 2;
-        const cy = cellY + cellHeight / 2;
-        // 1 at the centre, ~0 at the corners.
-        const closeness = 1 - Math.min(1, Math.hypot(cx - centerX, cy - centerY) / maxDistance);
-        const emphasis = 0.72 + closeness * 0.5 + random() * 0.14;
-        const slot = Math.min(cellWidth, cellHeight) * emphasis;
-        const scaled = scaleToFit(layer, slot, slot);
-        return {
-            id: layer.id,
-            x: cx - scaled.width / 2 + (random() * 2 - 1) * cellWidth * 0.08,
-            y: cy - scaled.height / 2 + (random() * 2 - 1) * cellHeight * 0.08,
-            width: scaled.width,
-            height: scaled.height,
-            rotation: (random() * 2 - 1) * jitter,
-        };
-    });
+    // A wall of identically-sized cut-outs reads as a contact sheet, so each
+    // gets a seeded weight. Drawn before sorting, so the same seed gives the
+    // same picture whatever order the layers arrive in.
+    const items = layers.map(layer => ({
+        layer,
+        weight: 0.78 + random() * 0.62,
+        aspect: Math.max(0.05, layer.width / Math.max(1, layer.height)),
+    }));
+    // Tallest first — the standard heuristic, and the reason the packing is
+    // dense rather than merely non-overlapping.
+    const ordered = [...items].sort((a, b) =>
+        (b.weight / Math.sqrt(b.aspect)) - (a.weight / Math.sqrt(a.aspect)));
+
+    const fill = options.fill ?? true;
+
+    /**
+     * Pack every item at `scale`, returning where they went and how tall it got.
+     *
+     * `into` is the width to pack against, which is the area's width when
+     * filling a page and a computed one when keeping sizes.
+     */
+    const packAt = (scale: number, into: number) => {
+        const skyline = new Skyline(into);
+        const placements: Placement[] = [];
+        for (const item of ordered) {
+            // When filling, size comes from the weight and the scale alone —
+            // never from the size the item already has. Multiplying by the
+            // current width compounds: the same seeded weight applies again
+            // every pass, so heavy items grow and light ones shrink until the
+            // spread is absurd, and nothing looks wrong until the fifth arrange.
+            const width = fill
+                ? Math.min(into, item.weight * scale)
+                : Math.min(into, item.layer.width);
+            const height = width / item.aspect;
+            const spot = skyline.place(width + spacing, height + spacing);
+            placements.push({
+                id: item.layer.id,
+                x: area.x + spot.x,
+                y: area.y + spot.y,
+                width,
+                height,
+                rotation: 0,
+            });
+        }
+        return { placements, height: skyline.top() - spacing };
+    };
+
+    let best: { placements: Placement[]; height: number };
+
+    if (fill) {
+        // How big should everything be? Solve it rather than guess: start from
+        // the scale at which the artwork would just cover the page, then search
+        // for the largest scale whose packed height still fits inside it.
+        //
+        // The search is what makes repeated arranging safe. Scaling the block
+        // by height alone overshoots — area goes as the square — so it came out
+        // smaller every pass. Here the second pass finds the same scale as the
+        // first and nothing moves.
+        const artwork = items.reduce((sum, i) => sum + (i.weight * i.weight) / i.aspect, 0);
+        const guess = Math.sqrt((area.width * area.height * 0.82) / Math.max(0.0001, artwork));
+
+        let low = guess * 0.25;
+        let high = guess * 2.2;
+        best = packAt(low, area.width);
+        for (let step = 0; step < 12; step++) {
+            const mid = (low + high) / 2;
+            const attempt = packAt(mid, area.width);
+            if (attempt.height <= area.height) {
+                best = attempt;
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+    } else {
+        // Nothing is resized, so there is no scale to solve for — only a width
+        // to pack against. Pick the one that makes the block roughly the shape
+        // of the space it is going into.
+        const artwork = items.reduce((sum, i) => sum + i.layer.width * (i.layer.width / i.aspect), 0);
+        const aspect = clamp(area.width / Math.max(1, area.height), 0.4, 2.5);
+        const width = Math.max(
+            Math.max(...items.map(i => i.layer.width)),
+            Math.sqrt((artwork / 0.72) * aspect));
+        best = packAt(1, width);
+    }
+
+    // Centre the block on the area. The pack grows right and down from its
+    // origin, so without this it would sit against the top left corner.
+    const packed = placementBounds(best.placements);
+    if (!packed) return best.placements;
+    const dx = area.x + (area.width - packed.width) / 2 - packed.x;
+    const dy = area.y + (area.height - packed.height) / 2 - packed.y;
+    return best.placements.map(p => ({ ...p, x: p.x + dx, y: p.y + dy }));
+}
+
+/**
+ * The frontier of a packing: how tall things are at every horizontal position.
+ *
+ * Kept as segments rather than sampled columns, so a placement is exact and the
+ * cost is in the number of things placed rather than in some chosen resolution.
+ */
+class Skyline {
+    private nodes: { x: number; width: number; y: number }[];
+
+    constructor(private readonly width: number) {
+        this.nodes = [{ x: 0, width, y: 0 }];
+    }
+
+    /** The lowest position this box can rest at, leftmost among equals. */
+    place(width: number, height: number): { x: number; y: number } {
+        const w = Math.min(width, this.width);
+        let best: { x: number; y: number } | null = null;
+
+        for (const node of this.nodes) {
+            if (node.x + w > this.width + 1e-6) continue;
+            // Resting height is the highest point anywhere under the box.
+            let y = 0;
+            let covered = 0;
+            for (const other of this.nodes) {
+                if (other.x + other.width <= node.x) continue;
+                if (other.x >= node.x + w) break;
+                if (other.y > y) y = other.y;
+                covered = other.x + other.width - node.x;
+            }
+            if (covered < w - 1e-6) continue;
+            if (!best || y < best.y - 1e-6) best = { x: node.x, y };
+        }
+        // Wider than the area, or nothing fits: start a fresh row on top.
+        const spot = best ?? { x: 0, y: this.top() };
+        this.add(spot.x, w, spot.y + height);
+        return spot;
+    }
+
+    /** The highest point of the frontier — the packed block's height. */
+    top(): number {
+        return this.nodes.reduce((highest, node) => Math.max(highest, node.y), 0);
+    }
+
+    private add(x: number, width: number, y: number) {
+        const next: typeof this.nodes = [];
+        for (const node of this.nodes) {
+            // The part of this node left of the new box.
+            if (node.x < x) {
+                next.push({ x: node.x, width: Math.min(node.width, x - node.x), y: node.y });
+            }
+            // The part right of it.
+            const rightStart = Math.max(node.x, x + width);
+            const rightEnd = node.x + node.width;
+            if (rightEnd > rightStart) {
+                next.push({ x: rightStart, width: rightEnd - rightStart, y: node.y });
+            }
+        }
+        next.push({ x, width, y });
+        next.sort((a, b) => a.x - b.x);
+
+        // Merge neighbours at the same height, or the segment count grows with
+        // every placement and the search slows down for no reason.
+        this.nodes = next.reduce<typeof next>((merged, node) => {
+            const last = merged.at(-1);
+            if (last && Math.abs(last.y - node.y) < 1e-6 && Math.abs(last.x + last.width - node.x) < 1e-6) {
+                last.width += node.width;
+                return merged;
+            }
+            merged.push({ ...node });
+            return merged;
+        }, []);
+    }
 }
 
 /**
