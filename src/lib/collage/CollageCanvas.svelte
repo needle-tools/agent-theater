@@ -25,10 +25,16 @@
     interface Props {
         studio: CollageStudio;
         selectedId?: string | null;
+        /**
+         * Show the export boundary. Off by default — the page is a setting, not
+         * something on the canvas, and a sheet of white paper you cannot delete
+         * is worse than no indication at all.
+         */
+        showPage?: boolean;
         onContextMenu?: (info: { x: number; y: number; layerId: string | null }) => void;
     }
 
-    let { studio, selectedId = $bindable(null), onContextMenu }: Props = $props();
+    let { studio, selectedId = $bindable(null), showPage = false, onContextMenu }: Props = $props();
 
     /** The document is a plain class; this is the bridge to Svelte's reactivity. */
     let version = $state(0);
@@ -44,8 +50,7 @@
     type Drag =
         | { mode: "pan"; startX: number; startY: number; originX: number; originY: number }
         | { mode: "move"; id: string; startX: number; startY: number; originX: number; originY: number }
-        | { mode: "resize"; id: string; startX: number; originWidth: number }
-        | { mode: "frame"; id: string; startX: number; startY: number; originX: number; originY: number };
+        | { mode: "resize"; id: string; originWidth: number; startX: number };
 
     let drag: Drag | null = null;
     /** A drag that has not moved yet is a click; used to keep selection sane. */
@@ -180,16 +185,6 @@
             }
         }
 
-        const frameId = target.closest<HTMLElement>("[data-frame-handle]")?.dataset.frameHandle;
-        if (frameId && event.button === 0) {
-            const frame = studio.collage.getFrame(frameId);
-            if (frame) {
-                selectedId = null;
-                drag = { mode: "frame", id: frameId, startX: event.clientX, startY: event.clientY, originX: frame.x, originY: frame.y };
-                return;
-            }
-        }
-
         const layer = event.button === 0 ? layerAt(event.clientX, event.clientY) : null;
         if (layer) {
             selectedId = layer.id;
@@ -215,8 +210,6 @@
             view = { ...view, x: drag.originX + (event.clientX - drag.startX), y: drag.originY + (event.clientY - drag.startY) };
         } else if (drag.mode === "move") {
             studio.collage.update(drag.id, { x: drag.originX + dx, y: drag.originY + dy });
-        } else if (drag.mode === "frame") {
-            studio.collage.updateFrame(drag.id, { x: drag.originX + dx, y: drag.originY + dy });
         } else if (drag.mode === "resize") {
             studio.collage.update(drag.id, { width: Math.max(20, drag.originWidth + dx) });
         }
@@ -225,7 +218,19 @@
     let hovering = $state(false);
 
     function onPointerUp(event: PointerEvent) {
-        if (drag?.mode === "pan" || drag?.mode === "move") studio.save(view);
+        // A watching agent should hear about a move that actually happened, not
+        // about every click that selected something.
+        if (moved && drag && drag.mode !== "pan") {
+            const layer = studio.collage.get(drag.id);
+            if (layer) {
+                studio.record(
+                    "layer-moved",
+                    `A person ${drag.mode === "resize" ? "resized" : "moved"} "${layer.label}".`,
+                    "human",
+                    { id: layer.id, x: Math.round(layer.x), y: Math.round(layer.y), width: Math.round(layer.width) });
+            }
+        }
+        if (drag) studio.save(view);
         drag = null;
         (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
     }
@@ -320,7 +325,6 @@
             `top: ${frame.y}px`,
             `width: ${frame.width}px`,
             `height: ${frame.height}px`,
-            `background: ${cssColor(frame.background)}`,
         ].join("; ");
     }
 
@@ -346,16 +350,15 @@
     oncontextmenu={onContextMenuEvent}
 >
     <div class="world" style:transform="translate({view.x}px, {view.y}px) scale({view.zoom})">
-        {#each frames as frame (frame.id)}
-            <div class="frame" style={frameStyle(frame)}>
-                <button
-                    class="frame__label"
-                    data-frame-handle={frame.id}
-                    style:font-size="{12 / view.zoom}px"
-                    style:top="{-22 / view.zoom}px"
-                >{frame.name}</button>
-            </div>
-        {/each}
+        {#if showPage}
+            {#each frames as frame (frame.id)}
+                <div class="page" style={frameStyle(frame)} style:border-width="{1 / view.zoom}px">
+                    <span class="page__label" style:font-size="{11 / view.zoom}px" style:top="{-20 / view.zoom}px">
+                        {frame.name}
+                    </span>
+                </div>
+            {/each}
+        {/if}
 
         {#each layers as layer (layer.id)}
             {#if layer.kind === "image"}
@@ -429,30 +432,21 @@
         will-change: transform;
     }
 
-    .frame {
+    /* Just a boundary. No fill, no shadow, nothing to grab — it marks what
+       will be exported and is otherwise not there. */
+    .page {
         position: absolute;
-        /* Layered rather than a border: it reads as paper on a table, and it
-           does not add a pixel to the frame's measured size. */
-        box-shadow:
-            0 1px 2px rgba(34, 44, 32, 0.06),
-            0 10px 24px rgba(34, 44, 32, 0.08),
-            0 28px 60px rgba(34, 44, 32, 0.06);
-        /* Picking is done in script against the alpha, so the DOM must not
-           intercept anything. The label opts back in below. */
+        border-style: dashed;
+        border-color: color-mix(in srgb, var(--accent-brand) 55%, transparent);
         pointer-events: none;
     }
 
-    .frame__label {
+    .page__label {
         position: absolute;
         left: 0;
-        border: 0;
-        padding: 0;
-        background: none;
         color: var(--text-muted);
         font-family: var(--font-family-body);
         white-space: nowrap;
-        cursor: move;
-        pointer-events: auto;
     }
 
     .layer {

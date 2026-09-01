@@ -167,6 +167,70 @@ describe("layouts", () => {
     it("returns nothing for an empty selection rather than throwing", () => {
         expect(arrange([], area, "grid")).toEqual([]);
     });
+
+    it("keeps tilted layouts inside the area, corners and all", () => {
+        // The visible complaint: pictures hanging off the edge of the page. A
+        // rotated item's swept box is bigger than the item, and that is what
+        // has to fit.
+        const { layers } = collageWith(9);
+        for (const mode of ["scatter", "collage"] as const) {
+            for (const p of arrange(layers, area, mode, { seed: 3 })) {
+                const swept = bounds({ ...layers[0], ...p, rotation: p.rotation });
+                expect(swept.x).toBeGreaterThanOrEqual(area.x - 2);
+                expect(swept.y).toBeGreaterThanOrEqual(area.y - 2);
+                expect(swept.x + swept.width).toBeLessThanOrEqual(area.x + area.width + 2);
+                expect(swept.y + swept.height).toBeLessThanOrEqual(area.y + area.height + 2);
+            }
+        }
+    });
+
+    it("packs rows without letting one hang off the side", () => {
+        // The old version scaled the finished block by height alone, so a wide
+        // row could still overflow horizontally.
+        const wide = { x: 0, y: 0, width: 500, height: 1400 };
+        const { layers } = collageWith(11, { width: 1600, height: 400 });
+        for (const p of arrange(layers, wide, "packed")) {
+            expect(p.x).toBeGreaterThanOrEqual(wide.x - 1);
+            expect(p.x + p.width).toBeLessThanOrEqual(wide.x + wide.width + 1);
+            expect(p.y + p.height).toBeLessThanOrEqual(wide.y + wide.height + 1);
+        }
+    });
+
+    it("spreads scatter evenly instead of clumping in a corner", () => {
+        // Uniform random reliably leaves bare quadrants at this count, which
+        // reads as a bug. A jittered grid does not.
+        const { layers } = collageWith(16);
+        const placements = arrange(layers, area, "scatter", { seed: 5 });
+        const quadrants = new Set(placements.map(p => {
+            const right = p.x + p.width / 2 > area.x + area.width / 2;
+            const below = p.y + p.height / 2 > area.y + area.height / 2;
+            return `${right}-${below}`;
+        }));
+        expect(quadrants.size).toBe(4);
+    });
+
+    it("makes the middle of a collage the biggest thing in it", () => {
+        const { layers } = collageWith(9);
+        const placements = arrange(layers, area, "collage", { seed: 11 });
+        const centerX = area.x + area.width / 2;
+        const centerY = area.y + area.height / 2;
+        const byDistance = [...placements].sort((a, b) =>
+            Math.hypot(a.x + a.width / 2 - centerX, a.y + a.height / 2 - centerY) -
+            Math.hypot(b.x + b.width / 2 - centerX, b.y + b.height / 2 - centerY));
+        const innermost = byDistance[0].width * byDistance[0].height;
+        const outermost = byDistance.at(-1)!.width * byDistance.at(-1)!.height;
+        expect(innermost).toBeGreaterThan(outermost);
+    });
+
+    it("overlaps in collage mode and does not in packed", () => {
+        const { layers } = collageWith(6);
+        const overlapping = (ps: ReturnType<typeof arrange>) => ps.some((a, i) =>
+            ps.slice(i + 1).some(b =>
+                a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y));
+
+        expect(overlapping(arrange(layers, area, "collage", { seed: 2 }))).toBe(true);
+        expect(overlapping(arrange(layers, area, "packed"))).toBe(false);
+    });
 });
 
 describe("resolution warnings", () => {

@@ -16,19 +16,19 @@
     import CollageCanvas from "$lib/collage/CollageCanvas.svelte";
     import ContextMenu, { type MenuItem } from "$lib/collage/ContextMenu.svelte";
     import EditPopover from "$lib/collage/EditPopover.svelte";
+    import Toasts, { createToasts } from "$lib/collage/Toasts.svelte";
     import { createStudio } from "$lib/collage/studio";
     import { createCollageTools } from "$lib/collage/tools";
-    import { FRAME_PRESETS, type ImageLayer } from "$lib/collage/model";
+    import { type ImageLayer } from "$lib/collage/model";
     import { LAYOUT_MODES, type LayoutMode } from "$lib/collage/layout";
     import { registerTools } from "$lib/webmcp";
 
     const studio = createStudio();
     const collage = studio.collage;
+    const toasts = createToasts();
 
     let selectedId = $state<string | null>(null);
     let version = $state(0);
-    let status = $state("");
-    let busy = $state(false);
     let toolsRegistered = $state(false);
     let editOpen = $state(false);
     let menu = $state<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -48,7 +48,7 @@
         try {
             const count = await studio.restore();
             if (count) {
-                status = `Restored ${count} layer${count === 1 ? "" : "s"} from your last session.`;
+                toasts.push(`Picked up where you left off — ${count} layer${count === 1 ? "" : "s"}.`);
                 canvas?.fitAll();
             }
         } catch (error) {
@@ -61,14 +61,13 @@
     async function addFiles(files: FileList | File[]) {
         const images = [...files].filter(f => f.type.startsWith("image/"));
         if (!images.length) return;
-        busy = true;
+        const many = images.length > 1;
+        const toast = toasts.push(many ? `Cutting out ${images.length} images…` : "Cutting it out…", "busy");
         let cut = 0;
         let failed: string | null = null;
         try {
             for (const [index, file] of images.entries()) {
-                status = images.length > 1
-                    ? `Cutting out ${index + 1} of ${images.length}…`
-                    : `Cutting out ${file.name}…`;
+                if (many) toast.update(`Cutting out ${index + 1} of ${images.length}…`, "busy");
                 const url = await readAsDataUrl(file);
                 const { background } = await studio.addImage(url, {
                     label: file.name.replace(/\.[^.]+$/, ""),
@@ -79,21 +78,30 @@
                         // would read as a hang.
                         if (progress.total) {
                             const pct = Math.round((progress.loaded ?? 0) / progress.total * 100);
-                            status = `Downloading the background remover… ${pct}%`;
+                            toast.update(`Fetching the background remover… ${pct}%`, "busy");
                         }
                     },
                 });
                 if (background.ok) cut++;
                 else if (!background.skipped && !failed) failed = background.reason ?? null;
             }
-            status = failed
-                ? `Added ${images.length} image${images.length > 1 ? "s" : ""}. ${failed}`
-                : `Added ${images.length} image${images.length > 1 ? "s" : ""}${cut ? `, ${cut} cut out` : ""}.`;
-            if (frames.length === 0) canvas?.fitAll();
+            toast.close();
+            if (failed) {
+                // Short here; the long version is in the tool result an agent
+                // reads, and in the console for whoever is debugging it.
+                console.warn("[collage] background removal unavailable:", failed);
+                toasts.push(
+                    `Added ${images.length}, but the background remover is unavailable. Cut them at fastcut.needle.tools.`,
+                    "error");
+            } else {
+                toasts.push(cut
+                    ? `${cut === 1 ? "Cut it out" : `Cut out ${cut}`} and added.`
+                    : `Added ${images.length}.`);
+            }
+            if (!collage.list().length || !frames.length) canvas?.fitAll();
         } catch (error) {
-            status = `Could not read that: ${message(error)}`;
-        } finally {
-            busy = false;
+            toast.close();
+            toasts.push(`Could not read that — ${message(error)}`, "error");
         }
     }
 
@@ -122,36 +130,49 @@
 
     let dragging = $state(false);
 
-    function addFrame(presetId: string) {
-        const frame = studio.addFrame({ presetId }, true);
-        status = `Added "${frame.name}".`;
+    function setPage(presetId: string) {
+        studio.setPage(presetId);
         canvas?.fitAll();
     }
 
-    function applyLayout(mode: LayoutMode) {
-        const frame = frames[0];
-        if (!frame) return;
-        const count = studio.arrange(frame.id, mode, { seed: Math.floor(Math.random() * 1000) });
-        status = count ? `Arranged ${count} layers as a ${mode}.` : "Nothing inside the frame yet.";
+    /** The page a layout needs. Created on demand so nobody has to think about it. */
+    function pageFrame() {
+        return frames[0] ?? studio.setPage(studio.pagePreset);
     }
 
+    function applyLayout(mode: LayoutMode) {
+        if (!collage.list().length) {
+            toasts.push("Nothing to arrange yet — drop some photos in.");
+            return;
+        }
+        const count = studio.arrange(pageFrame().id, mode, { seed: Math.floor(Math.random() * 1000) });
+        if (count) toasts.push(`Arranged ${count} — ${mode}.`);
+    }
+
+    /** Short, human phrasing. The long version goes to agents, not to a toast. */
+    const EXPORT_DONE = {
+        png: "Saved the PNG.",
+        print: "The print dialogue is open — pick “Save as PDF” for a file.",
+        html: "Copied the HTML. Paste it into your site.",
+        embed: "Copied a whole page. Save it as .html and host it.",
+    } as const;
+
     async function exportAs(format: "png" | "print" | "html" | "embed") {
-        const frame = frames[0];
-        if (!frame) return;
-        busy = true;
-        status = "Exporting…";
+        if (!collage.list().length) return;
+        const toast = toasts.push("Exporting…", "busy");
         try {
-            const output = await studio.exportFrame(frame.id, format, { interactive: true });
+            const output = await studio.exportFrame(pageFrame().id, format, { interactive: true });
+            let copied = false;
             if (output.code && (format === "html" || format === "embed")) {
-                await navigator.clipboard.writeText(output.code).catch(() => {});
-                status = `${output.summary} Copied to the clipboard.`;
-            } else {
-                status = output.summary;
+                copied = await navigator.clipboard.writeText(output.code).then(() => true, () => false);
             }
+            toast.close();
+            toasts.push(copied || format === "png" || format === "print"
+                ? EXPORT_DONE[format]
+                : "Saved it as a file — it was too big for the clipboard.");
         } catch (error) {
-            status = `Export failed: ${message(error)}`;
-        } finally {
-            busy = false;
+            toast.close();
+            toasts.push(`Export failed — ${message(error)}`, "error");
         }
     }
 
@@ -159,7 +180,7 @@
         await studio.clear();
         selectedId = null;
         editOpen = false;
-        status = "Cleared.";
+        toasts.push("Cleared.");
     }
 
     // ── The right-click menu ────────────────────────────────────────────────
@@ -176,7 +197,7 @@
     /** Little diagrams, so a layout is recognised before it is read. */
     const LAYOUT_ICONS = {
         grid: "layout", row: "rows", column: "columns",
-        ring: "ring", scatter: "scatter", packed: "packed",
+        ring: "ring", scatter: "scatter", packed: "packed", collage: "collage",
     } as const;
 
     function canvasMenu(): MenuItem[] {
@@ -184,31 +205,17 @@
             { label: "Add images…", icon: "image", onSelect: () => fileInput?.click() },
             { label: "Add text", icon: "text", onSelect: () => addText() },
             {
-                label: "Add frame",
-                icon: "frame",
-                items: FRAME_PRESETS.map(preset => {
-                    const size = preset.physical ?? preset.output ?? { width: 1, height: 1 };
-                    return {
-                        label: preset.name,
-                        // The icon is the paper: a portrait preset draws a tall
-                        // rectangle, a social card a wide one. You can pick the
-                        // shape you want without reading a single word.
-                        iconAspect: size.width / size.height,
-                        onSelect: () => addFrame(preset.id),
-                    };
-                }),
-            },
-            {
                 label: "Arrange",
                 icon: "layout",
-                disabled: !frames.length || !layers.length,
+                disabled: !layers.length,
+                separator: true,
                 items: LAYOUT_MODES.map(mode => ({
                     label: mode,
                     icon: LAYOUT_ICONS[mode],
                     onSelect: () => applyLayout(mode),
                 })),
             },
-            { label: "Fit the view", icon: "fit", separator: true, onSelect: () => canvas?.fitAll() },
+            { label: "Fit the view", icon: "fit", onSelect: () => canvas?.fitAll() },
         ];
     }
 
@@ -308,7 +315,13 @@
     ondragleave={e => { if (e.currentTarget === e.target) dragging = false; }}
     ondrop={onDrop}
 >
-    <CollageCanvas bind:this={canvas} {studio} bind:selectedId onContextMenu={openMenu} />
+    <CollageCanvas
+        bind:this={canvas}
+        {studio}
+        bind:selectedId
+        showPage={editOpen}
+        onContextMenu={openMenu}
+    />
 
     {#if empty && restored}
         <div class="empty">
@@ -331,19 +344,13 @@
         </svg>
     </button>
 
-    {#if busy}
-        <p class="toast" aria-live="polite">{status}</p>
-    {:else if status && !editOpen}
-        <p class="toast toast--quiet" aria-live="polite">{status}</p>
-    {/if}
+    <Toasts items={toasts.items} onDismiss={toasts.dismiss} />
 
     <EditPopover
         {studio}
         open={editOpen}
-        {status}
         {toolsRegistered}
-        onStatus={text => (status = text)}
-        onAddFrame={addFrame}
+        onSetPage={setPage}
         onArrange={applyLayout}
         onExport={exportAs}
         onClear={clearCanvas}
@@ -467,40 +474,6 @@
         stroke: currentColor;
         stroke-width: 1.75;
         stroke-linecap: round;
-    }
-
-    .toast {
-        position: fixed;
-        left: 50%;
-        bottom: 18px;
-        z-index: 30;
-        translate: -50% 0;
-        margin: 0;
-        max-width: min(560px, calc(100vw - 32px));
-        padding: 9px 14px;
-        border-radius: 999px;
-        background: var(--surface-panel);
-        color: var(--text-secondary);
-        font-size: var(--type-body-muted-size);
-        text-wrap: pretty;
-        box-shadow:
-            0 0 0 1px color-mix(in srgb, var(--border-subtle) 60%, transparent),
-            0 8px 22px rgba(34, 44, 32, 0.10);
-        animation: toast-in 0.2s cubic-bezier(0.2, 0, 0, 1);
-    }
-
-    /* Softer than the enter, and it does not shout when nothing is happening. */
-    .toast--quiet {
-        opacity: 0.75;
-    }
-
-    @keyframes toast-in {
-        from { opacity: 0; translate: -50% 6px; }
-        to { opacity: 1; translate: -50% 0; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .toast { animation: none; }
     }
 
     .file {

@@ -52,6 +52,7 @@
         ring: { stroke: ["M8 3.1a4.9 4.9 0 110 9.8 4.9 4.9 0 010-9.8z"] },
         scatter: { stroke: ["M3.4 4.2h3v3h-3z", "M9.4 3.4h3.2v3.2H9.4z", "M5.6 9.4h3.6v3.6H5.6z"] },
         packed: { stroke: ["M3 3h4.6v3.6H3z", "M8.9 3H13v3.6H8.9z", "M3 7.9h2.8V13H3z", "M7.1 7.9H13V13H7.1z"] },
+        collage: { stroke: ["M2.6 5.4l4.2-1.6 1.6 4.2-4.2 1.6z", "M8.4 7.2l4.4-.9.9 4.4-4.4.9z"] },
     } satisfies Record<string, Icon>;
 </script>
 

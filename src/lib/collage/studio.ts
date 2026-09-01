@@ -51,6 +51,8 @@ export interface AddImageOptions {
      */
     removeBackground?: boolean;
     onProgress?: (p: Progress) => void;
+    /** Who is doing this, for the event log a watching agent reads. */
+    by?: "human" | "agent";
 }
 
 export interface AddImageResult {
@@ -64,10 +66,41 @@ export interface ArrangeOptions extends LayoutOptions {
     ids?: string[];
 }
 
+/** Something that happened, for anyone watching. */
+export interface CollageEvent {
+    /** Monotonic. A watcher passes the last one it saw to avoid missing any. */
+    seq: number;
+    at: number;
+    kind:
+        | "image-added" | "text-added" | "layer-moved" | "layer-styled" | "layer-removed"
+        | "arranged" | "page-changed" | "exported" | "cleared";
+    /** One line, already phrased for an agent to read. */
+    summary: string;
+    /** Whether a person did it or an agent did. */
+    by: "human" | "agent";
+    detail?: object;
+}
+
 export interface CollageStudio {
     readonly collage: Collage;
     addImage(url: string, options?: AddImageOptions): Promise<AddImageResult>;
     addFrame(spec: AddFrameSpec, fitContents: boolean): Frame;
+    /**
+     * The single output page. Frames are an export setting here, not objects on
+     * the canvas — there is at most one, and the canvas never asks anyone to
+     * manage it.
+     */
+    setPage(presetId: string): Frame;
+    readonly page: Frame | null;
+    readonly pagePreset: string;
+    /** Re-fit a free-form page around whatever is on the canvas now. */
+    refitPage(): void;
+    /** Note something that happened, for watchers. */
+    record(kind: CollageEvent["kind"], summary: string, by?: "human" | "agent", detail?: object): void;
+    /** Everything since `seq`. */
+    eventsSince(seq: number): CollageEvent[];
+    /** Resolves as soon as anything happens after `seq`, or empty on timeout. */
+    waitForEvents(seq: number, timeoutMs: number, signal?: AbortSignal): Promise<CollageEvent[]>;
     arrange(frameId: string, mode: LayoutMode, options?: ArrangeOptions): number;
     preview(frameId: string, maxSize?: number): Promise<string>;
     exportFrame(frameId: string, format: ExportFormat, options?: ExportOptions): Promise<ExportOutput>;
@@ -87,12 +120,52 @@ const MAX_INLINE_CODE_CHARS = 12000;
 const FIT_MARGIN = 1.16;
 /** Saving on every pointer move would write hundreds of times per drag. */
 const SAVE_DEBOUNCE_MS = 600;
+/** A watcher only ever needs recent history; older events are not worth holding. */
+const MAX_EVENTS = 200;
+/** The page id meaning "no fixed size — whatever is on the canvas". */
+export const FREE_PAGE = "free";
+/** Breathing room left around the contents when a free page is fitted. */
+const FREE_PAGE_MARGIN = 1.08;
 
 export function createStudio(collage = new Collage()): CollageStudio {
     const images = new Map<string, LoadedImage>();
     const objectUrls = new Set<string>();
     let lastView: StoredView | undefined;
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const events: CollageEvent[] = [];
+    const waiters = new Set<() => void>();
+    let sequence = 0;
+    let pagePreset = FREE_PAGE;
+
+    const record = (
+        kind: CollageEvent["kind"],
+        summary: string,
+        by: "human" | "agent" = "human",
+        detail?: object,
+    ) => {
+        events.push({ seq: ++sequence, at: Date.now(), kind, summary, by, ...(detail ? { detail } : {}) });
+        if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
+        // Wake every watcher; each re-reads from its own cursor.
+        for (const wake of [...waiters]) wake();
+    };
+
+    /** The one page, if there is one. */
+    const pageFrame = (): Frame | null => collage.listFrames()[0] ?? null;
+
+    /** A free page is just the contents with a little air around them. */
+    const freePageRect = (): Rect => {
+        const contents = collage.contentBounds();
+        if (!contents) return { x: -400, y: -300, width: 800, height: 600 };
+        const width = Math.max(200, contents.width * FREE_PAGE_MARGIN);
+        const height = Math.max(200, contents.height * FREE_PAGE_MARGIN);
+        return {
+            x: contents.x + contents.width / 2 - width / 2,
+            y: contents.y + contents.height / 2 - height / 2,
+            width,
+            height,
+        };
+    };
 
     const trackUrl = (url: string) => {
         objectUrls.add(url);
@@ -163,6 +236,87 @@ export function createStudio(collage = new Collage()): CollageStudio {
         collage,
         images,
 
+        get page() {
+            return pageFrame();
+        },
+
+        get pagePreset() {
+            return pagePreset;
+        },
+
+        /**
+         * Point the output at a page size.
+         *
+         * There is always at most one frame and the canvas never shows it as
+         * something to manage — two overlapping sheets of paper that could not
+         * be deleted was the whole problem with treating them as objects.
+         */
+        setPage(presetId) {
+            pagePreset = presetId;
+            // Start from none: a page carries its physical size and output
+            // pixels, which a resize cannot change, so switching means
+            // replacing. Anything beyond the first is left over from when
+            // frames were objects on the canvas.
+            for (const frame of collage.listFrames()) collage.removeFrame(frame.id);
+
+            if (presetId === FREE_PAGE) {
+                const frame = collage.addFrame({ name: "Canvas", ...freePageRect() });
+                record("page-changed", "The output now follows whatever is on the canvas.");
+                return frame;
+            }
+
+            const preset = findPreset(presetId);
+            const size = preset ? presetCanvasSize(preset) : { width: 800, height: 600 };
+            // Centre it on the work, rather than making the view jump to the origin.
+            const contents = collage.contentBounds();
+            const centerX = contents ? contents.x + contents.width / 2 : 0;
+            const centerY = contents ? contents.y + contents.height / 2 : 0;
+            const frame = collage.addFrame({
+                presetId,
+                x: centerX - size.width / 2,
+                y: centerY - size.height / 2,
+                width: size.width,
+                height: size.height,
+            });
+            record("page-changed", `The output is now ${preset?.name ?? presetId}.`);
+            return frame;
+        },
+
+        refitPage() {
+            if (pagePreset !== FREE_PAGE) return;
+            const frame = pageFrame();
+            if (frame) collage.updateFrame(frame.id, freePageRect());
+        },
+
+        record,
+
+        eventsSince(seq) {
+            return events.filter(event => event.seq > seq);
+        },
+
+        waitForEvents(seq, timeoutMs, signal) {
+            const ready = events.filter(event => event.seq > seq);
+            if (ready.length) return Promise.resolve(ready);
+            if (signal?.aborted) return Promise.resolve([]);
+
+            return new Promise(resolve => {
+                const finish = (result: CollageEvent[]) => {
+                    waiters.delete(wake);
+                    clearTimeout(timer);
+                    signal?.removeEventListener("abort", onAbort);
+                    resolve(result);
+                };
+                const wake = () => finish(events.filter(event => event.seq > seq));
+                // Returning empty rather than hanging: an agent's tool call has
+                // its own timeout, and "nothing happened, ask again" is a much
+                // better answer than a call that never comes back.
+                const timer = setTimeout(() => finish([]), timeoutMs);
+                const onAbort = () => finish([]);
+                signal?.addEventListener("abort", onAbort, { once: true });
+                waiters.add(wake);
+            });
+        },
+
         async addImage(url, options = {}) {
             const wantsCut = options.removeBackground !== false;
             // Load once up front: the coverage tells us whether this is already
@@ -213,6 +367,11 @@ export function createStudio(collage = new Collage()): CollageStudio {
                     { width: loaded.width, height: loaded.height }, loaded.crop);
             }
 
+            record(
+                "image-added",
+                `"${layer.label}" was added${background.ok ? " and its background removed" : ""}.`,
+                options.by ?? "human",
+                { id: layer.id, label: layer.label, backgroundRemoved: background.ok });
             return { layer: collage.get(layer.id) as ImageLayer, loaded, background };
         },
 
@@ -269,10 +428,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
                     rotation: placement.rotation,
                 });
             }
+            record("arranged", `${placements.length} layers were arranged as a ${mode}.`, "human", { mode, count: placements.length });
             return placements.length;
         },
 
         async preview(frameId, maxSize = 640) {
+            // A free page has no size of its own, so it is re-fitted to the
+            // contents at the moment anyone asks to see it.
+            this.refitPage();
             const frame = frameOrThrow(frameId);
             return previewDataUrl(frame, layersOf(frameId), images, maxSize);
         },
@@ -298,7 +461,12 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 restored.push({ ...layer, src: trackUrl(URL.createObjectURL(blob)) });
             }
 
-            collage.restore(restored, doc.frames);
+            // Sessions saved when frames were canvas objects can hold several.
+            // There is no interface for a second one any more, so the first
+            // becomes the page and the rest are dropped.
+            const frames = doc.frames.slice(0, 1);
+            pagePreset = frames[0]?.presetId ?? FREE_PAGE;
+            collage.restore(restored, frames);
             // Decode in parallel — a dozen images should not be a dozen waits.
             await Promise.all(restored
                 .filter((l): l is ImageLayer => l.kind === "image")
@@ -318,14 +486,18 @@ export function createStudio(collage = new Collage()): CollageStudio {
             objectUrls.clear();
             images.clear();
             collage.restore([], []);
+            pagePreset = FREE_PAGE;
             clearDoc();
             await clearImages();
+            record("cleared", "The canvas was cleared.");
         },
 
         async exportFrame(frameId, format, options = {}) {
+            this.refitPage();
             const frame = frameOrThrow(frameId);
             const layers = layersOf(frameId);
             const dpi = options.dpi ?? 300;
+            record("exported", `Exported "${frame.name}" as ${format}.`, "human", { format });
 
             if (format === "png") {
                 const size = outputSize(frame, dpi);

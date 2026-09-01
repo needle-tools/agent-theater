@@ -210,12 +210,16 @@
           "description": "Add a headline or caption. It stays real text in the exported HTML."
         },
         {
-          "name": "collage_add_frame",
-          "description": "Add an output frame — A4, US Letter, square post, story, og:image, slide, web hero, or a custom size in mm or px."
+          "name": "collage_set_page",
+          "description": "Choose what the collage is for, which sets the export size: free canvas, A4, US Letter, square post, story, og:image, slide or web hero."
         },
         {
           "name": "collage_arrange",
-          "description": "Lay the images out inside a frame: grid, row, column, ring, scatter or packed."
+          "description": "Lay the images out: grid, row, column, ring, scatter, packed, or collage — overlapping and tilted."
+        },
+        {
+          "name": "collage_watch",
+          "description": "Block until something changes on the canvas, then return what happened. Call in a loop to follow along while a person works."
         },
         {
           "name": "collage_transform",
@@ -430,8 +434,8 @@
         {
           "app": "collage",
           "url": "https://webmcp.needle.tools/collage",
-          "tools": ["collage_add_image", "collage_add_frame", "collage_arrange", "collage_preview"],
-          "instruction": "Open the collage page and pass each photo straight to collage_add_image — the page removes the background itself, so do not open FastCut first. Add the output you actually want with collage_add_frame — 'a4-portrait' for print, 'og-1200x630' for a social card, 'web-hero' for a page banner. Then collage_arrange, and look at the result with collage_preview before deciding anything is finished."
+          "tools": ["collage_add_image", "collage_set_page", "collage_arrange", "collage_preview"],
+          "instruction": "Open the collage page and pass each photo straight to collage_add_image — the page removes the background itself, so do not open FastCut first. Say what it is for with collage_set_page — 'a4-portrait' for print, 'og-1200x630' for a social card, 'web-hero' for a page banner, or leave it free. Then collage_arrange ('collage' overlaps and tilts them; 'packed' is tidy justified rows), and look at the result with collage_preview before deciding anything is finished."
         },
         {
           "app": "collage",

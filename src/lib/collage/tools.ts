@@ -20,7 +20,7 @@
 import { FRAME_PRESETS, outputSize, type Frame, type ImageLayer, type Layer } from "./model.js";
 import { LAYOUT_MODES, type LayoutMode } from "./layout.js";
 import { checkFrame } from "./quality.js";
-import type { CollageStudio, ExportFormat } from "./studio.js";
+import { FREE_PAGE, type CollageStudio, type ExportFormat } from "./studio.js";
 
 export interface ToolResult {
     content: Array<
@@ -37,7 +37,8 @@ export interface WebMcpToolDef {
     description: string;
     inputSchema: object;
     annotations?: object;
-    execute: (args: any) => Promise<ToolResult>;
+    /** WebMCP passes an AbortSignal, which a long-running tool must honour. */
+    execute: (args: any, options?: { signal?: AbortSignal }) => Promise<ToolResult>;
 }
 
 const ok = (text: string, structured?: object): ToolResult => ({
@@ -70,23 +71,28 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
         return `${frame.id} — "${frame.name}" (${kind}), ${inside.length} layer(s) inside`;
     };
 
-    /** Resolve a frame argument, defaulting to the only frame when there is one. */
+    /**
+     * The page being worked on.
+     *
+     * There is always one: a canvas with nothing set gets a free-form page that
+     * simply follows the contents. Making an agent create a frame before it
+     * could arrange or preview anything was a step that taught it nothing.
+     */
     const resolveFrame = (id: unknown): { frame: Frame } | { error: ToolResult } => {
-        const frames = collage.listFrames();
         if (typeof id === "string" && id) {
             const frame = collage.getFrame(id);
-            if (!frame) return { error: fail(`There is no frame with id "${id}". Call collage_describe to see the frames.`) };
+            if (!frame) return { error: fail(`There is no page with id "${id}". Call collage_describe to see it.`) };
             return { frame };
         }
-        if (frames.length === 1) return { frame: frames[0] };
-        if (!frames.length) {
-            return { error: fail(
-                `There is no frame yet — a frame is what decides the output size. ` +
-                `Call collage_add_frame first, e.g. preset "a4-portrait" or "og-1200x630".`) };
-        }
-        return { error: fail(
-            `There are ${frames.length} frames; pass "frameId" to say which one. ` +
-            frames.map(f => `${f.id} ("${f.name}")`).join(", ")) };
+        const frames = collage.listFrames();
+        if (frames.length) return { frame: frames[0] };
+        return { frame: studio.setPage(FREE_PAGE) };
+    };
+
+    /** The newest event sequence number, or 0 when nothing has happened. */
+    const latestCursor = (): number => {
+        const all = studio.eventsSince(0);
+        return all.length ? all[all.length - 1].seq : 0;
     };
 
     const requireLayer = (id: unknown): { layer: Layer } | { error: ToolResult } => {
@@ -102,7 +108,7 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
             title: "Describe the collage",
             annotations: { readOnlyHint: true },
             description:
-                "List everything on the canvas and every frame, with sizes and any resolution problems. " +
+                "Everything on the canvas, the output page, and any resolution problems. " +
                 "Call before changing anything, and call collage_preview to actually see it.",
             inputSchema: { type: "object", properties: {} },
             async execute() {
@@ -113,19 +119,21 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 const parts = [
                     frames.length
-                        ? `Frames:\n${frames.map(describeFrame).join("\n")}`
-                        : `No frames yet. A frame decides the output size — add one with collage_add_frame.`,
+                        ? `Page: ${frames.map(describeFrame).join("\n")}`
+                        : `Page: none set yet — it defaults to "${FREE_PAGE}", the canvas itself. ` +
+                          `Use collage_set_page for a fixed size like a4-portrait.`,
                     layers.length
                         ? `Layers (back to front):\n${layers.map(describeLayer).join("\n")}`
-                        : `The canvas is empty. Add cut-outs with collage_add_image.`,
+                        : `The canvas is empty. Add photos with collage_add_image — backgrounds come off automatically.`,
                 ];
                 if (warnings.length) parts.push(`Resolution:\n${warnings.join("\n")}`);
 
                 return ok(parts.join("\n\n"), {
                     layers,
                     frames,
+                    page: studio.pagePreset,
                     quality,
-                    presets: FRAME_PRESETS.map(p => p.id),
+                    pages: [FREE_PAGE, ...FRAME_PRESETS.map(p => p.id)],
                 });
             },
         },
@@ -251,53 +259,38 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_add_frame",
-            title: "Add an output frame",
+            name: "collage_set_page",
+            title: "Set the output page",
             description:
-                "Add a frame — the rectangle that gets exported, and the thing that sets the output size. " +
-                `Presets: ${FRAME_PRESETS.map(p => p.id).join(", ")}. ` +
-                "By default it wraps everything already on the canvas.",
+                "Choose what the collage is being made for, which sets the export size and shape. " +
+                `"${FREE_PAGE}" means no fixed size — the output is simply whatever is on the canvas. ` +
+                `Otherwise: ${FRAME_PRESETS.map(p => p.id).join(", ")}. ` +
+                "There is only ever one page; calling this again changes it rather than adding another.",
             inputSchema: {
                 type: "object",
                 properties: {
-                    preset: { type: "string", description: `One of: ${FRAME_PRESETS.map(p => p.id).join(", ")}.` },
-                    name: { type: "string" },
-                    fitContents: { type: "boolean", description: "Place it around what is already on the canvas. Default true." },
-                    background: { type: "string", description: "CSS colour behind the layers. Default white." },
-                    widthMm: { type: "number", description: "Custom paper width in mm (with heightMm, instead of a preset)." },
-                    heightMm: { type: "number" },
-                    widthPx: { type: "number", description: "Custom pixel width (with heightPx, instead of a preset)." },
-                    heightPx: { type: "number" },
+                    page: {
+                        type: "string",
+                        description: `"${FREE_PAGE}", or one of: ${FRAME_PRESETS.map(p => p.id).join(", ")}.`,
+                    },
                 },
+                required: ["page"],
             },
-            async execute(args: any) {
-                const presetId = typeof args?.preset === "string" ? args.preset : undefined;
-                if (presetId && !FRAME_PRESETS.some(p => p.id === presetId))
-                    return fail(`"${presetId}" is not a preset. Use one of: ${FRAME_PRESETS.map(p => p.id).join(", ")}.`);
-                const physical = num(args?.widthMm) && num(args?.heightMm)
-                    ? { width: args.widthMm, height: args.heightMm, unit: "mm" as const }
-                    : undefined;
-                const output = num(args?.widthPx) && num(args?.heightPx)
-                    ? { width: args.widthPx, height: args.heightPx }
-                    : undefined;
-                if (!presetId && !physical && !output)
-                    return fail(`Pass a "preset", or a custom size as widthMm/heightMm or widthPx/heightPx.`);
+            async execute(args: { page?: string }) {
+                const page = str(args?.page);
+                if (page !== FREE_PAGE && !FRAME_PRESETS.some(p => p.id === page))
+                    return fail(`"${page}" is not a page size. Use "${FREE_PAGE}", or one of: ${FRAME_PRESETS.map(p => p.id).join(", ")}.`);
 
-                const frame = studio.addFrame({
-                    presetId,
-                    name: typeof args?.name === "string" ? args.name : undefined,
-                    background: typeof args?.background === "string" ? args.background : undefined,
-                    physical,
-                    output,
-                }, args?.fitContents !== false);
-
+                const frame = studio.setPage(page);
                 const size = outputSize(frame);
                 const inside = collage.layersIn(frame.id);
                 return ok(
-                    `Added frame ${frame.id} — "${frame.name}", exports at ${size.width}×${size.height}px` +
-                    `${frame.physical ? ` (${frame.physical.width}×${frame.physical.height}mm at 300 dpi)` : ""}. ` +
-                    `${inside.length} layer(s) fall inside it. Arrange them with collage_arrange.`,
-                    { frame, layersInside: inside.length });
+                    page === FREE_PAGE
+                        ? `The page now follows the canvas — it exports whatever is on it (currently ${size.width}×${size.height}px).`
+                        : `The page is "${frame.name}", exporting at ${size.width}×${size.height}px` +
+                          `${frame.physical ? ` (${frame.physical.width}×${frame.physical.height}mm at 300 dpi)` : ""}. ` +
+                          `${inside.length} layer(s) fall inside it — collage_arrange will fit them.`,
+                    { frame, page, layersInside: inside.length });
             },
         },
         {
@@ -434,6 +427,42 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                 const layer = collage.remove(id);
                 if (!layer) return fail(`There is nothing with id "${id}". Call collage_describe.`);
                 return ok(`Removed "${layer.label}".`, { layer });
+            },
+        },
+        {
+            name: "collage_watch",
+            title: "Watch the collage for changes",
+            annotations: { readOnlyHint: true },
+            description:
+                "Wait until something changes on the canvas, then return what happened — images added, " +
+                "layers moved, styles changed, exports. Blocks until there is news or the wait runs out, " +
+                "so call it in a loop to follow along while a person works. " +
+                "Pass the `nextCursor` from the previous call so nothing is missed between calls.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    cursor: { type: "number", description: "The nextCursor from your last call. Omit to start from now." },
+                    timeoutSeconds: { type: "number", description: "How long to wait, 1–30. Default 25." },
+                },
+            },
+            async execute(args: { cursor?: number; timeoutSeconds?: number }, options?: { signal?: AbortSignal }) {
+                const timeout = Math.min(30, Math.max(1, args?.timeoutSeconds ?? 25)) * 1000;
+                // No cursor means "from now": replaying an hour of history to
+                // an agent that just started watching helps nobody.
+                const cursor = num(args?.cursor) ? args.cursor : latestCursor();
+                const events = await studio.waitForEvents(cursor, timeout, options?.signal);
+                const nextCursor = events.length ? events[events.length - 1].seq : cursor;
+
+                if (!events.length) {
+                    return ok(
+                        `Nothing happened in the last ${Math.round(timeout / 1000)}s. ` +
+                        `Call again with cursor ${nextCursor} to keep watching.`,
+                        { events: [], nextCursor, idle: true });
+                }
+                return ok(
+                    events.map(e => `${e.by === "agent" ? "[agent]" : "[person]"} ${e.summary}`).join("\n") +
+                    `\n\nCall again with cursor ${nextCursor} to keep watching.`,
+                    { events, nextCursor, idle: false });
             },
         },
         {

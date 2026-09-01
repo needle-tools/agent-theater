@@ -11,34 +11,30 @@
     import { FRAME_PRESETS, outputSize } from "./model.js";
     import { LAYOUT_MODES, type LayoutMode } from "./layout.js";
     import { checkFrame } from "./quality.js";
-    import type { CollageStudio } from "./studio.js";
+    import { FREE_PAGE, type CollageStudio } from "./studio.js";
 
     interface Props {
         studio: CollageStudio;
         open: boolean;
-        status: string;
         toolsRegistered: boolean;
-        onStatus: (text: string) => void;
-        onAddFrame: (presetId: string) => void;
+        onSetPage: (presetId: string) => void;
         onArrange: (mode: LayoutMode) => void;
         onExport: (format: "png" | "print" | "html" | "embed") => void;
         onClear: () => void;
         onClose: () => void;
     }
 
-    let {
-        studio, open, status, toolsRegistered,
-        onAddFrame, onArrange, onExport, onClear, onClose,
-    }: Props = $props();
+    let { studio, open, toolsRegistered, onSetPage, onArrange, onExport, onClear, onClose }: Props = $props();
 
     let version = $state(0);
     $effect(() => studio.collage.onChanged(() => version++));
 
-    let presetId = $state("a4-portrait");
     let panel: HTMLDivElement | null = $state(null);
 
     const frames = $derived.by(() => (version, studio.collage.listFrames()));
     const activeFrame = $derived(frames[0] ?? null);
+    const page = $derived.by(() => (version, studio.pagePreset));
+    const hasLayers = $derived.by(() => (version, studio.collage.list().length > 0));
     const quality = $derived.by(() =>
         (version, activeFrame ? checkFrame(studio.collage.layersIn(activeFrame.id), activeFrame) : null));
     const size = $derived(activeFrame ? outputSize(activeFrame) : null);
@@ -56,24 +52,20 @@
 {#if open}
     <div class="panel" bind:this={panel} role="dialog" aria-label="Collage options">
         <section style:--i="0">
-            <h2>Frame</h2>
-            <div class="row">
-                <select bind:value={presetId} aria-label="Frame preset">
-                    {#each FRAME_PRESETS as preset (preset.id)}
-                        <option value={preset.id}>{preset.name}</option>
-                    {/each}
-                </select>
-                <button class="primary" onclick={() => onAddFrame(presetId)}>Add</button>
-            </div>
-            {#if activeFrame && size}
+            <h2>Making</h2>
+            <select value={page} aria-label="Output size" onchange={e => onSetPage((e.currentTarget as HTMLSelectElement).value)}>
+                <option value={FREE_PAGE}>Free canvas — no fixed size</option>
+                {#each FRAME_PRESETS as preset (preset.id)}
+                    <option value={preset.id}>{preset.name}</option>
+                {/each}
+            </select>
+            {#if size}
                 <p class="note">
-                    <strong>{activeFrame.name}</strong> exports at
-                    <span class="num">{size.width}×{size.height}</span>px{activeFrame.physical
+                    Exports at <span class="num">{size.width}×{size.height}</span>px{activeFrame?.physical
                         ? ` — ${activeFrame.physical.width}×${activeFrame.physical.height}mm at 300 dpi`
                         : ""}.
+                    {#if page === FREE_PAGE}The outline follows whatever you put on the canvas.{/if}
                 </p>
-            {:else}
-                <p class="note">A frame decides the output size. Add one to export.</p>
             {/if}
         </section>
 
@@ -81,7 +73,7 @@
             <h2>Arrange</h2>
             <div class="chips">
                 {#each LAYOUT_MODES as mode (mode)}
-                    <button class="chip" disabled={!activeFrame} onclick={() => onArrange(mode)}>{mode}</button>
+                    <button class="chip" disabled={!hasLayers} onclick={() => onArrange(mode)}>{mode}</button>
                 {/each}
             </div>
         </section>
@@ -89,10 +81,10 @@
         <section style:--i="2">
             <h2>Export</h2>
             <div class="grid">
-                <button disabled={!activeFrame} onclick={() => onExport("png")}>PNG</button>
-                <button disabled={!activeFrame} onclick={() => onExport("print")}>Print / PDF</button>
-                <button disabled={!activeFrame} onclick={() => onExport("html")}>Copy HTML</button>
-                <button disabled={!activeFrame} onclick={() => onExport("embed")}>Embed page</button>
+                <button disabled={!hasLayers} onclick={() => onExport("png")}>PNG</button>
+                <button disabled={!hasLayers} onclick={() => onExport("print")}>Print / PDF</button>
+                <button disabled={!hasLayers} onclick={() => onExport("html")}>Copy HTML</button>
+                <button disabled={!hasLayers} onclick={() => onExport("embed")}>Embed page</button>
             </div>
             {#if quality?.summary}
                 <p class="warn">{quality.summary}</p>
@@ -102,10 +94,9 @@
         <footer style:--i="3">
             <p class="muted">
                 {toolsRegistered
-                    ? "WebMCP tools are registered — an agent in this tab can build this with you."
+                    ? "WebMCP tools are registered — an agent in this tab can build this with you, and can watch what you do."
                     : "WebMCP is off in this browser. The editor works regardless."}
             </p>
-            {#if status}<p class="status" aria-live="polite">{status}</p>{/if}
             <button class="quiet" onclick={onClear}>Clear the canvas</button>
         </footer>
     </div>
@@ -163,14 +154,8 @@
         color: var(--text-muted);
     }
 
-    .row {
-        display: flex;
-        gap: 6px;
-    }
-
-    .row select {
-        flex: 1;
-        min-width: 0;
+    select {
+        width: 100%;
     }
 
     .grid {
