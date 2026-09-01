@@ -31,6 +31,20 @@ export interface LoadedImage {
     colors: string[];
     /** Fraction of pixels with meaningful alpha — near 1 means "not a cut-out". */
     coverage: number;
+    /**
+     * Coarse alpha grid for hit testing. A cut-out's bounding box is mostly
+     * empty — the corners of a circle are half the box — and a click landing on
+     * that emptiness must fall through to whatever is behind, or the canvas
+     * feels like it is grabbing at thin air.
+     */
+    mask: AlphaMask | null;
+}
+
+export interface AlphaMask {
+    /** One byte per cell: 1 where the image is opaque enough to click. */
+    data: Uint8Array;
+    width: number;
+    height: number;
 }
 
 /** Pixels below this alpha are treated as empty when measuring the shape. */
@@ -48,19 +62,21 @@ export async function loadImage(src: string): Promise<LoadedImage> {
     let crop: CropBox = { x: 0, y: 0, width: 1, height: 1 };
     let colors: string[] = [];
     let coverage = 1;
+    let mask: AlphaMask | null = null;
 
     try {
         const sample = sampleImage(image, width, height);
         crop = alphaBounds(sample);
         colors = dominantColors(sample);
         coverage = alphaCoverage(sample);
+        mask = alphaMask(sample);
     } catch {
         // A SecurityError here means cross-origin pixels. Everything still
         // works except reading them back, so carry on with the full rect.
         tainted = true;
     }
 
-    return { src, image, width, height, tainted, crop, colors, coverage };
+    return { src, image, width, height, tainted, crop, colors, coverage, mask };
 }
 
 function decode(src: string): Promise<HTMLImageElement> {
@@ -127,6 +143,46 @@ export function alphaBounds(pixels: Pixels): CropBox {
         width: (maxX - minX + 1) / width,
         height: (maxY - minY + 1) / height,
     };
+}
+
+/** Longest edge of the hit-testing grid. Fine enough for a pointer, cheap to keep. */
+const MASK_SIZE = 96;
+
+/**
+ * A coarse opaque/transparent grid, for deciding whether a click landed on the
+ * picture or on the empty part of its box.
+ *
+ * Deliberately generous: a cell counts as hittable if *any* pixel in it is
+ * opaque. Being slightly too easy to grab is a much smaller annoyance than a
+ * thin shape you cannot pick up.
+ */
+export function alphaMask(pixels: Pixels, size = MASK_SIZE): AlphaMask {
+    const scale = Math.min(1, size / Math.max(pixels.width, pixels.height));
+    const width = Math.max(1, Math.round(pixels.width * scale));
+    const height = Math.max(1, Math.round(pixels.height * scale));
+    const data = new Uint8Array(width * height);
+    for (let y = 0; y < pixels.height; y++) {
+        const row = Math.min(height - 1, Math.floor((y / pixels.height) * height));
+        for (let x = 0; x < pixels.width; x++) {
+            if (pixels.data[(y * pixels.width + x) * 4 + 3] <= ALPHA_THRESHOLD) continue;
+            data[row * width + Math.min(width - 1, Math.floor((x / pixels.width) * width))] = 1;
+        }
+    }
+    return { data, width, height };
+}
+
+/**
+ * Is the point opaque? `u`/`v` are fractions of the *cropped* region, which is
+ * what a layer's box actually shows.
+ */
+export function maskHit(mask: AlphaMask | null, crop: CropBox, u: number, v: number): boolean {
+    // No readable pixels — fall back to the box, so a cross-origin image can
+    // still be picked up at all.
+    if (!mask) return true;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return false;
+    const x = Math.min(mask.width - 1, Math.max(0, Math.floor((crop.x + u * crop.width) * mask.width)));
+    const y = Math.min(mask.height - 1, Math.max(0, Math.floor((crop.y + v * crop.height) * mask.height)));
+    return mask.data[y * mask.width + x] === 1;
 }
 
 /** Fraction of pixels that are not transparent. */

@@ -190,7 +190,7 @@
       "id": "collage",
       "name": "Needle Collage",
       "url": "https://webmcp.needle.tools/collage",
-      "description": "Build a collage from cut-out images on an infinite canvas, then export it as a print page, an image, or code for a website. Frames decide the output: drop an A4 frame around the work for print, an og:image frame for a social card, a hero frame for a web page — one canvas, several deliverables. Cut-outs are measured to their visible shape, and their transparency drives silhouettes, sticker outlines and shadows. The natural downstream of FastCut: cut the backgrounds there, arrange them here.",
+      "description": "Build a collage from cut-out images on an infinite canvas, then export it as a print page, an image, or code for a website. Backgrounds are removed automatically as images arrive — the page runs FastCut's remover itself, so an agent passes the original photo and never needs a second tab for it. Frames decide the output: drop an A4 frame around the work for print, an og:image frame for a social card, a hero frame for a web page — one canvas, several deliverables. Cut-outs are measured to their visible shape, and their transparency drives silhouettes, sticker outlines and shadows. The collage survives a reload.",
       "status": "live",
       "tools": [
         {
@@ -199,7 +199,11 @@
         },
         {
           "name": "collage_add_image",
-          "description": "Put an image on the canvas from an http(s) or data: URL. Cut-outs are cropped to their visible shape."
+          "description": "Put an image on the canvas from an http(s) or data: URL. The background is removed automatically — pass the original photo, do not cut it out first."
+        },
+        {
+          "name": "collage_remove_background",
+          "description": "Re-run background removal on a layer already on the canvas."
         },
         {
           "name": "collage_add_text",
@@ -424,16 +428,10 @@
       "keywords": ["collage", "poster", "moodboard", "mood board", "montage", "cut out", "cutout", "silhouette", "a4", "print", "pdf", "flyer", "zine", "og image", "social card", "hero", "embed"],
       "steps": [
         {
-          "app": "fastcut",
-          "url": "https://fastcut.needle.tools",
-          "tools": ["fastcut_add_image", "fastcut_set_method", "fastcut_get_image"],
-          "instruction": "Open FastCut and load each photo with fastcut_add_image (a data: URL works for a local file). Check a cut with fastcut_set_method if it looks wrong. Read each finished cut-out back with fastcut_get_image — ask for the largest version available, because a collage printed on A4 needs far more pixels than one on screen."
-        },
-        {
           "app": "collage",
           "url": "https://webmcp.needle.tools/collage",
           "tools": ["collage_add_image", "collage_add_frame", "collage_arrange", "collage_preview"],
-          "instruction": "Open the collage page and pass each cut-out to collage_add_image as a data URL. Add the output you actually want with collage_add_frame — 'a4-portrait' for print, 'og-1200x630' for a social card, 'web-hero' for a page banner. Then collage_arrange, and look at the result with collage_preview before deciding anything is finished."
+          "instruction": "Open the collage page and pass each photo straight to collage_add_image — the page removes the background itself, so do not open FastCut first. Add the output you actually want with collage_add_frame — 'a4-portrait' for print, 'og-1200x630' for a social card, 'web-hero' for a page banner. Then collage_arrange, and look at the result with collage_preview before deciding anything is finished."
         },
         {
           "app": "collage",
@@ -448,7 +446,7 @@
           "instruction": "Export: 'png' for an image, 'print' to open the print dialogue (Save as PDF for paper), 'html' for a responsive snippet to paste into a site, 'embed' for a whole page to host. The same canvas can carry several frames, so one arrangement can produce a poster and a social card without redoing the work."
         }
       ],
-      "note": "Needs an agent that can work across two tabs. Watch the resolution warnings — a cut-out that looks sharp on screen can be a smear on A4, and the collage tools say so before it is printed rather than after."
+      "note": "One tab is enough — the collage page cuts the backgrounds itself. If it reports that the remover could not be loaded, fall back to FastCut (fastcut_add_image, then fastcut_get_image) and pass the transparent PNG to collage_add_image with removeBackground: false. Watch the resolution warnings either way: a cut-out that looks sharp on screen can be a smear on A4, and the collage tools say so before it is printed rather than after."
     },
     {
       "id": "debug-scene",

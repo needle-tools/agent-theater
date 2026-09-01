@@ -133,27 +133,32 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "collage_add_image",
             title: "Add an image to the collage",
             description:
-                "Put an image on the canvas from an http(s) or data: URL. Cut-outs with transparency are " +
-                "measured to their visible shape. Returns the layer id, its colours and whether it is a cut-out.",
+                "Put an image on the canvas from an http(s) or data: URL. " +
+                "The background is removed automatically — this page cuts it out in the browser, so do NOT " +
+                "open FastCut or any other tool first; just pass the original photo. " +
+                "An image that is already transparent is left alone. Pass removeBackground: false to keep a " +
+                "background on purpose. The result says what happened, and what to do if the cut could not run.",
             inputSchema: {
                 type: "object",
                 properties: {
-                    url: { type: "string", description: "http(s) or data: URL. FastCut's fastcut_get_image returns a usable data URL." },
+                    url: { type: "string", description: "http(s) or data: URL of the original photo — no need to cut it out first." },
                     label: { type: "string", description: "A name you will recognise later, e.g. 'red sneaker'." },
+                    removeBackground: { type: "boolean", description: "Default true. Set false only to keep the background deliberately." },
                     x: { type: "number", description: "Canvas x. Omit to place it automatically." },
                     y: { type: "number", description: "Canvas y." },
                     width: { type: "number", description: "Canvas width. Height follows the aspect ratio." },
                 },
                 required: ["url"],
             },
-            async execute(args: { url?: string; label?: string; x?: number; y?: number; width?: number }) {
+            async execute(args: { url?: string; label?: string; removeBackground?: boolean; x?: number; y?: number; width?: number }) {
                 const url = str(args?.url);
                 if (!url) return fail(`Pass a "url" — http(s) or data:.`);
                 if (!/^(https?:|data:image\/)/i.test(url))
                     return fail(`"${truncate(url, 60)}" is not an image URL. Use http(s), or a data:image/… URL.`);
                 try {
-                    const { layer, loaded } = await studio.addImage(url, {
+                    const { layer, loaded, background } = await studio.addImage(url, {
                         label: args?.label,
+                        removeBackground: args?.removeBackground,
                         x: args?.x,
                         y: args?.y,
                         width: args?.width,
@@ -161,17 +166,55 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                     const cutout = loaded.coverage < 0.95;
                     const notes = [
                         `${loaded.width}×${loaded.height}px`,
-                        cutout ? "transparent cut-out" : "opaque image",
                         loaded.colors.length ? `colours ${loaded.colors.slice(0, 3).join(", ")}` : null,
-                        loaded.tainted ? "pixels are not readable (served without CORS) — it will display but cannot be exported" : null,
+                        loaded.tainted ? "pixels are not readable (served without CORS) — it displays but cannot be exported" : null,
                     ].filter(Boolean);
+
+                    // Say plainly what happened to the background. An agent that
+                    // is told the cut failed can route around it; one that is
+                    // told nothing ships a collage of photo-shaped rectangles.
+                    const cut = background.ok
+                        ? "Background removed."
+                        : background.skipped
+                            ? "It was already a cut-out, so it was left as it is."
+                            : `The background was NOT removed — ${background.reason}`;
+
                     return ok(
-                        `Added "${layer.label}" as ${layer.id} — ${notes.join(", ")}. ` +
+                        `Added "${layer.label}" as ${layer.id} — ${notes.join(", ")}. ${cut} ` +
                         (cutout ? `Cropped to its visible shape. ` : "") +
                         `Arrange it with collage_arrange, then look with collage_preview.`,
-                        { layer, source: { width: loaded.width, height: loaded.height, colors: loaded.colors, cutout, tainted: loaded.tainted } });
+                        {
+                            layer,
+                            background: { removed: background.ok, skipped: !!background.skipped, reason: background.reason ?? null },
+                            source: { width: loaded.width, height: loaded.height, colors: loaded.colors, cutout, tainted: loaded.tainted },
+                        });
                 } catch (error) {
                     return fail(`Could not add that image: ${message(error)}`);
+                }
+            },
+        },
+        {
+            name: "collage_remove_background",
+            title: "Cut the background out of a layer",
+            description:
+                "Re-run background removal on an image already on the canvas — for one that was added with " +
+                "removeBackground: false, or whose first cut came out wrong.",
+            inputSchema: {
+                type: "object",
+                properties: { id: { type: "string", description: "The layer's id." } },
+                required: ["id"],
+            },
+            async execute(args: { id?: string }) {
+                const found = requireLayer(args?.id);
+                if ("error" in found) return found.error;
+                if (found.layer.kind !== "image") return fail(`${found.layer.id} is text — there is no background to remove.`);
+                try {
+                    const result = await studio.removeBackgroundFor(found.layer.id);
+                    if (!result.ok) return fail(result.reason ?? "The background could not be removed.");
+                    const layer = collage.get(found.layer.id);
+                    return ok(`Cut the background out of "${found.layer.label}". Look at it with collage_preview.`, { layer });
+                } catch (error) {
+                    return fail(`Background removal failed: ${message(error)}`);
                 }
             },
         },

@@ -75,7 +75,18 @@ interface LayerBase {
 
 export interface ImageLayer extends LayerBase {
     kind: "image";
+    /**
+     * A URL that can be drawn right now — an http(s) address, or a blob: URL
+     * for an image held in IndexedDB.
+     */
     src: string;
+    /**
+     * Key of the image's bytes in IndexedDB, for anything that came from the
+     * person's own machine. `src` is a blob: URL that dies with the tab, so
+     * this is what actually survives a reload. Null for images that live at a
+     * URL of their own and need no copy.
+     */
+    storageKey: string | null;
     /** Intrinsic pixel size of the source, before cropping. */
     natural: { width: number; height: number };
     /**
@@ -183,6 +194,10 @@ export interface AddImageSpec {
     label?: string;
     natural: { width: number; height: number };
     crop?: CropBox;
+    storageKey?: string | null;
+    /** Restore an existing id, so a reloaded layer keeps the id agents saw. */
+    id?: string;
+    z?: number;
     x?: number;
     y?: number;
     /** Canvas-unit width. Height follows from the cropped aspect ratio. */
@@ -194,6 +209,8 @@ export interface AddImageSpec {
 export interface AddTextSpec {
     text: string;
     label?: string;
+    id?: string;
+    z?: number;
     x?: number;
     y?: number;
     width?: number;
@@ -295,10 +312,11 @@ export class Collage {
         const width = spec.width ?? Math.min(croppedWidth, 420);
         const height = width * (croppedHeight / croppedWidth);
         const layer: ImageLayer = {
-            id: this.newId("img"),
+            id: spec.id ?? this.newId("img"),
             kind: "image",
             label: spec.label ?? `image ${this.layers.size + 1}`,
             src: spec.src,
+            storageKey: spec.storageKey ?? null,
             natural: { ...spec.natural },
             crop: { ...crop },
             x: spec.x ?? this.nextSpot().x - width / 2,
@@ -306,9 +324,10 @@ export class Collage {
             width,
             height,
             rotation: spec.rotation ?? 0,
-            z: ++this.topZ,
+            z: spec.z ?? ++this.topZ,
             style: { ...DEFAULT_STYLE, ...spec.style },
         };
+        if (layer.z > this.topZ) this.topZ = layer.z;
         this.layers.set(layer.id, layer);
         this.emit();
         return layer;
@@ -318,7 +337,7 @@ export class Collage {
         const fontSize = spec.fontSize ?? 48;
         const width = spec.width ?? Math.max(120, spec.text.length * fontSize * 0.5);
         const layer: TextLayer = {
-            id: this.newId("txt"),
+            id: spec.id ?? this.newId("txt"),
             kind: "text",
             label: spec.label ?? spec.text.slice(0, 24),
             text: spec.text,
@@ -327,7 +346,7 @@ export class Collage {
             width,
             height: fontSize * 1.25,
             rotation: spec.rotation ?? 0,
-            z: ++this.topZ,
+            z: spec.z ?? ++this.topZ,
             color: spec.color ?? "#222C20",
             fontSize,
             fontFamily: spec.fontFamily ?? "Inter, system-ui, sans-serif",
@@ -338,6 +357,49 @@ export class Collage {
         this.layers.set(layer.id, layer);
         this.emit();
         return layer;
+    }
+
+    /**
+     * Point an image layer at a different URL.
+     *
+     * Two callers, both unavoidable: a blob: URL from IndexedDB after a reload
+     * (the old one died with the tab), and a freshly cut-out version of an
+     * image whose background has just been removed.
+     */
+    setSource(id: string, src: string, storageKey?: string | null, natural?: { width: number; height: number }, crop?: CropBox): ImageLayer | null {
+        const current = this.layers.get(id);
+        if (!current || current.kind !== "image") return null;
+        const next: ImageLayer = {
+            ...current,
+            src,
+            storageKey: storageKey === undefined ? current.storageKey : storageKey,
+            natural: natural ?? current.natural,
+            crop: crop ?? current.crop,
+        };
+        // The visible shape may have changed size — a cut-out is a different
+        // aspect ratio from the photo it came from — so keep the layer's width
+        // and let the height follow the new crop.
+        if (crop || natural) {
+            const croppedWidth = Math.max(1, next.natural.width * next.crop.width);
+            const croppedHeight = Math.max(1, next.natural.height * next.crop.height);
+            next.height = next.width * (croppedHeight / croppedWidth);
+        }
+        this.layers.set(id, next);
+        this.emit();
+        return next;
+    }
+
+    /** Replace the whole document — used when restoring a saved collage. */
+    restore(layers: Layer[], frames: Frame[]) {
+        this.layers.clear();
+        this.frames.clear();
+        for (const layer of layers) {
+            this.layers.set(layer.id, layer);
+            if (layer.z > this.topZ) this.topZ = layer.z;
+        }
+        for (const frame of frames) this.frames.set(frame.id, frame);
+        this.counter = layers.length;
+        this.emit();
     }
 
     update(id: string, patch: LayerPatch): Layer | null {

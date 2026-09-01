@@ -19,6 +19,8 @@ interface FakeOptions {
     natural?: { width: number; height: number };
     coverage?: number;
     failLoading?: boolean;
+    /** Pretend the background remover is unreachable. */
+    cutUnavailable?: boolean;
 }
 
 function fakeStudio(options: FakeOptions = {}) {
@@ -27,6 +29,7 @@ function fakeStudio(options: FakeOptions = {}) {
     const images = new Map<string, LoadedImage>();
     const exports: Array<{ frameId: string; format: ExportFormat; options: ExportOptions }> = [];
     const previews: string[] = [];
+    const cuts: string[] = [];
 
     const studio: CollageStudio = {
         collage,
@@ -34,6 +37,7 @@ function fakeStudio(options: FakeOptions = {}) {
         async addImage(url, opts = {}) {
             if (options.failLoading) throw new Error("the server said 404");
             const natural = options.natural ?? { width: 1200, height: 1200 };
+            const coverage = options.coverage ?? 0.4;
             const layer = collage.addImage({
                 src: url,
                 label: opts.label,
@@ -50,11 +54,26 @@ function fakeStudio(options: FakeOptions = {}) {
                 tainted: false,
                 crop: { x: 0, y: 0, width: 1, height: 1 },
                 colors: ["#C82828"],
-                coverage: options.coverage ?? 0.4,
+                coverage,
+                mask: null,
             } satisfies LoadedImage;
             images.set(layer.id, loaded);
-            return { layer, loaded };
+            if (opts.removeBackground !== false) cuts.push(layer.id);
+            const background = options.cutUnavailable
+                ? { ok: false, reason: "the remover could not be loaded." }
+                : coverage < 0.95
+                    ? { ok: false, skipped: true, reason: "already a cut-out." }
+                    : { ok: true };
+            return { layer, loaded, background };
         },
+        async removeBackgroundFor(id) {
+            cuts.push(id);
+            if (options.cutUnavailable) return { ok: false, reason: "the remover could not be loaded." };
+            return { ok: true };
+        },
+        async restore() { return 0; },
+        save() { /* nothing to persist in a fake */ },
+        async clear() { collage.restore([], []); },
         addFrame(spec: AddFrameSpec, fitContents: boolean) {
             const frame = collage.addFrame(spec);
             if (!fitContents) return frame;
@@ -89,6 +108,7 @@ function fakeStudio(options: FakeOptions = {}) {
         collage,
         exports,
         previews,
+        cuts,
         tool: (name: string) => byName(tools, name),
         tools,
     };
@@ -131,7 +151,68 @@ describe("adding images", () => {
         const result = await tool("collage_add_image").execute({ url: "data:image/png;base64,AAA", label: "sneaker" });
         expect(result.isError).toBeFalsy();
         expect(textOf(result)).toContain("800×600px");
-        expect(textOf(result)).toContain("transparent cut-out");
+    });
+
+    it("removes the background by default, without being asked", async () => {
+        const { tool, cuts } = fakeStudio({ coverage: 1 });
+        const result = await tool("collage_add_image").execute({ url: "https://example.test/photo.jpg" });
+        expect(cuts).toHaveLength(1);
+        expect(textOf(result)).toContain("Background removed");
+        expect((result.structuredContent as any).background.removed).toBe(true);
+    });
+
+    it("says so in the description, so an agent knows not to go elsewhere first", () => {
+        const { tool } = fakeStudio();
+        const description = tool("collage_add_image").description;
+        expect(description).toMatch(/background is removed automatically/i);
+        expect(description).toMatch(/do NOT\s+open FastCut/i);
+    });
+
+    it("leaves an image that is already a cut-out alone", async () => {
+        const { tool } = fakeStudio({ coverage: 0.2 });
+        const result = await tool("collage_add_image").execute({ url: "https://example.test/cut.png" });
+        expect(textOf(result)).toContain("already a cut-out");
+        expect((result.structuredContent as any).background.skipped).toBe(true);
+    });
+
+    it("skips the cut when told to, and does not pretend otherwise", async () => {
+        const { tool, cuts } = fakeStudio({ coverage: 1 });
+        const result = await tool("collage_add_image").execute({
+            url: "https://example.test/photo.jpg",
+            removeBackground: false,
+        });
+        expect(cuts).toHaveLength(0);
+        expect(result.isError).toBeFalsy();
+    });
+
+    it("names the fallback when the remover is unavailable", async () => {
+        const { tool } = fakeStudio({ coverage: 1, cutUnavailable: true });
+        const result = await tool("collage_add_image").execute({ url: "https://example.test/photo.jpg" });
+        // The layer is still added — a missing model must not lose the image.
+        expect(result.isError).toBeFalsy();
+        expect(textOf(result)).toContain("NOT removed");
+        expect((result.structuredContent as any).background.removed).toBe(false);
+    });
+
+    it("can re-cut a layer that is already on the canvas", async () => {
+        const { tool, cuts } = fakeStudio({ coverage: 1 });
+        const added = await tool("collage_add_image").execute({
+            url: "https://example.test/photo.jpg",
+            removeBackground: false,
+        });
+        const id = (added.structuredContent as any).layer.id;
+        const result = await tool("collage_remove_background").execute({ id });
+        expect(result.isError).toBeFalsy();
+        expect(cuts).toContain(id);
+    });
+
+    it("refuses to cut the background out of text", async () => {
+        const { tool } = fakeStudio();
+        const added = await tool("collage_add_text").execute({ text: "Summer" });
+        const id = (added.structuredContent as any).layer.id;
+        const result = await tool("collage_remove_background").execute({ id });
+        expect(result.isError).toBe(true);
+        expect(textOf(result)).toContain("no background");
     });
 
     it("refuses something that is not an image URL, and says what to pass", async () => {

@@ -1,20 +1,28 @@
 /**
- * The browser side: loading, rendering and getting the work back out.
+ * The browser side: loading, cutting out, rendering, saving, and getting the
+ * work back out.
  *
  * `tools.ts` deliberately knows none of this. It talks to the `CollageStudio`
  * interface, which means the tools can be tested against a fake studio in node
- * — no canvas, no DOM — while everything that genuinely needs a browser lives
- * here behind one seam.
+ * — no canvas, no IndexedDB, no image decoding — while everything that
+ * genuinely needs a browser lives here behind one seam.
  */
 import {
-    Collage, unionBounds,
+    Collage,
     type AddFrameSpec, type Frame, type ImageLayer, type Layer, type Rect,
-    outputSize, presetCanvasSize, findPreset,
+    outputSize, presetCanvasSize, findPreset, unionBounds,
 } from "./model.js";
 import { arrange as computeLayout, type LayoutMode, type LayoutOptions } from "./layout.js";
 import { loadImage, toDataUrl, type LoadedImage } from "./imaging.js";
 import { canvasToBlob, previewDataUrl, renderFrame } from "./render.js";
 import { exportHtml } from "./exportHtml.js";
+import {
+    backgroundRemovalError, removeBackground as cutOut, type CutResult, type Progress,
+} from "./background.js";
+import {
+    collectGarbage, clearDoc, clearImages, getImage, loadDoc, newImageKey, putImage, saveDoc,
+    type StoredView,
+} from "./persistence.js";
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
 
@@ -36,6 +44,20 @@ export interface AddImageOptions {
     x?: number;
     y?: number;
     width?: number;
+    /**
+     * Cut the background out before placing it. On by default: a collage is
+     * made of cut-outs, and a photo dropped in with its background is almost
+     * never what was wanted.
+     */
+    removeBackground?: boolean;
+    onProgress?: (p: Progress) => void;
+}
+
+export interface AddImageResult {
+    layer: ImageLayer;
+    loaded: LoadedImage;
+    /** What the background remover did, or why it did nothing. */
+    background: CutResult;
 }
 
 export interface ArrangeOptions extends LayoutOptions {
@@ -44,11 +66,17 @@ export interface ArrangeOptions extends LayoutOptions {
 
 export interface CollageStudio {
     readonly collage: Collage;
-    addImage(url: string, options?: AddImageOptions): Promise<{ layer: ImageLayer; loaded: LoadedImage }>;
+    addImage(url: string, options?: AddImageOptions): Promise<AddImageResult>;
     addFrame(spec: AddFrameSpec, fitContents: boolean): Frame;
     arrange(frameId: string, mode: LayoutMode, options?: ArrangeOptions): number;
     preview(frameId: string, maxSize?: number): Promise<string>;
     exportFrame(frameId: string, format: ExportFormat, options?: ExportOptions): Promise<ExportOutput>;
+    /** Re-cut a layer that is already on the canvas. */
+    removeBackgroundFor(id: string, onProgress?: (p: Progress) => void): Promise<CutResult>;
+    /** Restore the saved collage. Resolves to how many layers came back. */
+    restore(): Promise<number>;
+    save(view?: StoredView): void;
+    clear(): Promise<void>;
     /** The decoded images, for the canvas component to draw with. */
     readonly images: Map<string, LoadedImage>;
 }
@@ -57,9 +85,32 @@ export interface CollageStudio {
 const MAX_INLINE_CODE_CHARS = 12000;
 /** Margin left around the contents when a frame is fitted to them. */
 const FIT_MARGIN = 1.16;
+/** Saving on every pointer move would write hundreds of times per drag. */
+const SAVE_DEBOUNCE_MS = 600;
 
 export function createStudio(collage = new Collage()): CollageStudio {
     const images = new Map<string, LoadedImage>();
+    const objectUrls = new Set<string>();
+    let lastView: StoredView | undefined;
+    let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const trackUrl = (url: string) => {
+        objectUrls.add(url);
+        return url;
+    };
+
+    const scheduleSave = () => {
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            saveTimer = null;
+            saveDoc(collage.list(), collage.listFrames(), lastView);
+            // Cheap enough to run alongside a save, and it keeps a long session
+            // from leaving every superseded cut-out behind in the store.
+            void collectGarbage(collage.list());
+        }, SAVE_DEBOUNCE_MS);
+    };
+
+    collage.onChanged(scheduleSave);
 
     const layersOf = (frameId: string): Layer[] => collage.layersIn(frameId);
 
@@ -69,6 +120,19 @@ export function createStudio(collage = new Collage()): CollageStudio {
         return frame;
     };
 
+    /** Bytes for a URL, when we are allowed to have them. */
+    const fetchBlob = async (url: string): Promise<Blob | null> => {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return null;
+            return await response.blob();
+        } catch {
+            // A remote image without CORS headers. It still displays; we just
+            // cannot read or re-cut it.
+            return null;
+        }
+    };
+
     /** Sources for the HTML export: original URLs, or data URIs when asked. */
     const resolveSources = async (layers: Layer[], inline: boolean): Promise<Record<string, string>> => {
         const sources: Record<string, string> = {};
@@ -76,13 +140,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
             if (layer.kind !== "image") continue;
             const loaded = images.get(layer.id);
             if (!loaded) continue;
-            if (!inline) {
-                sources[layer.id] = layer.src;
-                continue;
-            }
-            // A data: URL is already inline. Anything else has to be re-encoded,
-            // which only works if its pixels were readable in the first place.
-            sources[layer.id] = layer.src.startsWith("data:")
+            // A blob: URL is meaningless outside this tab, so an exported page
+            // has to carry the bytes whether or not inlining was asked for.
+            const mustInline = inline || layer.src.startsWith("blob:");
+            sources[layer.id] = !mustInline || layer.src.startsWith("data:")
                 ? layer.src
                 : loaded.tainted
                     ? layer.src
@@ -91,23 +152,89 @@ export function createStudio(collage = new Collage()): CollageStudio {
         return sources;
     };
 
+    /** Decode, remember, and file the image under a layer id. */
+    const adopt = async (layerId: string, src: string): Promise<LoadedImage> => {
+        const loaded = await loadImage(src);
+        images.set(layerId, loaded);
+        return loaded;
+    };
+
     return {
         collage,
         images,
 
         async addImage(url, options = {}) {
-            const loaded = await loadImage(url);
+            const wantsCut = options.removeBackground !== false;
+            // Load once up front: the coverage tells us whether this is already
+            // a cut-out, which is the cheapest possible way to skip the model.
+            const original = await loadImage(url);
+
+            let src = url;
+            let storageKey: string | null = null;
+            let loaded = original;
+            let background: CutResult = { ok: false, skipped: true, reason: "Background removal was not requested." };
+
+            const isLocal = url.startsWith("data:") || url.startsWith("blob:");
+            const blob = isLocal || wantsCut ? await fetchBlob(url) : null;
+
+            if (wantsCut) {
+                background = blob
+                    ? await cutOut(blob, { coverage: original.coverage, onProgress: options.onProgress })
+                    : { ok: false, reason: "The image's pixels could not be read, so its background was left alone." };
+            }
+
+            const keep = background.ok && background.blob ? background.blob : blob;
+            if (keep) {
+                // Anything we hold the bytes for goes to IndexedDB, so it comes
+                // back after a reload. A remote URL that we could not read is
+                // left as a plain link — it reloads from its own server.
+                storageKey = newImageKey();
+                await putImage(storageKey, keep);
+                src = trackUrl(URL.createObjectURL(keep));
+            }
+
             const layer = collage.addImage({
-                src: url,
+                src,
+                storageKey,
                 label: options.label,
-                natural: { width: loaded.width, height: loaded.height },
-                crop: loaded.crop,
+                natural: { width: original.width, height: original.height },
+                crop: original.crop,
                 x: options.x,
                 y: options.y,
                 width: options.width,
             });
-            images.set(layer.id, loaded);
-            return { layer, loaded };
+
+            loaded = src === url ? original : await adopt(layer.id, src);
+            if (src === url) images.set(layer.id, original);
+            // The cut-out is a different size and shape from the photo, so the
+            // layer has to be re-measured against what it now shows.
+            if (src !== url) {
+                collage.setSource(layer.id, src, storageKey,
+                    { width: loaded.width, height: loaded.height }, loaded.crop);
+            }
+
+            return { layer: collage.get(layer.id) as ImageLayer, loaded, background };
+        },
+
+        async removeBackgroundFor(id, onProgress) {
+            const layer = collage.get(id);
+            if (!layer || layer.kind !== "image") return { ok: false, reason: `${id} is not an image layer.` };
+            const loaded = images.get(id);
+            const blob = await fetchBlob(layer.src);
+            if (!blob) return { ok: false, reason: `The pixels of "${layer.label}" could not be read.` };
+
+            // Explicit here, unlike on drop: someone asking for this again has
+            // seen the result and wants it run anyway.
+            const result = await cutOut(blob, { onProgress });
+            if (!result.ok || !result.blob) return result;
+
+            const storageKey = newImageKey();
+            await putImage(storageKey, result.blob);
+            const src = trackUrl(URL.createObjectURL(result.blob));
+            const next = await adopt(id, src);
+            collage.setSource(id, src, storageKey, { width: next.width, height: next.height }, next.crop);
+            void loaded;
+            return result;
         },
 
         addFrame(spec, fitContents) {
@@ -123,8 +250,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                     y: -frame.height / 2,
                 })!;
             }
-            const fitted = fitAround(contents, frame.width / frame.height);
-            return collage.updateFrame(frame.id, fitted)!;
+            return collage.updateFrame(frame.id, fitAround(contents, frame.width / frame.height))!;
         },
 
         arrange(frameId, mode, options = {}) {
@@ -149,6 +275,51 @@ export function createStudio(collage = new Collage()): CollageStudio {
         async preview(frameId, maxSize = 640) {
             const frame = frameOrThrow(frameId);
             return previewDataUrl(frame, layersOf(frameId), images, maxSize);
+        },
+
+        async restore() {
+            const doc = loadDoc();
+            if (!doc?.layers.length && !doc?.frames.length) return 0;
+            lastView = doc.view;
+
+            const restored: Layer[] = [];
+            for (const layer of doc.layers) {
+                if (layer.kind !== "image") {
+                    restored.push(layer);
+                    continue;
+                }
+                if (!layer.storageKey) {
+                    // A plain URL — it loads from its own server as before.
+                    restored.push(layer);
+                    continue;
+                }
+                const blob = await getImage(layer.storageKey);
+                if (!blob) continue; // Bytes are gone; the layer would be a hole.
+                restored.push({ ...layer, src: trackUrl(URL.createObjectURL(blob)) });
+            }
+
+            collage.restore(restored, doc.frames);
+            // Decode in parallel — a dozen images should not be a dozen waits.
+            await Promise.all(restored
+                .filter((l): l is ImageLayer => l.kind === "image")
+                .map(layer => adopt(layer.id, layer.src).catch(() => undefined)));
+            return restored.length;
+        },
+
+        save(view) {
+            if (view) lastView = view;
+            scheduleSave();
+        },
+
+        async clear() {
+            if (saveTimer) clearTimeout(saveTimer);
+            saveTimer = null;
+            for (const url of objectUrls) URL.revokeObjectURL(url);
+            objectUrls.clear();
+            images.clear();
+            collage.restore([], []);
+            clearDoc();
+            await clearImages();
         },
 
         async exportFrame(frameId, format, options = {}) {
@@ -218,9 +389,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 sources: await resolveSources(layers, false),
                 title: frame.name,
             });
-            // Images dropped from a person's computer are already data: URLs, so
-            // there is no smaller version to fall back to. Say that, rather than
-            // promising code that is not below.
+            // Images from a person's own machine have no URL to link to, so
+            // there is no smaller version to fall back to. Say that, rather
+            // than promising code that is not below.
             const readable = linked.length <= MAX_INLINE_CODE_CHARS;
             return {
                 summary:
@@ -330,4 +501,4 @@ function escapeText(value: string): string {
     return value.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
 }
 
-export { unionBounds, presetCanvasSize, findPreset };
+export { unionBounds, presetCanvasSize, findPreset, backgroundRemovalError };
