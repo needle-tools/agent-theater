@@ -104,6 +104,51 @@ describe("the page", () => {
     });
 });
 
+describe("selection", () => {
+    it("drops ids that no longer exist rather than carrying ghosts", () => {
+        const studio = studioWith(3, { x: 0, y: 0 });
+        const ids = studio.collage.list().map(l => l.id);
+        studio.setSelection(ids);
+        studio.collage.remove(ids[1]);
+        // Re-setting is what prunes; a capture of a deleted layer is nonsense.
+        studio.setSelection(studio.selection);
+        expect(studio.selection).toEqual([ids[0], ids[2]]);
+    });
+
+    it("de-duplicates, so shift-clicking twice does not double an entry", () => {
+        const studio = studioWith(2, { x: 0, y: 0 });
+        const [a] = studio.collage.list().map(l => l.id);
+        studio.setSelection([a, a, a]);
+        expect(studio.selection).toEqual([a]);
+    });
+
+    it("only tells watchers when it actually changed", () => {
+        const studio = studioWith(2, { x: 0, y: 0 });
+        const ids = studio.collage.list().map(l => l.id);
+        let changes = 0;
+        studio.onSelectionChanged(() => changes++);
+        studio.setSelection([ids[0]]);
+        studio.setSelection([ids[0]]);
+        expect(changes).toBe(1);
+    });
+
+    it("measures the bounds of what is picked, which is what a capture takes", () => {
+        const studio = studioWith(3, { x: 0, y: 0 });
+        const ids = studio.collage.list().map(l => l.id);
+        studio.setSelection([ids[0], ids[1]]);
+        const two = studio.selectionBounds()!;
+        studio.setSelection(ids);
+        const three = studio.selectionBounds()!;
+        expect(three.width).toBeGreaterThan(two.width);
+
+        // Nothing picked, nothing to measure. An empty array means "whatever is
+        // selected", the same as passing nothing — matching capture().
+        studio.setSelection([]);
+        expect(studio.selectionBounds()).toBeNull();
+        expect(studio.selectionBounds([])).toBeNull();
+    });
+});
+
 describe("the event log", () => {
     it("resolves a waiter the moment something happens", async () => {
         const studio = createStudio();

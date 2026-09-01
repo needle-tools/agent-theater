@@ -126,12 +126,19 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                         ? `Layers (back to front):\n${layers.map(describeLayer).join("\n")}`
                         : `The canvas is empty. Add photos with collage_add_image — backgrounds come off automatically.`,
                 ];
+                if (studio.selection.length) {
+                    const chosen = studio.selection.map(id => collage.get(id)).filter(Boolean) as Layer[];
+                    parts.push(
+                        `Selected: ${chosen.map(l => `"${l.label}" [${l.id}]`).join(", ")}. ` +
+                        `collage_capture returns a picture of just these.`);
+                }
                 if (warnings.length) parts.push(`Resolution:\n${warnings.join("\n")}`);
 
                 return ok(parts.join("\n\n"), {
                     layers,
                     frames,
                     page: studio.pagePreset,
+                    selection: studio.selection,
                     quality,
                     pages: [FREE_PAGE, ...FRAME_PRESETS.map(p => p.id)],
                 });
@@ -273,24 +280,34 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                         type: "string",
                         description: `"${FREE_PAGE}", or one of: ${FRAME_PRESETS.map(p => p.id).join(", ")}.`,
                     },
+                    background: {
+                        type: "string",
+                        description:
+                            `What sits behind the layers: "transparent" for none, or any CSS colour. ` +
+                            `Defaults to transparent on a free canvas and white on paper.`,
+                    },
                 },
                 required: ["page"],
             },
-            async execute(args: { page?: string }) {
+            async execute(args: { page?: string; background?: string }) {
                 const page = str(args?.page);
                 if (page !== FREE_PAGE && !FRAME_PRESETS.some(p => p.id === page))
                     return fail(`"${page}" is not a page size. Use "${FREE_PAGE}", or one of: ${FRAME_PRESETS.map(p => p.id).join(", ")}.`);
 
-                const frame = studio.setPage(page);
+                const frame = studio.setPage(page, str(args?.background) || undefined);
                 const size = outputSize(frame);
                 const inside = collage.layersIn(frame.id);
+                const behind = frame.background === "transparent"
+                    ? "Nothing behind it — a PNG export will be transparent."
+                    : `Background ${frame.background}.`;
                 return ok(
-                    page === FREE_PAGE
+                    (page === FREE_PAGE
                         ? `The page now follows the canvas — it exports whatever is on it (currently ${size.width}×${size.height}px).`
                         : `The page is "${frame.name}", exporting at ${size.width}×${size.height}px` +
                           `${frame.physical ? ` (${frame.physical.width}×${frame.physical.height}mm at 300 dpi)` : ""}. ` +
-                          `${inside.length} layer(s) fall inside it — collage_arrange will fit them.`,
-                    { frame, page, layersInside: inside.length });
+                          `${inside.length} layer(s) fall inside it — collage_arrange will fit them.`) +
+                    ` ${behind}`,
+                    { frame, page, background: frame.background, layersInside: inside.length });
             },
         },
         {
@@ -430,22 +447,125 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
+            name: "collage_select",
+            title: "Pick out layers",
+            description:
+                "Select layers by id or by words matching their names, so they can be captured, styled or " +
+                "moved together. The person sees the same selection highlighted on the canvas.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    ids: { type: "array", items: { type: "string" }, description: "Exact layer ids." },
+                    query: { type: "string", description: "Words to match against names, e.g. 'cactus plant'." },
+                    add: { type: "boolean", description: "Add to what is already selected rather than replacing it." },
+                },
+            },
+            async execute(args: { ids?: string[]; query?: string; add?: boolean }) {
+                let ids: string[] = Array.isArray(args?.ids) ? args.ids.filter(id => typeof id === "string") : [];
+                const query = str(args?.query);
+                if (query) {
+                    const words = query.toLowerCase().split(/[^a-z0-9#]+/).filter(Boolean);
+                    ids = [...ids, ...collage.list()
+                        .filter(l => words.some(w => `${l.label} ${l.kind}`.toLowerCase().includes(w)))
+                        .map(l => l.id)];
+                }
+                if (!ids.length && !query) {
+                    // No arguments at all is a question, not a command.
+                    const current = studio.selection.map(id => collage.get(id)).filter(Boolean) as Layer[];
+                    return ok(
+                        current.length
+                            ? `Currently selected: ${current.map(l => `"${l.label}" [${l.id}]`).join(", ")}.`
+                            : `Nothing is selected. Pass "ids" or a "query".`,
+                        { selection: studio.selection });
+                }
+
+                studio.setSelection(args?.add ? [...studio.selection, ...ids] : ids);
+                const chosen = studio.selection.map(id => collage.get(id)).filter(Boolean) as Layer[];
+                if (!chosen.length) return fail(`Nothing matched. Call collage_describe to see what is on the canvas.`);
+                const region = studio.selectionBounds();
+                return ok(
+                    `Selected ${chosen.length}: ${chosen.map(l => `"${l.label}"`).join(", ")}. ` +
+                    `Capture them with collage_capture.`,
+                    { selection: studio.selection, region });
+            },
+        },
+        {
+            name: "collage_capture",
+            title: "Capture part of the canvas as an image",
+            annotations: { readOnlyHint: true },
+            description:
+                "Return an image of part of the canvas — the current selection by default, or given layers, " +
+                "or an explicit rectangle. Use it to send a piece of the collage to something that makes " +
+                "pictures; the result comes back with the exact region, so a generated image can be dropped " +
+                "into the same place with collage_add_image.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    ids: { type: "array", items: { type: "string" }, description: "Capture exactly these layers." },
+                    x: { type: "number", description: "Explicit region in canvas units — needs all four." },
+                    y: { type: "number" },
+                    width: { type: "number" },
+                    height: { type: "number" },
+                    maxSize: { type: "number", description: "Longest edge in pixels, 64–2048. Default 768." },
+                    background: { type: "string", description: `A CSS colour behind it, or "transparent". Defaults to the page's.` },
+                },
+            },
+            async execute(args: any) {
+                const region = num(args?.x) && num(args?.y) && num(args?.width) && num(args?.height)
+                    ? { x: args.x, y: args.y, width: args.width, height: args.height }
+                    : undefined;
+                if (region && (region.width <= 0 || region.height <= 0))
+                    return fail(`A region needs a positive width and height.`);
+                try {
+                    const shot = await studio.capture({
+                        ids: Array.isArray(args?.ids) ? args.ids : undefined,
+                        region,
+                        maxSize: num(args?.maxSize) ? args.maxSize : undefined,
+                        background: typeof args?.background === "string"
+                            ? (args.background === "transparent" ? null : args.background)
+                            : undefined,
+                    });
+                    const [, mimeType = "image/png", data = ""] = /^data:([^;]+);base64,(.*)$/.exec(shot.dataUrl) ?? [];
+                    if (!data) return fail(`The capture could not be encoded.`);
+                    const r = shot.region;
+                    return {
+                        content: [
+                            { type: "image", data, mimeType },
+                            {
+                                type: "text",
+                                text:
+                                    `${shot.width}×${shot.height}px of the canvas, covering ` +
+                                    `x ${Math.round(r.x)}, y ${Math.round(r.y)}, ${Math.round(r.width)}×${Math.round(r.height)} ` +
+                                    `and ${shot.ids.length} layer(s). To put something back in its place, call ` +
+                                    `collage_add_image with x ${Math.round(r.x)}, y ${Math.round(r.y)}, width ${Math.round(r.width)}.`,
+                            },
+                        ],
+                        structuredContent: { region: r, ids: shot.ids, width: shot.width, height: shot.height },
+                    };
+                } catch (error) {
+                    return fail(`Could not capture that: ${message(error)}`);
+                }
+            },
+        },
+        {
             name: "collage_watch",
             title: "Watch the collage for changes",
             annotations: { readOnlyHint: true },
             description:
                 "Wait until something changes on the canvas, then return what happened — images added, " +
-                "layers moved, styles changed, exports. Blocks until there is news or the wait runs out, " +
-                "so call it in a loop to follow along while a person works. " +
+                "layers moved, styles changed, exports — together with a picture of the result, so you can " +
+                "see what the person did and act on it. Blocks until there is news or the wait runs out, so " +
+                "call it in a loop to follow along while they work. " +
                 "Pass the `nextCursor` from the previous call so nothing is missed between calls.",
             inputSchema: {
                 type: "object",
                 properties: {
                     cursor: { type: "number", description: "The nextCursor from your last call. Omit to start from now." },
                     timeoutSeconds: { type: "number", description: "How long to wait, 1–30. Default 25." },
+                    preview: { type: "boolean", description: "Include a picture of the canvas. Default true." },
                 },
             },
-            async execute(args: { cursor?: number; timeoutSeconds?: number }, options?: { signal?: AbortSignal }) {
+            async execute(args: { cursor?: number; timeoutSeconds?: number; preview?: boolean }, options?: { signal?: AbortSignal }) {
                 const timeout = Math.min(30, Math.max(1, args?.timeoutSeconds ?? 25)) * 1000;
                 // No cursor means "from now": replaying an hour of history to
                 // an agent that just started watching helps nobody.
@@ -454,15 +574,40 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                 const nextCursor = events.length ? events[events.length - 1].seq : cursor;
 
                 if (!events.length) {
+                    // Deliberately no picture here. An idle tick is the common
+                    // case in a watch loop, and paying for an image every time
+                    // nothing happened would make following along unaffordable.
                     return ok(
                         `Nothing happened in the last ${Math.round(timeout / 1000)}s. ` +
                         `Call again with cursor ${nextCursor} to keep watching.`,
                         { events: [], nextCursor, idle: true });
                 }
-                return ok(
+
+                const text =
                     events.map(e => `${e.by === "agent" ? "[agent]" : "[person]"} ${e.summary}`).join("\n") +
-                    `\n\nCall again with cursor ${nextCursor} to keep watching.`,
-                    { events, nextCursor, idle: false });
+                    `\n\nCall again with cursor ${nextCursor} to keep watching.`;
+
+                // Seeing the result is the difference between reacting and
+                // guessing — "a person moved the cactus" says nothing about
+                // whether the picture now works.
+                if (args?.preview !== false) {
+                    try {
+                        const shot = await studio.capture({ maxSize: 512 });
+                        const [, mimeType = "image/png", data = ""] = /^data:([^;]+);base64,(.*)$/.exec(shot.dataUrl) ?? [];
+                        if (data) {
+                            return {
+                                content: [
+                                    { type: "image", data, mimeType },
+                                    { type: "text", text },
+                                ],
+                                structuredContent: { events, nextCursor, idle: false, region: shot.region },
+                            };
+                        }
+                    } catch {
+                        // A canvas that cannot be drawn must not swallow the news.
+                    }
+                }
+                return ok(text, { events, nextCursor, idle: false });
             },
         },
         {

@@ -19,12 +19,11 @@
      */
     import { alphaFilters, cssColor, pxUnit, textCss } from "./css.js";
     import { maskHit } from "./imaging.js";
-    import { type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
+    import { overlaps, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
     import type { CollageStudio } from "./studio.js";
 
     interface Props {
         studio: CollageStudio;
-        selectedId?: string | null;
         /**
          * Show the export boundary. Off by default — the page is a setting, not
          * something on the canvas, and a sheet of white paper you cannot delete
@@ -34,7 +33,17 @@
         onContextMenu?: (info: { x: number; y: number; layerId: string | null }) => void;
     }
 
-    let { studio, selectedId = $bindable(null), showPage = false, onContextMenu }: Props = $props();
+    let { studio, showPage = false, onContextMenu }: Props = $props();
+
+    /**
+     * Selection is the studio's, not this component's. An agent capturing "the
+     * three you picked" and a person shift-clicking them have to be talking
+     * about the same thing.
+     */
+    let selectionVersion = $state(0);
+    $effect(() => studio.onSelectionChanged(() => selectionVersion++));
+    const selectedIds = $derived.by(() => (selectionVersion, studio.selection));
+    const isSelected = (id: string) => selectedIds.includes(id);
 
     /** The document is a plain class; this is the bridge to Svelte's reactivity. */
     let version = $state(0);
@@ -49,10 +58,14 @@
 
     type Drag =
         | { mode: "pan"; startX: number; startY: number; originX: number; originY: number }
-        | { mode: "move"; id: string; startX: number; startY: number; originX: number; originY: number }
-        | { mode: "resize"; id: string; originWidth: number; startX: number };
+        /** Every selected layer moves together, each from its own starting point. */
+        | { mode: "move"; id: string; startX: number; startY: number; origins: Map<string, { x: number; y: number }> }
+        | { mode: "resize"; id: string; originWidth: number; startX: number }
+        | { mode: "marquee"; startX: number; startY: number; additive: boolean };
 
     let drag: Drag | null = null;
+    /** The rubber band, in screen coordinates. */
+    let marquee = $state<{ x: number; y: number; width: number; height: number } | null>(null);
     /** A drag that has not moved yet is a click; used to keep selection sane. */
     let moved = false;
 
@@ -177,22 +190,42 @@
         moved = false;
 
         const target = event.target as HTMLElement;
-        if (target.closest("[data-resize]") && selectedId) {
-            const layer = studio.collage.get(selectedId);
+        if (target.closest("[data-resize]") && selectedIds.length === 1) {
+            const layer = studio.collage.get(selectedIds[0]);
             if (layer) {
-                drag = { mode: "resize", id: selectedId, startX: event.clientX, originWidth: layer.width };
+                drag = { mode: "resize", id: layer.id, startX: event.clientX, originWidth: layer.width };
                 return;
             }
         }
 
         const layer = event.button === 0 ? layerAt(event.clientX, event.clientY) : null;
         if (layer) {
-            selectedId = layer.id;
-            drag = { mode: "move", id: layer.id, startX: event.clientX, startY: event.clientY, originX: layer.x, originY: layer.y };
+            if (event.shiftKey) {
+                // Toggle, so shift-clicking a picked layer lets it go again.
+                studio.setSelection(isSelected(layer.id)
+                    ? selectedIds.filter(id => id !== layer.id)
+                    : [...selectedIds, layer.id]);
+            } else if (!isSelected(layer.id)) {
+                studio.setSelection([layer.id]);
+            }
+            // Dragging any member of a selection drags the whole selection.
+            const moving = isSelected(layer.id) ? selectedIds : [layer.id];
+            const origins = new Map(moving.map(id => {
+                const l = studio.collage.get(id)!;
+                return [id, { x: l.x, y: l.y }];
+            }));
+            drag = { mode: "move", id: layer.id, startX: event.clientX, startY: event.clientY, origins };
             return;
         }
 
-        selectedId = null;
+        // Empty space. Plain drag pans, because an infinite canvas with no
+        // scrollbars has to stay easy to move around; shift draws a marquee.
+        if (event.shiftKey && event.button === 0) {
+            drag = { mode: "marquee", startX: event.clientX, startY: event.clientY, additive: event.altKey };
+            marquee = { x: event.clientX, y: event.clientY, width: 0, height: 0 };
+            return;
+        }
+        studio.setSelection([]);
         drag = { mode: "pan", startX: event.clientX, startY: event.clientY, originX: view.x, originY: view.y };
     }
 
@@ -209,9 +242,30 @@
         if (drag.mode === "pan") {
             view = { ...view, x: drag.originX + (event.clientX - drag.startX), y: drag.originY + (event.clientY - drag.startY) };
         } else if (drag.mode === "move") {
-            studio.collage.update(drag.id, { x: drag.originX + dx, y: drag.originY + dy });
+            for (const [id, origin] of drag.origins) {
+                studio.collage.update(id, { x: origin.x + dx, y: origin.y + dy });
+            }
         } else if (drag.mode === "resize") {
             studio.collage.update(drag.id, { width: Math.max(20, drag.originWidth + dx) });
+        } else if (drag.mode === "marquee") {
+            marquee = {
+                x: Math.min(drag.startX, event.clientX),
+                y: Math.min(drag.startY, event.clientY),
+                width: Math.abs(event.clientX - drag.startX),
+                height: Math.abs(event.clientY - drag.startY),
+            };
+            const topLeft = toCanvas(marquee.x, marquee.y);
+            const bottomRight = toCanvas(marquee.x + marquee.width, marquee.y + marquee.height);
+            const box = {
+                x: topLeft.x,
+                y: topLeft.y,
+                width: bottomRight.x - topLeft.x,
+                height: bottomRight.y - topLeft.y,
+            };
+            // Touching, not containing: a band that only caught things wholly
+            // inside it is fiddly to use on overlapping cut-outs.
+            const caught = layers.filter(layer => overlaps(layerBounds(layer), box)).map(l => l.id);
+            studio.setSelection(drag.additive ? [...selectedIds, ...caught] : caught);
         }
     }
 
@@ -220,37 +274,52 @@
     function onPointerUp(event: PointerEvent) {
         // A watching agent should hear about a move that actually happened, not
         // about every click that selected something.
-        if (moved && drag && drag.mode !== "pan") {
+        if (moved && drag && (drag.mode === "move" || drag.mode === "resize")) {
             const layer = studio.collage.get(drag.id);
             if (layer) {
+                const others = drag.mode === "move" ? drag.origins.size - 1 : 0;
                 studio.record(
                     "layer-moved",
-                    `A person ${drag.mode === "resize" ? "resized" : "moved"} "${layer.label}".`,
+                    `A person ${drag.mode === "resize" ? "resized" : "moved"} "${layer.label}"` +
+                    `${others > 0 ? ` and ${others} other${others === 1 ? "" : "s"}` : ""}.`,
                     "human",
                     { id: layer.id, x: Math.round(layer.x), y: Math.round(layer.y), width: Math.round(layer.width) });
             }
         }
         if (drag) studio.save(view);
         drag = null;
+        marquee = null;
         (event.currentTarget as HTMLElement).releasePointerCapture?.(event.pointerId);
     }
 
     function onContextMenuEvent(event: MouseEvent) {
         event.preventDefault();
         const layer = layerAt(event.clientX, event.clientY);
-        if (layer) selectedId = layer.id;
+        // Right-clicking outside the selection moves it; right-clicking inside
+        // keeps it, so a menu can act on all of them at once.
+        if (layer && !isSelected(layer.id)) studio.setSelection([layer.id]);
         onContextMenu?.({ x: event.clientX, y: event.clientY, layerId: layer?.id ?? null });
     }
 
     function onKeyDown(event: KeyboardEvent) {
         const target = event.target as HTMLElement;
         if (target.matches("input, textarea, select, [contenteditable]")) return;
-        if (!selectedId) return;
+
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+            event.preventDefault();
+            studio.setSelection(layers.map(l => l.id));
+            return;
+        }
+        if (event.key === "Escape") {
+            studio.setSelection([]);
+            return;
+        }
+        if (!selectedIds.length) return;
 
         if (event.key === "Delete" || event.key === "Backspace") {
             event.preventDefault();
-            studio.collage.remove(selectedId);
-            selectedId = null;
+            for (const id of selectedIds) studio.collage.remove(id);
+            studio.setSelection([]);
             return;
         }
         const step = event.shiftKey ? 20 : 2;
@@ -259,8 +328,10 @@
         };
         if (nudge[event.key]) {
             event.preventDefault();
-            const layer = studio.collage.get(selectedId);
-            if (layer) studio.collage.update(selectedId, { x: layer.x + nudge[event.key][0], y: layer.y + nudge[event.key][1] });
+            for (const id of selectedIds) {
+                const layer = studio.collage.get(id);
+                if (layer) studio.collage.update(id, { x: layer.x + nudge[event.key][0], y: layer.y + nudge[event.key][1] });
+            }
         }
     }
 
@@ -328,7 +399,12 @@
         ].join("; ");
     }
 
-    const selected = $derived.by(() => (version, selectedId ? studio.collage.get(selectedId) : null));
+    /** The resize handle only makes sense on exactly one layer. */
+    const single = $derived.by(() =>
+        (version, selectedIds.length === 1 ? studio.collage.get(selectedIds[0]) : null));
+
+    const groupBounds = $derived.by(() =>
+        (version, selectedIds.length > 1 ? studio.collage.contentBounds(selectedIds) : null));
 </script>
 
 <svelte:window onkeydown={onKeyDown} />
@@ -364,7 +440,7 @@
             {#if layer.kind === "image"}
                 <figure
                     class="layer"
-                    class:layer--selected={selectedId === layer.id}
+                    class:layer--selected={selectedIds.length > 1 && isSelected(layer.id)}
                     style={imageStyle(layer)}
                 >
                     {#if layer.style.silhouette}
@@ -376,26 +452,46 @@
             {:else}
                 <p
                     class="layer layer--text"
-                    class:layer--selected={selectedId === layer.id}
+                    class:layer--selected={selectedIds.length > 1 && isSelected(layer.id)}
                     style={textStyle(layer)}
                 >{layer.text}</p>
             {/if}
         {/each}
 
-        {#if selected}
+        {#if single}
             <div
                 class="handles"
-                style:left="{selected.x}px"
-                style:top="{selected.y}px"
-                style:width="{selected.width}px"
-                style:height="{selected.height}px"
-                style:transform="rotate({selected.rotation}deg)"
+                style:left="{single.x}px"
+                style:top="{single.y}px"
+                style:width="{single.width}px"
+                style:height="{single.height}px"
+                style:transform="rotate({single.rotation}deg)"
                 style:border-width="{1 / view.zoom}px"
             >
                 <span class="handle" data-resize style:width="{12 / view.zoom}px" style:height="{12 / view.zoom}px"></span>
             </div>
+        {:else if groupBounds}
+            <!-- What a capture would take, drawn as one box around the lot. -->
+            <div
+                class="group"
+                style:left="{groupBounds.x}px"
+                style:top="{groupBounds.y}px"
+                style:width="{groupBounds.width}px"
+                style:height="{groupBounds.height}px"
+                style:border-width="{1 / view.zoom}px"
+            ></div>
         {/if}
     </div>
+
+    {#if marquee}
+        <div
+            class="marquee"
+            style:left="{marquee.x}px"
+            style:top="{marquee.y}px"
+            style:width="{marquee.width}px"
+            style:height="{marquee.height}px"
+        ></div>
+    {/if}
 </div>
 
 <style>
@@ -470,16 +566,41 @@
         text-wrap: pretty;
     }
 
+    /*
+     * Only ever one indicator. A single selection gets the handles box below; a
+     * multi-selection gets a thin mark per layer plus one dashed box round the
+     * lot. Drawing both at once gave a dashed rectangle inside another dashed
+     * rectangle, which read as a glitch.
+     *
+     * An outline never shifts the layout by a pixel, unlike a border.
+     */
     .layer--selected {
-        /* An outline never shifts the layout by a pixel, unlike a border. */
-        outline: 1px dashed var(--accent-brand);
-        outline-offset: 2px;
+        outline: 1px solid var(--accent-brand);
+        outline-offset: 1px;
     }
 
     .handles {
         position: absolute;
         pointer-events: none;
         border: solid var(--accent-brand);
+    }
+
+    /* One box around a multi-selection: it is exactly what a capture takes. */
+    .group {
+        position: absolute;
+        pointer-events: none;
+        border-style: dashed;
+        border-color: var(--accent-brand);
+        background: color-mix(in srgb, var(--accent-brand) 6%, transparent);
+    }
+
+    .marquee {
+        position: absolute;
+        z-index: 5;
+        pointer-events: none;
+        border: 1px solid var(--accent-brand);
+        border-radius: 2px;
+        background: color-mix(in srgb, var(--accent-brand) 12%, transparent);
     }
 
     .handle {

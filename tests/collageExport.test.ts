@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Collage, type Frame } from "../src/lib/collage/model.js";
 import { exportHtml } from "../src/lib/collage/exportHtml.js";
+import { OUTLINE_STAMPS } from "../src/lib/collage/css.js";
 import { fitAround } from "../src/lib/collage/studio.js";
 
 /**
@@ -138,7 +139,10 @@ describe("html export", () => {
         const { collage, frame, image } = scene();
         collage.update(image.id, { style: { outline: { width: 12, color: "#FFFFFF" } } });
         const html = exportHtml(collage.layersIn(frame.id), frame);
-        expect([...html.matchAll(/drop-shadow\(/g)]).toHaveLength(8);
+        // Enough stamps that the ring closes up: below about sixteen the gaps
+        // between them show as a scalloped edge on anything with a curve.
+        expect([...html.matchAll(/drop-shadow\(/g)]).toHaveLength(OUTLINE_STAMPS);
+        expect(OUTLINE_STAMPS).toBeGreaterThanOrEqual(16);
     });
 });
 

@@ -35,8 +35,11 @@ function fakeStudio(options: FakeOptions = {}) {
     const cuts: string[] = [];
     const events: CollageEvent[] = [];
     const waiters = new Set<() => void>();
+    const selectionWatchers = new Set<() => void>();
+    const captures: Array<{ ids: string[]; region: unknown }> = [];
     let seq = 0;
     let pagePreset = FREE_PAGE;
+    let selection: string[] = [];
 
     const studio: CollageStudio = {
         collage,
@@ -91,6 +94,38 @@ function fakeStudio(options: FakeOptions = {}) {
                 : collage.addFrame({ presetId });
         },
         refitPage() { /* nothing to re-fit in a fake */ },
+        setPageBackground(background: string) {
+            const frame = collage.listFrames()[0];
+            return frame ? collage.updateFrame(frame.id, { background }) : null;
+        },
+        get selection() { return selection; },
+        setSelection(ids: string[]) {
+            const live = new Set(collage.list().map(l => l.id));
+            selection = [...new Set(ids)].filter(id => live.has(id));
+            for (const w of [...selectionWatchers]) w();
+        },
+        onSelectionChanged(callback: () => void) {
+            selectionWatchers.add(callback);
+            return () => { selectionWatchers.delete(callback); };
+        },
+        selectionBounds(ids?: string[]) {
+            const chosen = ids?.length ? ids : selection;
+            return chosen.length ? collage.contentBounds(chosen) : null;
+        },
+        async capture(options = {}) {
+            const ids = options.ids?.length ? options.ids : selection;
+            const region = options.region
+                ?? collage.contentBounds(ids.length ? ids : undefined)
+                ?? { x: 0, y: 0, width: 100, height: 100 };
+            captures.push({ ids: [...ids], region });
+            return {
+                dataUrl: "data:image/png;base64,ZmFrZQ==",
+                region,
+                ids: [...ids],
+                width: Math.round(region.width),
+                height: Math.round(region.height),
+            };
+        },
         record(kind, summary, by = "human", detail) {
             events.push({ seq: ++seq, at: 0, kind, summary, by, ...(detail ? { detail } : {}) });
             for (const wake of [...waiters]) wake();
@@ -145,6 +180,7 @@ function fakeStudio(options: FakeOptions = {}) {
         exports,
         previews,
         cuts,
+        captures,
         tool: (name: string) => byName(tools, name),
         tools,
     };
@@ -313,6 +349,79 @@ describe("the output page", () => {
         const result = await tool("collage_set_page").execute({ page: FREE_PAGE });
         expect(result.isError).toBeFalsy();
         expect(studio.pagePreset).toBe(FREE_PAGE);
+    });
+});
+
+describe("selecting and capturing", () => {
+    async function withImages(n: number) {
+        const kit = fakeStudio({ coverage: 0.2 });
+        const ids: string[] = [];
+        for (let i = 0; i < n; i++) {
+            const added = await kit.tool("collage_add_image").execute({
+                url: `https://example.test/${i}.png`,
+                label: ["cactus", "lego man", "monstera", "sneaker"][i] ?? `thing ${i}`,
+            });
+            ids.push((added.structuredContent as any).layer.id);
+        }
+        return { ...kit, ids };
+    }
+
+    it("selects by name, which is how a person would say it", async () => {
+        const { tool, studio } = await withImages(4);
+        const result = await tool("collage_select").execute({ query: "cactus monstera" });
+        expect(result.isError).toBeFalsy();
+        expect(studio.selection).toHaveLength(2);
+        expect(textOf(result)).toContain("cactus");
+    });
+
+    it("adds to a selection instead of replacing it when asked", async () => {
+        const { tool, studio, ids } = await withImages(4);
+        await tool("collage_select").execute({ ids: [ids[0]] });
+        await tool("collage_select").execute({ ids: [ids[1]], add: true });
+        expect(studio.selection).toEqual([ids[0], ids[1]]);
+    });
+
+    it("reports the current selection when asked nothing", async () => {
+        const { tool, studio, ids } = await withImages(2);
+        studio.setSelection([ids[0]]);
+        const result = await tool("collage_select").execute({});
+        expect(textOf(result)).toContain("Currently selected");
+        expect(result.isError).toBeFalsy();
+    });
+
+    it("captures the selection as a real image", async () => {
+        const { tool, studio, ids } = await withImages(3);
+        studio.setSelection([ids[0], ids[1]]);
+        const result = await tool("collage_capture").execute({});
+
+        const image = result.content.find(c => c.type === "image") as any;
+        expect(image?.data).toBeTruthy();
+        expect((result.structuredContent as any).ids).toEqual([ids[0], ids[1]]);
+    });
+
+    it("hands back the region, so a generated image can go back in its place", async () => {
+        const { tool, studio, ids } = await withImages(2);
+        studio.setSelection([ids[0]]);
+        const result = await tool("collage_capture").execute({});
+        const region = (result.structuredContent as any).region;
+
+        expect(region).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
+        // The text has to say it too — that is what the agent acts on.
+        expect(textOf(result)).toContain("collage_add_image");
+        expect(textOf(result)).toContain(`x ${Math.round(region.x)}`);
+    });
+
+    it("takes an explicit rectangle over the selection", async () => {
+        const { tool, captures, studio, ids } = await withImages(2);
+        studio.setSelection([ids[0]]);
+        await tool("collage_capture").execute({ x: 10, y: 20, width: 300, height: 200 });
+        expect(captures.at(-1)!.region).toEqual({ x: 10, y: 20, width: 300, height: 200 });
+    });
+
+    it("refuses a rectangle with no area", async () => {
+        const { tool } = await withImages(1);
+        const result = await tool("collage_capture").execute({ x: 0, y: 0, width: 0, height: 50 });
+        expect(result.isError).toBe(true);
     });
 });
 

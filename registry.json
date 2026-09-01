@@ -219,7 +219,15 @@
         },
         {
           "name": "collage_watch",
-          "description": "Block until something changes on the canvas, then return what happened. Call in a loop to follow along while a person works."
+          "description": "Block until something changes on the canvas, then return what happened together with a picture of it. Call in a loop to follow along while a person works."
+        },
+        {
+          "name": "collage_select",
+          "description": "Pick out layers by id or by words matching their names. The person sees the same selection highlighted."
+        },
+        {
+          "name": "collage_capture",
+          "description": "Return an image of part of the canvas — the selection, given layers, or a rectangle — with the exact region, so a generated image can be dropped back in its place."
         },
         {
           "name": "collage_transform",
@@ -450,7 +458,7 @@
           "instruction": "Export: 'png' for an image, 'print' to open the print dialogue (Save as PDF for paper), 'html' for a responsive snippet to paste into a site, 'embed' for a whole page to host. The same canvas can carry several frames, so one arrangement can produce a poster and a social card without redoing the work."
         }
       ],
-      "note": "One tab is enough — the collage page cuts the backgrounds itself. If it reports that the remover could not be loaded, fall back to FastCut (fastcut_add_image, then fastcut_get_image) and pass the transparent PNG to collage_add_image with removeBackground: false. Watch the resolution warnings either way: a cut-out that looks sharp on screen can be a smear on A4, and the collage tools say so before it is printed rather than after."
+      "note": "To collaborate rather than just build: collage_watch blocks until the person does something and returns a picture of the result, so an agent can follow along and react. collage_select and collage_capture hand a piece of the canvas to an image model, and the capture reports the exact region — so what comes back can be placed with collage_add_image at the same coordinates. One tab is enough for the cut-outs — the collage page removes backgrounds itself. If it reports that the remover could not be loaded, fall back to FastCut (fastcut_add_image, then fastcut_get_image) and pass the transparent PNG to collage_add_image with removeBackground: false. Watch the resolution warnings either way: a cut-out that looks sharp on screen can be a smear on A4, and the collage tools say so before it is printed rather than after."
     },
     {
       "id": "debug-scene",

@@ -27,7 +27,6 @@
     const collage = studio.collage;
     const toasts = createToasts();
 
-    let selectedId = $state<string | null>(null);
     let version = $state(0);
     let toolsRegistered = $state(false);
     let editOpen = $state(false);
@@ -179,7 +178,7 @@
 
     async function clearCanvas() {
         await studio.clear();
-        selectedId = null;
+        studio.setSelection([]);
         editOpen = false;
         toasts.push("Cleared.");
     }
@@ -224,75 +223,112 @@
         const layer = collage.get(id);
         if (!layer) return canvasMenu();
         const image = layer.kind === "image" ? (layer as ImageLayer) : null;
+        // Right-clicking inside a selection acts on all of it.
+        const ids = studio.selection.includes(id) && studio.selection.length > 1 ? studio.selection : [id];
+        const many = ids.length > 1;
+        const suffix = many ? ` (${ids.length})` : "";
+        const each = (change: (layerId: string) => void) => () => ids.forEach(change);
 
         return [
+            {
+                label: many ? `Copy ${ids.length} as an image` : "Copy as an image",
+                icon: "image",
+                onSelect: () => void copySelection(ids),
+            },
             ...(image
                 ? [
                     {
-                        label: "Remove the background",
+                        label: `Remove the background${suffix}`,
                         icon: "wand" as const,
-                        onSelect: () => void recut(id),
+                        separator: true,
+                        onSelect: () => void recut(ids),
                     },
                     {
                         label: "Silhouette",
                         icon: "silhouette" as const,
                         checked: !!image.style.silhouette,
                         separator: true,
-                        onSelect: () => collage.update(id, {
+                        // The one under the pointer decides on or off, and the
+                        // rest follow — a mixed selection then converges rather
+                        // than each item flipping its own way.
+                        onSelect: each(layerId => collage.update(layerId, {
                             style: { silhouette: image.style.silhouette ? null : "#222C20" },
-                        }),
+                        })),
                     },
                     {
                         label: "Sticker outline",
                         icon: "outline" as const,
                         checked: !!image.style.outline,
-                        onSelect: () => collage.update(id, {
+                        onSelect: each(layerId => collage.update(layerId, {
                             style: { outline: image.style.outline ? null : { width: 8, color: "#FFFFFF" } },
-                        }),
+                        })),
                     },
                     {
                         label: "Drop shadow",
                         icon: "shadow" as const,
                         checked: !!image.style.shadow,
-                        onSelect: () => collage.update(id, {
+                        onSelect: each(layerId => collage.update(layerId, {
                             style: {
                                 shadow: image.style.shadow
                                     ? null
                                     : { x: 0, y: 10, blur: 22, color: "#222C20", opacity: 0.32 },
                             },
-                        }),
+                        })),
                     },
                 ]
                 : []),
-            { label: "Bring to front", icon: "front", separator: true, onSelect: () => collage.bringToFront(id) },
-            { label: "Send to back", icon: "back", onSelect: () => collage.sendToBack(id) },
+            { label: `Bring to front${suffix}`, icon: "front", separator: true, onSelect: each(l => { collage.bringToFront(l); }) },
+            { label: `Send to back${suffix}`, icon: "back", onSelect: each(l => { collage.sendToBack(l); }) },
             {
-                label: "Delete",
+                label: `Delete${suffix}`,
                 icon: "trash",
                 danger: true,
                 separator: true,
                 hint: "⌫",
                 onSelect: () => {
-                    collage.remove(id);
-                    if (selectedId === id) selectedId = null;
+                    ids.forEach(layerId => collage.remove(layerId));
+                    studio.setSelection([]);
                 },
             },
         ];
     }
 
-    async function recut(id: string) {
-        const layer = collage.get(id);
-        busy = true;
-        status = `Cutting out "${layer?.label ?? id}"…`;
-        const result = await studio.removeBackgroundFor(id);
-        status = result.ok ? `Cut out "${layer?.label ?? id}".` : (result.reason ?? "That did not work.");
-        busy = false;
+    /**
+     * Put a picture of the selection on the clipboard.
+     *
+     * The same capture an agent gets from collage_capture — so what a person
+     * pastes into an image tool and what an agent sends to one are the same
+     * pixels.
+     */
+    async function copySelection(ids: string[]) {
+        try {
+            const shot = await studio.capture({ ids, maxSize: 1400 });
+            const blob = await (await fetch(shot.dataUrl)).blob();
+            await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+            toasts.push(`Copied ${shot.width}×${shot.height} to the clipboard.`);
+        } catch (error) {
+            toasts.push(`Could not copy that — ${message(error)}`, "error");
+        }
+    }
+
+    async function recut(ids: string[]) {
+        const toast = toasts.push(ids.length > 1 ? `Cutting out ${ids.length}…` : "Cutting it out…", "busy");
+        let done = 0;
+        let failed: string | null = null;
+        for (const id of ids) {
+            const result = await studio.removeBackgroundFor(id);
+            if (result.ok) done++;
+            else if (!failed) failed = result.reason ?? null;
+        }
+        toast.close();
+        if (done) toasts.push(done > 1 ? `Cut out ${done}.` : "Cut it out.");
+        else toasts.push(failed ?? "That did not work.", "error");
     }
 
     function addText() {
         const layer = collage.addText({ text: "Double-click to rename", fontSize: 64 });
-        selectedId = layer.id;
-        status = "Added a text layer.";
+        studio.setSelection([layer.id]);
+        toasts.push("Added a text layer.");
     }
 
     function message(error: unknown): string {
@@ -319,7 +355,6 @@
     <CollageCanvas
         bind:this={canvas}
         {studio}
-        bind:selectedId
         showPage={editOpen}
         onContextMenu={openMenu}
     />
@@ -352,6 +387,10 @@
         open={editOpen}
         {toolsRegistered}
         onSetPage={setPage}
+        onSetBackground={background => {
+            studio.setPageBackground(background);
+            toasts.push(background === "transparent" ? "Background off." : "Background white.");
+        }}
         onArrange={applyLayout}
         onExport={exportAs}
         onClear={clearCanvas}

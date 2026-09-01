@@ -113,11 +113,17 @@
            stretching into a banner across the whole canvas. */
         max-width: min(320px, calc(100vw - 32px));
         padding: 9px 13px;
-        /* Big radius with one small corner: the shape reads as speech. */
-        border: 0;
-        border-radius: 16px 16px 16px 5px;
-        background: var(--surface-panel);
-        color: var(--text-secondary);
+        /*
+         * A real border, not a ring of drop-shadows. Chained filters compound —
+         * each stamp dilates the result of the last — so the "outline" came out
+         * heavy on two sides and thin on the others. A border is the same width
+         * everywhere by construction.
+         */
+        border: 2px solid var(--edge);
+        border-radius: 15px;
+        /* A whisper of Needle green rather than a plain white chip. */
+        background: color-mix(in srgb, var(--accent-brand) 13%, var(--surface-panel));
+        color: var(--text-primary);
         font: inherit;
         font-size: var(--type-body-muted-size);
         line-height: 1.35;
@@ -125,44 +131,64 @@
         text-wrap: pretty;
         cursor: pointer;
         pointer-events: auto;
-        box-shadow:
-            0 0 0 1px color-mix(in srgb, var(--border-subtle) 55%, transparent),
-            0 1px 2px rgba(34, 44, 32, 0.05),
-            0 8px 20px rgba(34, 44, 32, 0.09);
+        /*
+         * The soft shadow still goes through a filter rather than box-shadow,
+         * because a filter traces the rendered silhouette — bubble and beak
+         * together — where box-shadow would trace the border box and leave the
+         * beak floating without one.
+         */
+        --edge: color-mix(in srgb, var(--accent-brand-deep) 60%, transparent);
+        filter: drop-shadow(0 4px 10px rgba(34, 44, 32, 0.12));
         transition-property: background, scale;
         transition-duration: 0.14s;
     }
 
     .bubble:hover {
-        background: var(--surface-panel-muted);
+        background: color-mix(in srgb, var(--accent-brand) 22%, var(--surface-panel));
     }
 
     .bubble:active {
         scale: 0.96;
     }
 
-    /* The tail. A small square rotated under the bottom-left corner, sharing
-       the bubble's own background so it reads as one shape. */
+    /*
+     * The beak: a square turned 45° with a border on its two outer sides, so
+     * those get exactly the same stroke as the bubble. It sits half outside,
+     * and its own opaque background covers the length of the bubble's border it
+     * overlaps — which is what joins the two into one outlined shape.
+     */
     .bubble::after {
         content: "";
         position: absolute;
-        left: 1px;
-        bottom: -3px;
-        width: 10px;
-        height: 10px;
+        left: -7px;
+        bottom: 6px;
+        width: 12px;
+        height: 12px;
         background: inherit;
-        border-bottom-left-radius: 2px;
-        clip-path: polygon(0 100%, 100% 0, 100% 100%);
-        transform: scaleX(-1);
+        border-left: 2px solid var(--edge);
+        border-bottom: 2px solid var(--edge);
+        border-bottom-left-radius: 3px;
+        rotate: 45deg;
     }
 
+    /* Each tone carries its own edge, so the outline belongs to the bubble
+       rather than looking painted on. */
     .bubble--error {
-        background: color-mix(in srgb, var(--accent-error) 9%, var(--surface-panel));
-        color: var(--text-primary);
+        --edge: color-mix(in srgb, var(--accent-error) 55%, transparent);
+        background: color-mix(in srgb, var(--accent-error) 14%, var(--surface-panel));
+    }
+
+    .bubble--error:hover {
+        background: color-mix(in srgb, var(--accent-error) 20%, var(--surface-panel));
     }
 
     .bubble--busy {
-        color: var(--text-primary);
+        --edge: color-mix(in srgb, var(--accent-secondary) 50%, transparent);
+        background: color-mix(in srgb, var(--accent-secondary) 12%, var(--surface-panel));
+    }
+
+    .bubble--busy:hover {
+        background: color-mix(in srgb, var(--accent-secondary) 18%, var(--surface-panel));
     }
 
     .text {

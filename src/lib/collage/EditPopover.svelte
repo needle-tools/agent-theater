@@ -18,13 +18,14 @@
         open: boolean;
         toolsRegistered: boolean;
         onSetPage: (presetId: string) => void;
+        onSetBackground: (background: string) => void;
         onArrange: (mode: LayoutMode) => void;
         onExport: (format: "png" | "print" | "html" | "embed") => void;
         onClear: () => void;
         onClose: () => void;
     }
 
-    let { studio, open, toolsRegistered, onSetPage, onArrange, onExport, onClear, onClose }: Props = $props();
+    let { studio, open, toolsRegistered, onSetPage, onSetBackground, onArrange, onExport, onClear, onClose }: Props = $props();
 
     let version = $state(0);
     $effect(() => studio.collage.onChanged(() => version++));
@@ -59,6 +60,16 @@
                     <option value={preset.id}>{preset.name}</option>
                 {/each}
             </select>
+            <div class="segmented" role="group" aria-label="Background">
+                <button
+                    class:on={activeFrame?.background === "transparent"}
+                    onclick={() => onSetBackground("transparent")}
+                >Transparent</button>
+                <button
+                    class:on={activeFrame?.background !== "transparent"}
+                    onclick={() => onSetBackground("#FFFFFF")}
+                >White</button>
+            </div>
             {#if size}
                 <p class="note">
                     Exports at <span class="num">{size.width}×{size.height}</span>px{activeFrame?.physical
@@ -156,6 +167,41 @@
 
     select {
         width: 100%;
+    }
+
+    /* One track, two segments — the standard shape for a binary choice, and it
+       shows the current state without needing a label to explain it. */
+    .segmented {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px;
+        margin-top: 6px;
+        /* Outer 12 = inner 10 + 2 padding. */
+        padding: 2px;
+        border-radius: 12px;
+        background: var(--surface-panel-strong);
+    }
+
+    .segmented button {
+        min-height: 28px;
+        padding: 0 8px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: none;
+        color: var(--text-muted);
+        font-size: var(--type-micro-label-size);
+    }
+
+    .segmented button:hover:not(.on) {
+        background: color-mix(in srgb, var(--surface-panel) 60%, transparent);
+        border-color: transparent;
+    }
+
+    .segmented button.on {
+        background: var(--surface-panel);
+        border-color: color-mix(in srgb, var(--border-subtle) 70%, transparent);
+        color: var(--text-primary);
+        font-weight: 600;
     }
 
     .grid {

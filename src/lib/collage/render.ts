@@ -11,8 +11,9 @@
  * preview and the 300 dpi print are the same drawing at different sizes, and a
  * layout that looks right in the preview is right on paper.
  */
-import { outputSize, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
+import { outputSize, type Frame, type ImageLayer, type Layer, type Rect, type TextLayer } from "./model.js";
 import type { LoadedImage } from "./imaging.js";
+import { OUTLINE_STAMPS } from "./css.js";
 
 export interface RenderOptions {
     /** Pixel size to draw at. Defaults to the frame's export size. */
@@ -31,8 +32,40 @@ export function renderFrame(
     options: RenderOptions = {},
 ): HTMLCanvasElement {
     const natural = outputSize(frame);
-    const width = Math.max(1, Math.round(options.width ?? natural.width));
-    const height = Math.max(1, Math.round(options.height ?? (width * (frame.height / frame.width))));
+    return renderRegion(frame, layers, images, {
+        width: options.width ?? natural.width,
+        height: options.height,
+        // "transparent" is a real choice, not a colour to paint: a collage of
+        // cut-outs is usually wanted with nothing behind it.
+        background: options.background === false || frame.background === "transparent"
+            ? null
+            : frame.background,
+    });
+}
+
+export interface RegionOptions {
+    width?: number;
+    height?: number;
+    /** Colour behind the layers, or null for transparency. */
+    background?: string | null;
+}
+
+/**
+ * Draw any rectangle of the canvas.
+ *
+ * The page is only one rectangle among many. A region capture — a marquee, a
+ * selection's bounds, one layer — is the same drawing at a different origin,
+ * which is what lets a piece of the collage be handed to an image model and the
+ * result dropped back where it came from.
+ */
+export function renderRegion(
+    region: Rect,
+    layers: Layer[],
+    images: ImageSource,
+    options: RegionOptions = {},
+): HTMLCanvasElement {
+    const width = Math.max(1, Math.round(options.width ?? region.width));
+    const height = Math.max(1, Math.round(options.height ?? (width * (region.height / Math.max(1, region.width)))));
 
     const canvas = document.createElement("canvas");
     canvas.width = width;
@@ -40,13 +73,14 @@ export function renderFrame(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("No 2D context available.");
 
-    if (options.background !== false) {
-        ctx.fillStyle = frame.background;
+    if (options.background) {
+        ctx.fillStyle = options.background;
         ctx.fillRect(0, 0, width, height);
     }
 
-    // From here on, draw in canvas units: the frame's top-left is the origin.
-    const scale = width / frame.width;
+    // From here on, draw in canvas units: the region's top-left is the origin.
+    const frame = region;
+    const scale = width / Math.max(1, region.width);
     ctx.save();
     ctx.scale(scale, scale);
     ctx.translate(-frame.x, -frame.y);
@@ -107,9 +141,11 @@ function drawImageLayer(
 
     if (outline && outline.width > 0 && shape) {
         const tinted = tint(shape, outline.color);
-        // Eight stamps in a ring approximate a stroke around the alpha edge.
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
+        // A ring of stamps approximates a stroke around the alpha edge. The
+        // count has to match the CSS one or a preview and the editor disagree;
+        // below about sixteen the gaps show as a scalloped edge.
+        for (let i = 0; i < OUTLINE_STAMPS; i++) {
+            const angle = (i / OUTLINE_STAMPS) * Math.PI * 2;
             ctx.drawImage(
                 tinted,
                 Math.cos(angle) * outline.width,

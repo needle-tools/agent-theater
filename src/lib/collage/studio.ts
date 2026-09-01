@@ -8,13 +8,13 @@
  * genuinely needs a browser lives here behind one seam.
  */
 import {
-    Collage,
+    Collage, bounds, overlaps,
     type AddFrameSpec, type Frame, type ImageLayer, type Layer, type Rect,
     outputSize, presetCanvasSize, findPreset, unionBounds,
 } from "./model.js";
 import { arrange as computeLayout, type LayoutMode, type LayoutOptions } from "./layout.js";
 import { loadImage, toDataUrl, type LoadedImage } from "./imaging.js";
-import { canvasToBlob, previewDataUrl, renderFrame } from "./render.js";
+import { canvasToBlob, previewDataUrl, renderFrame, renderRegion } from "./render.js";
 import { exportHtml } from "./exportHtml.js";
 import {
     backgroundRemovalError, removeBackground as cutOut, type CutResult, type Progress,
@@ -66,6 +66,30 @@ export interface ArrangeOptions extends LayoutOptions {
     ids?: string[];
 }
 
+export interface CaptureOptions {
+    /** Capture exactly these layers. Defaults to the selection, then the page. */
+    ids?: string[];
+    /** Capture an explicit rectangle in canvas units. Wins over `ids`. */
+    region?: Rect;
+    /** Longest edge in pixels. */
+    maxSize?: number;
+    /** Colour behind the layers, or null for transparency. */
+    background?: string | null;
+    /** Room left around the captured layers, as a fraction. */
+    padding?: number;
+}
+
+export interface CaptureResult {
+    /** A data: URL — `image/png` when transparent, `image/jpeg` otherwise. */
+    dataUrl: string;
+    /** What was actually captured, so a result can be dropped back in its place. */
+    region: Rect;
+    /** Layers that fell inside it. */
+    ids: string[];
+    width: number;
+    height: number;
+}
+
 /** Something that happened, for anyone watching. */
 export interface CollageEvent {
     /** Monotonic. A watcher passes the last one it saw to avoid missing any. */
@@ -90,11 +114,27 @@ export interface CollageStudio {
      * the canvas — there is at most one, and the canvas never asks anyone to
      * manage it.
      */
-    setPage(presetId: string): Frame;
+    setPage(presetId: string, background?: string): Frame;
+    /** Paint something behind the layers, or "transparent" for nothing. */
+    setPageBackground(background: string): Frame | null;
     readonly page: Frame | null;
     readonly pagePreset: string;
     /** Re-fit a free-form page around whatever is on the canvas now. */
     refitPage(): void;
+    /**
+     * What is picked out right now.
+     *
+     * Selection lives here rather than in the canvas component because both
+     * sides need it: a person shift-clicks three cut-outs, an agent captures
+     * exactly those three and drops a generated image back in their place.
+     */
+    readonly selection: string[];
+    setSelection(ids: string[]): void;
+    onSelectionChanged(callback: () => void): () => void;
+    /** Bounds of the selection, of some ids, or null when nothing is picked. */
+    selectionBounds(ids?: string[]): Rect | null;
+    /** An image of part of the canvas, for handing to something that makes pictures. */
+    capture(options?: CaptureOptions): Promise<CaptureResult>;
     /** Note something that happened, for watchers. */
     record(kind: CollageEvent["kind"], summary: string, by?: "human" | "agent", detail?: object): void;
     /** Everything since `seq`. */
@@ -137,6 +177,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
     const waiters = new Set<() => void>();
     let sequence = 0;
     let pagePreset = FREE_PAGE;
+
+    let selection: string[] = [];
+    const selectionWatchers = new Set<() => void>();
 
     const record = (
         kind: CollageEvent["kind"],
@@ -251,7 +294,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
          * something to manage — two overlapping sheets of paper that could not
          * be deleted was the whole problem with treating them as objects.
          */
-        setPage(presetId) {
+        setPage(presetId, background) {
             pagePreset = presetId;
             // Start from none: a page carries its physical size and output
             // pixels, which a resize cannot change, so switching means
@@ -260,7 +303,13 @@ export function createStudio(collage = new Collage()): CollageStudio {
             for (const frame of collage.listFrames()) collage.removeFrame(frame.id);
 
             if (presetId === FREE_PAGE) {
-                const frame = collage.addFrame({ name: "Canvas", ...freePageRect() });
+                // A free canvas of cut-outs almost always wants nothing behind
+                // it; paper, below, is paper-coloured.
+                const frame = collage.addFrame({
+                    name: "Canvas",
+                    background: background ?? "transparent",
+                    ...freePageRect(),
+                });
                 record("page-changed", "The output now follows whatever is on the canvas.");
                 return frame;
             }
@@ -273,6 +322,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             const centerY = contents ? contents.y + contents.height / 2 : 0;
             const frame = collage.addFrame({
                 presetId,
+                background: background ?? "#FFFFFF",
                 x: centerX - size.width / 2,
                 y: centerY - size.height / 2,
                 width: size.width,
@@ -282,10 +332,90 @@ export function createStudio(collage = new Collage()): CollageStudio {
             return frame;
         },
 
+        setPageBackground(background) {
+            const frame = pageFrame();
+            if (!frame) return null;
+            const next = collage.updateFrame(frame.id, { background });
+            record("page-changed", background === "transparent"
+                ? "The page background is now transparent."
+                : `The page background is now ${background}.`);
+            return next;
+        },
+
         refitPage() {
             if (pagePreset !== FREE_PAGE) return;
             const frame = pageFrame();
             if (frame) collage.updateFrame(frame.id, freePageRect());
+        },
+
+        get selection() {
+            return selection;
+        },
+
+        setSelection(ids) {
+            // Only ids that still exist, de-duplicated, in canvas order — so a
+            // capture of "these three" is stable however they were clicked.
+            const live = new Set(collage.list().map(l => l.id));
+            const unique = [...new Set(ids)].filter(id => live.has(id));
+            const same = unique.length === selection.length && unique.every((id, i) => id === selection[i]);
+            if (same) return;
+            selection = unique;
+            for (const watcher of [...selectionWatchers]) watcher();
+        },
+
+        onSelectionChanged(callback) {
+            selectionWatchers.add(callback);
+            return () => { selectionWatchers.delete(callback); };
+        },
+
+        selectionBounds(ids) {
+            const chosen = ids?.length ? ids : selection;
+            if (!chosen.length) return null;
+            return collage.contentBounds(chosen);
+        },
+
+        async capture(options = {}) {
+            const padding = options.padding ?? 0.04;
+            const ids = options.ids?.length ? options.ids : selection;
+
+            // An explicit rectangle wins; then the chosen layers; then the page,
+            // which is the sensible "capture what I am looking at".
+            let region = options.region ?? collage.contentBounds(ids.length ? ids : undefined);
+            if (!options.region && region) {
+                const growX = region.width * padding;
+                const growY = region.height * padding;
+                region = {
+                    x: region.x - growX,
+                    y: region.y - growY,
+                    width: region.width + growX * 2,
+                    height: region.height + growY * 2,
+                };
+            }
+            if (!region) {
+                this.refitPage();
+                const page = pageFrame();
+                if (!page) throw new Error("There is nothing on the canvas to capture.");
+                region = { x: page.x, y: page.y, width: page.width, height: page.height };
+            }
+
+            const maxSize = Math.min(2048, Math.max(64, Math.round(options.maxSize ?? 768)));
+            const scale = maxSize / Math.max(region.width, region.height);
+            const width = Math.max(1, Math.round(region.width * scale));
+            const height = Math.max(1, Math.round(region.height * scale));
+
+            const page = pageFrame();
+            const background = options.background === undefined
+                ? (page && page.background !== "transparent" ? page.background : null)
+                : options.background;
+
+            const inside = collage.list().filter(layer => overlaps(bounds(layer), region!));
+            const canvas = renderRegion(region, inside, images, { width, height, background });
+            // Transparency has to survive, so PNG whenever there is any.
+            const dataUrl = background
+                ? canvas.toDataURL("image/jpeg", 0.82)
+                : canvas.toDataURL("image/png");
+
+            return { dataUrl, region, ids: inside.map(l => l.id), width, height };
         },
 
         record,
@@ -527,13 +657,33 @@ export function createStudio(collage = new Collage()): CollageStudio {
             if (format === "print") {
                 const sources = await resolveSources(layers, true);
                 const html = printableDocument(frame, layers, sources);
-                await printDocument(html);
+                const printed = await printDocument(html);
+                if (printed) {
+                    return {
+                        summary:
+                            `Opened the print dialogue for "${frame.name}"` +
+                            `${frame.physical ? `, set up as ${frame.physical.width}×${frame.physical.height}mm` : ""}. ` +
+                            `Choose "Save as PDF" there for a file. Tell the person the dialogue is waiting for them.`,
+                        structured: { printed: true },
+                    };
+                }
+
+                // Embedded browsers — an app's in-app web view — routinely have
+                // no print at all. Producing the page as a print-resolution
+                // image is a worse answer than a PDF but a much better one than
+                // a button that does nothing.
+                const size = outputSize(frame, dpi);
+                const canvas = renderFrame(frame, layers, images, { width: size.width, height: size.height });
+                const blob = await canvasToBlob(canvas, "image/png");
+                const filename = `${slug(frame.name)}-print.png`;
+                download(blob, filename);
                 return {
                     summary:
-                        `Opened the print dialogue for "${frame.name}"` +
-                        `${frame.physical ? `, set up as ${frame.physical.width}×${frame.physical.height}mm` : ""}. ` +
-                        `Choose "Save as PDF" there for a file. Tell the person the dialogue is waiting for them.`,
-                    structured: { printed: true },
+                        `This browser will not open a print dialogue — in-app browsers usually cannot. ` +
+                        `Saved ${filename} instead at ${size.width}×${size.height}px (${dpi} dpi` +
+                        `${frame.physical ? `, ${frame.physical.width}×${frame.physical.height}mm` : ""}), ` +
+                        `which prints correctly from anywhere that can open an image.`,
+                    structured: { printed: false, filename, width: size.width, height: size.height },
                 };
             }
 

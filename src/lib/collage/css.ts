@@ -18,20 +18,25 @@ export function cqwUnit(frameWidth: number): Unit {
     return n => `${round((n / frameWidth) * 100, 3)}cqw`;
 }
 
+/** Stamps used to approximate a stroke around an alpha edge. */
+export const OUTLINE_STAMPS = 16;
+
 /**
  * Sticker outline and drop shadow, both driven by the image's own alpha.
  *
- * There is no filter that strokes an alpha edge, so the outline is eight
- * zero-blur drop shadows in a ring. Eight is where the corners stop showing at
- * usual widths; more only costs paint time.
+ * There is no filter that strokes an alpha edge, so the outline is a ring of
+ * zero-blur drop shadows. The count matters more than it looks: at eight the
+ * gaps between stamps are visible as a lumpy, scalloped edge on any shape with
+ * curves, which reads as a rendering fault rather than as a sticker. Sixteen is
+ * where the edge closes up and looks like a stroke.
  */
 export function alphaFilters(style: LayerStyle, unit: Unit): string {
     const filters: string[] = [];
 
     if (style.outline && style.outline.width > 0) {
         const color = cssColor(style.outline.color);
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
+        for (let i = 0; i < OUTLINE_STAMPS; i++) {
+            const angle = (i / OUTLINE_STAMPS) * Math.PI * 2;
             filters.push(
                 `drop-shadow(${unit(Math.cos(angle) * style.outline.width)} ` +
                 `${unit(Math.sin(angle) * style.outline.width)} 0 ${color})`);
