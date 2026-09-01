@@ -11,6 +11,21 @@ function overlapping(placements: Placement[]): boolean {
         a.x < b.x + b.width - 0.01 && a.x + a.width - 0.01 > b.x
         && a.y < b.y + b.height - 0.01 && a.y + a.height - 0.01 > b.y));
 }
+
+/** The worst pairwise overlap, as a fraction of the smaller item's area. */
+function worstOverlap(placements: Placement[]): number {
+    let worst = 0;
+    for (const [i, a] of placements.entries()) {
+        for (const b of placements.slice(i + 1)) {
+            const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+            const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+            if (w <= 0 || h <= 0) continue;
+            const smaller = Math.min(a.width * a.height, b.width * b.height);
+            worst = Math.max(worst, (w * h) / Math.max(1, smaller));
+        }
+    }
+    return worst;
+}
 import { checkFrame } from "../src/lib/collage/quality.js";
 import { alphaBounds, alphaCoverage, dominantColors } from "../src/lib/collage/imaging.js";
 
@@ -285,18 +300,62 @@ describe("layouts", () => {
         expect(quadrants.size).toBe(4);
     });
 
-    it("never puts one cut-out on top of another", () => {
-        // The whole appeal of a plate of cut-outs is seeing all of them. The
-        // old collage mode overlapped on purpose and buried half of them.
+    it("lets boxes nest without burying anything", () => {
+        // Boxes touch and sink into each other on purpose: a cut-out's corners
+        // are empty, so reserving them reserves nothing and leaves a margin
+        // around every shape. What must not happen is the old behaviour, where
+        // items sat squarely on top of each other and half of them vanished.
         const { layers } = collageWith(14);
         const placements = arrange(layers, area, "collage", { seed: 2 });
-        expect(overlapping(placements)).toBe(false);
+        expect(worstOverlap(placements)).toBeLessThan(0.35);
     });
 
-    it("still does not overlap when the shapes are wildly different", () => {
+    it("nests without burying even when the shapes are wildly different", () => {
         const wide = collageWith(5, { width: 1600, height: 200 }).layers;
         const tall = collageWith(5, { width: 200, height: 1600 }).layers;
-        expect(overlapping(arrange([...wide, ...tall], area, "collage", { seed: 9 }))).toBe(false);
+        const placements = arrange([...wide, ...tall], area, "collage", { seed: 9 });
+        expect(worstOverlap(placements)).toBeLessThan(0.4);
+    });
+
+    it("packs tightly enough to read as collected rather than laid out", () => {
+        // The measurable version of "it looks like a grid": how much of the
+        // block is actually artwork. Boxes packed edge to edge with gutters
+        // came out around half.
+        const { layers } = collageWith(18);
+        const placements = arrange(layers, area, "collage", { seed: 7 });
+        const artwork = placements.reduce((sum, p) => sum + p.width * p.height, 0);
+        const block = placementBounds(placements)!;
+        expect(artwork / (block.width * block.height)).toBeGreaterThan(0.6);
+    });
+
+    it("does not queue everything up against a left margin", () => {
+        // Bottom-left packing sends anything that cannot slot into a hole to the
+        // left edge, which is what built the shelves. Mixed shapes, because a
+        // canvas of identical rectangles aligns for reasons of geometry rather
+        // than of algorithm — there is nothing else for them to do.
+        const shapes = [
+            { width: 800, height: 600 }, { width: 400, height: 900 }, { width: 600, height: 600 },
+            { width: 1200, height: 400 }, { width: 300, height: 700 }, { width: 500, height: 500 },
+        ];
+        const layers = shapes.flatMap((size, i) =>
+            [collageWith(1, size).layers[0], collageWith(1, shapes[(i + 3) % shapes.length]).layers[0]])
+            .map((layer, i) => ({ ...layer, id: `layer-${i}` }));
+
+        const placements = arrange(layers, area, "collage", { seed: 5 });
+        const columns = new Set(placements.map(p => Math.round(p.x / 8)));
+        expect(columns.size).toBeGreaterThan(placements.length * 0.6);
+    });
+
+    it("makes a few things big and most things small", () => {
+        const { layers } = collageWith(20);
+        const areas = arrange(layers, area, "collage", { seed: 12 })
+            .map(p => p.width * p.height)
+            .sort((a, b) => b - a);
+        // An even spread gives every item nearly the same area, and a page of
+        // same-sized things in rows is a grid however irregular the rows are.
+        expect(areas[0] / areas.at(-1)!).toBeGreaterThan(6);
+        const median = areas[Math.floor(areas.length / 2)];
+        expect(median).toBeLessThan(areas[0] / 2);
     });
 
     it("fills the area instead of huddling in the middle", () => {
@@ -338,13 +397,14 @@ describe("layouts", () => {
         expect(placements.some(p => p.rotation < -1)).toBe(true);
     });
 
-    it("does not overlap once the tilted corners are counted either", () => {
-        // The stronger claim, and the one that matters: packing the upright box
-        // would leave the corners of neighbouring tilted items crossing.
+    it("counts the tilted corners when it reserves space", () => {
+        // Packing the upright box would let the corners of neighbouring tilted
+        // items cross badly. Swept boxes overlap by the nesting allowance and
+        // no more.
         const { layers } = collageWith(14);
         const placements = arrange(layers, area, "collage", { seed: 8 });
-        const swept = placements.map(p => bounds({ ...layers[0], ...p, rotation: p.rotation }));
-        expect(overlapping(swept.map((s, i) => ({ ...placements[i], ...s })))).toBe(false);
+        const swept = placements.map((p, i) => ({ ...p, ...bounds({ ...layers[i], ...p, rotation: p.rotation }) }));
+        expect(worstOverlap(swept)).toBeLessThan(0.45);
     });
 
     it("takes the tilt as far as it is told to and no further", () => {

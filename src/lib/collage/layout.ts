@@ -12,6 +12,16 @@
  */
 import { bounds, unionBounds, type Layer, type Rect } from "./model.js";
 
+/**
+ * How far a cut-out's box may sink into its neighbours', as a fraction.
+ *
+ * Not a fudge factor: it is the difference between packing rectangles and
+ * packing shapes. Everything on this canvas has its background removed, so the
+ * corners of its box are empty, and reserving them is reserving nothing.
+ * Enough to close the gutters, small enough that opaque pixels rarely meet.
+ */
+const NESTING = 0.16;
+
 export const LAYOUT_MODES = ["grid", "row", "column", "ring", "scatter", "packed", "collage"] as const;
 export type LayoutMode = (typeof LAYOUT_MODES)[number];
 
@@ -25,13 +35,16 @@ export interface LayoutOptions {
     /** Max degrees of tilt for `scatter`. */
     jitter?: number;
     /**
-     * Whether a packing layout may resize things to fill the area.
+     * What a packing layout solves its scale for.
      *
-     * True for a chosen paper size, where filling the page is the point. False
-     * for the free canvas, which has no size of its own — there, resizing to
-     * fit is a loop: the page refits to the contents, the layout fills a
-     * fraction of the page, the page refits to that, and the collage shrinks a
-     * few percent on every single arrange.
+     * True: fill the area — right for a chosen paper size, where covering the
+     * page is the point. False: keep the total amount of artwork exactly as it
+     * is — right for the free canvas, which has no size of its own. Filling
+     * there closes a loop, because the page is refitted to the contents, so the
+     * collage loses a few percent on every single arrange.
+     *
+     * Either way sizes are assigned rather than adjusted, so arranging twice
+     * gives the same answer twice.
      */
     fill?: boolean;
 }
@@ -187,16 +200,26 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
     const random = mulberry32(options.seed ?? 7);
     // Gutters are deliberately tight. This is the difference between a plate of
     // specimens and a noticeboard.
-    const spacing = Math.min(area.width, area.height) * gap * 0.09;
+    const spacing = Math.min(area.width, area.height) * gap * 0.05;
 
     const jitter = options.jitter ?? 8;
 
     // A wall of identically-sized cut-outs reads as a contact sheet, so each
     // gets a seeded weight and a seeded tilt. Both are drawn before sorting, so
     // the same seed gives the same picture whatever order the layers arrive in.
+    //
+    // The weight is skewed hard towards the small end rather than spread evenly.
+    // An even spread gives every item roughly the same area, and a page of
+    // same-sized things in rows is a grid however irregular the rows are. A few
+    // big and many small is what makes a plate look collected.
+    //
+    // How far that goes depends on how many there are. A long tail needs a
+    // crowd to sit in: across fifty cut-outs the tiny ones read as detail, but
+    // across six they read as three pictures and three specks.
+    const variety = clamp(layers.length / 24, 0.3, 1);
     const items = layers.map(layer => ({
         layer,
-        weight: 0.78 + random() * 0.62,
+        weight: 1 + variety * (0.34 + Math.pow(random(), 2.1) * 2.3 - 1),
         rotation: (random() * 2 - 1) * jitter,
         aspect: Math.max(0.05, layer.width / Math.max(1, layer.height)),
     }));
@@ -210,37 +233,48 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
     /**
      * Pack every item at `scale`, returning where they went and how tall it got.
      *
-     * `into` is the width to pack against, which is the area's width when
-     * filling a page and a computed one when keeping sizes.
+     * `into` is the width to pack against: the area's width when filling a
+     * page, and a computed one on the free canvas, which has no width of its own.
      */
     const packAt = (scale: number, into: number) => {
         const skyline = new Skyline(into);
         const placements: Placement[] = [];
         for (const item of ordered) {
-            // When filling, size comes from the weight and the scale alone —
-            // never from the size the item already has. Multiplying by the
-            // current width compounds: the same seeded weight applies again
-            // every pass, so heavy items grow and light ones shrink until the
-            // spread is absurd, and nothing looks wrong until the fifth arrange.
+            // Size comes from the weight and the scale alone — never from the
+            // size the item already has. Multiplying by the current width
+            // compounds: the same seeded weight applies again every pass, so
+            // heavy items grow and light ones shrink until the spread is
+            // absurd, and nothing looks wrong until the fifth arrange.
+            //
             // What gets packed is the SWEPT box — the footprint a tilted item
             // actually occupies. Packing the upright box instead is what makes
             // people think tilt and tight packing are incompatible: they are
             // not, you just have to reserve the space the tilt uses.
             const swept = (w: number) => sweptSize({ width: w, height: w / item.aspect }, item.rotation);
-            let width = fill ? item.weight * scale : item.layer.width;
+            let width = item.weight * scale;
             // A wide item tilted is wider still; shrink until its footprint fits.
             if (swept(width).width > into) width *= into / swept(width).width;
             const height = width / item.aspect;
             const footprint = swept(width);
 
-            const spot = skyline.place(footprint.width + spacing, footprint.height + spacing);
+            // What is reserved is deliberately smaller than the footprint.
+            //
+            // A cut-out is mostly nothing at its corners — a hanging plant's box
+            // is largely air — so packing boxes edge to edge leaves a visible
+            // margin around every shape and the result reads as a grid with
+            // pictures dropped into it. Letting the boxes overlap lets the
+            // shapes nest the way they do on a real pinboard, a leaf tucking
+            // under a stamp, while the pixels almost never actually meet.
+            const slotWidth = footprint.width * (1 - NESTING) + spacing;
+            const slotHeight = footprint.height * (1 - NESTING) + spacing;
+            const spot = skyline.place(slotWidth, slotHeight);
             placements.push({
                 id: item.layer.id,
-                // Centred in its own footprint: a rotated layer's bounds grow
-                // about its centre, so this is what keeps the corners inside
-                // the space that was reserved for them.
-                x: area.x + spot.x + (footprint.width - width) / 2,
-                y: area.y + spot.y + (footprint.height - height) / 2,
+                // Centred in its slot, so the overhang is even on both sides.
+                // A rotated layer's bounds grow about its centre, which is what
+                // keeps the tilted corners in the space reserved for them.
+                x: area.x + spot.x + (slotWidth - spacing - width) / 2,
+                y: area.y + spot.y + (slotHeight - spacing - height) / 2,
                 width,
                 height,
                 rotation: item.rotation,
@@ -277,15 +311,22 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
             }
         }
     } else {
-        // Nothing is resized, so there is no scale to solve for — only a width
-        // to pack against. Pick the one that makes the block roughly the shape
-        // of the space it is going into.
+        // The free canvas has no page to fill, so the scale is solved for a
+        // different thing: keep the total amount of artwork exactly as it was.
+        //
+        // That is what makes repeated arranging safe here. Filling the area
+        // instead closes a loop — the page is refitted to the contents, the
+        // layout fills a fraction of the page, the page refits to that — and
+        // the collage loses a few percent every time. Preserving the total has
+        // no such loop: pass two computes the same scale as pass one, exactly.
         const artwork = items.reduce((sum, i) => sum + i.layer.width * (i.layer.width / i.aspect), 0);
+        const unit = items.reduce((sum, i) => sum + (i.weight * i.weight) / i.aspect, 0);
+        const scale = Math.sqrt(artwork / Math.max(0.0001, unit));
         const aspect = clamp(area.width / Math.max(1, area.height), 0.4, 2.5);
         const width = Math.max(
-            Math.max(...items.map(i => i.layer.width)),
-            Math.sqrt((artwork / 0.72) * aspect));
-        best = packAt(1, width);
+            Math.max(...items.map(i => i.weight * scale)),
+            Math.sqrt((artwork / 0.86) * aspect));
+        best = packAt(scale, width);
     }
 
     // Centre the block on the area. The pack grows right and down from its
@@ -313,29 +354,60 @@ class Skyline {
         this.nodes = [{ x: 0, width, y: 0 }];
     }
 
-    /** The lowest position this box can rest at, leftmost among equals. */
+    /**
+     * The best resting place for a box of this size.
+     *
+     * "Lowest, then leftmost" is the textbook rule and it is what made this
+     * look like a grid: every item that could not slot into a hole went to the
+     * left margin, so the pack grew as left-aligned shelves. Lowest still wins
+     * — that is what fills holes — but ties are broken by which candidate
+     * *wastes the least*, measured as the drop between the box's resting height
+     * and the ground beneath it. A snug hole beats a wide-open shelf, so items
+     * seek each other out instead of queueing along an edge.
+     */
     place(width: number, height: number): { x: number; y: number } {
         const w = Math.min(width, this.width);
-        let best: { x: number; y: number } | null = null;
+        let best: { x: number; y: number; waste: number } | null = null;
 
+        // Both ends of every segment are candidates, not just the left one.
+        // Trying left edges alone means every box that cannot slot into a hole
+        // aligns with some earlier box's left edge, and the pack grows as
+        // left-aligned shelves however clever the rest of the rule is.
+        const candidates = new Set<number>();
         for (const node of this.nodes) {
-            if (node.x + w > this.width + 1e-6) continue;
-            // Resting height is the highest point anywhere under the box.
+            candidates.add(node.x);
+            candidates.add(node.x + node.width - w);
+        }
+
+        for (const start of candidates) {
+            const x = Math.max(0, start);
+            if (x + w > this.width + 1e-6) continue;
+            // Resting height is the highest point anywhere under the box; the
+            // waste is everything under it that the box will not be touching.
             let y = 0;
             let covered = 0;
             for (const other of this.nodes) {
-                if (other.x + other.width <= node.x) continue;
-                if (other.x >= node.x + w) break;
+                if (other.x + other.width <= x) continue;
+                if (other.x >= x + w) break;
                 if (other.y > y) y = other.y;
-                covered = other.x + other.width - node.x;
+                covered = other.x + other.width - x;
             }
             if (covered < w - 1e-6) continue;
-            if (!best || y < best.y - 1e-6) best = { x: node.x, y };
+            let waste = 0;
+            for (const other of this.nodes) {
+                if (other.x + other.width <= x) continue;
+                if (other.x >= x + w) break;
+                const span = Math.min(other.x + other.width, x + w) - Math.max(other.x, x);
+                waste += span * (y - other.y);
+            }
+            if (!best || y < best.y - 1e-6 || (y < best.y + 1e-6 && waste < best.waste - 1e-6)) {
+                best = { x, y, waste };
+            }
         }
         // Wider than the area, or nothing fits: start a fresh row on top.
         const spot = best ?? { x: 0, y: this.top() };
         this.add(spot.x, w, spot.y + height);
-        return spot;
+        return { x: spot.x, y: spot.y };
     }
 
     /** The highest point of the frontier — the packed block's height. */

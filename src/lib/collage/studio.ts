@@ -645,10 +645,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 // for. Doing nothing at all, silently, is never the answer.
                 : layersOf(frameId).length ? layersOf(frameId) : collage.list();
             if (!inside.length) return 0;
-            // A packing layout may resize to fill a chosen paper size, but must
-            // not on the free canvas: there the page is refitted to the
-            // contents, so "fill the page" closes a loop that takes a few
-            // percent off the collage every time it is arranged.
+            // A packing layout fills a chosen paper size, but on the free canvas
+            // it keeps the total amount of artwork instead. The page there is
+            // refitted to the contents, so "fill the page" closes a loop that
+            // takes a few percent off the collage every time it is arranged.
             const placements = computeLayout(inside, frame, mode, {
                 fill: pagePreset !== FREE_PAGE,
                 ...options,
