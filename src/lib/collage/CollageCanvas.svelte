@@ -20,7 +20,7 @@
     import { alphaFilters, cssColor, outlineFilterSvg, pxUnit, textCss } from "./css.js";
     import { maskHit } from "./imaging.js";
     import { overlaps, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
-    import type { CollageStudio } from "./studio.js";
+    import { FREE_PAGE, type CollageStudio } from "./studio.js";
 
     interface Props {
         studio: CollageStudio;
@@ -208,6 +208,8 @@
     }
     /** A drag that has not moved yet is a click; used to keep selection sane. */
     let moved = false;
+    /** Last seen pointer position, so a paste can land where you are looking. */
+    let pointer: { x: number; y: number } | null = null;
 
     export function getView() {
         return { ...view };
@@ -216,6 +218,32 @@
     /** Screen point to canvas units, for callers placing something where you clicked. */
     export function canvasPoint(clientX: number, clientY: number) {
         return toCanvas(clientX, clientY);
+    }
+
+    /**
+     * Where something pasted should land: under the pointer if it is over the
+     * canvas, otherwise the middle of what is on screen. Pasting into the
+     * top-left of an infinite canvas — which is nowhere in particular — is how
+     * a paste ends up looking like it did nothing.
+     */
+    export function pastePoint() {
+        if (pointer) return toCanvas(pointer.x, pointer.y);
+        if (!viewport) return null;
+        const box = viewport.getBoundingClientRect();
+        return toCanvas(box.left + box.width / 2, box.top + box.height / 2);
+    }
+
+    /**
+     * Paste the layers copied inside the app, if there are any.
+     *
+     * Returns whether it did, so the paste handler can fall back to the system
+     * clipboard — the decision needs the clipboard's contents, which only the
+     * paste event has.
+     */
+    export function pasteClipboard(): boolean {
+        if (!clipboard.length) return false;
+        pasteLayers(clipboard);
+        return true;
     }
 
     /** Put a text layer straight into editing, with its text selected. */
@@ -422,6 +450,7 @@
     }
 
     function onPointerMove(event: PointerEvent) {
+        pointer = { x: event.clientX, y: event.clientY };
         if (!drag) {
             // Which layer, not just whether one — it gets outlined.
             hoverId = layerAt(event.clientX, event.clientY)?.id ?? null;
@@ -543,14 +572,12 @@
             }
             return;
         }
-        if (accel && key === "v" && clipboard.length) {
-            // Only when there is something of ours to paste — otherwise let the
-            // paste through, because the page also accepts images from the
-            // system clipboard.
-            event.preventDefault();
-            pasteLayers(clipboard);
-            return;
-        }
+        // Ctrl+V is deliberately absent. A keydown cannot see what is on the
+        // clipboard, so deciding there meant guessing between our own copied
+        // layers and an image from the system — and the guess was wrong in one
+        // direction for good: once anything had been copied in the app, an
+        // image from outside could never be pasted again. The paste event knows
+        // the answer, so the choice is made there. See pasteClipboard.
         if (accel && key === "d") {
             if (!selectedIds.length) return;
             event.preventDefault();
@@ -606,8 +633,8 @@
         // uncapped radius froze the renderer outright on the first click.
         const scale = (screenPx: number) => Math.min(6, Math.max(1, screenPx / view.zoom));
         return (
-            indicatorFilter("collage-hovered", scale(1.5), "var(--accent-brand)") +
-            indicatorFilter("collage-selected", scale(2.5), "var(--accent-brand)")
+            indicatorFilter("collage-hovered", scale(1.5), "var(--collage-hover-mark)") +
+            indicatorFilter("collage-selected", scale(2.5), "var(--collage-select-mark)")
         );
     });
 
@@ -704,6 +731,22 @@
         ].join("; ");
     }
 
+    /**
+     * A free page hugs whatever is on the canvas, so drawing it as a sheet says
+     * nothing — there is no edge to be surprised by. A chosen paper size is the
+     * opposite: it crops, so it is drawn.
+     */
+    const fixedPage = $derived(studio.pagePreset !== FREE_PAGE);
+
+    /**
+     * Under everything, always — computed rather than assumed.
+     *
+     * "Send to back" hands out `lowest - 1`, so layer z-indices go negative and
+     * keep going. A fixed number on the page would sooner or later be above one
+     * of them, and the page would paint over a sticker.
+     */
+    const pageZ = $derived(Math.min(0, ...layers.map(l => l.z)) - 1);
+
     /** The resize handle only makes sense on exactly one layer. */
     const single = $derived.by(() =>
         (version, selectedIds.length === 1 ? studio.collage.get(selectedIds[0]) : null));
@@ -726,6 +769,7 @@
     onwheel={onWheel}
     onpointerdown={onPointerDown}
     onpointermove={onPointerMove}
+    onpointerleave={() => (pointer = null)}
     onpointerup={onPointerUp}
     onpointercancel={onPointerUp}
     oncontextmenu={onContextMenuEvent}
@@ -734,7 +778,21 @@
     <div class="world" style:transform="translate({view.x}px, {view.y}px) scale({view.zoom})">
         {#if showPage}
             {#each frames as frame (frame.id)}
-                <div class="page" style={frameStyle(frame)} style:border-width="{1 / view.zoom}px">
+                <!-- Drawn as an actual sheet, not just a rule. It is the edge
+                     every export is cropped to, so "where does the picture
+                     stop" has to be answerable without opening a panel — and a
+                     white sheet against the checkerboard is also the only
+                     honest preview of the transparent/white choice. -->
+                <div
+                    class="page"
+                    class:page--transparent={fixedPage && frame.background === "transparent"}
+                    style={frameStyle(frame)}
+                    style:z-index={pageZ}
+                    style:border-width="{1.5 / view.zoom}px"
+                    style:background-color={fixedPage && frame.background !== "transparent" ? frame.background : undefined}
+                    style:background-size="{16 / view.zoom}px {16 / view.zoom}px"
+                    style:background-position="0 0, 0 {8 / view.zoom}px, {8 / view.zoom}px {-8 / view.zoom}px, {-8 / view.zoom}px 0"
+                >
                     <span class="page__label" style:font-size="{11 / view.zoom}px" style:top="{-20 / view.zoom}px">
                         {frame.name}
                     </span>
@@ -821,7 +879,22 @@
 </div>
 
 <style>
+    /* The marks for hover and selection.
+     *
+     * Deliberately not the brand green: a sticker outline is a thing you can
+     * put ON a picture, and it defaults to green too, so a green selection and
+     * a green outline were the same mark meaning two different things. A cool
+     * grey reads as chrome — the editor talking about the picture rather than
+     * something the picture is wearing — and stays out of the way of a collage
+     * that is itself full of colour. Hover is the lighter of the two, so the
+     * pair separate by weight as well as by thickness.
+     *
+     * Declared here because the filter defs live inside .viewport and pick
+     * these up through the cascade.
+     */
     .viewport {
+        --collage-hover-mark: #9DA8B6;
+        --collage-select-mark: #6F8098;
         position: relative;
         width: 100%;
         height: 100%;
@@ -834,6 +907,13 @@
         -webkit-user-select: none;
         background-color: var(--surface-page);
         background-image: radial-gradient(circle, color-mix(in srgb, var(--border-subtle) 80%, transparent) 1px, transparent 1px);
+    }
+
+    /* Lifted on a dark canvas — a mid grey that reads as a mark against white
+       paper reads as a shadow against a dark one. */
+    :global(:root[data-theme="dark"]) .viewport {
+        --collage-hover-mark: #7E8B9B;
+        --collage-select-mark: #A9B6C6;
     }
 
     .viewport:active {
@@ -856,11 +936,25 @@
 
     /* Just a boundary. No fill, no shadow, nothing to grab — it marks what
        will be exported and is otherwise not there. */
+    /* A neutral edge, not the brand green: it was a pale green hairline on a
+       pale green canvas, which is how an export came to be cropped by an edge
+       nobody could see. */
     .page {
         position: absolute;
         border-style: dashed;
-        border-color: color-mix(in srgb, var(--accent-brand) 55%, transparent);
+        border-color: color-mix(in srgb, var(--text-muted) 65%, transparent);
         pointer-events: none;
+    }
+
+    /* The standard checkerboard, because "transparent" has to look like
+       something. Four gradients, no image to load. */
+    .page--transparent {
+        --a: color-mix(in srgb, var(--text-muted) 16%, transparent);
+        background-image:
+            linear-gradient(45deg, var(--a) 25%, transparent 25%),
+            linear-gradient(-45deg, var(--a) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, var(--a) 75%),
+            linear-gradient(-45deg, transparent 75%, var(--a) 75%);
     }
 
     .page__label {
@@ -937,13 +1031,15 @@
         pointer-events: none;
     }
 
+    /* The rubber band is the act of selecting, so it wears the selection's
+       colour rather than the brand's. */
     .marquee {
         position: absolute;
         z-index: 5;
         pointer-events: none;
-        border: 1px solid var(--accent-brand);
+        border: 1px solid var(--collage-select-mark);
         border-radius: 2px;
-        background: color-mix(in srgb, var(--accent-brand) 12%, transparent);
+        background: color-mix(in srgb, var(--collage-select-mark) 12%, transparent);
     }
 
     .handle {
@@ -952,23 +1048,25 @@
         pointer-events: auto;
     }
 
-    /* White square, brand edge — reads as "drag this corner". */
+    /* White square, marked edge — reads as "drag this corner". Same colour as
+       the outline it belongs to; handles in a different colour from the
+       selection they sit on read as two separate things. */
     .handle--resize {
         right: 0;
         bottom: 0;
         translate: 50% 50%;
         background: var(--surface-panel);
-        border-color: var(--accent-brand);
+        border-color: var(--collage-select-mark);
         cursor: nwse-resize;
     }
 
-    /* Filled brand disc with a white ring: a solid dot is legible at any zoom
-       and against any picture, where an outlined ring disappeared into both. */
+    /* Filled disc with a white ring: a solid dot is legible at any zoom and
+       against any picture, where an outlined ring disappeared into both. */
     .handle--rotate {
         left: 50%;
         translate: -50% 0;
         border-radius: 50%;
-        background: var(--accent-brand);
+        background: var(--collage-select-mark);
         border-color: var(--surface-panel);
         cursor: grab;
     }

@@ -20,6 +20,7 @@
  */
 import { placementIn, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
 import { alphaFilters, cqwUnit, cssColor, outlineFilterSvg, round } from "./css.js";
+import { FONTS_IMPORT, webFontsUsed } from "./webfonts.js";
 
 export interface HtmlExportOptions {
     /** Class prefix. Everything emitted is namespaced under it. */
@@ -41,6 +42,10 @@ export function exportHtml(layers: Layer[], frame: Frame, options: HtmlExportOpt
     const root = (options.className ?? "collage").replace(/[^a-zA-Z0-9_-]/g, "") || "collage";
     const ordered = [...layers].sort((a, b) => a.z - b.z);
     const css = [
+        // The destination page has never heard of Anton or Shrikhand, so the
+        // collage has to bring them. Only when one is actually used, and first
+        // in the sheet because @import has to precede every other rule.
+        webFontsUsed(ordered).length ? FONTS_IMPORT : "",
         rootCss(root, frame),
         ...ordered.map((layer, index) => layerCss(root, index, layer, frame)),
         options.interactive ? interactiveCss(root) : "",

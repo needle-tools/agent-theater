@@ -15,14 +15,16 @@ import {
 import { arrange as computeLayout, type LayoutMode, type LayoutOptions } from "./layout.js";
 import { loadImage, toDataUrl, type LoadedImage } from "./imaging.js";
 import { canvasToBlob, previewDataUrl, renderFrame, renderRegion } from "./render.js";
+import { fontsReady, loadWebFonts, webFontsUsed } from "./webfonts.js";
 import { exportHtml } from "./exportHtml.js";
 import {
     backgroundRemovalError, removeBackground as cutOut, type CutResult, type Progress,
 } from "./background.js";
 import {
     collectGarbage, clearDoc, clearImages, getImage, loadDoc, newImageKey, putImage, saveDoc,
-    type StoredView,
+    type StoredDoc, type StoredView,
 } from "./persistence.js";
+import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
 
@@ -104,7 +106,7 @@ export interface CollageEvent {
     seq: number;
     at: number;
     kind:
-        | "image-added" | "text-added" | "layer-moved" | "layer-styled" | "layer-removed"
+        | "image-added" | "text-added" | "layer-moved" | "layer-styled" | "layer-removed" | "opened"
         | "arranged" | "page-changed" | "exported" | "cleared";
     /** One line, already phrased for an agent to read. */
     summary: string;
@@ -162,6 +164,13 @@ export interface CollageStudio {
     removeBackgroundFor(id: string, onProgress?: (p: Progress) => void): Promise<CutResult>;
     /** Restore the saved collage. Resolves to how many layers came back. */
     restore(): Promise<number>;
+    /** The whole collage as one openable picture. */
+    saveFile(): Promise<{ blob: Blob; filename: string }>;
+    /**
+     * Open a collage file onto the canvas, alongside whatever is already there.
+     * Resolves to how many layers arrived, or 0 if the file holds no collage.
+     */
+    openFile(file: Blob): Promise<number>;
     save(view?: StoredView): void;
     clear(): Promise<void>;
     /** The decoded images, for the canvas component to draw with. */
@@ -180,6 +189,50 @@ const MAX_EVENTS = 200;
 export const FREE_PAGE = "free";
 /** Breathing room left around the contents when a free page is fitted. */
 const FREE_PAGE_MARGIN = 1.08;
+
+/** Is the inner rectangle wholly within the outer one? */
+function contains(outer: Rect, inner: Rect): boolean {
+    return inner.x >= outer.x
+        && inner.y >= outer.y
+        && inner.x + inner.width <= outer.x + outer.width
+        && inner.y + inner.height <= outer.y + outer.height;
+}
+
+/** Said out loud, because a crop nobody was told about reads as a bug. */
+function cropNote(overflowing: number): string {
+    if (!overflowing) return "";
+    return ` ${overflowing} ${overflowing === 1 ? "item reaches" : "items reach"} past the page edge and ` +
+        `${overflowing === 1 ? "was" : "were"} cropped — arrange the collage, or switch to the free canvas, to keep everything.`;
+}
+
+/**
+ * Which layers a capture actually draws.
+ *
+ * Asking for layers and asking for a rectangle are different questions.
+ * "Capture this sticker" must give back the sticker — not the sticker plus the
+ * headline it sits under and the plant behind it, which is what happens if the
+ * chosen layers are only used to *derive* a rectangle and then everything
+ * overlapping that rectangle gets drawn. A rectangle, on the other hand, means
+ * exactly "whatever is in frame", so overlap is the right rule there.
+ *
+ * The region is grown from the chosen layers either way, so a generated image
+ * still drops back into the same place.
+ *
+ * Exported because this is the whole decision, and it is worth testing without
+ * a canvas to draw on.
+ */
+export function capturedLayers(
+    all: readonly Layer[],
+    region: Rect,
+    ids: readonly string[],
+    explicitRegion: boolean,
+): Layer[] {
+    if (!explicitRegion && ids.length) {
+        const wanted = new Set(ids);
+        return all.filter(layer => wanted.has(layer.id));
+    }
+    return all.filter(layer => overlaps(bounds(layer), region));
+}
 
 export function createStudio(collage = new Collage()): CollageStudio {
     const images = new Map<string, LoadedImage>();
@@ -242,6 +295,17 @@ export function createStudio(collage = new Collage()): CollageStudio {
     };
 
     collage.onChanged(scheduleSave);
+
+    // Whoever put a fetched face on the canvas — the font menu, an agent
+    // calling collage_style, a reloaded session, a paste — the stylesheet has
+    // to be on the page or the text draws in the fallback. Watching the model
+    // catches all of those in one place instead of one call site at a time.
+    let webFontsLinked = false;
+    collage.onChanged(() => {
+        if (webFontsLinked || !webFontsUsed(collage.list()).length) return;
+        webFontsLinked = true;
+        void loadWebFonts();
+    });
 
     const layersOf = (frameId: string): Layer[] => collage.layersIn(frameId);
 
@@ -423,7 +487,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 ? (page && page.background !== "transparent" ? page.background : null)
                 : options.background;
 
-            const inside = collage.list().filter(layer => overlaps(bounds(layer), region!));
+            const inside = capturedLayers(collage.list(), region, ids, !!options.region);
+
+            await fontsReady(inside);
             const canvas = renderRegion(region, inside, images, { width, height, background });
             // Transparency has to survive, so PNG whenever there is any.
             const dataUrl = background
@@ -652,6 +718,106 @@ export function createStudio(collage = new Collage()): CollageStudio {
             return restored.length;
         },
 
+        async saveFile() {
+            this.refitPage();
+            const frame = pageFrame() ?? this.setPage(pagePreset);
+            const layers = layersOf(frame.id);
+            await fontsReady(layers);
+
+            // A preview at screen size rather than print size. This is the part
+            // a person looks at; the part that reopens is exact regardless, and
+            // a 300dpi A4 render would make an eight-megabyte file out of a
+            // collage whose actual contents are two.
+            const size = outputSize(frame, 96);
+            const scale = Math.min(1, 1600 / Math.max(size.width, size.height));
+            const canvas = renderFrame(frame, layers, images, {
+                width: Math.max(1, Math.round(size.width * scale)),
+                height: Math.max(1, Math.round(size.height * scale)),
+            });
+            const png = new Uint8Array(await (await canvasToBlob(canvas, "image/png")).arrayBuffer());
+
+            // Each layer's bytes, once, however many layers share them.
+            const assets: CollageAsset[] = [];
+            const seen = new Set<string>();
+            for (const layer of collage.list()) {
+                if (layer.kind !== "image" || !layer.storageKey || seen.has(layer.storageKey)) continue;
+                seen.add(layer.storageKey);
+                const blob = await getImage(layer.storageKey);
+                if (!blob) continue;
+                assets.push({
+                    key: layer.storageKey,
+                    type: blob.type || "image/png",
+                    data: new Uint8Array(await blob.arrayBuffer()),
+                });
+            }
+
+            const doc: StoredDoc = {
+                version: 1,
+                savedAt: Date.now(),
+                // Same rule as localStorage: a blob: URL means nothing to
+                // whoever opens this next, so the storageKey is what travels.
+                layers: collage.list().map(layer =>
+                    layer.kind === "image" && layer.storageKey ? { ...layer, src: "" } : layer),
+                frames: [frame],
+                ...(lastView ? { view: lastView } : {}),
+            };
+
+            record("exported", `Saved "${frame.name}" as an openable collage.`, "human", { format: "collage" });
+            return {
+                blob: new Blob([packCollage(png, { doc, assets })], { type: "image/png" }),
+                filename: `${slug(frame.name)}.collage.png`,
+            };
+        },
+
+        async openFile(file) {
+            const payload = readCollage(new Uint8Array(await file.arrayBuffer()));
+            if (!payload) return 0;
+
+            // Keys are re-minted rather than reused. Two files made in the same
+            // browser can hold the same key for different bytes, and opening
+            // one onto the other would silently swap the pictures.
+            const remap = new Map<string, string>();
+            for (const asset of payload.assets) {
+                const key = newImageKey();
+                remap.set(asset.key, key);
+                await putImage(key, new Blob([asset.data], { type: asset.type }));
+            }
+
+            // Added, not restored. Dropping a collage onto work in progress must
+            // not throw that work away — and because these are ordinary adds,
+            // one Ctrl+Z takes the whole thing back off again.
+            const arriving: Layer[] = [];
+            for (const layer of payload.doc.layers) {
+                if (layer.kind !== "image") {
+                    arriving.push(collage.addText({ ...layer, id: undefined }));
+                    continue;
+                }
+                const key = layer.storageKey ? remap.get(layer.storageKey) ?? null : null;
+                if (layer.storageKey && !key) continue; // Bytes missing; the layer would be a hole.
+                const blob = key ? await getImage(key) : null;
+                const src = blob ? trackUrl(URL.createObjectURL(blob)) : layer.src;
+                if (!src) continue;
+                arriving.push(collage.addImage({ ...layer, id: undefined, src, storageKey: key }));
+            }
+
+            // An empty canvas takes the file's page; an occupied one keeps its
+            // own, because the person arranging it chose that.
+            if (collage.list().length === arriving.length) {
+                const frame = payload.doc.frames[0];
+                if (frame?.presetId) this.setPage(frame.presetId);
+                lastView = payload.doc.view;
+            }
+
+            await Promise.all(arriving
+                .filter((l): l is ImageLayer => l.kind === "image")
+                .map(layer => adopt(layer.id, layer.src).catch(() => undefined)));
+            selection = arriving.map(l => l.id);
+            for (const watcher of [...selectionWatchers]) watcher();
+            scheduleSave();
+            record("opened", `Opened a saved collage — ${arriving.length} layer(s).`);
+            return arriving.length;
+        },
+
         save(view) {
             if (view) lastView = view;
             scheduleSave();
@@ -675,6 +841,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
             const frame = frameOrThrow(frameId);
             const layers = layersOf(frameId);
             const dpi = options.dpi ?? 300;
+            // A face that has not arrived draws as the fallback without
+            // complaining, so an export started before the font landed would
+            // quietly disagree with what is on screen.
+            await fontsReady(layers);
+            // A chosen paper size crops, which is the point of choosing one —
+            // but a silent crop is how an export comes back missing an edge the
+            // person never knew was there. Counted once, reported everywhere.
+            const overflowing = layers.filter(layer => !contains(frame, bounds(layer))).length;
             record("exported", `Exported "${frame.name}" as ${format}.`, "human", { format });
 
             if (format === "png") {
@@ -686,8 +860,11 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 return {
                     summary:
                         `Saved ${filename} — ${size.width}×${size.height}px` +
-                        `${frame.physical ? ` (${frame.physical.width}×${frame.physical.height}mm at ${dpi} dpi)` : ""}.`,
-                    structured: { filename, width: size.width, height: size.height, bytes: blob.size },
+                        `${frame.physical ? ` (${frame.physical.width}×${frame.physical.height}mm at ${dpi} dpi)` : ""}.` +
+                        cropNote(overflowing),
+                    structured: {
+                        filename, width: size.width, height: size.height, bytes: blob.size, cropped: overflowing,
+                    },
                 };
             }
 
@@ -823,7 +1000,15 @@ ${body}
 }
 
 /** Print through a hidden iframe so the page itself is never navigated away. */
-function printDocument(html: string): Promise<void> {
+/**
+ * Resolves true when the print dialogue actually opened, false when this
+ * browser has no print at all — which in-app web views routinely do not.
+ *
+ * It used to resolve `void`, so the caller's `if (printed)` was false even on a
+ * successful print: every print also downloaded the PNG fallback and reported
+ * that printing was unavailable, while the dialogue was open in front of you.
+ */
+function printDocument(html: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
         const iframe = document.createElement("iframe");
         iframe.setAttribute("aria-hidden", "true");
@@ -835,9 +1020,11 @@ function printDocument(html: string): Promise<void> {
                 try {
                     iframe.contentWindow?.focus();
                     iframe.contentWindow?.print();
-                    resolve();
-                } catch (error) {
-                    reject(error);
+                    resolve(true);
+                } catch {
+                    // No print in this browser. Not an error — the caller has a
+                    // fallback, and that is the whole reason for the boolean.
+                    resolve(false);
                 } finally {
                     // Removing it immediately cancels the dialogue in some
                     // browsers; give the user time to answer it.

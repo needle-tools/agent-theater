@@ -60,7 +60,11 @@
                     <option value={preset.id}>{preset.name}</option>
                 {/each}
             </select>
-            <div class="segmented" role="group" aria-label="Background">
+            <!-- Labelled, because "Transparent / White" on its own does not say
+                 what it is the background OF. The page on the canvas shows the
+                 choice as you make it. -->
+            <h3>Behind the pictures</h3>
+            <div class="segmented" role="group" aria-label="Page background">
                 <button
                     class:on={activeFrame?.background === "transparent"}
                     onclick={() => onSetBackground("transparent")}
@@ -154,6 +158,13 @@
 
     @media (prefers-reduced-motion: reduce) {
         .panel, section, footer { animation: none; }
+    }
+
+    h3 {
+        margin: 10px 0 4px;
+        font-size: var(--type-body-muted-size);
+        font-weight: 500;
+        color: var(--text-secondary);
     }
 
     h2 {

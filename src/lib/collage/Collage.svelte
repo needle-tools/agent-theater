@@ -17,9 +17,10 @@
     import ContextMenu, { type MenuItem } from "$lib/collage/ContextMenu.svelte";
     import EditPopover from "$lib/collage/EditPopover.svelte";
     import Toasts, { createToasts, LIFETIME } from "$lib/collage/Toasts.svelte";
-    import { createStudio } from "$lib/collage/studio";
+    import { createStudio, download, FREE_PAGE } from "$lib/collage/studio";
     import { createCollageTools } from "$lib/collage/tools";
     import { FONTS, type ImageLayer, type TextLayer } from "$lib/collage/model";
+    import { loadWebFonts } from "$lib/collage/webfonts";
     import type { LayoutMode } from "$lib/collage/layout";
     import { registerTools } from "$lib/webmcp";
 
@@ -97,8 +98,79 @@
     /** Where the next batch of images should land, if somewhere was pointed at. */
     let dropPoint: { x: number; y: number } | null = null;
 
+    /** Save the whole collage as a picture that opens again. */
+    async function saveToFile() {
+        if (!collage.list().length) {
+            toasts.push("Nothing to save yet — drop some photos in.");
+            return;
+        }
+        const toast = toasts.push("Packing it up…", "busy");
+        try {
+            const { blob, filename } = await studio.saveFile();
+            download(blob, filename);
+            toast.close();
+            toasts.push(`Saved ${filename} — drop it back here to keep working.`);
+        } catch (error) {
+            toast.close();
+            toasts.push(`Could not save that — ${message(error)}`, "error");
+        }
+    }
+
+    /**
+     * A dropped file might be a saved collage rather than a picture to add.
+     * Checked before anything else, because a collage file is also a valid PNG
+     * and would otherwise be pasted in as a flat image of itself.
+     */
+    async function openCollageFiles(files: File[]): Promise<File[]> {
+        const rest: File[] = [];
+        for (const file of files) {
+            // By extension as well as by type. A file dropped from some
+            // filesystems and archives arrives with an empty `type`, and
+            // trusting that alone meant a saved collage was silently discarded
+            // before anything ever looked inside it.
+            const png = file.type === "image/png" || /\.png$/i.test(file.name);
+            if (!png) {
+                rest.push(file);
+                continue;
+            }
+            let opened = 0;
+            try {
+                opened = await studio.openFile(file);
+            } catch (error) {
+                // A file that IS one of ours but will not open has to say so.
+                // Swallowing it and adding a flat picture of the collage
+                // instead is the most confusing possible outcome.
+                toasts.push(`${file.name} looks like a saved collage but could not be opened — ${message(error)}`, "error");
+                continue;
+            }
+            if (!opened) {
+                // Named like one of ours but holding no collage: almost always
+                // a file that has been through something that re-encodes PNGs
+                // and dropped the chunk. Say that, rather than quietly adding a
+                // flat picture of the collage it used to be.
+                if (/\.collage\.png$/i.test(file.name)) {
+                    toasts.push(
+                        `${file.name} has no collage inside it any more — something re-saved the image and ` +
+                        `stripped it. Adding it as a picture instead.`, "error");
+                }
+                rest.push(file);
+                continue;
+            }
+            // The pieces arrive at the coordinates they were saved at, which
+            // may be nowhere near where the view happens to be looking — and a
+            // collage that loaded off-screen is indistinguishable from one that
+            // did not load at all.
+            canvas?.fitAll();
+            toasts.push(`Opened a saved collage — ${opened} pieces.`);
+        }
+        return rest;
+    }
+
     async function addFiles(files: FileList | File[]) {
-        const images = [...files].filter(f => f.type.startsWith("image/"));
+        // Collage files are looked at first, and on everything — filtering by
+        // MIME type beforehand is how one got thrown away unopened.
+        const rest = await openCollageFiles([...files]);
+        const images = rest.filter(f => f.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|avif)$/i.test(f.name));
         if (!images.length) return;
         const near = dropPoint;
         dropPoint = null;
@@ -175,12 +247,32 @@
         void addFiles(event.dataTransfer.files);
     }
 
+    /**
+     * One paste, two possible sources — and this is the only place that can
+     * tell them apart, because it is the only place the clipboard's contents
+     * are readable.
+     *
+     * An image from outside wins when there is one: putting a screenshot on the
+     * clipboard is a deliberate act aimed at this canvas, where copied layers
+     * are also reachable through Ctrl+D. Either way it lands where you are
+     * looking rather than at the origin of an infinite canvas.
+     */
     function onPaste(event: ClipboardEvent) {
+        const target = event.target;
+        if (target instanceof Element && target.matches("input, textarea, select, [contenteditable]")) return;
+
         const files = [...(event.clipboardData?.items ?? [])]
-            .filter(item => item.kind === "file")
+            .filter(item => item.kind === "file" && item.type.startsWith("image/"))
             .map(item => item.getAsFile())
             .filter((f): f is File => !!f);
-        if (files.length) void addFiles(files);
+
+        if (files.length) {
+            event.preventDefault();
+            dropPoint = canvas?.pastePoint() ?? null;
+            void addFiles(files);
+            return;
+        }
+        if (canvas?.pasteClipboard()) event.preventDefault();
     }
 
     let dragging = $state(false);
@@ -230,9 +322,17 @@
                 copied = await navigator.clipboard.writeText(output.code).then(() => true, () => false);
             }
             toast.close();
-            toasts.push(copied || format === "png" || format === "print"
+            const done = copied || format === "png" || format === "print"
                 ? EXPORT_DONE[format]
-                : "Saved it as a file — it was too big for the clipboard.");
+                : "Saved it as a file — it was too big for the clipboard.";
+            // A crop is the loudest thing that can happen to an export, so it
+            // takes over the message rather than being appended to a cheerful one.
+            const cropped = Number((output.structured as { cropped?: number })?.cropped ?? 0);
+            toasts.push(
+                cropped
+                    ? `${done} ${cropped} ${cropped === 1 ? "item was" : "items were"} cut off by the page edge.`
+                    : done,
+                cropped ? "error" : "info");
         } catch (error) {
             toast.close();
             toasts.push(`Export failed — ${message(error)}`, "error");
@@ -295,6 +395,12 @@
         const suffix = many ? ` (${ids.length})` : "";
         const each = (change: (layerId: string) => void) => () => ids.forEach(change);
 
+        // Right-clicking text is the earliest moment we know a font menu is
+        // about to exist, and the specimens are only a preview if they arrive
+        // before the submenu opens. Deliberately not awaited: the menu shows
+        // now and the faces swap in as they land.
+        if (layer.kind === "text") void loadWebFonts();
+
         return [
             ...(layer.kind === "text"
                 ? [
@@ -311,7 +417,11 @@
                         items: FONTS.map(font => ({
                             label: font.name,
                             icon: "font" as const,
-                            checked: (layer as TextLayer).fontFamily === font.stack,
+                            font: { stack: font.stack, weight: font.weight },
+                            // Weight as well as stack: Display and Body share a
+                            // family, so comparing the stack alone ticked both.
+                            checked: (layer as TextLayer).fontFamily === font.stack
+                                && (layer as TextLayer).fontWeight === font.weight,
                             onSelect: each(l => collage.update(l, { fontFamily: font.stack, fontWeight: font.weight })),
                         })),
                     },
@@ -423,7 +533,19 @@
     }
 </script>
 
-<svelte:window onpaste={onPaste} />
+<svelte:window
+    onpaste={onPaste}
+    onkeydown={event => {
+        if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
+        const target = event.target;
+        if (target instanceof Element && target.matches("input, textarea, [contenteditable]")) return;
+        // Taking over Ctrl+S: the browser's own "save page" produces an HTML
+        // file that cannot be opened again, which is the opposite of what the
+        // keystroke means here.
+        event.preventDefault();
+        void saveToFile();
+    }}
+/>
 
 <div
     class="page"
@@ -437,7 +559,7 @@
     <CollageCanvas
         bind:this={canvas}
         {studio}
-        showPage={editOpen}
+        showPage={editOpen || studio.pagePreset !== FREE_PAGE}
         onContextMenu={openMenu}
     />
 

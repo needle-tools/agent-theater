@@ -196,15 +196,40 @@ export const PALETTE = ["#99CC33", "#0BA398", "#826AED", "#D7DB0A", "#74AF52", "
  * page that has never heard of Needle's fonts — a collage that falls back to
  * something of the right shape is fine; one that falls back to Times is not.
  */
-export const FONTS = [
+export interface FontChoice {
+    id: string;
+    /** Short on purpose: the menu renders it *in* the face, so it has to fit. */
+    name: string;
+    stack: string;
+    weight: number;
+    /**
+     * The `family=` argument for Google Fonts, when the face is not already on
+     * the page. Absent for Needle's own faces, which brand.css has loaded long
+     * before anyone opens a menu.
+     */
+    google?: string;
+}
+
+export const FONTS: readonly FontChoice[] = [
     { id: "display", name: "Display", stack: "'NunitoSans', system-ui, sans-serif", weight: 800 },
     { id: "body", name: "Body", stack: "'NunitoSans', system-ui, sans-serif", weight: 500 },
     { id: "wordmark", name: "Wordmark", stack: "'Oblique', 'NunitoSans', sans-serif", weight: 700 },
     { id: "serif", name: "Serif", stack: "'IBMPlexSerif', Georgia, serif", weight: 600 },
     { id: "mono", name: "Mono", stack: "'Monaspace Neon', ui-monospace, SFMono-Regular, Menlo, monospace", weight: 500 },
-] as const;
 
-export type FontId = (typeof FONTS)[number]["id"];
+    // Fetched on demand — see webfonts.ts. Each one is here because it does
+    // something the five above cannot: a collage wants a shout, a scrawl and a
+    // joke, not five weights of the same well-behaved sans.
+    { id: "poster", name: "Poster", stack: "'Anton', Impact, sans-serif", weight: 400, google: "Anton" },
+    { id: "marker", name: "Marker", stack: "'Permanent Marker', cursive", weight: 400, google: "Permanent+Marker" },
+    { id: "hand", name: "Hand", stack: "'Caveat', 'Segoe Script', cursive", weight: 700, google: "Caveat:wght@700" },
+    { id: "juicy", name: "Juicy", stack: "'Shrikhand', Georgia, serif", weight: 400, google: "Shrikhand" },
+    { id: "sign", name: "Sign", stack: "'Bungee', Impact, sans-serif", weight: 400, google: "Bungee" },
+    { id: "fancy", name: "Fancy", stack: "'Fraunces', Georgia, serif", weight: 700, google: "Fraunces:opsz,wght@9..144,700" },
+    { id: "pixel", name: "Pixel", stack: "'Press Start 2P', ui-monospace, monospace", weight: 400, google: "Press+Start+2P" },
+];
+
+export type FontId = FontChoice["id"];
 
 export function findFont(id: string) {
     return FONTS.find(f => f.id === id) ?? null;

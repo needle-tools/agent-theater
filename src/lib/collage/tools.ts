@@ -552,9 +552,10 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
             annotations: { readOnlyHint: true },
             description:
                 "Return an image of part of the canvas — the current selection by default, or given layers, " +
-                "or an explicit rectangle. Use it to send a piece of the collage to something that makes " +
-                "pictures; the result comes back with the exact region, so a generated image can be dropped " +
-                "into the same place with collage_add_image.",
+                "or an explicit rectangle. Layers give you those layers alone, on their own, with nothing " +
+                "behind them; a rectangle gives you everything inside it. Use it to send a piece of the " +
+                "collage to something that makes pictures; the result comes back with the exact region, so " +
+                "a generated image can be dropped into the same place with collage_add_image.",
             inputSchema: {
                 type: "object",
                 properties: {

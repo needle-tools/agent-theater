@@ -82,6 +82,11 @@ function fakeStudio(options: FakeOptions = {}) {
             return { ok: true };
         },
         async restore() { return 0; },
+        // Files are bytes and a canvas; the tools never touch either, so the
+        // fake only has to satisfy the shape.
+        async saveFile() { return { blob: new Blob(), filename: "fake.collage.png" }; },
+        async openFile() { return 0; },
+        onArranged() { return () => { /* nothing to stop */ }; },
         save() { /* nothing to persist in a fake */ },
         async clear() { collage.restore([], []); },
         get page() { return collage.listFrames()[0] ?? null; },

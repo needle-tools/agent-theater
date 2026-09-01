@@ -11,6 +11,11 @@
          * fixed glyph — so a paper size shows the shape you are about to make.
          */
         iconAspect?: number;
+        /**
+         * Draw this row's label in a typeface, so the name of a font is also a
+         * sample of it. "Poster" set in Poster says more than any icon can.
+         */
+        font?: { stack: string; weight: number };
         /** Shows a tick — for things that are on or off rather than one-shot. */
         checked?: boolean;
         disabled?: boolean;
@@ -208,10 +213,25 @@
                 {#if openSubmenu === index}
                     <div class="submenu" role="menu">
                         {#each item.items as child (child.label)}
-                            <button class="item" role="menuitem" disabled={child.disabled} onclick={() => select(child)}>
+                            <button
+                                class="item"
+                                role="menuitem"
+                                aria-checked={child.checked === undefined ? undefined : child.checked}
+                                disabled={child.disabled}
+                                onclick={() => select(child)}
+                            >
                                 {@render glyph(child)}
-                                <span class="label">{child.label}</span>
-                                {#if child.hint}<span class="hint">{child.hint}</span>{/if}
+                                <span
+                                    class="label"
+                                    class:label--specimen={!!child.font}
+                                    style:font-family={child.font?.stack}
+                                    style:font-weight={child.font?.weight}
+                                >{child.label}</span>
+                                {#if child.checked}
+                                    <svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7" /></svg>
+                                {:else if child.hint}
+                                    <span class="hint">{child.hint}</span>
+                                {/if}
                             </button>
                         {/each}
                     </div>
@@ -323,6 +343,22 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    /* A name set in its own face is the only honest preview, but the faces
+       disagree wildly about how big 15px is — a poster face and a script face
+       at the same size look like two different menus. Matching cap heights
+       levels the column while leaving every letterform intact, and a fixed line
+       box keeps the rows evenly spaced whatever a specimen does with its
+       ascenders. Browsers without font-size-adjust just get the raw sizes. */
+    .label--specimen {
+        font-size: 15px;
+        /* A line box tall enough for a script face's ascenders, and visible
+           overflow so normalising the cap height cannot clip them — the row is
+           34px regardless, so nothing moves. */
+        line-height: 24px;
+        overflow: visible;
+        font-size-adjust: cap-height 0.66;
     }
 
     .hint {
