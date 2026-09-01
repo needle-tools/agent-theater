@@ -329,12 +329,31 @@ describe("layouts", () => {
         }
     });
 
-    it("keeps every piece upright", () => {
-        // Rotation and tight packing are incompatible: a tilted item's swept box
-        // is bigger than the item, so gutters would have to grow to hide it.
-        const { layers } = collageWith(8);
-        for (const p of arrange(layers, area, "collage", { seed: 6 })) {
-            expect(p.rotation).toBe(0);
+    it("tilts things, because a collage that does not is a contact sheet", () => {
+        const { layers } = collageWith(12);
+        const placements = arrange(layers, area, "collage", { seed: 6 });
+        expect(placements.filter(p => Math.abs(p.rotation) > 1).length).toBeGreaterThan(6);
+        // Leaning both ways, not all sharing a lean.
+        expect(placements.some(p => p.rotation > 1)).toBe(true);
+        expect(placements.some(p => p.rotation < -1)).toBe(true);
+    });
+
+    it("does not overlap once the tilted corners are counted either", () => {
+        // The stronger claim, and the one that matters: packing the upright box
+        // would leave the corners of neighbouring tilted items crossing.
+        const { layers } = collageWith(14);
+        const placements = arrange(layers, area, "collage", { seed: 8 });
+        const swept = placements.map(p => bounds({ ...layers[0], ...p, rotation: p.rotation }));
+        expect(overlapping(swept.map((s, i) => ({ ...placements[i], ...s })))).toBe(false);
+    });
+
+    it("takes the tilt as far as it is told to and no further", () => {
+        const { layers } = collageWith(10);
+        for (const p of arrange(layers, area, "collage", { seed: 6, jitter: 4 })) {
+            expect(Math.abs(p.rotation)).toBeLessThanOrEqual(4);
+        }
+        for (const p of arrange(layers, area, "collage", { seed: 6, jitter: 0 })) {
+            expect(Math.abs(p.rotation)).toBe(0);
         }
     });
 

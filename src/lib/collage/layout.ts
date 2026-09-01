@@ -173,8 +173,15 @@ function scatter(layers: Layer[], area: Rect, gap: number, options: LayoutOption
  * starting a new row. Big things first, because a small item can fill a hole a
  * big one could never have fitted into.
  *
+ * Everything is tilted, and packing does not fight that: what gets packed is
+ * each item's SWEPT box, the footprint the tilt actually occupies. Reserve that
+ * and the corners have somewhere to go, so the pack stays gap-free with nothing
+ * overlapping and nothing hanging off the edge. Packing the upright box instead
+ * is the mistake that makes tilt and tight packing look incompatible.
+ *
  * The result reads as irregular, but nothing here is random except which item
- * is which size. The texture comes from the shapes disagreeing.
+ * is which size and which way it leans. The texture comes from the shapes
+ * disagreeing.
  */
 function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOptions): Placement[] {
     const random = mulberry32(options.seed ?? 7);
@@ -182,12 +189,15 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
     // specimens and a noticeboard.
     const spacing = Math.min(area.width, area.height) * gap * 0.09;
 
+    const jitter = options.jitter ?? 8;
+
     // A wall of identically-sized cut-outs reads as a contact sheet, so each
-    // gets a seeded weight. Drawn before sorting, so the same seed gives the
-    // same picture whatever order the layers arrive in.
+    // gets a seeded weight and a seeded tilt. Both are drawn before sorting, so
+    // the same seed gives the same picture whatever order the layers arrive in.
     const items = layers.map(layer => ({
         layer,
         weight: 0.78 + random() * 0.62,
+        rotation: (random() * 2 - 1) * jitter,
         aspect: Math.max(0.05, layer.width / Math.max(1, layer.height)),
     }));
     // Tallest first — the standard heuristic, and the reason the packing is
@@ -212,18 +222,28 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
             // current width compounds: the same seeded weight applies again
             // every pass, so heavy items grow and light ones shrink until the
             // spread is absurd, and nothing looks wrong until the fifth arrange.
-            const width = fill
-                ? Math.min(into, item.weight * scale)
-                : Math.min(into, item.layer.width);
+            // What gets packed is the SWEPT box — the footprint a tilted item
+            // actually occupies. Packing the upright box instead is what makes
+            // people think tilt and tight packing are incompatible: they are
+            // not, you just have to reserve the space the tilt uses.
+            const swept = (w: number) => sweptSize({ width: w, height: w / item.aspect }, item.rotation);
+            let width = fill ? item.weight * scale : item.layer.width;
+            // A wide item tilted is wider still; shrink until its footprint fits.
+            if (swept(width).width > into) width *= into / swept(width).width;
             const height = width / item.aspect;
-            const spot = skyline.place(width + spacing, height + spacing);
+            const footprint = swept(width);
+
+            const spot = skyline.place(footprint.width + spacing, footprint.height + spacing);
             placements.push({
                 id: item.layer.id,
-                x: area.x + spot.x,
-                y: area.y + spot.y,
+                // Centred in its own footprint: a rotated layer's bounds grow
+                // about its centre, so this is what keeps the corners inside
+                // the space that was reserved for them.
+                x: area.x + spot.x + (footprint.width - width) / 2,
+                y: area.y + spot.y + (footprint.height - height) / 2,
                 width,
                 height,
-                rotation: 0,
+                rotation: item.rotation,
             });
         }
         return { placements, height: skyline.top() - spacing };
@@ -270,7 +290,10 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
 
     // Centre the block on the area. The pack grows right and down from its
     // origin, so without this it would sit against the top left corner.
-    const packed = placementBounds(best.placements);
+    //
+    // Measured across the tilted corners, not the upright boxes: centring on
+    // the upright ones leaves a rotated item at the edge hanging over it.
+    const packed = sweptBounds(best.placements);
     if (!packed) return best.placements;
     const dx = area.x + (area.width - packed.width) / 2 - packed.x;
     const dy = area.y + (area.height - packed.height) / 2 - packed.y;
@@ -420,6 +443,22 @@ function gridShape(count: number, area: Rect): { columns: number; rows: number }
 }
 
 /** Axis-aligned size of a box once it is tilted. */
+/** The box around a set of placements, counting the corners of tilted ones. */
+function sweptBounds(placements: Placement[]): Rect | null {
+    if (!placements.length) return null;
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    for (const p of placements) {
+        const swept = sweptSize(p, p.rotation);
+        const cx = p.x + p.width / 2;
+        const cy = p.y + p.height / 2;
+        left = Math.min(left, cx - swept.width / 2);
+        top = Math.min(top, cy - swept.height / 2);
+        right = Math.max(right, cx + swept.width / 2);
+        bottom = Math.max(bottom, cy + swept.height / 2);
+    }
+    return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
 function sweptSize(size: { width: number; height: number }, rotation: number) {
     const radians = (rotation * Math.PI) / 180;
     const cos = Math.abs(Math.cos(radians));
