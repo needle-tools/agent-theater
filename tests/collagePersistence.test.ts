@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { Collage, type ImageLayer } from "../src/lib/collage/model.js";
+import { Collage, FRAME_PRESETS, type ImageLayer } from "../src/lib/collage/model.js";
+import { createStudio, FREE_PAGE } from "../src/lib/collage/studio.js";
 import { loadDoc, saveDoc, clearDoc } from "../src/lib/collage/persistence.js";
 import { alphaMask, maskHit } from "../src/lib/collage/imaging.js";
 
@@ -178,5 +179,56 @@ describe("alpha hit testing", () => {
         const mask = alphaMask(bitmap(50, { x: 0, y: 0, w: 50, h: 50 }), 32);
         expect(maskHit(mask, full, 1.4, 0.5)).toBe(false);
         expect(maskHit(mask, full, -0.1, 0.5)).toBe(false);
+    });
+});
+
+describe("the page survives a reload", () => {
+    /**
+     * The page is not stored on its own: it is read back off the frame's preset
+     * id. So anything that leaves that id unset, or sets it to something the
+     * picker has no option for, comes back as a control with nothing selected —
+     * which reads as broken and cannot be fixed by using it.
+     */
+    async function reloaded(setUp: (studio: ReturnType<typeof createStudio>) => void) {
+        const first = createStudio();
+        setUp(first);
+        first.collage.addImage({ src: "x", natural: { width: 40, height: 30 }, width: 100 });
+        saveDoc(first.collage.list(), first.collage.listFrames());
+
+        const second = createStudio();
+        await second.restore();
+        return second;
+    }
+
+    it("comes back as the free canvas, not as something unnamed", async () => {
+        const studio = await reloaded(s => s.setPage(FREE_PAGE));
+        expect(studio.pagePreset).toBe(FREE_PAGE);
+    });
+
+    it("comes back as the paper size that was chosen", async () => {
+        const studio = await reloaded(s => s.setPage("a5-portrait"));
+        expect(studio.pagePreset).toBe("a5-portrait");
+    });
+
+    it("falls back to the free canvas for a page it does not recognise", async () => {
+        // Sessions saved before the free page carried an id hold "custom", and
+        // a saved collage can name a preset a later build has dropped.
+        const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
+        collage.addFrame({ presetId: "a4-portrait" });
+        const frames = collage.listFrames().map(f => ({ ...f, presetId: "custom" }));
+        saveDoc([], frames);
+
+        const studio = createStudio();
+        await studio.restore();
+        expect(studio.pagePreset).toBe(FREE_PAGE);
+    });
+
+    it("offers the restored page as one of its own options", async () => {
+        // The property that actually matters, stated directly.
+        const options = [FREE_PAGE, ...FRAME_PRESETS.map(p => p.id)];
+        for (const page of [FREE_PAGE, "a4-landscape", "square-1080"]) {
+            const studio = await reloaded(s => s.setPage(page));
+            expect(options).toContain(studio.pagePreset);
+        }
     });
 });

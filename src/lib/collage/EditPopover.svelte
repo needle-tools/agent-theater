@@ -8,7 +8,7 @@
      * column. Anything that acts on a single picture belongs in the right-click
      * menu, next to the picture.
      */
-    import { FRAME_PRESETS, outputSize } from "./model.js";
+    import { FRAME_PRESETS, findPreset, outputSize, presetAspect } from "./model.js";
     import type { LayoutMode } from "./layout.js";
     import { checkFrame } from "./quality.js";
     import { FREE_PAGE, type CollageStudio } from "./studio.js";
@@ -39,6 +39,36 @@
     const quality = $derived.by(() =>
         (version, activeFrame ? checkFrame(studio.collage.layersIn(activeFrame.id), activeFrame) : null));
     const size = $derived(activeFrame ? outputSize(activeFrame) : null);
+
+    /**
+     * The shapes on offer: the common presets, plus whatever is currently set.
+     *
+     * That last part is what stops the control going blank. An agent can name
+     * any of the eleven presets, and a session saved on another build can
+     * restore one this picker does not list — either way the answer is to show
+     * it, not to pretend nothing is selected.
+     */
+    const pages = $derived.by(() => {
+        const choices = [
+            { id: FREE_PAGE, name: "Free", aspect: 1, title: "Free canvas — no fixed size" },
+            ...FRAME_PRESETS.filter(p => p.common).map(p => ({
+                id: p.id,
+                name: p.short ?? p.name,
+                aspect: presetAspect(p),
+                title: p.name,
+            })),
+        ];
+        if (choices.some(c => c.id === page)) return choices;
+        const current = findPreset(page);
+        return current
+            ? [...choices, {
+                id: current.id,
+                name: current.short ?? current.name,
+                aspect: presetAspect(current),
+                title: current.name,
+            }]
+            : choices;
+    });
 </script>
 
 <svelte:window
@@ -54,12 +84,26 @@
     <div class="panel" bind:this={panel} role="dialog" aria-label="Collage options">
         <section style:--i="0">
             <h2>Making</h2>
-            <select value={page} aria-label="Output size" onchange={e => onSetPage((e.currentTarget as HTMLSelectElement).value)}>
-                <option value={FREE_PAGE}>Free canvas — no fixed size</option>
-                {#each FRAME_PRESETS as preset (preset.id)}
-                    <option value={preset.id}>{preset.name}</option>
+            <!-- Shapes rather than a list of names. "A4 wide" and "Social card"
+                 are the same words to anyone who has not memorised them; the
+                 proportions are the actual choice being made. -->
+            <div class="pages" role="radiogroup" aria-label="Output size">
+                {#each pages as choice (choice.id)}
+                    <button
+                        class="page"
+                        class:page--on={page === choice.id}
+                        role="radio"
+                        aria-checked={page === choice.id}
+                        title={choice.title}
+                        onclick={() => onSetPage(choice.id)}
+                    >
+                        <span class="page__frame" class:page__frame--free={choice.id === FREE_PAGE}>
+                            <span class="page__shape" style:aspect-ratio={choice.aspect}></span>
+                        </span>
+                        <span class="page__name">{choice.name}</span>
+                    </button>
                 {/each}
-            </select>
+            </div>
             <!-- Labelled, because "Transparent / White" on its own does not say
                  what it is the background OF. The page on the canvas shows the
                  choice as you make it. -->
@@ -176,8 +220,80 @@
         color: var(--text-muted);
     }
 
-    select {
-        width: 100%;
+    .pages {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+    }
+
+    .page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        /* Outer 10 = inner shape's box plus its padding, so a selected tile's
+           corners stay concentric with the preview inside it. */
+        min-height: 62px;
+        padding: 7px 4px 6px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: none;
+    }
+
+    /* A fixed box the shape is drawn inside, so a portrait and a landscape
+       preview sit on the same baseline instead of jostling the row. */
+    .page__frame {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 30px;
+    }
+
+    .page__shape {
+        max-width: 100%;
+        max-height: 100%;
+        /* One of the two has to be set for aspect-ratio to have anything to
+           work from; max-* then pulls whichever side is too long back in. */
+        width: 34px;
+        height: 30px;
+        border-radius: 2px;
+        background: var(--surface-panel-strong);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 60%, transparent);
+    }
+
+    /* The free canvas has no shape, so it is drawn as the absence of one. */
+    .page__frame--free .page__shape {
+        background: none;
+        box-shadow: none;
+        border: 1px dashed color-mix(in srgb, var(--text-muted) 55%, transparent);
+        border-radius: 6px;
+    }
+
+    .page__name {
+        font-size: var(--type-micro-label-size);
+        line-height: 1.1;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .page:hover:not(.page--on) {
+        background: var(--surface-panel-muted);
+    }
+
+    .page--on {
+        border-color: color-mix(in srgb, var(--accent-brand) 55%, transparent);
+        background: color-mix(in srgb, var(--accent-brand) 10%, transparent);
+    }
+
+    .page--on .page__shape {
+        background: var(--surface-page-elevated, #fff);
+        box-shadow: inset 0 0 0 1px var(--accent-brand);
+    }
+
+    .page--on .page__name {
+        color: var(--text-primary);
+        font-weight: 600;
     }
 
     /* One track, two segments — the standard shape for a binary choice, and it
@@ -225,7 +341,9 @@
         width: 100%;
     }
 
-    select, button {
+    /* Everything except the page tiles, which are their own shape entirely and
+       would otherwise inherit a control's padding and hover. */
+    button:not(.page) {
         min-height: 34px;
         padding: 0 11px;
         border-radius: 12px;
@@ -239,7 +357,7 @@
         transition-duration: 0.14s;
     }
 
-    button:hover:not(:disabled), select:hover {
+    button:not(.page):hover:not(:disabled) {
         border-color: var(--border-strong);
         background: var(--surface-panel-muted);
     }

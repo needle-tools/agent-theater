@@ -128,6 +128,15 @@ export interface Frame extends Rect {
 export interface FramePreset {
     id: string;
     name: string;
+    /** Shown in the picker. The rest stay available to agents by name. */
+    common?: boolean;
+    /**
+     * Label for a picker tile, where the shape is doing most of the explaining
+     * and there is room for about six characters. `name` stays the full one —
+     * it goes into the frame, the export title and what an agent reads, none of
+     * which are short of space.
+     */
+    short?: string;
     physical?: { width: number; height: number; unit: "mm" };
     output?: { width: number; height: number };
 }
@@ -138,17 +147,27 @@ export interface FramePreset {
  * because "1200×630, no really" is the whole point of an og:image.
  */
 export const FRAME_PRESETS: FramePreset[] = [
-    { id: "a4-portrait", name: "A4 portrait", physical: { width: 210, height: 297, unit: "mm" } },
-    { id: "a4-landscape", name: "A4 landscape", physical: { width: 297, height: 210, unit: "mm" } },
+    { id: "a4-portrait", name: "A4 portrait", short: "A4", common: true, physical: { width: 210, height: 297, unit: "mm" } },
+    { id: "a4-landscape", name: "A4 landscape", short: "A4 wide", common: true, physical: { width: 297, height: 210, unit: "mm" } },
+    { id: "square-1080", name: "Square post", short: "Square", common: true, output: { width: 1080, height: 1080 } },
+    { id: "story-1080x1920", name: "Story", short: "Story", common: true, output: { width: 1080, height: 1920 } },
+    { id: "og-1200x630", name: "Social card (og:image)", short: "Social", common: true, output: { width: 1200, height: 630 } },
+
+    // Not in the picker. Every one of these is a near-duplicate in shape of one
+    // above it, and a list of eleven paper sizes is a list nobody reads. They
+    // stay reachable through collage_set_page, where naming one costs nothing.
     { id: "a5-portrait", name: "A5 portrait", physical: { width: 148, height: 210, unit: "mm" } },
     { id: "a3-portrait", name: "A3 portrait", physical: { width: 297, height: 420, unit: "mm" } },
     { id: "letter-portrait", name: "US Letter portrait", physical: { width: 215.9, height: 279.4, unit: "mm" } },
-    { id: "square-1080", name: "Square post", output: { width: 1080, height: 1080 } },
-    { id: "story-1080x1920", name: "Story", output: { width: 1080, height: 1920 } },
-    { id: "og-1200x630", name: "Social card (og:image)", output: { width: 1200, height: 630 } },
     { id: "slide-16x9", name: "Slide 16:9", output: { width: 1920, height: 1080 } },
     { id: "web-hero", name: "Website hero", output: { width: 1600, height: 700 } },
 ];
+
+/** How wide a preset is relative to its height — what a preview draws. */
+export function presetAspect(preset: FramePreset): number {
+    const size = preset.physical ?? preset.output ?? { width: 1, height: 1 };
+    return size.width / Math.max(0.0001, size.height);
+}
 
 export function findPreset(id: string): FramePreset | null {
     return FRAME_PRESETS.find(p => p.id === id) ?? null;

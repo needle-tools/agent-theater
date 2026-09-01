@@ -191,6 +191,19 @@ export const FREE_PAGE = "free";
 /** Breathing room left around the contents when a free page is fitted. */
 const FREE_PAGE_MARGIN = 1.08;
 
+/**
+ * A page id anyone can act on, or the free canvas.
+ *
+ * Sessions saved before the free page carried an id hold "custom", and a
+ * collage file can name a preset this build has since dropped. Either way the
+ * value reaches a picker with no such option and the control goes blank, which
+ * reads as broken and cannot be put right by using it.
+ */
+function knownPage(presetId: string | undefined): string {
+    if (!presetId) return FREE_PAGE;
+    return presetId === FREE_PAGE || findPreset(presetId) ? presetId : FREE_PAGE;
+}
+
 /** Is the inner rectangle wholly within the outer one? */
 function contains(outer: Rect, inner: Rect): boolean {
     return inner.x >= outer.x
@@ -407,6 +420,11 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 // A free canvas of cut-outs almost always wants nothing behind
                 // it; paper, below, is paper-coloured.
                 const frame = collage.addFrame({
+                    // Named, and not left to default to "custom". The preset id
+                    // on the frame is the only record of which page was chosen
+                    // — restore reads it straight back — so an unnamed free
+                    // page came back as a page nothing recognised.
+                    presetId: FREE_PAGE,
                     name: "Canvas",
                     background: background ?? "transparent",
                     ...freePageRect(),
@@ -748,7 +766,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // There is no interface for a second one any more, so the first
             // becomes the page and the rest are dropped.
             const frames = doc.frames.slice(0, 1);
-            pagePreset = frames[0]?.presetId ?? FREE_PAGE;
+            pagePreset = knownPage(frames[0]?.presetId);
             collage.restore(restored, frames);
             // Decode in parallel — a dozen images should not be a dozen waits.
             await Promise.all(restored
@@ -843,7 +861,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // own, because the person arranging it chose that.
             if (collage.list().length === arriving.length) {
                 const frame = payload.doc.frames[0];
-                if (frame?.presetId) this.setPage(frame.presetId);
+                if (frame) this.setPage(knownPage(frame.presetId));
                 lastView = payload.doc.view;
             }
 
