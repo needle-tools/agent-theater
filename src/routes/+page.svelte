@@ -1,33 +1,36 @@
 <script lang="ts">
+    /**
+     * The front page is the canvas.
+     *
+     * Everything else is pinned to an edge and stays out of the way: the
+     * wordmark top left, the collage's own controls top right, and the two
+     * round buttons bottom right. Nothing floats in the middle, because the
+     * middle is where the work happens.
+     *
+     * The prompt used to be a panel across the centre of the canvas. It is one
+     * thing you need once — read it, copy it, open it somewhere — so it lives
+     * behind a question mark now.
+     */
     import { onMount } from "svelte";
-    import NeedleHero from "$lib/NeedleHero.svelte";
+    import Collage from "$lib/collage/Collage.svelte";
 
     // One prompt, two exits: copy it for any AI, or open ChatGPT with it prefilled.
     const promptFor = (origin: string) =>
-        `Open ${origin} — it exposes WebMCP tools for 3D web development. ` +
-        `List the Needle apps and tools you find, try the 3D scene tools on this page, ` +
-        `and call get_workflow to see what we can do together across apps.`;
+        `Open ${origin} — it exposes WebMCP tools for 3D web development, and the page ` +
+        `itself is a collage canvas you can build on. Add a few images with ` +
+        `collage_add_image (backgrounds come off automatically), arrange them, and look ` +
+        `at the result with collage_preview. Then call list_needle_webmcp_apps and ` +
+        `get_workflow to see what else we can do together across apps.`;
 
     let prompt = $state(promptFor("https://webmcp.needle.tools"));
     let chatgptUrl = $state("https://chatgpt.com/");
     let copied = $state(false);
-
-    // Once an agent is driving, the room is the thing worth looking at — the
-    // copy folds into a corner chip and comes back on hover.
-    let lastTool = $state<string | null>(null);
-    let hovered = $state(false);
-    const collapsed = $derived(lastTool !== null && !hovered);
+    let helpOpen = $state(false);
+    let helpPanel: HTMLDivElement | null = $state(null);
 
     onMount(() => {
         prompt = promptFor(location.origin);
         chatgptUrl = "https://chatgpt.com/?q=" + encodeURIComponent(prompt);
-        // Engine-free module on purpose: importing the session here would pull
-        // @needle-tools/engine out of the hero's lazy chunk into this bundle.
-        let stop = () => {};
-        import("$lib/room/activity").then(({ onAgentActivity }) => {
-            stop = onAgentActivity(activity => (lastTool = activity.tool));
-        });
-        return () => stop();
     });
 
     async function copyPrompt() {
@@ -40,270 +43,243 @@
 <svelte:head>
     <title>Needle × WebMCP — tools for 3D web development</title>
     <meta name="description"
-        content="Needle web apps hand typed tools to the AI agent in your browser. Optimize models, remove backgrounds, inspect live scenes and search the Needle knowledge base — no install, no server, no API key." />
+        content="An infinite canvas that hands typed tools to the AI agent in your browser. Drop photos, have their backgrounds removed, arrange them, and export a print page, an image, or code for your site." />
 </svelte:head>
 
-<section class="hero">
-    <NeedleHero />
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="hero-copy" class:collapsed
-        onmouseenter={() => (hovered = true)}
-        onmouseleave={() => (hovered = false)}>
-        {#if lastTool}
-            <div class="agent-chip" aria-live="polite">
-                <span class="agent-dot"></span>
-                agent called <code>{lastTool}</code>
-            </div>
-        {/if}
-        <h1>Needle <span class="hero-times">×</span> <span class="hero-grad">WebMCP</span></h1>
-        <p>Needle web apps hand typed tools to the AI agent in your browser.</p>
+<svelte:window
+    onpointerdown={event => {
+        if (!helpOpen || !helpPanel) return;
+        const target = event.target as HTMLElement;
+        if (!helpPanel.contains(target) && !target.closest?.("[data-help-trigger]")) helpOpen = false;
+    }}
+    onkeydown={event => { if (helpOpen && event.key === "Escape") helpOpen = false; }}
+/>
 
-        <div class="prompt-box">
-            <code>{prompt}</code>
-            <button class="copy-button" onclick={copyPrompt} aria-label="Copy prompt">
-                {#if copied}
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    Copied
-                {:else}
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="9" y="9" width="13" height="13" rx="2" />
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                    </svg>
-                    Copy
-                {/if}
-            </button>
-        </div>
+<section class="canvas-shell">
+    <Collage />
 
-        <div class="hero-actions">
-            <a class="header-pill-button header-pill-button-primary" href={chatgptUrl} target="_blank" rel="noopener">
-                Open in ChatGPT
-            </a>
-        </div>
+    <!-- Pinned to the top edge, and deliberately not clickable: a drag that
+         starts on the wordmark should still pan the canvas. -->
+    <div class="wordmark">
+        <h1>Needle <span class="times">×</span> <span class="grad">WebMCP</span></h1>
     </div>
+
+    <button
+        class="help-trigger"
+        class:help-trigger--open={helpOpen}
+        data-help-trigger
+        aria-label="What is this?"
+        aria-expanded={helpOpen}
+        onclick={() => (helpOpen = !helpOpen)}
+    >
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M7.4 7.3a2.7 2.7 0 1 1 3.2 3.1c-.5.2-.8.6-.8 1.1v.5" />
+            <circle cx="10" cy="15.1" r="0.85" fill="currentColor" stroke="none" />
+        </svg>
+    </button>
+
+    {#if helpOpen}
+        <div class="help" bind:this={helpPanel} role="dialog" aria-label="About this page">
+            <p class="lede">
+                Needle web apps hand typed tools to the AI agent in your browser. This page is
+                one of them — an infinite canvas your agent can build on with you.
+            </p>
+
+            <div class="prompt-box">
+                <code>{prompt}</code>
+                <button class="copy-button" onclick={copyPrompt} aria-label="Copy prompt">
+                    {#if copied}
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12" /></svg>
+                        Copied
+                    {:else}
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="9" y="9" width="13" height="13" rx="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        Copy
+                    {/if}
+                </button>
+            </div>
+
+            <a class="cta" href={chatgptUrl} target="_blank" rel="noopener">Open in ChatGPT</a>
+        </div>
+    {/if}
 </section>
 
 <style>
-    /* One fullscreen act: the 3D scene, the title, one prompt to hand to an agent. */
-    .hero {
+    /*
+     * Not 100vw. That includes the scrollbar gutter, so it overflows by the
+     * scrollbar's width, and the horizontal bar that appears then steals enough
+     * height to summon the vertical one too. The layout's <main> is already
+     * full width, so there is nothing to break out of.
+     */
+    .canvas-shell {
         position: relative;
-        margin-top: 0;
-        width: 100vw;
-        margin-left: calc(50% - 50vw);
-        overflow: hidden;
-        background: var(--surface-page-elevated);
+        width: 100%;
         height: 100dvh;
-        min-height: 560px;
+        overflow: hidden;
+        background: var(--surface-page);
     }
 
-    .hero-copy {
+    .wordmark {
         position: absolute;
-        inset: 0;
-        z-index: 1;
+        top: 14px;
+        left: 20px;
+        z-index: 20;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 3.6rem 1.5rem 1.2rem;
+        align-items: baseline;
+        gap: 0.75rem;
+        /* The canvas underneath owns the pointer. */
         pointer-events: none;
-        background: radial-gradient(ellipse 48% 44% at center,
-                color-mix(in srgb, var(--surface-page-elevated) 80%, transparent) 0%,
-                color-mix(in srgb, var(--surface-page-elevated) 40%, transparent) 55%,
-                transparent 75%);
     }
 
-    /* The overlay itself passes drags through to the 3D scene, but the text
-       must receive pointer events or it can't be selected. */
-    .hero-copy h1,
-    .hero-copy p,
-    .hero-copy a,
-    .prompt-box {
-        pointer-events: auto;
-    }
-
-    /* Collapsed: the overlay stops being a full-screen sheet and becomes a
-       corner chip. Shrinking the box itself matters — a full-bleed overlay with
-       pointer-events would swallow every drag meant for the 3D room. */
-    .hero-copy.collapsed {
-        inset: auto;
-        top: 4.6rem;
-        left: 1rem;
-        width: max-content;
-        max-width: min(22rem, calc(100vw - 2rem));
-        height: auto;
-        align-items: flex-start;
-        text-align: left;
-        padding: 0.7rem 0.95rem;
-        background: var(--surface-panel);
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
-        border-radius: var(--radius-card);
-        box-shadow: 0 6px 18px rgba(34, 44, 32, 0.06);
-        pointer-events: auto;
-        cursor: pointer;
-    }
-
-    .hero-copy.collapsed h1 {
-        font-size: 1rem;
+    .wordmark h1 {
         margin: 0;
-    }
-
-    .hero-copy.collapsed p,
-    .hero-copy.collapsed .prompt-box,
-    .hero-copy.collapsed .hero-actions {
-        display: none;
-    }
-
-    /* What the agent just did, so its work is legible from across a room. */
-    .agent-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.45em;
-        margin-bottom: 0.6rem;
-        padding: 0.3rem 0.7rem;
-        border-radius: var(--radius-pill);
-        background: var(--surface-panel-muted);
-        border: 1px solid var(--border-subtle);
-        font-size: 0.78rem;
-        color: var(--text-secondary);
-        pointer-events: auto;
-    }
-
-    .agent-chip code {
-        font-family: var(--font-family-code);
-        color: var(--text-primary);
-    }
-
-    .agent-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: #99cc33;
-        animation: agent-pulse 1.4s ease-in-out infinite;
-    }
-
-    @keyframes agent-pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.25; }
-    }
-
-    /* Split + staggered enter: each block rises in on its own beat. */
-    .hero-copy > * {
-        animation: rise 0.65s cubic-bezier(0.2, 0, 0, 1) both;
-    }
-
-    .hero-copy > *:nth-child(2) {
-        animation-delay: 0.09s;
-    }
-
-    .hero-copy > *:nth-child(3) {
-        animation-delay: 0.18s;
-    }
-
-    .hero-copy > *:nth-child(4) {
-        animation-delay: 0.27s;
-    }
-
-    @keyframes rise {
-        from {
-            opacity: 0;
-            translate: 0 14px;
-            filter: blur(4px);
-        }
-
-        to {
-            opacity: 1;
-            translate: 0 0;
-            filter: blur(0);
-        }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .hero-copy > * {
-            animation: none;
-        }
-    }
-
-    .hero-copy h1 {
-        margin: 0 0 0.5rem;
         font-family: var(--font-family-display);
-        font-size: clamp(2.4rem, 4.5vw, 3.6rem);
-        font-weight: var(--type-display-weight);
-        /* Roomier than the display default (0.95) — the tight leading can
-           shave descenders and gradient glyph bottoms. */
-        line-height: 1.08;
-        letter-spacing: var(--type-display-tracking);
-        text-wrap: balance;
-        padding-bottom: 0.06em;
+        font-size: clamp(1.1rem, 2.2vw, 1.6rem);
+        font-weight: var(--type-page-title-weight);
+        letter-spacing: var(--type-page-title-tracking);
+        line-height: 1.1;
+        white-space: nowrap;
     }
 
-    .hero-times {
-        font-weight: 300;
+    .times {
+        margin: 0 0.1em;
         color: var(--text-muted);
+        font-weight: 400;
     }
 
-    .hero-grad {
-        background: var(--gradient-cta);
+    .grad {
+        background: var(--gradient-brand, linear-gradient(90deg, #99CC33, #0BA398));
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
     }
 
-    .hero-copy p {
-        margin: 0.3rem auto 1.1rem;
-        max-width: 40rem;
-        color: var(--text-secondary);
-        text-wrap: pretty;
-    }
-
-    /* The copy-paste thing: a soft panel holding the prompt and its button. */
-    .prompt-box {
+    /* Sits immediately left of the layout's GitHub corner (42px wide at 16px). */
+    .help-trigger {
+        position: fixed;
+        right: 66px;
+        bottom: 16px;
+        z-index: 30;
         display: flex;
-        align-items: stretch;
-        gap: 0.6rem;
-        max-width: 44rem;
-        background: var(--surface-panel);
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
-        border-radius: var(--radius-card);
-        box-shadow:
-            0 1px 2px rgba(34, 44, 32, 0.04),
-            0 6px 18px rgba(34, 44, 32, 0.05);
-        padding: 0.8rem 0.8rem 0.8rem 1rem;
-        text-align: left;
-    }
-
-    .prompt-box code {
-        font-family: var(--font-family-code);
-        font-size: 0.82rem;
-        line-height: 1.5;
-        color: var(--text-secondary);
-        user-select: all;
-    }
-
-    .copy-button {
-        display: inline-flex;
         align-items: center;
-        gap: 0.4em;
-        align-self: center;
-        flex: none;
-        min-height: 40px;
-        padding: 0 0.9rem;
+        justify-content: center;
+        width: 42px;
+        height: 42px;
+        border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
         border-radius: var(--radius-pill);
-        border: 1px solid var(--border-subtle);
-        background: var(--surface-panel-muted);
+        background: var(--surface-panel);
         color: var(--text-primary);
-        font-family: var(--font-family-body);
-        font-size: 0.85rem;
-        font-weight: 600;
+        box-shadow:
+            0 1px 2px rgba(34, 44, 32, 0.06),
+            0 8px 22px rgba(34, 44, 32, 0.08);
         cursor: pointer;
-        transition-property: background, border-color, scale;
+        transition-property: background, border-color, color, scale;
         transition-duration: 0.16s;
     }
 
-    .copy-button:hover {
-        background: var(--surface-panel-strong);
+    .help-trigger:hover {
+        background: var(--surface-panel-muted);
         border-color: var(--border-strong);
+    }
+
+    .help-trigger:active {
+        scale: 0.96;
+    }
+
+    .help-trigger--open {
+        background: var(--accent-brand);
+        border-color: transparent;
+        color: #14200f;
+    }
+
+    .help-trigger svg {
+        width: 19px;
+        height: 19px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: round;
+    }
+
+    .help {
+        position: fixed;
+        right: 16px;
+        bottom: 70px;
+        z-index: 30;
+        width: min(30rem, calc(100vw - 32px));
+        /* Outer 18 = inner 12 + 6 padding. */
+        border-radius: 18px;
+        padding: 6px;
+        background: var(--surface-panel);
+        box-shadow:
+            0 0 0 1px color-mix(in srgb, var(--border-subtle) 60%, transparent),
+            0 1px 2px rgba(34, 44, 32, 0.06),
+            0 12px 28px rgba(34, 44, 32, 0.10),
+            0 32px 64px rgba(34, 44, 32, 0.10);
+        animation: help-in 0.18s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    @keyframes help-in {
+        from { opacity: 0; scale: 0.98; translate: 0 6px; }
+        to { opacity: 1; scale: 1; translate: 0 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .help { animation: none; }
+    }
+
+    .lede {
+        margin: 0;
+        padding: 10px 10px 12px;
+        color: var(--text-secondary);
+        font-size: var(--type-body-muted-size);
+        line-height: var(--type-body-muted-line-height);
+        text-wrap: pretty;
+    }
+
+    .prompt-box {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: var(--surface-code, var(--surface-panel-strong));
+    }
+
+    .prompt-box code {
+        flex: 1;
+        min-width: 0;
+        font-family: var(--font-family-code);
+        font-size: var(--type-code-block-size);
+        line-height: var(--type-code-block-line-height);
+        color: var(--text-secondary);
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .copy-button {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-height: 30px;
+        padding: 0 0.6rem;
+        border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+        border-radius: 10px;
+        background: var(--surface-panel);
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: var(--type-micro-label-size);
+        cursor: pointer;
+        transition-property: background, border-color, color, scale;
+        transition-duration: 0.14s;
+    }
+
+    .copy-button:hover {
+        border-color: var(--border-strong);
+        color: var(--text-primary);
     }
 
     .copy-button:active {
@@ -311,8 +287,8 @@
     }
 
     .copy-button svg {
-        width: 14px;
-        height: 14px;
+        width: 13px;
+        height: 13px;
         fill: none;
         stroke: currentColor;
         stroke-width: 2;
@@ -320,12 +296,27 @@
         stroke-linejoin: round;
     }
 
-    .hero-actions {
-        display: flex;
-        gap: 0.7rem;
-        margin: 1.1rem 0 0;
-        pointer-events: auto;
-        flex-wrap: wrap;
-        justify-content: center;
+    .cta {
+        display: block;
+        margin: 6px 0 0;
+        padding: 10px;
+        border-radius: 12px;
+        background: var(--accent-brand);
+        color: #14200f;
+        font-weight: 600;
+        font-size: var(--type-body-muted-size);
+        text-align: center;
+        text-decoration: none;
+        transition-property: background, scale;
+        transition-duration: 0.14s;
     }
+
+    .cta:hover {
+        background: var(--accent-brand-deep, var(--accent-brand));
+    }
+
+    .cta:active {
+        scale: 0.96;
+    }
+
 </style>

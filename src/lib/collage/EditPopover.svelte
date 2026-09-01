@@ -115,7 +115,7 @@
 
 <style>
     .panel {
-        position: fixed;
+        position: absolute;
         top: 62px;
         right: 16px;
         z-index: 40;

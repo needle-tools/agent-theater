@@ -16,10 +16,10 @@
     import CollageCanvas from "$lib/collage/CollageCanvas.svelte";
     import ContextMenu, { type MenuItem } from "$lib/collage/ContextMenu.svelte";
     import EditPopover from "$lib/collage/EditPopover.svelte";
-    import Toasts, { createToasts } from "$lib/collage/Toasts.svelte";
+    import Toasts, { createToasts, LIFETIME } from "$lib/collage/Toasts.svelte";
     import { createStudio } from "$lib/collage/studio";
     import { createCollageTools } from "$lib/collage/tools";
-    import { type ImageLayer } from "$lib/collage/model";
+    import { FONTS, type ImageLayer, type TextLayer } from "$lib/collage/model";
     import { LAYOUT_MODES, type LayoutMode } from "$lib/collage/layout";
     import { registerTools } from "$lib/webmcp";
 
@@ -60,8 +60,39 @@
             console.warn("[collage] could not restore the saved collage:", error);
         }
         restored = true;
-        toolsRegistered = await registerTools(createCollageTools(studio));
+        // Wrapped once here rather than in each tool: an agent's work should be
+        // visible, and that should not be fourteen call sites.
+        const { notifyAgentActivity } = await import("$lib/room/activity");
+        toolsRegistered = await registerTools(createCollageTools(studio).map(tool => ({
+            ...tool,
+            execute: (args: unknown, options?: { signal?: AbortSignal }) => {
+                notifyAgentActivity(tool.name);
+                announceAgent(tool.name);
+                return tool.execute(args, options);
+            },
+        })));
     });
+
+    /**
+     * Say what the agent just did, in the same bubbles a person's own actions
+     * use — with its own colour, so who did what is legible without reading.
+     *
+     * Reused rather than stacked: an agent working through a plan fires several
+     * calls a second, and a bubble each would bury everything else and never
+     * settle. One bubble that keeps updating reads as "still working".
+     */
+    let agentToast: { update: (text: string, tone?: "agent") => void } | null = null;
+    let agentTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function announceAgent(tool: string) {
+        const text = `Agent used ${tool}`;
+        if (agentToast) agentToast.update(text, "agent");
+        else agentToast = toasts.push(text, "agent");
+        if (agentTimer) clearTimeout(agentTimer);
+        // Let go once the bubble has expired, so the next call starts a new one
+        // rather than reviving a dismissed bubble's handle.
+        agentTimer = setTimeout(() => (agentToast = null), LIFETIME.agent);
+    }
 
     /** Where the next batch of images should land, if somewhere was pointed at. */
     let dropPoint: { x: number; y: number } | null = null;
@@ -256,6 +287,37 @@
         const each = (change: (layerId: string) => void) => () => ids.forEach(change);
 
         return [
+            ...(layer.kind === "text"
+                ? [
+                    {
+                        label: "Edit text",
+                        icon: "text" as const,
+                        hint: "dbl",
+                        onSelect: () => canvas?.edit(id),
+                    },
+                    {
+                        label: "Font",
+                        icon: "font" as const,
+                        separator: true,
+                        items: FONTS.map(font => ({
+                            label: font.name,
+                            icon: "font" as const,
+                            checked: (layer as TextLayer).fontFamily === font.stack,
+                            onSelect: each(l => collage.update(l, { fontFamily: font.stack, fontWeight: font.weight })),
+                        })),
+                    },
+                    {
+                        label: "Align",
+                        icon: "align" as const,
+                        items: (["left", "center", "right"] as const).map(align => ({
+                            label: align,
+                            icon: "align" as const,
+                            checked: (layer as TextLayer).align === align,
+                            onSelect: each(l => collage.update(l, { align })),
+                        })),
+                    },
+                ]
+                : []),
             ...(image
                 ? [
                     {
@@ -298,7 +360,14 @@
                     },
                 ]
                 : []),
-            { label: `Bring to front${suffix}`, icon: "front", separator: true, onSelect: each(l => { collage.bringToFront(l); }) },
+            {
+                label: `Straighten${suffix}`,
+                icon: "rotate",
+                separator: true,
+                disabled: !ids.some(l => (collage.get(l)?.rotation ?? 0) !== 0),
+                onSelect: each(l => collage.update(l, { rotation: 0 })),
+            },
+            { label: `Bring to front${suffix}`, icon: "front", onSelect: each(l => { collage.bringToFront(l); }) },
             { label: `Send to back${suffix}`, icon: "back", onSelect: each(l => { collage.sendToBack(l); }) },
             {
                 label: `Delete${suffix}`,
@@ -344,11 +413,6 @@
         return error instanceof Error ? error.message : String(error);
     }
 </script>
-
-<svelte:head>
-    <title>Collage — Needle WebMCP</title>
-    <meta name="description" content="Build collages from cut-out images on an infinite canvas, and export them as a print page, an image, or code for your website." />
-</svelte:head>
 
 <svelte:window onpaste={onPaste} />
 
@@ -426,9 +490,16 @@
 </div>
 
 <style>
+    /*
+     * Fills whatever it is put in rather than claiming the viewport: it is the
+     * front page's hero now, not a page of its own. Its chrome is positioned
+     * against this box for the same reason — fixed buttons would still be
+     * hanging in the corner once someone scrolls past to the registry.
+     */
     .page {
         position: relative;
-        height: 100svh;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
     }
 
@@ -478,7 +549,7 @@
     }
 
     .trigger {
-        position: fixed;
+        position: absolute;
         top: 16px;
         right: 16px;
         z-index: 45;

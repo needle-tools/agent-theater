@@ -53,6 +53,9 @@
         scatter: { stroke: ["M3.4 4.2h3v3h-3z", "M9.4 3.4h3.2v3.2H9.4z", "M5.6 9.4h3.6v3.6H5.6z"] },
         packed: { stroke: ["M3 3h4.6v3.6H3z", "M8.9 3H13v3.6H8.9z", "M3 7.9h2.8V13H3z", "M7.1 7.9H13V13H7.1z"] },
         collage: { stroke: ["M2.6 5.4l4.2-1.6 1.6 4.2-4.2 1.6z", "M8.4 7.2l4.4-.9.9 4.4-4.4.9z"] },
+        font: { stroke: ["M3.4 12.6 7 3.4h.6l3.6 9.2", "M4.7 9.8h5.4"] },
+        align: { stroke: ["M3 4h10", "M3 8h6.5", "M3 12h8.5"] },
+        rotate: { stroke: ["M12.6 8a4.6 4.6 0 11-1.5-3.4", "M12.9 2.5v2.6h-2.6"] },
     } satisfies Record<string, Icon>;
 </script>
 

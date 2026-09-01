@@ -2,13 +2,13 @@
     export interface Toast {
         id: number;
         text: string;
-        tone: "info" | "busy" | "error";
+        tone: "info" | "busy" | "error" | "agent";
     }
 
     let nextId = 0;
 
     /** How long each kind stays. A failure is worth reading twice. */
-    const LIFETIME = { info: 3800, error: 7000, busy: 0 } as const;
+    export const LIFETIME = { info: 3800, error: 7000, busy: 0, agent: 4200 } as const;
 
     export function createToasts() {
         let items = $state<Toast[]>([]);
@@ -85,6 +85,8 @@
         >
             {#if toast.tone === "busy"}
                 <span class="spinner" aria-hidden="true"></span>
+            {:else if toast.tone === "agent"}
+                <span class="pulse" aria-hidden="true"></span>
             {/if}
             <span class="text">{toast.text}</span>
         </button>
@@ -93,7 +95,7 @@
 
 <style>
     .stack {
-        position: fixed;
+        position: absolute;
         left: 16px;
         bottom: 16px;
         z-index: 35;
@@ -161,14 +163,19 @@
         content: "";
         position: absolute;
         left: -7px;
-        bottom: 6px;
+        /* Centred on the left edge. `translate` and `rotate` are separate
+           properties and compose in that order, so the shift is applied about
+           the beak's own box before it is turned — which is what keeps it
+           centred rather than swinging off. */
+        top: 50%;
+        translate: 0 -50%;
+        rotate: 45deg;
         width: 12px;
         height: 12px;
         background: inherit;
         border-left: 2px solid var(--edge);
         border-bottom: 2px solid var(--edge);
         border-bottom-left-radius: 3px;
-        rotate: 45deg;
     }
 
     /* Each tone carries its own edge, so the outline belongs to the bubble
@@ -186,6 +193,31 @@
 
     .bubble--error:hover {
         background: color-mix(in srgb, var(--error) 20%, var(--surface-panel));
+    }
+
+    /* A different hue for the agent, so who did what is legible at a glance
+       without reading the words. */
+    .bubble--agent {
+        --edge: color-mix(in srgb, var(--accent-tertiary) 50%, transparent);
+        background: color-mix(in srgb, var(--accent-tertiary) 11%, var(--surface-panel));
+    }
+
+    .bubble--agent:hover {
+        background: color-mix(in srgb, var(--accent-tertiary) 18%, var(--surface-panel));
+    }
+
+    .pulse {
+        flex: none;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent-tertiary);
+        animation: pulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
     }
 
     .bubble--busy {
@@ -217,5 +249,6 @@
 
     @media (prefers-reduced-motion: reduce) {
         .spinner { animation-duration: 2s; }
+        .pulse { animation: none; }
     }
 </style>

@@ -61,6 +61,7 @@
         /** Every selected layer moves together, each from its own starting point. */
         | { mode: "move"; id: string; startX: number; startY: number; origins: Map<string, { x: number; y: number }> }
         | { mode: "resize"; id: string; originWidth: number; startX: number }
+        | { mode: "rotate"; id: string; centre: { x: number; y: number }; startAngle: number; originRotation: number }
         | { mode: "marquee"; startX: number; startY: number; additive: boolean };
 
     let drag: Drag | null = null;
@@ -214,6 +215,12 @@
         };
     }
 
+    /** Degrees from a canvas-space centre to a screen point. */
+    function angleTo(centre: { x: number; y: number }, clientX: number, clientY: number): number {
+        const point = toCanvas(clientX, clientY);
+        return (Math.atan2(point.y - centre.y, point.x - centre.x) * 180) / Math.PI;
+    }
+
     /** Screen coordinates to canvas units. */
     function toCanvas(clientX: number, clientY: number) {
         const rect = viewport!.getBoundingClientRect();
@@ -284,7 +291,12 @@
         // Stops the drag from turning into a text selection, which is what makes
         // panning across a frame label paint it green instead of moving the view.
         event.preventDefault();
-        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        // Throws if the pointer is not currently down — which a synthetic event
+        // never is. Losing capture only costs a drag that ends off the element;
+        // letting it throw here would abort the whole gesture.
+        try {
+            (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        } catch { /* carry on without capture */ }
         moved = false;
 
         const target = event.target as HTMLElement;
@@ -292,6 +304,20 @@
             const layer = studio.collage.get(selectedIds[0]);
             if (layer) {
                 drag = { mode: "resize", id: layer.id, startX: event.clientX, originWidth: layer.width };
+                return;
+            }
+        }
+        if (target.closest("[data-rotate]") && selectedIds.length === 1) {
+            const layer = studio.collage.get(selectedIds[0]);
+            if (layer) {
+                const centre = { x: layer.x + layer.width / 2, y: layer.y + layer.height / 2 };
+                drag = {
+                    mode: "rotate",
+                    id: layer.id,
+                    centre,
+                    startAngle: angleTo(centre, event.clientX, event.clientY),
+                    originRotation: layer.rotation,
+                };
                 return;
             }
         }
@@ -329,8 +355,8 @@
 
     function onPointerMove(event: PointerEvent) {
         if (!drag) {
-            // Only show the move cursor over something actually grabbable.
-            hovering = !!layerAt(event.clientX, event.clientY);
+            // Which layer, not just whether one — it gets outlined.
+            hoverId = layerAt(event.clientX, event.clientY)?.id ?? null;
             return;
         }
         const dx = (event.clientX - (drag as any).startX) / view.zoom;
@@ -345,6 +371,12 @@
             }
         } else if (drag.mode === "resize") {
             studio.collage.update(drag.id, { width: Math.max(20, drag.originWidth + dx) });
+        } else if (drag.mode === "rotate") {
+            const turned = angleTo(drag.centre, event.clientX, event.clientY) - drag.startAngle;
+            let rotation = drag.originRotation + turned;
+            // Shift snaps to 15°, which is how anyone gets back to straight.
+            if (event.shiftKey) rotation = Math.round(rotation / 15) * 15;
+            studio.collage.update(drag.id, { rotation });
         } else if (drag.mode === "marquee") {
             marquee = {
                 x: Math.min(drag.startX, event.clientX),
@@ -367,7 +399,7 @@
         }
     }
 
-    let hovering = $state(false);
+    let hoverId = $state<string | null>(null);
 
     function onPointerUp(event: PointerEvent) {
         // A watching agent should hear about a move that actually happened, not
@@ -443,12 +475,56 @@
     const outlined = $derived.by(() => (version, layers.filter(
         (l): l is ImageLayer => l.kind === "image" && !!l.style.outline && l.style.outline.width > 0)));
 
+    /**
+     * Selection and hover are drawn around the picture's own edge rather than
+     * around its box. A cut-out's bounding rectangle is mostly empty — boxing
+     * a bear tells you about the crop, not the bear — so the same dilate that
+     * makes a sticker outline marks what is picked out.
+     *
+     * These two are shared by every layer rather than generated per layer: with
+     * the default userSpaceOnUse primitives the radius is in canvas units, so
+     * one filter suits any size. It is divided by the zoom to stay a constant
+     * thickness on screen however far in you are.
+     */
+    const indicatorDefs = $derived.by(() => {
+        // Clamped, and that is not cosmetic. feMorphology samples a window of
+        // (2r+1)² per pixel, so cost grows with the square of the radius — and
+        // dividing by the zoom means zooming out grows it without limit. An
+        // uncapped radius froze the renderer outright on the first click.
+        const scale = (screenPx: number) => Math.min(6, Math.max(1, screenPx / view.zoom));
+        return (
+            indicatorFilter("collage-hovered", scale(1.5), "var(--accent-brand)") +
+            indicatorFilter("collage-selected", scale(2.5), "var(--accent-brand)")
+        );
+    });
+
+    function indicatorFilter(id: string, radius: number, color: string): string {
+        return `<filter id="${id}" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">` +
+            `<feMorphology in="SourceAlpha" operator="dilate" radius="${radius.toFixed(3)}" result="spread"/>` +
+            `<feFlood flood-color="${color}" result="colour"/>` +
+            `<feComposite in="colour" in2="spread" operator="in" result="edge"/>` +
+            `<feMerge><feMergeNode in="edge"/><feMergeNode in="SourceGraphic"/></feMerge>` +
+            `</filter>`;
+    }
+
     const outlineDefs = $derived(outlined
         .map(l => outlineFilterSvg(outlineId(l), l.style.outline!, l.width, l.height))
         .join(""));
 
+    /** The mark for a layer's state, chained after its own styling. */
+    function indicatorFor(id: string): string {
+        if (editingId === id) return "";
+        if (isSelected(id)) return "url(#collage-selected)";
+        // A hovered layer that is already selected keeps the stronger mark.
+        return hoverId === id ? "url(#collage-hovered)" : "";
+    }
+
     function imageStyle(layer: ImageLayer): string {
-        const filters = alphaFilters(layer.style, pxUnit, outlineId(layer));
+        const indicator = indicatorFor(layer.id);
+        const own = alphaFilters(layer.style, pxUnit, outlineId(layer));
+        // Order matters: the indicator dilates whatever the layer already
+        // draws, so it wraps a sticker outline rather than hiding under it.
+        const filters = [own, indicator].filter(Boolean).join(" ");
         return [
             `left: ${layer.x}px`,
             `top: ${layer.y}px`,
@@ -491,6 +567,9 @@
     }
 
     function textStyle(layer: TextLayer): string {
+        // The same dilate traces glyphs, so selecting a headline outlines the
+        // letters rather than drawing a rectangle around them.
+        const indicator = indicatorFor(layer.id);
         return [
             `left: ${layer.x}px`,
             `top: ${layer.y}px`,
@@ -498,8 +577,9 @@
             `font-size: ${layer.fontSize}px`,
             `transform: rotate(${layer.rotation}deg)`,
             `z-index: ${layer.z}`,
+            indicator ? `filter: ${indicator}` : "",
             ...textCss(layer),
-        ].join("; ");
+        ].filter(Boolean).join("; ");
     }
 
     function frameStyle(frame: Frame): string {
@@ -523,7 +603,7 @@
 
 <div
     class="viewport"
-    class:viewport--over={hovering && !drag}
+    class:viewport--over={!!hoverId && !drag}
     bind:this={viewport}
     role="application"
     aria-label="Collage canvas"
@@ -583,8 +663,8 @@
             {/if}
         {/each}
 
-        <!-- Never both: the editing outline is the indicator while typing, and
-             a handles box drawn on top of it read as a box inside a box. -->
+        <!-- No box. The selection is drawn around the picture itself, so this
+             is only somewhere to hang the handles. -->
         {#if single && editingId !== single.id}
             <div
                 class="handles"
@@ -593,28 +673,26 @@
                 style:width="{single.width}px"
                 style:height="{single.height}px"
                 style:transform="rotate({single.rotation}deg)"
-                style:border-width="{1 / view.zoom}px"
             >
-                <span class="handle" data-resize style:width="{12 / view.zoom}px" style:height="{12 / view.zoom}px"></span>
+                <!-- Sizes and borders are divided by the zoom because these sit
+                     inside the scaled world; a plain 1px border would thin to
+                     nothing as you zoom out, which is what made the rotate
+                     handle read as a faint ring. -->
+                <span class="handle handle--resize" data-resize
+                    style:width="{11 / view.zoom}px" style:height="{11 / view.zoom}px"
+                    style:border-width="{1.5 / view.zoom}px"
+                    style:border-radius="{2 / view.zoom}px"></span>
+                <span class="handle handle--rotate" data-rotate
+                    style:width="{13 / view.zoom}px" style:height="{13 / view.zoom}px"
+                    style:border-width="{2 / view.zoom}px"
+                    style:top="{-20 / view.zoom}px"></span>
             </div>
-        {:else if groupBounds}
-            <!-- What a capture would take, drawn as one box around the lot. -->
-            <div
-                class="group"
-                style:left="{groupBounds.x}px"
-                style:top="{groupBounds.y}px"
-                style:width="{groupBounds.width}px"
-                style:height="{groupBounds.height}px"
-                style:border-width="{1 / view.zoom}px"
-            ></div>
         {/if}
     </div>
 
     <!-- Filter definitions only; nothing here is drawn. One dilate pass per
-         outlined layer, instead of a chain of drop-shadows per layer. -->
-    {#if outlineDefs}
-        <svg class="defs" aria-hidden="true" focusable="false">{@html outlineDefs}</svg>
-    {/if}
+         outlined layer, plus the two shared selection and hover marks. -->
+    <svg class="defs" aria-hidden="true" focusable="false">{@html indicatorDefs + outlineDefs}</svg>
 
     {#if marquee}
         <div
@@ -713,32 +791,14 @@
         outline-offset: 3px;
     }
 
-    /*
-     * Only ever one indicator. A single selection gets the handles box below; a
-     * multi-selection gets a thin mark per layer plus one dashed box round the
-     * lot. Drawing both at once gave a dashed rectangle inside another dashed
-     * rectangle, which read as a glitch.
-     *
-     * An outline never shifts the layout by a pixel, unlike a border.
-     */
-    .layer--selected {
-        outline: 1px solid var(--accent-brand);
-        outline-offset: 1px;
-    }
+    /* Selection and hover are SVG filters traced around the artwork's own
+       edge — see indicatorDefs. Nothing is outlined with a rectangle. */
 
+    /* No border — just somewhere to hang the handles, since the selection
+       itself is drawn around the artwork. */
     .handles {
         position: absolute;
         pointer-events: none;
-        border: solid var(--accent-brand);
-    }
-
-    /* One box around a multi-selection: it is exactly what a capture takes. */
-    .group {
-        position: absolute;
-        pointer-events: none;
-        border-style: dashed;
-        border-color: var(--accent-brand);
-        background: color-mix(in srgb, var(--accent-brand) 6%, transparent);
     }
 
     .defs {
@@ -759,13 +819,32 @@
 
     .handle {
         position: absolute;
+        border-style: solid;
+        pointer-events: auto;
+    }
+
+    /* White square, brand edge — reads as "drag this corner". */
+    .handle--resize {
         right: 0;
         bottom: 0;
         translate: 50% 50%;
         background: var(--surface-panel);
-        border: 1px solid var(--accent-brand);
-        border-radius: 2px;
-        pointer-events: auto;
+        border-color: var(--accent-brand);
         cursor: nwse-resize;
+    }
+
+    /* Filled brand disc with a white ring: a solid dot is legible at any zoom
+       and against any picture, where an outlined ring disappeared into both. */
+    .handle--rotate {
+        left: 50%;
+        translate: -50% 0;
+        border-radius: 50%;
+        background: var(--accent-brand);
+        border-color: var(--surface-panel);
+        cursor: grab;
+    }
+
+    .handle--rotate:active {
+        cursor: grabbing;
     }
 </style>

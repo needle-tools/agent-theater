@@ -189,6 +189,27 @@ export const DEFAULT_STYLE: LayerStyle = {
 
 export const PALETTE = ["#99CC33", "#0BA398", "#826AED", "#D7DB0A", "#74AF52", "#62D399"];
 
+/**
+ * The typefaces on offer.
+ *
+ * Every stack ends in a generic family, because the exported HTML lands on a
+ * page that has never heard of Needle's fonts — a collage that falls back to
+ * something of the right shape is fine; one that falls back to Times is not.
+ */
+export const FONTS = [
+    { id: "display", name: "Display", stack: "'NunitoSans', system-ui, sans-serif", weight: 800 },
+    { id: "body", name: "Body", stack: "'NunitoSans', system-ui, sans-serif", weight: 500 },
+    { id: "wordmark", name: "Wordmark", stack: "'Oblique', 'NunitoSans', sans-serif", weight: 700 },
+    { id: "serif", name: "Serif", stack: "'IBMPlexSerif', Georgia, serif", weight: 600 },
+    { id: "mono", name: "Mono", stack: "'Monaspace Neon', ui-monospace, SFMono-Regular, Menlo, monospace", weight: 500 },
+] as const;
+
+export type FontId = (typeof FONTS)[number]["id"];
+
+export function findFont(id: string) {
+    return FONTS.find(f => f.id === id) ?? null;
+}
+
 export interface AddImageSpec {
     src: string;
     label?: string;
@@ -251,6 +272,9 @@ export interface LayerPatch {
     text?: string;
     color?: string;
     fontSize?: number;
+    fontFamily?: string;
+    fontWeight?: number;
+    align?: "left" | "center" | "right";
     style?: Partial<LayerStyle>;
 }
 
@@ -461,6 +485,9 @@ export class Collage {
                 next.label = patch.label ?? patch.text.slice(0, 24);
             }
             if (typeof patch.color === "string") next.color = patch.color;
+            if (typeof patch.fontFamily === "string") next.fontFamily = patch.fontFamily;
+            if (typeof patch.fontWeight === "number" && patch.fontWeight > 0) next.fontWeight = patch.fontWeight;
+            if (patch.align) next.align = patch.align;
             if (typeof patch.fontSize === "number" && patch.fontSize > 0) {
                 next.fontSize = patch.fontSize;
                 next.height = patch.fontSize * 1.25;
