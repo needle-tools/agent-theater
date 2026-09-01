@@ -187,6 +187,56 @@
       "tagline": "Cut image backgrounds and build sprite sheets in the browser."
     },
     {
+      "id": "collage",
+      "name": "Needle Collage",
+      "url": "https://webmcp.needle.tools/collage",
+      "description": "Build a collage from cut-out images on an infinite canvas, then export it as a print page, an image, or code for a website. Frames decide the output: drop an A4 frame around the work for print, an og:image frame for a social card, a hero frame for a web page — one canvas, several deliverables. Cut-outs are measured to their visible shape, and their transparency drives silhouettes, sticker outlines and shadows. The natural downstream of FastCut: cut the backgrounds there, arrange them here.",
+      "status": "live",
+      "tools": [
+        {
+          "name": "collage_describe",
+          "description": "Everything on the canvas and every frame, with sizes and any resolution problems."
+        },
+        {
+          "name": "collage_add_image",
+          "description": "Put an image on the canvas from an http(s) or data: URL. Cut-outs are cropped to their visible shape."
+        },
+        {
+          "name": "collage_add_text",
+          "description": "Add a headline or caption. It stays real text in the exported HTML."
+        },
+        {
+          "name": "collage_add_frame",
+          "description": "Add an output frame — A4, US Letter, square post, story, og:image, slide, web hero, or a custom size in mm or px."
+        },
+        {
+          "name": "collage_arrange",
+          "description": "Lay the images out inside a frame: grid, row, column, ring, scatter or packed."
+        },
+        {
+          "name": "collage_transform",
+          "description": "Move, resize, rotate or restack one layer."
+        },
+        {
+          "name": "collage_style",
+          "description": "Style a cut-out using its own transparency: silhouette fill, sticker outline, drop shadow, opacity."
+        },
+        {
+          "name": "collage_preview",
+          "description": "Render a frame and return it as an image, so you can see what you made and fix what is wrong."
+        },
+        {
+          "name": "collage_export",
+          "description": "Export a frame as a PNG, a print/PDF page, a self-contained HTML snippet, or a whole page to host as an embed."
+        },
+        {
+          "name": "collage_remove",
+          "description": "Take one layer or frame off the canvas."
+        }
+      ],
+      "tagline": "Arrange cut-outs on an infinite canvas; export a page, an image, or the code."
+    },
+    {
       "id": "needle-inspector",
       "name": "Needle Inspector",
       "url": "https://chromewebstore.google.com/detail/jonplpbnhmanoekkgcepnedhghflblmo",
@@ -366,6 +416,39 @@
           "instruction": "Create a grid with fastcut_create_grid, move the cut-outs in with fastcut_add_to_grid, then fastcut_export_grid writes the packed sheet."
         }
       ]
+    },
+    {
+      "id": "photo-collage",
+      "title": "Photos to a collage, a poster or a web page",
+      "goal": "Turn a set of photos into a collage and get it out as a print page, an image, or code for a website.",
+      "keywords": ["collage", "poster", "moodboard", "mood board", "montage", "cut out", "cutout", "silhouette", "a4", "print", "pdf", "flyer", "zine", "og image", "social card", "hero", "embed"],
+      "steps": [
+        {
+          "app": "fastcut",
+          "url": "https://fastcut.needle.tools",
+          "tools": ["fastcut_add_image", "fastcut_set_method", "fastcut_get_image"],
+          "instruction": "Open FastCut and load each photo with fastcut_add_image (a data: URL works for a local file). Check a cut with fastcut_set_method if it looks wrong. Read each finished cut-out back with fastcut_get_image — ask for the largest version available, because a collage printed on A4 needs far more pixels than one on screen."
+        },
+        {
+          "app": "collage",
+          "url": "https://webmcp.needle.tools/collage",
+          "tools": ["collage_add_image", "collage_add_frame", "collage_arrange", "collage_preview"],
+          "instruction": "Open the collage page and pass each cut-out to collage_add_image as a data URL. Add the output you actually want with collage_add_frame — 'a4-portrait' for print, 'og-1200x630' for a social card, 'web-hero' for a page banner. Then collage_arrange, and look at the result with collage_preview before deciding anything is finished."
+        },
+        {
+          "app": "collage",
+          "url": "https://webmcp.needle.tools/collage",
+          "tools": ["collage_style", "collage_transform", "collage_preview"],
+          "instruction": "Refine what the preview showed: collage_style turns a cut-out into a flat silhouette, gives it a sticker outline or a drop shadow, all driven by its own transparency. collage_transform nudges anything that landed badly. Preview again after each round."
+        },
+        {
+          "app": "collage",
+          "url": "https://webmcp.needle.tools/collage",
+          "tools": ["collage_export"],
+          "instruction": "Export: 'png' for an image, 'print' to open the print dialogue (Save as PDF for paper), 'html' for a responsive snippet to paste into a site, 'embed' for a whole page to host. The same canvas can carry several frames, so one arrangement can produce a poster and a social card without redoing the work."
+        }
+      ],
+      "note": "Needs an agent that can work across two tabs. Watch the resolution warnings — a cut-out that looks sharp on screen can be a smear on A4, and the collage tools say so before it is printed rather than after."
     },
     {
       "id": "debug-scene",
