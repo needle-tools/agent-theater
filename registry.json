@@ -210,6 +210,10 @@
           "description": "Add a headline or caption. It stays real text in the exported HTML."
         },
         {
+          "name": "collage_set_text",
+          "description": "Rewrite a text layer or restyle it: colour, size, typeface, alignment."
+        },
+        {
           "name": "collage_set_page",
           "description": "Choose what the collage is for, which sets the export size: free canvas, A4, US Letter, square post, story, og:image, slide or web hero."
         },
@@ -231,7 +235,7 @@
         },
         {
           "name": "collage_transform",
-          "description": "Move, resize, rotate or restack one layer."
+          "description": "Move, scale, rotate or restack one layer — scale relative to its current size, or set an exact width."
         },
         {
           "name": "collage_style",

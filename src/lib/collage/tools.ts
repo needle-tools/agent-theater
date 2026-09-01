@@ -17,7 +17,7 @@
  * descriptions stay terse; detail belongs in the result text, which is only
  * paid for when the tool is actually called.
  */
-import { FRAME_PRESETS, outputSize, type Frame, type ImageLayer, type Layer } from "./model.js";
+import { FONTS, FRAME_PRESETS, findFont, outputSize, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
 import { LAYOUT_MODES, type LayoutMode } from "./layout.js";
 import { checkFrame } from "./quality.js";
 import { FREE_PAGE, type CollageStudio, type ExportFormat } from "./studio.js";
@@ -266,6 +266,49 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
+            name: "collage_set_text",
+            title: "Change a text layer",
+            description:
+                "Rewrite a text layer, or restyle it: colour, size, typeface, alignment. " +
+                `Typefaces: ${FONTS.map(f => f.id).join(", ")}.`,
+            inputSchema: {
+                type: "object",
+                properties: {
+                    id: { type: "string", description: "The text layer's id." },
+                    text: { type: "string", description: "What it should say." },
+                    color: { type: "string", description: "Any CSS colour." },
+                    fontSize: { type: "number", description: "In canvas units." },
+                    font: { type: "string", description: `One of: ${FONTS.map(f => f.id).join(", ")}.` },
+                    align: { type: "string", enum: ["left", "center", "right"] },
+                },
+                required: ["id"],
+            },
+            async execute(args: any) {
+                const found = requireLayer(args?.id);
+                if ("error" in found) return found.error;
+                if (found.layer.kind !== "text")
+                    return fail(`${found.layer.id} is an image. Use collage_style or collage_transform for that.`);
+
+                const patch: any = {};
+                if (str(args?.text)) patch.text = str(args.text);
+                if (str(args?.color)) patch.color = str(args.color);
+                if (num(args?.fontSize) && args.fontSize > 0) patch.fontSize = args.fontSize;
+                if (args?.align === "left" || args?.align === "center" || args?.align === "right") patch.align = args.align;
+                if (str(args?.font)) {
+                    const font = findFont(str(args.font));
+                    if (!font) return fail(`"${args.font}" is not a typeface. Use one of: ${FONTS.map(f => f.id).join(", ")}.`);
+                    patch.fontFamily = font.stack;
+                    patch.fontWeight = font.weight;
+                }
+                if (!Object.keys(patch).length)
+                    return fail(`Nothing to change — pass text, color, fontSize, font or align.`);
+
+                const layer = collage.update(found.layer.id, patch) as TextLayer | null;
+                if (!layer) return fail(`That layer went away.`);
+                return ok(`"${truncate(layer.text, 40)}" updated.`, { layer });
+            },
+        },
+        {
             name: "collage_set_page",
             title: "Set the output page",
             description:
@@ -349,29 +392,43 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
         },
         {
             name: "collage_transform",
-            title: "Move, resize or rotate a layer",
-            description: "Change one layer's position, size, rotation or stacking order, by id.",
+            title: "Move, scale or rotate a layer",
+            description:
+                "Change one layer's position, size, rotation or stacking order, by id. " +
+                "Use `scale` to make it bigger or smaller relative to what it is now (1.5 is half " +
+                "again, 0.5 is half), or `width` for an exact canvas size. Rotation is in degrees.",
             inputSchema: {
                 type: "object",
                 properties: {
                     id: { type: "string" },
                     x: { type: "number" },
                     y: { type: "number" },
-                    width: { type: "number", description: "Height follows the aspect ratio." },
-                    rotation: { type: "number", description: "Degrees." },
+                    width: { type: "number", description: "Exact canvas width. Height follows the aspect ratio." },
+                    scale: { type: "number", description: "Multiply the current size, 0.05–20. Ignored if width is given." },
+                    rotation: { type: "number", description: "Degrees, clockwise. 0 is straight." },
                     order: { type: "string", enum: ["front", "back"], description: "Move it in front of or behind everything." },
                 },
                 required: ["id"],
             },
-            async execute(args: { id?: string; x?: number; y?: number; width?: number; rotation?: number; order?: string }) {
+            async execute(args: { id?: string; x?: number; y?: number; width?: number; scale?: number; rotation?: number; order?: string }) {
                 const found = requireLayer(args?.id);
                 if ("error" in found) return found.error;
                 const patch: any = {};
                 for (const key of ["x", "y", "width", "rotation"] as const) {
                     if (num((args as any)[key])) patch[key] = (args as any)[key];
                 }
+                if (patch.width === undefined && num(args?.scale)) {
+                    const factor = Math.min(20, Math.max(0.05, args.scale));
+                    // Scaling about the centre, so a layer grows in place rather
+                    // than creeping down and to the right.
+                    const layer = found.layer;
+                    patch.width = layer.width * factor;
+                    patch.x = (num(args?.x) ? args.x! : layer.x) - (patch.width - layer.width) / 2;
+                    const height = layer.height * factor;
+                    patch.y = (num(args?.y) ? args.y! : layer.y) - (height - layer.height) / 2;
+                }
                 if (!Object.keys(patch).length && !args?.order)
-                    return fail(`Nothing to change — pass x, y, width, rotation or order.`);
+                    return fail(`Nothing to change — pass x, y, width, scale, rotation or order.`);
                 let layer = Object.keys(patch).length ? collage.update(found.layer.id, patch) : found.layer;
                 if (args?.order === "front") layer = collage.bringToFront(found.layer.id);
                 if (args?.order === "back") layer = collage.sendToBack(found.layer.id);

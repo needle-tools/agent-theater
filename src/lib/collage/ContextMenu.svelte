@@ -56,6 +56,7 @@
         font: { stroke: ["M3.4 12.6 7 3.4h.6l3.6 9.2", "M4.7 9.8h5.4"] },
         align: { stroke: ["M3 4h10", "M3 8h6.5", "M3 12h8.5"] },
         rotate: { stroke: ["M12.6 8a4.6 4.6 0 11-1.5-3.4", "M12.9 2.5v2.6h-2.6"] },
+        undo: { stroke: ["M3.4 8a4.6 4.6 0 101.5-3.4", "M3.1 2.5v2.6h2.6"] },
     } satisfies Record<string, Icon>;
 </script>
 

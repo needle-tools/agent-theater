@@ -9,7 +9,7 @@
      * menu, next to the picture.
      */
     import { FRAME_PRESETS, outputSize } from "./model.js";
-    import { LAYOUT_MODES, type LayoutMode } from "./layout.js";
+    import type { LayoutMode } from "./layout.js";
     import { checkFrame } from "./quality.js";
     import { FREE_PAGE, type CollageStudio } from "./studio.js";
 
@@ -82,11 +82,11 @@
 
         <section style:--i="1">
             <h2>Arrange</h2>
-            <div class="chips">
-                {#each LAYOUT_MODES as mode (mode)}
-                    <button class="chip" disabled={!hasLayers} onclick={() => onArrange(mode)}>{mode}</button>
-                {/each}
-            </div>
+            <!-- One button, run again for a different result. The other layouts
+                 remain available to an agent through collage_arrange. -->
+            <button class="wide" disabled={!hasLayers} onclick={() => onArrange("collage")}>
+                Arrange the collage
+            </button>
         </section>
 
         <section style:--i="2">
@@ -210,10 +210,8 @@
         gap: 6px;
     }
 
-    .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px;
+    .wide {
+        width: 100%;
     }
 
     select, button {
@@ -244,23 +242,8 @@
         cursor: not-allowed;
     }
 
-    .primary {
-        border-color: transparent;
-        background: var(--accent-brand);
-        color: var(--text-inverse, #14200f);
-        font-weight: 600;
-    }
 
-    .primary:hover:not(:disabled) {
-        background: var(--accent-brand-deep, var(--accent-brand));
-        border-color: transparent;
-    }
 
-    .chip {
-        min-height: 30px;
-        padding: 0 10px;
-        border-radius: 999px;
-    }
 
     .quiet {
         width: 100%;
@@ -277,7 +260,7 @@
         border-color: transparent;
     }
 
-    .note, .muted, .status {
+    .note, .muted {
         margin: 8px 0 0;
         color: var(--text-muted);
         font-size: var(--type-body-muted-size);
@@ -285,18 +268,11 @@
         text-wrap: pretty;
     }
 
-    .note strong {
-        color: var(--text-secondary);
-        font-weight: 600;
-    }
 
     .num {
         font-variant-numeric: tabular-nums;
     }
 
-    .status {
-        color: var(--text-secondary);
-    }
 
     .warn {
         margin: 8px 0 0;

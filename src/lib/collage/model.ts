@@ -280,9 +280,21 @@ export interface LayerPatch {
 
 export interface CollageOptions {
     newId?: (prefix: string) => string;
+    /** Injectable so the undo history's coalescing window can be tested. */
+    now?: () => number;
 }
 
 const FULL_CROP: CropBox = { x: 0, y: 0, width: 1, height: 1 };
+
+interface Snapshot {
+    layers: Layer[];
+    frames: Frame[];
+}
+
+/** Edits of the same kind closer together than this undo as one step. */
+const COALESCE_MS = 700;
+/** Deep enough to cover a working session; snapshots are references, not copies. */
+const MAX_HISTORY = 120;
 
 /**
  * Holds the document and is the only thing allowed to change it.
@@ -301,14 +313,96 @@ export class Collage {
     private lastOrigin: string | null = null;
     private topZ = 0;
 
+    /**
+     * Undo history.
+     *
+     * Snapshots rather than inverse operations: every mutation here already
+     * replaces layer objects instead of mutating them, so a snapshot is a copy
+     * of two arrays of references — cheap, and impossible to get subtly wrong
+     * the way hand-written inverses are.
+     *
+     * Every edit is undoable regardless of who made it. An agent's change is
+     * exactly the kind you most want to be able to take back.
+     */
+    private readonly past: Snapshot[] = [];
+    private readonly future: Snapshot[] = [];
+    /** Identifies the edit on top of the stack, for coalescing. */
+    private lastEdit: { key: string; at: number } | null = null;
+    /** True while undoing, so restoring state does not itself become history. */
+    private replaying = false;
+
+    private readonly now: () => number;
+
     constructor(options?: CollageOptions) {
         let n = 0;
         this.newId = options?.newId ?? (prefix => `${prefix}-${(++n).toString(36)}-${randomSuffix()}`);
+        this.now = options?.now ?? (() => Date.now());
     }
 
     onChanged(callback: () => void): () => void {
         this.changed.add(callback);
         return () => { this.changed.delete(callback); };
+    }
+
+    // ── History ──────────────────────────────────────────────────────────────
+
+    /**
+     * Record the state before an edit.
+     *
+     * `key` groups edits that should undo together. A drag calls update() on
+     * every pointer move; without grouping, undo would step back through
+     * hundreds of intermediate positions instead of putting the layer back
+     * where it started. Repeats of the same key in quick succession keep the
+     * first snapshot, which is the one that holds the original state.
+     */
+    private remember(key: string) {
+        if (this.replaying) return;
+        const now = this.now();
+        if (this.lastEdit && this.lastEdit.key === key && now - this.lastEdit.at < COALESCE_MS) {
+            this.lastEdit.at = now;
+            return;
+        }
+        this.past.push({ layers: [...this.layers.values()], frames: [...this.frames.values()] });
+        if (this.past.length > MAX_HISTORY) this.past.shift();
+        // Any new edit abandons the redo branch, as everywhere else.
+        this.future.length = 0;
+        this.lastEdit = { key, at: now };
+    }
+
+    get canUndo(): boolean {
+        return this.past.length > 0;
+    }
+
+    get canRedo(): boolean {
+        return this.future.length > 0;
+    }
+
+    undo(): boolean {
+        const previous = this.past.pop();
+        if (!previous) return false;
+        this.future.push({ layers: [...this.layers.values()], frames: [...this.frames.values()] });
+        this.apply(previous);
+        return true;
+    }
+
+    redo(): boolean {
+        const next = this.future.pop();
+        if (!next) return false;
+        this.past.push({ layers: [...this.layers.values()], frames: [...this.frames.values()] });
+        this.apply(next);
+        return true;
+    }
+
+    private apply(snapshot: Snapshot) {
+        this.replaying = true;
+        this.layers.clear();
+        this.frames.clear();
+        for (const layer of snapshot.layers) this.layers.set(layer.id, layer);
+        for (const frame of snapshot.frames) this.frames.set(frame.id, frame);
+        // A fresh edit after an undo must not coalesce into the edit it undid.
+        this.lastEdit = null;
+        this.replaying = false;
+        this.emit();
     }
 
     list(): Layer[] {
@@ -332,6 +426,7 @@ export class Collage {
     }
 
     addImage(spec: AddImageSpec): ImageLayer {
+        this.remember(`add-${this.layers.size}`);
         const crop = spec.crop ?? FULL_CROP;
         // Width defaults to the cut-out's own pixels, capped so a 4000px photo
         // does not arrive as a wall. Height always follows the crop's aspect,
@@ -367,6 +462,7 @@ export class Collage {
     }
 
     addText(spec: AddTextSpec): TextLayer {
+        this.remember(`add-${this.layers.size}`);
         const fontSize = spec.fontSize ?? 48;
         const width = spec.width ?? Math.max(120, spec.text.length * fontSize * 0.5);
         const spot = spec.x === undefined || spec.y === undefined ? this.nextSpot(spec.near) : null;
@@ -403,6 +499,7 @@ export class Collage {
     setSource(id: string, src: string, storageKey?: string | null, natural?: { width: number; height: number }, crop?: CropBox): ImageLayer | null {
         const current = this.layers.get(id);
         if (!current || current.kind !== "image") return null;
+        this.remember(`source-${id}`);
         const next: ImageLayer = {
             ...current,
             src,
@@ -431,6 +528,7 @@ export class Collage {
     fitText(id: string, width: number, height: number): TextLayer | null {
         const current = this.layers.get(id);
         if (!current || current.kind !== "text") return null;
+        this.remember(`fit-${id}`);
         const next: TextLayer = {
             ...current,
             width: Math.max(8, width),
@@ -443,6 +541,11 @@ export class Collage {
 
     /** Replace the whole document — used when restoring a saved collage. */
     restore(layers: Layer[], frames: Frame[]) {
+        // Loading a session is not an edit, and undoing back past it into the
+        // previous session's contents would be nonsense.
+        this.past.length = 0;
+        this.future.length = 0;
+        this.lastEdit = null;
         this.layers.clear();
         this.frames.clear();
         for (const layer of layers) {
@@ -457,6 +560,9 @@ export class Collage {
     update(id: string, patch: LayerPatch): Layer | null {
         const current = this.layers.get(id);
         if (!current) return null;
+        // Grouped by what is being changed, so a whole drag is one undo step
+        // but a drag followed by a recolour is two.
+        this.remember(`${Object.keys(patch).sort().join(",")}-${id}`);
         const next = { ...current } as Layer;
 
         if (typeof patch.x === "number") next.x = patch.x;
@@ -522,12 +628,14 @@ export class Collage {
     remove(id: string): Layer | null {
         const layer = this.layers.get(id);
         if (!layer) return null;
+        this.remember(`remove-${id}`);
         this.layers.delete(id);
         this.emit();
         return layer;
     }
 
     addFrame(spec: AddFrameSpec): Frame {
+        this.remember(`frame-add`);
         const preset = spec.presetId ? findPreset(spec.presetId) : null;
         const physical = spec.physical ?? preset?.physical ?? null;
         const output = spec.output ?? preset?.output ?? null;
@@ -560,6 +668,7 @@ export class Collage {
     updateFrame(id: string, patch: Partial<Pick<Frame, "x" | "y" | "width" | "height" | "name" | "background">>): Frame | null {
         const current = this.frames.get(id);
         if (!current) return null;
+        this.remember(`frame-${id}`);
         const next: Frame = { ...current, ...stripUndefined(patch) };
         this.frames.set(id, next);
         this.emit();
@@ -569,6 +678,7 @@ export class Collage {
     removeFrame(id: string): Frame | null {
         const frame = this.frames.get(id);
         if (!frame) return null;
+        this.remember(`frame-remove-${id}`);
         this.frames.delete(id);
         this.emit();
         return frame;

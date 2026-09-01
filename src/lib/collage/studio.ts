@@ -66,6 +66,12 @@ export interface AddImageResult {
 
 export interface ArrangeOptions extends LayoutOptions {
     ids?: string[];
+    /**
+     * Also scale each layer to the size the layout picked. Off by default: the
+     * layouts size things to fill the page, so leaving it on made everything
+     * shrink a little more on every arrange.
+     */
+    resize?: boolean;
 }
 
 export interface CaptureOptions {
@@ -123,6 +129,12 @@ export interface CollageStudio {
     readonly pagePreset: string;
     /** Re-fit a free-form page around whatever is on the canvas now. */
     refitPage(): void;
+    /**
+     * Told when a layout runs, so the view can animate layers to their new
+     * places. Every other change is immediate — a drag that eased into
+     * position would feel broken — so this is a signal, not a general one.
+     */
+    onArranged(callback: () => void): () => void;
     /**
      * What is picked out right now.
      *
@@ -182,6 +194,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
     let selection: string[] = [];
     const selectionWatchers = new Set<() => void>();
+    const arrangeWatchers = new Set<() => void>();
 
     const record = (
         kind: CollageEvent["kind"],
@@ -545,7 +558,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
             return collage.updateFrame(frame.id, fitAround(contents, frame.width / frame.height))!;
         },
 
+        onArranged(callback) {
+            arrangeWatchers.add(callback);
+            return () => { arrangeWatchers.delete(callback); };
+        },
+
         arrange(frameId, mode, options = {}) {
+            // Before the moves, so the view can turn transitions on for them.
+            for (const watcher of [...arrangeWatchers]) watcher();
             // A free page has no size of its own; catch it up before asking
             // what it contains, or it answers with a rect from before the
             // pictures arrived.
@@ -561,11 +581,25 @@ export function createStudio(collage = new Collage()): CollageStudio {
             if (!inside.length) return 0;
             const placements = computeLayout(inside, frame, mode, options);
             for (const placement of placements) {
+                const layer = collage.get(placement.id);
+                if (!layer) continue;
+                if (options.resize) {
+                    collage.update(placement.id, {
+                        x: placement.x,
+                        y: placement.y,
+                        width: placement.width,
+                        height: placement.height,
+                        rotation: placement.rotation,
+                    });
+                    continue;
+                }
+                // Sizes are left alone by default. Each layout computes a size
+                // that fits the page, so re-running one compounded: everything
+                // got a little smaller every single time it was arranged. Keep
+                // the layer's size and centre it on the spot chosen for it.
                 collage.update(placement.id, {
-                    x: placement.x,
-                    y: placement.y,
-                    width: placement.width,
-                    height: placement.height,
+                    x: placement.x + (placement.width - layer.width) / 2,
+                    y: placement.y + (placement.height - layer.height) / 2,
                     rotation: placement.rotation,
                 });
             }

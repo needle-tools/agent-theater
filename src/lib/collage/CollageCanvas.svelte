@@ -71,6 +71,26 @@
     let editingId = $state<string | null>(null);
 
     /**
+     * On only for the moment after a layout runs.
+     *
+     * A permanent transition would put the same easing on a drag, so a layer
+     * would trail behind the pointer — the classic way a canvas starts feeling
+     * broken. This turns it on for one arrange and off again.
+     */
+    let settling = $state(false);
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    const SETTLE_MS = 420;
+
+    $effect(() => studio.onArranged(() => {
+        settling = true;
+        if (settleTimer) clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => (settling = false), SETTLE_MS + 60);
+    }));
+
+    /** Layers cut or copied, waiting to be pasted. */
+    let clipboard: Layer[] = [];
+
+    /**
      * Commit an edit.
      *
      * The DOM owns the text while it is being typed — Svelte writing to a
@@ -130,6 +150,54 @@
         const node = viewport?.querySelector<HTMLElement>(".layer--editing");
         if (node) commitEdit(node, editingId);
         else editingId = null;
+    }
+
+    /**
+     * Drop copies of some layers onto the canvas, offset so they are visibly
+     * separate from what they came from, and select them — pasting something
+     * exactly on top of the original looks like nothing happened.
+     */
+    function pasteLayers(source: Layer[]) {
+        if (!source.length) return;
+        const offset = 28;
+        const pasted: string[] = [];
+        for (const layer of source) {
+            const copy = layer.kind === "image"
+                ? studio.collage.addImage({
+                    src: layer.src,
+                    storageKey: layer.storageKey,
+                    label: layer.label,
+                    natural: layer.natural,
+                    crop: layer.crop,
+                    x: layer.x + offset,
+                    y: layer.y + offset,
+                    width: layer.width,
+                    rotation: layer.rotation,
+                    style: layer.style,
+                })
+                : studio.collage.addText({
+                    text: layer.text,
+                    label: layer.label,
+                    x: layer.x + offset,
+                    y: layer.y + offset,
+                    width: layer.width,
+                    fontSize: layer.fontSize,
+                    fontFamily: layer.fontFamily,
+                    fontWeight: layer.fontWeight,
+                    align: layer.align,
+                    color: layer.color,
+                    rotation: layer.rotation,
+                });
+            // The copy shares the original's bytes in IndexedDB rather than
+            // storing them twice; nothing ever rewrites an image in place.
+            if (copy.kind === "image") {
+                const loaded = studio.images.get(layer.id);
+                if (loaded) studio.images.set(copy.id, loaded);
+            }
+            pasted.push(copy.id);
+        }
+        studio.setSelection(pasted);
+        studio.save();
     }
 
     function onDoubleClick(event: MouseEvent) {
@@ -439,9 +507,54 @@
         const target = event.target;
         if (target instanceof Element && target.matches("input, textarea, select, [contenteditable]")) return;
 
-        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+        const accel = event.ctrlKey || event.metaKey;
+        const key = event.key.toLowerCase();
+
+        if (accel && key === "a") {
             event.preventDefault();
             studio.setSelection(layers.map(l => l.id));
+            return;
+        }
+        if (accel && key === "z") {
+            event.preventDefault();
+            // Shift+Z redoes, as everywhere; Ctrl+Y too, below.
+            if (event.shiftKey ? studio.collage.redo() : studio.collage.undo()) {
+                // Ids may have come back or gone away with the step.
+                studio.setSelection(studio.selection);
+                studio.save();
+            }
+            return;
+        }
+        if (accel && key === "y") {
+            event.preventDefault();
+            if (studio.collage.redo()) {
+                studio.setSelection(studio.selection);
+                studio.save();
+            }
+            return;
+        }
+        if (accel && (key === "c" || key === "x")) {
+            if (!selectedIds.length) return;
+            event.preventDefault();
+            clipboard = selectedIds.map(id => studio.collage.get(id)).filter((l): l is Layer => !!l);
+            if (key === "x") {
+                for (const layer of clipboard) studio.collage.remove(layer.id);
+                studio.setSelection([]);
+            }
+            return;
+        }
+        if (accel && key === "v" && clipboard.length) {
+            // Only when there is something of ours to paste — otherwise let the
+            // paste through, because the page also accepts images from the
+            // system clipboard.
+            event.preventDefault();
+            pasteLayers(clipboard);
+            return;
+        }
+        if (accel && key === "d") {
+            if (!selectedIds.length) return;
+            event.preventDefault();
+            pasteLayers(selectedIds.map(id => studio.collage.get(id)).filter((l): l is Layer => !!l));
             return;
         }
         if (event.key === "Escape") {
@@ -634,6 +747,7 @@
                 <figure
                     class="layer"
                     class:layer--selected={selectedIds.length > 1 && isSelected(layer.id)}
+                    class:layer--settling={settling}
                     style={imageStyle(layer)}
                 >
                     {#if layer.style.silhouette}
@@ -646,6 +760,7 @@
                 <p
                     class="layer layer--text"
                     class:layer--selected={selectedIds.length > 1 && isSelected(layer.id)}
+                    class:layer--settling={settling}
                     class:layer--editing={editingId === layer.id}
                     contenteditable={editingId === layer.id ? "plaintext-only" : "false"}
                     style={textStyle(layer)}
@@ -761,6 +876,20 @@
         margin: 0;
         overflow: hidden;
         pointer-events: none;
+    }
+
+    /* Only while a layout settles. Named properties, never `all`: transitioning
+       `filter` here would make the selection outline fade in every time. */
+    .layer--settling {
+        transition-property: left, top, width, height, transform;
+        transition-duration: 0.42s;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .layer--settling {
+            transition-duration: 0.01s;
+        }
     }
 
     .layer > :global(img),

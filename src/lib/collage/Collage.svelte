@@ -20,7 +20,7 @@
     import { createStudio } from "$lib/collage/studio";
     import { createCollageTools } from "$lib/collage/tools";
     import { FONTS, type ImageLayer, type TextLayer } from "$lib/collage/model";
-    import { LAYOUT_MODES, type LayoutMode } from "$lib/collage/layout";
+    import type { LayoutMode } from "$lib/collage/layout";
     import { registerTools } from "$lib/webmcp";
 
     const studio = createStudio();
@@ -195,6 +195,13 @@
         return frames[0] ?? studio.setPage(studio.pagePreset);
     }
 
+    function undo() {
+        if (!collage.undo()) return;
+        studio.setSelection(studio.selection);
+        studio.save();
+        toasts.push("Undone.");
+    }
+
     function applyLayout(mode: LayoutMode) {
         if (!collage.list().length) {
             toasts.push("Nothing to arrange yet — drop some photos in.");
@@ -251,28 +258,30 @@
         };
     }
 
-    /** Little diagrams, so a layout is recognised before it is read. */
-    const LAYOUT_ICONS = {
-        grid: "layout", row: "rows", column: "columns",
-        ring: "ring", scatter: "scatter", packed: "packed", collage: "collage",
-    } as const;
 
     function canvasMenu(): MenuItem[] {
         return [
             { label: "Add images…", icon: "image", onSelect: () => { dropPoint = menuPoint; fileInput?.click(); } },
             { label: "Add text", icon: "text", onSelect: () => addText(menuPoint) },
+            // One arrange, not a submenu of seven. The other layouts are still
+            // there for an agent through collage_arrange; a person wants the
+            // collage look and to try it again if they do not like it.
             {
                 label: "Arrange",
-                icon: "layout",
+                icon: "collage",
                 disabled: !layers.length,
                 separator: true,
-                items: LAYOUT_MODES.map(mode => ({
-                    label: mode,
-                    icon: LAYOUT_ICONS[mode],
-                    onSelect: () => applyLayout(mode),
-                })),
+                onSelect: () => applyLayout("collage"),
             },
             { label: "Fit the view", icon: "fit", onSelect: () => canvas?.fitAll() },
+            {
+                label: "Undo",
+                icon: "undo",
+                separator: true,
+                hint: "⌘Z",
+                disabled: !collage.canUndo,
+                onSelect: () => undo(),
+            },
         ];
     }
 
