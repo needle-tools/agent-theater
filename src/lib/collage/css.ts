@@ -18,29 +18,24 @@ export function cqwUnit(frameWidth: number): Unit {
     return n => `${round((n / frameWidth) * 100, 3)}cqw`;
 }
 
-/** Stamps used to approximate a stroke around an alpha edge. */
-export const OUTLINE_STAMPS = 16;
-
 /**
- * Sticker outline and drop shadow, both driven by the image's own alpha.
+ * The drop shadow, and a reference to the outline filter when there is one.
  *
- * There is no filter that strokes an alpha edge, so the outline is a ring of
- * zero-blur drop shadows. The count matters more than it looks: at eight the
- * gaps between stamps are visible as a lumpy, scalloped edge on any shape with
- * curves, which reads as a rendering fault rather than as a sticker. Sixteen is
- * where the edge closes up and looks like a stroke.
+ * The outline is NOT a ring of drop-shadows here, and that is the whole point.
+ * CSS filters chain: each one is applied to the output of the previous, so a
+ * "ring" of sixteen stamps is sixteen sequential full-size buffer allocations,
+ * each on a canvas the last one just grew. On photo-sized layers that is enough
+ * to take the renderer down, and it does not even look right — the offsets
+ * compound instead of forming an even stroke.
+ *
+ * `feMorphology operator="dilate"` is the primitive that actually means "spread
+ * this alpha outwards". One pass, uniform by definition. See `outlineFilterSvg`.
  */
-export function alphaFilters(style: LayerStyle, unit: Unit): string {
+export function alphaFilters(style: LayerStyle, unit: Unit, outlineFilterId?: string): string {
     const filters: string[] = [];
 
-    if (style.outline && style.outline.width > 0) {
-        const color = cssColor(style.outline.color);
-        for (let i = 0; i < OUTLINE_STAMPS; i++) {
-            const angle = (i / OUTLINE_STAMPS) * Math.PI * 2;
-            filters.push(
-                `drop-shadow(${unit(Math.cos(angle) * style.outline.width)} ` +
-                `${unit(Math.sin(angle) * style.outline.width)} 0 ${color})`);
-        }
+    if (outlineFilterId && style.outline && style.outline.width > 0) {
+        filters.push(`url(#${outlineFilterId})`);
     }
 
     if (style.shadow) {
@@ -49,6 +44,33 @@ export function alphaFilters(style: LayerStyle, unit: Unit): string {
     }
 
     return filters.join(" ");
+}
+
+/**
+ * An SVG filter that strokes the edge of whatever it is applied to.
+ *
+ * `primitiveUnits="objectBoundingBox"` makes the radius a fraction of the
+ * element's box rather than a pixel count, which is what keeps the stroke the
+ * right thickness in an exported page that resizes with its column. The two
+ * radii differ deliberately: a fraction of the width and a fraction of the
+ * height both come out to the same number of rendered pixels only if they are
+ * computed separately.
+ */
+export function outlineFilterSvg(
+    id: string,
+    outline: { width: number; color: string },
+    layerWidth: number,
+    layerHeight: number,
+): string {
+    const rx = round(outline.width / Math.max(1, layerWidth), 5);
+    const ry = round(outline.width / Math.max(1, layerHeight), 5);
+    return `<filter id="${id}" primitiveUnits="objectBoundingBox" ` +
+        `x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">` +
+        `<feMorphology in="SourceAlpha" operator="dilate" radius="${rx} ${ry}" result="spread"/>` +
+        `<feFlood flood-color="${cssColor(outline.color)}" result="colour"/>` +
+        `<feComposite in="colour" in2="spread" operator="in" result="edge"/>` +
+        `<feMerge><feMergeNode in="edge"/><feMergeNode in="SourceGraphic"/></feMerge>` +
+        `</filter>`;
 }
 
 /**

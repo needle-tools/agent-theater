@@ -17,7 +17,7 @@
      * The canvas has no bounds. Frames are the only rectangles that mean
      * anything, and they are drawn behind everything as paper laid on a table.
      */
-    import { alphaFilters, cssColor, pxUnit, textCss } from "./css.js";
+    import { alphaFilters, cssColor, outlineFilterSvg, pxUnit, textCss } from "./css.js";
     import { maskHit } from "./imaging.js";
     import { overlaps, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
     import type { CollageStudio } from "./studio.js";
@@ -302,8 +302,12 @@
     }
 
     function onKeyDown(event: KeyboardEvent) {
-        const target = event.target as HTMLElement;
-        if (target.matches("input, textarea, select, [contenteditable]")) return;
+        // Not every keydown target is an element — it can be the document
+        // itself when nothing has focus, and Document has no .matches(). Calling
+        // it there throws inside the handler and every shortcut below silently
+        // stops working.
+        const target = event.target;
+        if (target instanceof Element && target.matches("input, textarea, select, [contenteditable]")) return;
 
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
             event.preventDefault();
@@ -335,8 +339,18 @@
         }
     }
 
+    const outlineId = (layer: ImageLayer) => `collage-outline-${layer.id}`;
+
+    /** Layers needing an SVG outline filter, and the markup that defines them. */
+    const outlined = $derived.by(() => (version, layers.filter(
+        (l): l is ImageLayer => l.kind === "image" && !!l.style.outline && l.style.outline.width > 0)));
+
+    const outlineDefs = $derived(outlined
+        .map(l => outlineFilterSvg(outlineId(l), l.style.outline!, l.width, l.height))
+        .join(""));
+
     function imageStyle(layer: ImageLayer): string {
-        const filters = alphaFilters(layer.style, pxUnit);
+        const filters = alphaFilters(layer.style, pxUnit, outlineId(layer));
         return [
             `left: ${layer.x}px`,
             `top: ${layer.y}px`,
@@ -483,6 +497,12 @@
         {/if}
     </div>
 
+    <!-- Filter definitions only; nothing here is drawn. One dilate pass per
+         outlined layer, instead of a chain of drop-shadows per layer. -->
+    {#if outlineDefs}
+        <svg class="defs" aria-hidden="true" focusable="false">{@html outlineDefs}</svg>
+    {/if}
+
     {#if marquee}
         <div
             class="marquee"
@@ -592,6 +612,13 @@
         border-style: dashed;
         border-color: var(--accent-brand);
         background: color-mix(in srgb, var(--accent-brand) 6%, transparent);
+    }
+
+    .defs {
+        position: absolute;
+        width: 0;
+        height: 0;
+        pointer-events: none;
     }
 
     .marquee {

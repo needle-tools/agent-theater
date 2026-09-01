@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Collage, type Frame } from "../src/lib/collage/model.js";
 import { exportHtml } from "../src/lib/collage/exportHtml.js";
-import { OUTLINE_STAMPS } from "../src/lib/collage/css.js";
+
 import { fitAround } from "../src/lib/collage/studio.js";
 
 /**
@@ -135,14 +135,46 @@ describe("html export", () => {
         expect(html).not.toContain("--src:");
     });
 
-    it("draws the outline as a ring of shadows around the alpha edge", () => {
+    it("strokes the alpha edge with one dilate pass, not a chain of shadows", () => {
         const { collage, frame, image } = scene();
         collage.update(image.id, { style: { outline: { width: 12, color: "#FFFFFF" } } });
         const html = exportHtml(collage.layersIn(frame.id), frame);
-        // Enough stamps that the ring closes up: below about sixteen the gaps
-        // between them show as a scalloped edge on anything with a curve.
-        expect([...html.matchAll(/drop-shadow\(/g)]).toHaveLength(OUTLINE_STAMPS);
-        expect(OUTLINE_STAMPS).toBeGreaterThanOrEqual(16);
+
+        // CSS filters chain — each applies to the output of the last — so a
+        // "ring" of stamps is N sequential full-size buffers on a page we do
+        // not own. It crashed the editor and it never looked even either.
+        expect(html).not.toContain("drop-shadow(");
+        expect(html).toContain('operator="dilate"');
+        expect(html).toContain("filter: url(#collage-outline-0)");
+        // Fractions of the box, not pixels, so the stroke survives resizing.
+        expect(html).toContain('primitiveUnits="objectBoundingBox"');
+    });
+
+    it("gives the outline a radius per axis, so the stroke is even on a wide layer", () => {
+        const { collage, frame, image } = scene();
+        const layer = collage.update(image.id, { style: { outline: { width: 20, color: "#FFF" } } })!;
+        const html = exportHtml(collage.layersIn(frame.id), frame);
+        const radius = /radius="([0-9.]+) ([0-9.]+)"/.exec(html)!;
+
+        // A fraction of the width and a fraction of the height only come out to
+        // the same rendered thickness if they are computed separately.
+        expect(Number(radius[1])).toBeCloseTo(20 / layer.width, 4);
+        expect(Number(radius[2])).toBeCloseTo(20 / layer.height, 4);
+        expect(radius[1]).not.toBe(radius[2]);
+    });
+
+    it("emits no filter markup when nothing is outlined", () => {
+        const { collage, frame } = scene();
+        const html = exportHtml(collage.layersIn(frame.id), frame);
+        expect(html).not.toContain("<svg");
+        expect(html).not.toContain("dilate");
+    });
+
+    it("still uses a drop-shadow for the shadow, which is one cheap pass", () => {
+        const { collage, frame, image } = scene();
+        collage.update(image.id, { style: { shadow: { x: 0, y: 8, blur: 18, color: "#222C20", opacity: 0.3 } } });
+        const html = exportHtml(collage.layersIn(frame.id), frame);
+        expect([...html.matchAll(/drop-shadow\(/g)]).toHaveLength(1);
     });
 });
 

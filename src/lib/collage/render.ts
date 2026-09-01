@@ -13,7 +13,15 @@
  */
 import { outputSize, type Frame, type ImageLayer, type Layer, type Rect, type TextLayer } from "./model.js";
 import type { LoadedImage } from "./imaging.js";
-import { OUTLINE_STAMPS } from "./css.js";
+
+/**
+ * Stamps used to approximate a stroke around an alpha edge on a 2D canvas.
+ *
+ * Unlike CSS filters, these do not chain — the same tinted bitmap is drawn onto
+ * the target N times at different offsets, so the cost is linear and the result
+ * is a true ring. Below about sixteen the gaps show as a scalloped edge.
+ */
+export const OUTLINE_STAMPS = 16;
 
 export interface RenderOptions {
     /** Pixel size to draw at. Defaults to the frame's export size. */

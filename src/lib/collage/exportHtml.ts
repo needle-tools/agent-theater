@@ -19,7 +19,7 @@
  *  - motion is opt-in and respects prefers-reduced-motion
  */
 import { placementIn, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
-import { alphaFilters, cqwUnit, cssColor, round } from "./css.js";
+import { alphaFilters, cqwUnit, cssColor, outlineFilterSvg, round } from "./css.js";
 
 export interface HtmlExportOptions {
     /** Class prefix. Everything emitted is namespaced under it. */
@@ -52,8 +52,22 @@ export function exportHtml(layers: Layer[], frame: Frame, options: HtmlExportOpt
             : textMarkup(root, index, layer)))
         .join("\n");
 
+    // One dilate filter per outlined layer. A chain of drop-shadows would be a
+    // full-size buffer allocation per stamp, on someone else's page.
+    const filters = ordered
+        .map((layer, index) => (layer.kind === "image" && layer.style.outline && layer.style.outline.width > 0
+            ? outlineFilterSvg(`${root}-outline-${index}`, layer.style.outline, layer.width, layer.height)
+            : ""))
+        .filter(Boolean)
+        .join("");
+
+    const defs = filters
+        ? `\n    <svg width="0" height="0" aria-hidden="true" focusable="false" ` +
+          `style="position:absolute">${filters}</svg>`
+        : "";
+
     const body =
-        `<div class="${root}">\n${indent(markup, 4)}\n</div>`;
+        `<div class="${root}">\n${indent(markup, 4)}${defs}\n</div>`;
 
     const style = `<style>\n${indent(css, 4)}\n</style>`;
 
@@ -128,7 +142,7 @@ function layerCss(root: string, index: number, layer: Layer, frame: Frame): stri
     rules.push(`--r: ${round(place.rotation, 2)}deg;`);
     rules.push(`transform: rotate(var(--r)) scale(var(--s, 1));`);
     if (layer.kind === "image") {
-        const filters = alphaFilters(layer.style, cqwUnit(frame.width));
+        const filters = alphaFilters(layer.style, cqwUnit(frame.width), `${root}-outline-${index}`);
         if (filters) rules.push(`filter: ${filters};`);
         if (layer.style.opacity !== 1) rules.push(`opacity: ${round(layer.style.opacity, 2)};`);
     }
