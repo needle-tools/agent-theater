@@ -16,6 +16,7 @@ import { arrange as computeLayout, type LayoutMode, type LayoutOptions } from ".
 import { loadImage, toDataUrl, type LoadedImage } from "./imaging.js";
 import { canvasToBlob, previewDataUrl, renderFrame, renderRegion } from "./render.js";
 import { fontsReady, loadWebFonts, webFontsUsed } from "./webfonts.js";
+import { shapeFromMask, type Shape } from "./silhouette.js";
 import { exportHtml } from "./exportHtml.js";
 import {
     backgroundRemovalError, removeBackground as cutOut, type CutResult, type Progress,
@@ -347,6 +348,27 @@ export function createStudio(collage = new Collage()): CollageStudio {
         return sources;
     };
 
+    /**
+     * The shape of each layer that has one.
+     *
+     * Only images, and only those whose pixels could actually be read: a
+     * cross-origin photo taints the canvas, so it has no mask and packs as its
+     * box. Text has no silhouette worth nesting into either.
+     *
+     * Built once per arrange rather than once per packing attempt — the search
+     * repacks a dozen times looking for a scale, and the shape does not change
+     * with the scale.
+     */
+    const silhouettesOf = (layers: Layer[]): Map<string, Shape> => {
+        const shapes = new Map<string, Shape>();
+        for (const layer of layers) {
+            if (layer.kind !== "image") continue;
+            const mask = images.get(layer.id)?.mask;
+            if (mask) shapes.set(layer.id, shapeFromMask(mask, layer.crop));
+        }
+        return shapes;
+    };
+
     /** Decode, remember, and file the image under a layer id. */
     const adopt = async (layerId: string, src: string): Promise<LoadedImage> => {
         const loaded = await loadImage(src);
@@ -651,6 +673,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // takes a few percent off the collage every time it is arranged.
             const placements = computeLayout(inside, frame, mode, {
                 fill: pagePreset !== FREE_PAGE,
+                // The silhouettes, so a packing layout can nest shapes rather
+                // than boxes. Built from the alpha masks the canvas already
+                // keeps for hit testing, so nothing extra is decoded.
+                shapes: silhouettesOf(inside),
                 ...options,
             });
             for (const placement of placements) {

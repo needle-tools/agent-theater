@@ -11,16 +11,10 @@
  * the other eleven — and so the tests can assert on actual numbers.
  */
 import { bounds, unionBounds, type Layer, type Rect } from "./model.js";
+import { profileOf, sampleProfile, type Profile, type Shape } from "./silhouette.js";
 
-/**
- * How far a cut-out's box may sink into its neighbours', as a fraction.
- *
- * Not a fudge factor: it is the difference between packing rectangles and
- * packing shapes. Everything on this canvas has its background removed, so the
- * corners of its box are empty, and reserving them is reserving nothing.
- * Enough to close the gutters, small enough that opaque pixels rarely meet.
- */
-const NESTING = 0.16;
+/** Vertical slices per shape. Enough to catch a concavity, cheap to search. */
+const PROFILE_COLUMNS = 24;
 
 export const LAYOUT_MODES = ["grid", "row", "column", "ring", "scatter", "packed", "collage"] as const;
 export type LayoutMode = (typeof LAYOUT_MODES)[number];
@@ -47,6 +41,15 @@ export interface LayoutOptions {
      * gives the same answer twice.
      */
     fill?: boolean;
+    /**
+     * The silhouette of each layer, by id, for the packing layouts.
+     *
+     * Optional because the shapes come from decoded pixels and this module has
+     * no browser in it. Without them a layer packs as its box, which is correct
+     * — just looser. Text layers never have one, and neither does an image
+     * whose pixels have not been read.
+     */
+    shapes?: Map<string, Shape>;
 }
 
 export interface Placement {
@@ -217,12 +220,19 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
     // crowd to sit in: across fifty cut-outs the tiny ones read as detail, but
     // across six they read as three pictures and three specks.
     const variety = clamp(layers.length / 24, 0.3, 1);
-    const items = layers.map(layer => ({
-        layer,
-        weight: 1 + variety * (0.34 + Math.pow(random(), 2.1) * 2.3 - 1),
-        rotation: (random() * 2 - 1) * jitter,
-        aspect: Math.max(0.05, layer.width / Math.max(1, layer.height)),
-    }));
+    const items = layers.map(layer => {
+        const rotation = (random() * 2 - 1) * jitter;
+        const aspect = Math.max(0.05, layer.width / Math.max(1, layer.height));
+        return {
+            layer,
+            weight: 1 + variety * (0.34 + Math.pow(random(), 2.1) * 2.3 - 1),
+            rotation,
+            aspect,
+            // Computed once: the tilt is already decided, and the profile does
+            // not depend on the scale, which the search changes a dozen times.
+            profile: profileOf(options.shapes?.get(layer.id) ?? null, rotation, aspect, PROFILE_COLUMNS),
+        };
+    });
     // Tallest first — the standard heuristic, and the reason the packing is
     // dense rather than merely non-overlapping.
     const ordered = [...items].sort((a, b) =>
@@ -237,7 +247,7 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
      * page, and a computed one on the free canvas, which has no width of its own.
      */
     const packAt = (scale: number, into: number) => {
-        const skyline = new Skyline(into);
+        const skyline = new ShapeSkyline(into);
         const placements: Placement[] = [];
         for (const item of ordered) {
             // Size comes from the weight and the scale alone — never from the
@@ -257,24 +267,21 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
             const height = width / item.aspect;
             const footprint = swept(width);
 
-            // What is reserved is deliberately smaller than the footprint.
-            //
-            // A cut-out is mostly nothing at its corners — a hanging plant's box
-            // is largely air — so packing boxes edge to edge leaves a visible
-            // margin around every shape and the result reads as a grid with
-            // pictures dropped into it. Letting the boxes overlap lets the
-            // shapes nest the way they do on a real pinboard, a leaf tucking
-            // under a stamp, while the pixels almost never actually meet.
-            const slotWidth = footprint.width * (1 - NESTING) + spacing;
-            const slotHeight = footprint.height * (1 - NESTING) + spacing;
-            const spot = skyline.place(slotWidth, slotHeight);
+            // The footprint is the box, but the *profile* is the shape inside
+            // it — where the opaque pixels start and stop in each vertical
+            // slice. Passing that is what lets a neighbour settle into a
+            // concavity rather than resting on the empty corner above it.
+            const spot = skyline.place(
+                footprint.width + spacing,
+                footprint.height + spacing,
+                item.profile);
             placements.push({
                 id: item.layer.id,
-                // Centred in its slot, so the overhang is even on both sides.
-                // A rotated layer's bounds grow about its centre, which is what
-                // keeps the tilted corners in the space reserved for them.
-                x: area.x + spot.x + (slotWidth - spacing - width) / 2,
-                y: area.y + spot.y + (slotHeight - spacing - height) / 2,
+                // Centred in its footprint. A rotated layer's bounds grow about
+                // its centre, which is what keeps the tilted corners in the
+                // space that was reserved for them.
+                x: area.x + spot.x + (footprint.width - width) / 2,
+                y: area.y + spot.y + (footprint.height - height) / 2,
                 width,
                 height,
                 rotation: item.rotation,
@@ -342,107 +349,83 @@ function collage(layers: Layer[], area: Rect, gap: number, options: LayoutOption
 }
 
 /**
- * The frontier of a packing: how tall things are at every horizontal position.
+ * The frontier of a packing: how high the work reaches at each column.
  *
- * Kept as segments rather than sampled columns, so a placement is exact and the
- * cost is in the number of things placed rather than in some chosen resolution.
+ * A height map rather than a list of rectangles, because what settles onto it
+ * is a shape, not a box. Each item arrives with a profile — where its opaque
+ * pixels start and stop in every vertical slice — and the resting height is
+ * whatever lets each slice touch the work below it. That is what makes a small
+ * pot come to rest between a plant's leaves instead of on top of the box that
+ * contains them.
+ *
+ * The resolution is the one real approximation here. It is a packing, not a
+ * collision test, and the canvas has already been told these shapes may touch.
  */
-class Skyline {
-    private nodes: { x: number; width: number; y: number }[];
+class ShapeSkyline {
+    private readonly heights: Float64Array;
+    private readonly column: number;
 
-    constructor(private readonly width: number) {
-        this.nodes = [{ x: 0, width, y: 0 }];
+    constructor(private readonly width: number, resolution = 180) {
+        this.heights = new Float64Array(Math.max(8, resolution));
+        this.column = width / this.heights.length;
     }
 
     /**
-     * The best resting place for a box of this size.
+     * Where a shape of this size and profile comes to rest.
      *
      * "Lowest, then leftmost" is the textbook rule and it is what made this
-     * look like a grid: every item that could not slot into a hole went to the
+     * look like a grid: everything that could not slot into a hole went to the
      * left margin, so the pack grew as left-aligned shelves. Lowest still wins
-     * — that is what fills holes — but ties are broken by which candidate
-     * *wastes the least*, measured as the drop between the box's resting height
-     * and the ground beneath it. A snug hole beats a wide-open shelf, so items
-     * seek each other out instead of queueing along an edge.
+     * — that is what fills holes — but ties are broken by which position wastes
+     * the least, measured as the gap left between the shape's underside and the
+     * work beneath it. A snug hole beats an open shelf, so items seek each
+     * other out rather than queueing along an edge.
      */
-    place(width: number, height: number): { x: number; y: number } {
+    place(width: number, height: number, profile: Profile): { x: number; y: number } {
         const w = Math.min(width, this.width);
-        let best: { x: number; y: number; waste: number } | null = null;
-
-        // Both ends of every segment are candidates, not just the left one.
-        // Trying left edges alone means every box that cannot slot into a hole
-        // aligns with some earlier box's left edge, and the pack grows as
-        // left-aligned shelves however clever the rest of the rule is.
-        const candidates = new Set<number>();
-        for (const node of this.nodes) {
-            candidates.add(node.x);
-            candidates.add(node.x + node.width - w);
+        const span = Math.max(1, Math.min(this.heights.length, Math.round(w / this.column)));
+        // Where the shape's top and bottom sit in each column it covers, as
+        // distances from the top of its swept box.
+        const top: number[] = [];
+        const bottom: number[] = [];
+        for (let i = 0; i < span; i++) {
+            const sample = sampleProfile(profile, (i + 0.5) / span);
+            top.push(sample.filled ? sample.top * height : Infinity);
+            bottom.push(sample.filled ? sample.bottom * height : 0);
         }
 
-        for (const start of candidates) {
-            const x = Math.max(0, start);
-            if (x + w > this.width + 1e-6) continue;
-            // Resting height is the highest point anywhere under the box; the
-            // waste is everything under it that the box will not be touching.
+        let best: { start: number; y: number; waste: number } | null = null;
+        for (let start = 0; start + span <= this.heights.length; start++) {
             let y = 0;
-            let covered = 0;
-            for (const other of this.nodes) {
-                if (other.x + other.width <= x) continue;
-                if (other.x >= x + w) break;
-                if (other.y > y) y = other.y;
-                covered = other.x + other.width - x;
+            for (let i = 0; i < span; i++) {
+                // An empty column rests on nothing: a neighbour may pass
+                // straight through it, which is the whole point of a profile.
+                if (top[i] === Infinity) continue;
+                y = Math.max(y, this.heights[start + i] - top[i]);
             }
-            if (covered < w - 1e-6) continue;
             let waste = 0;
-            for (const other of this.nodes) {
-                if (other.x + other.width <= x) continue;
-                if (other.x >= x + w) break;
-                const span = Math.min(other.x + other.width, x + w) - Math.max(other.x, x);
-                waste += span * (y - other.y);
+            for (let i = 0; i < span; i++) {
+                if (top[i] === Infinity) continue;
+                waste += (y + top[i]) - this.heights[start + i];
             }
             if (!best || y < best.y - 1e-6 || (y < best.y + 1e-6 && waste < best.waste - 1e-6)) {
-                best = { x, y, waste };
+                best = { start, y, waste };
             }
         }
-        // Wider than the area, or nothing fits: start a fresh row on top.
-        const spot = best ?? { x: 0, y: this.top() };
-        this.add(spot.x, w, spot.y + height);
-        return { x: spot.x, y: spot.y };
+
+        const spot = best ?? { start: 0, y: this.top(), waste: 0 };
+        for (let i = 0; i < span; i++) {
+            if (top[i] === Infinity) continue;
+            this.heights[spot.start + i] = spot.y + bottom[i];
+        }
+        return { x: spot.start * this.column, y: spot.y };
     }
 
     /** The highest point of the frontier — the packed block's height. */
     top(): number {
-        return this.nodes.reduce((highest, node) => Math.max(highest, node.y), 0);
-    }
-
-    private add(x: number, width: number, y: number) {
-        const next: typeof this.nodes = [];
-        for (const node of this.nodes) {
-            // The part of this node left of the new box.
-            if (node.x < x) {
-                next.push({ x: node.x, width: Math.min(node.width, x - node.x), y: node.y });
-            }
-            // The part right of it.
-            const rightStart = Math.max(node.x, x + width);
-            const rightEnd = node.x + node.width;
-            if (rightEnd > rightStart) {
-                next.push({ x: rightStart, width: rightEnd - rightStart, y: node.y });
-            }
-        }
-        next.push({ x, width, y });
-        next.sort((a, b) => a.x - b.x);
-
-        // Merge neighbours at the same height, or the segment count grows with
-        // every placement and the search slows down for no reason.
-        this.nodes = next.reduce<typeof next>((merged, node) => {
-            const last = merged.at(-1);
-            if (last && Math.abs(last.y - node.y) < 1e-6 && Math.abs(last.x + last.width - node.x) < 1e-6) {
-                last.width += node.width;
-                return merged;
-            }
-            merged.push({ ...node });
-            return merged;
-        }, []);
+        let highest = 0;
+        for (const height of this.heights) if (height > highest) highest = height;
+        return highest;
     }
 }
 
