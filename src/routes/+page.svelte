@@ -12,9 +12,22 @@
     let chatgptUrl = $state("https://chatgpt.com/");
     let copied = $state(false);
 
+    // Once an agent is driving, the room is the thing worth looking at — the
+    // copy folds into a corner chip and comes back on hover.
+    let lastTool = $state<string | null>(null);
+    let hovered = $state(false);
+    const collapsed = $derived(lastTool !== null && !hovered);
+
     onMount(() => {
         prompt = promptFor(location.origin);
         chatgptUrl = "https://chatgpt.com/?q=" + encodeURIComponent(prompt);
+        // Engine-free module on purpose: importing the session here would pull
+        // @needle-tools/engine out of the hero's lazy chunk into this bundle.
+        let stop = () => {};
+        import("$lib/room/activity").then(({ onAgentActivity }) => {
+            stop = onAgentActivity(activity => (lastTool = activity.tool));
+        });
+        return () => stop();
     });
 
     async function copyPrompt() {
@@ -32,7 +45,16 @@
 
 <section class="hero">
     <NeedleHero />
-    <div class="hero-copy">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="hero-copy" class:collapsed
+        onmouseenter={() => (hovered = true)}
+        onmouseleave={() => (hovered = false)}>
+        {#if lastTool}
+            <div class="agent-chip" aria-live="polite">
+                <span class="agent-dot"></span>
+                agent called <code>{lastTool}</code>
+            </div>
+        {/if}
         <h1>Needle <span class="hero-times">×</span> <span class="hero-grad">WebMCP</span></h1>
         <p>Needle web apps hand typed tools to the AI agent in your browser.</p>
 
@@ -99,6 +121,71 @@
     .hero-copy a,
     .prompt-box {
         pointer-events: auto;
+    }
+
+    /* Collapsed: the overlay stops being a full-screen sheet and becomes a
+       corner chip. Shrinking the box itself matters — a full-bleed overlay with
+       pointer-events would swallow every drag meant for the 3D room. */
+    .hero-copy.collapsed {
+        inset: auto;
+        top: 4.6rem;
+        left: 1rem;
+        width: max-content;
+        max-width: min(22rem, calc(100vw - 2rem));
+        height: auto;
+        align-items: flex-start;
+        text-align: left;
+        padding: 0.7rem 0.95rem;
+        background: var(--surface-panel);
+        border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+        border-radius: var(--radius-card);
+        box-shadow: 0 6px 18px rgba(34, 44, 32, 0.06);
+        pointer-events: auto;
+        cursor: pointer;
+    }
+
+    .hero-copy.collapsed h1 {
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    .hero-copy.collapsed p,
+    .hero-copy.collapsed .prompt-box,
+    .hero-copy.collapsed .hero-actions {
+        display: none;
+    }
+
+    /* What the agent just did, so its work is legible from across a room. */
+    .agent-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45em;
+        margin-bottom: 0.6rem;
+        padding: 0.3rem 0.7rem;
+        border-radius: var(--radius-pill);
+        background: var(--surface-panel-muted);
+        border: 1px solid var(--border-subtle);
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        pointer-events: auto;
+    }
+
+    .agent-chip code {
+        font-family: var(--font-family-code);
+        color: var(--text-primary);
+    }
+
+    .agent-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #99cc33;
+        animation: agent-pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes agent-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.25; }
     }
 
     /* Split + staggered enter: each block rises in on its own beat. */

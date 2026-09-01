@@ -6,7 +6,7 @@
         (window as any).NEEDLE_USE_RAPIER = false;
         // Importing the scene pulls in @needle-tools/engine and registers the
         // onStart hook before the <needle-engine> element below initializes.
-        await import("./scene");
+        await import("./room/roomScene");
     });
 </script>
 

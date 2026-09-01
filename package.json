@@ -11,6 +11,8 @@
     "build:production": "npm run build",
     "build:dev": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "deploy": "npm run build && npx --yes needle-cloud deploy dist --token"
   },
   "dependencies": {
@@ -25,7 +27,8 @@
     "@types/three": "0.185.0",
     "svelte": "^5.57.0",
     "typescript": "^5.0.4",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vitest": "^3.2.7"
   },
   "author": {
     "name": "Needle Tools",
