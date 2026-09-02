@@ -361,3 +361,30 @@ describe("pauses", () => {
         expect(planScene([{ wait: 600 }]).plan.beats[0].duration).toBe(10_000);
     });
 });
+
+describe("changing costume", () => {
+    /**
+     * The only way a cut-out does something its drawing does not already do. A
+     * bird with folded wings cannot open them; it can become the drawing of a
+     * bird with open wings, standing in the same place at the same size.
+     */
+    it("is a beat in its own right, needing nothing else", () => {
+        const { plan, problems } = planScene([{ id: "bird", becomes: "bird-flying" }]);
+        expect(problems).toEqual([]);
+        expect(plan.beats[0].becomes).toBe("bird-flying");
+        expect(plan.beats[0].move).toBeNull();
+    });
+
+    it("rides along with a move, so the change happens as they act", () => {
+        const { plan } = planScene([
+            { id: "bird", becomes: "bird-flying", do: "jump" },
+        ]);
+        expect(plan.beats[0].becomes).toBe("bird-flying");
+        expect(plan.beats[0].move).toBe("jump");
+    });
+
+    it("carries nothing when nobody asked for one", () => {
+        const { plan } = planScene([{ id: "a", do: "nod" }]);
+        expect(plan.beats[0].becomes).toBeNull();
+    });
+});

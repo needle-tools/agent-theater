@@ -411,6 +411,17 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                     },
                                     required: ["on"],
                                 },
+                                becomes: {
+                                    type: "string",
+                                    description:
+                                        "Another layer id to draw in this character's place from here " +
+                                        "on — a costume change. The only way a cut-out can do something " +
+                                        "its drawing does not already do: a bird with folded wings " +
+                                        "cannot open them, but it can BECOME the drawing of a bird with " +
+                                        "open wings, standing in the same place at the same size. Ask " +
+                                        "for both on the same sheet and they will match. Lasts until the " +
+                                        "scene ends or another beat changes it again.",
+                                },
                                 wait: {
                                     type: "number",
                                     description:
@@ -460,6 +471,18 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 if (unknown.length) {
                     return fail(
                         `No sound called ${unknown.map(id => `"${id}"`).join(", ")}. Call show_sounds.`);
+                }
+
+                // A costume has to exist to be worn. It does NOT have to be in
+                // the cast: it is a picture this character turns into, not
+                // somebody else in the scene.
+                const missingLook = [...new Set(beats.map(b => str(b?.becomes)).filter(Boolean))]
+                    .filter(id => !collage.get(id));
+                if (missingLook.length) {
+                    return fail(
+                        `No layer called ${missingLook.map(id => `"${id}"`).join(", ")} to become. ` +
+                        `A "becomes" is another picture of the same character — call piece_list for ` +
+                        `what there is.`);
                 }
 
                 const { plan, problems } = planScene(beats);

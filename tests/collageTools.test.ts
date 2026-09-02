@@ -926,3 +926,43 @@ describe("reading a scene back", () => {
         expect(await describe(studio)).toContain("no backdrop to measure against");
     });
 });
+
+describe("wearing another picture", () => {
+    it("refuses a costume that does not exist", async () => {
+        // The failure this catches is silent otherwise: the beat is accepted,
+        // the swap finds no layer, and the character simply does not change —
+        // which looks like the feature not working rather than a typo.
+        const { studio, collage } = fakeStudio();
+        const bird = collage.addImage({ src: "b", natural: { width: 100, height: 100 } });
+        const stage = collage.addStage({ name: "the branch" });
+        collage.updateStage(stage.id, { cast: [{ id: bird.id, x: 0, y: 0 }] });
+
+        const script = createCollageTools(studio).find(t => t.name === "stage_script")!;
+        const result = await script.execute({
+            stage: stage.id,
+            rehearse: false,
+            beats: [{ id: bird.id, becomes: "bird-flying" }],
+        });
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain("bird-flying");
+    });
+
+    it("takes one that does, without it having to be in the cast", async () => {
+        // A costume is a picture this character turns into, not somebody else
+        // in the scene — so it is not cast and must not have to be.
+        const { studio, collage } = fakeStudio();
+        const bird = collage.addImage({ src: "b", natural: { width: 100, height: 100 } });
+        const flying = collage.addImage({ src: "f", natural: { width: 140, height: 90 } });
+        const stage = collage.addStage({ name: "the branch" });
+        collage.updateStage(stage.id, { cast: [{ id: bird.id, x: 0, y: 0 }] });
+
+        const script = createCollageTools(studio).find(t => t.name === "stage_script")!;
+        const result = await script.execute({
+            stage: stage.id,
+            rehearse: false,
+            beats: [{ id: bird.id, do: "jump", becomes: flying.id }],
+        });
+        expect(result.isError).toBeUndefined();
+        expect(collage.getStage(stage.id)!.script[0].becomes).toBe(flying.id);
+    });
+});

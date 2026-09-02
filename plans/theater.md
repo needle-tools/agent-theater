@@ -317,6 +317,12 @@ when three or more scenes share one bed, in the NEXT line, where it is read.
 
 ## Still open
 
+**Nothing checks that a feature is reachable.** `becomes` was built end to end —
+the beat, the player, the canvas — and left out of the stage_script schema, so
+no agent could use it. It typechecked, it had tests, and the tests exercised the
+layer below the one that was missing. Everything that reaches an agent goes
+through a tool schema, and nothing verifies that the schema mentions it.
+
 **Nothing checks a show as a whole.** Every warning so far is about one scene,
 or one placement. Nobody looks at four scenes together and says the middle two
 are the same scene twice, or that nothing changes pace from beginning to end.
