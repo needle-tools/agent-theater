@@ -344,3 +344,69 @@ have actually worked: making the *reply* say what is wrong after the fact
 (`thin`, "standing in mid-air", "NEXT:"), and making the good thing the
 default so that not deciding produces it. Prefer both over another sentence in
 a description.
+
+---
+
+# Wanted: more than one play at a time
+
+Today there is exactly one saved play, and it is a singleton by construction:
+`needle-collage/doc/v1` in localStorage holds the document, one IndexedDB store
+holds the image blobs, and a sweep deletes any blob no live layer refers to.
+Starting something new means clearing the stage, which throws the old one away.
+Saving to a file is the only way to keep a play, and loading it back *adds* to
+whatever is already there rather than opening it.
+
+That is the wrong shape for how this is actually used. A play takes an hour of
+casting and blocking and scripting; wanting a second one is not a reason to lose
+the first.
+
+## What it should be
+
+**A new play starts a new save, and the old one stays.** The document key becomes
+a library — several documents, each with an id, a title and a modified date —
+and the page opens whichever was last in front. "New play" is then the cheap
+operation it sounds like, rather than a destructive one that needs a warning.
+
+**The menu grows a list.** It is already down to Save, Load and Clear, so this is
+the natural third thing: the plays in this browser, newest first, with the one
+you are in marked. Clear stops meaning "throw the work away" and starts meaning
+"empty this play", which is a much less frightening button.
+
+**The agent gets the same view.** `theater_start` says what is on this page; it
+should be able to say what else is in the drawer, and `stage_*` should have a
+sibling for switching between plays. Otherwise the person and the agent are
+looking at different libraries.
+
+## What makes it harder than it looks
+
+**The image blobs are shared and the sweep is global.** Two plays that both use
+the same cut-out should not store it twice, and deleting one play must not
+delete a picture the other is still standing on. The sweep currently asks "is
+any live layer using this key" against a single document; it would have to ask
+it against every document in the library, and be certain it has them all before
+it deletes anything. Getting that wrong destroys the other play silently, which
+is the worst failure this codebase could have.
+
+**Storage is finite and nobody is watching it.** One play with fifty pieces is
+already tens of megabytes of blobs. A drawer full of them will hit a quota, and
+the failure mode of localStorage and IndexedDB under pressure is an exception at
+save time — which currently just logs. A library needs a size somewhere in the
+interface, and a story for what happens when the browser says no.
+
+**Undo does not know about plays.** History is per-document today. Switching
+plays mid-edit either carries the history across, which lets you undo into
+somebody else's play, or drops it, which loses work quietly. Per-play history
+is the honest answer and needs `Collage` to own more than one.
+
+## Then: publishing
+
+If the drawer works, the obvious next step is getting a play out of the browser
+and to somebody else. The `.play.png` already carries everything — pieces,
+scenes, script, title — so the format is done; what is missing is a place to put
+it and a way to open one without downloading it first.
+
+Worth saying plainly before any of it is built: publishing turns a private
+document into a public one, and everything in this file so far has assumed the
+canvas is the person's own. A published play carries generated artwork, the
+name they gave it, and whatever their agent wrote — so it needs an explicit
+step, a visible URL, and a way back out. Not a checkbox in a menu.
