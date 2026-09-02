@@ -88,6 +88,51 @@
 			"mood": ["neutral", "unobtrusive", "acoustic"],
 			"description": "Sustained guitar harmonics, breathy flute textures, fingerpicked guitar, sparse piano chords. A drier neutral bed than `dialogue-strings`."
 		},
+		"opening-musicbox-1": {
+			"role": "bed",
+			"file": "/audio/music/opening-musicbox-1.opus",
+			"seconds": 50.01,
+			"bpm": 90,
+			"take": "opening-musicbox",
+			"mood": ["gentle", "opening", "storybook"],
+			"description": "Music box figure over a soft string swell, single harp roll, light chime, warm hall. An alternative to `fairy-tale-ambience` for opening a light show."
+		},
+		"opening-musicbox-2": {
+			"role": "bed",
+			"file": "/audio/music/opening-musicbox-2.opus",
+			"seconds": 50.01,
+			"bpm": 90,
+			"take": "opening-musicbox",
+			"mood": ["gentle", "opening", "storybook"],
+			"description": "Music box figure over a soft string swell, single harp roll, light chime, warm hall. An alternative to `fairy-tale-ambience` for opening a light show."
+		},
+		"cosy-folk-1": {
+			"role": "bed",
+			"file": "/audio/music/cosy-folk-1.opus",
+			"seconds": 50.01,
+			"bpm": 85,
+			"take": "cosy-folk",
+			"mood": ["cosy", "unhurried", "acoustic"],
+			"description": "Warm acoustic guitar, soft upright bass, brushed snare, gentle clarinet. Steady throughout with no ending."
+		},
+		"cosy-folk-2": {
+			"role": "bed",
+			"file": "/audio/music/cosy-folk-2.opus",
+			"seconds": 50.01,
+			"bpm": 85,
+			"take": "cosy-folk",
+			"mood": ["cosy", "unhurried", "acoustic"],
+			"description": "Warm acoustic guitar, soft upright bass, brushed snare, gentle clarinet. Steady throughout with no ending."
+		},
+		"cosy-folk-3": {
+			"role": "bed",
+			"file": "/audio/music/cosy-folk-3.opus",
+			"seconds": 50.01,
+			"bpm": 85,
+			"take": "cosy-folk",
+			"mood": ["cosy", "unhurried", "acoustic"],
+			"description": "Warm acoustic guitar, soft upright bass, brushed snare, gentle clarinet. Steady throughout with no ending."
+		},
 		"villain-menacing-1": {
 			"role": "bed",
 			"file": "/audio/music/villain-menacing-1.opus",
