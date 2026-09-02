@@ -11,6 +11,7 @@
  * scene three at different places, and recolouring it changes it in both.
  */
 import { MOVES, plan as planScene, type Beat } from "./perform.js";
+import { findSound, soundCatalogue, soundNames } from "./audio.js";
 import { ENTRANCES, type Placement, type Stage } from "./stage.js";
 import type { CollageStudio } from "./studio.js";
 import type { ToolResult, WebMcpToolDef } from "./tools.js";
@@ -46,6 +47,27 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
     };
 
     return [
+        {
+            name: "show_sounds",
+            title: "What there is to play",
+            annotations: { readOnlyHint: true },
+            description:
+                "Every piece of music and every sound effect, with what it sounds like. Call it once before " +
+                "choosing: the ids alone do not tell you which of eight beds suits a scene, and picking by " +
+                "name is picking at random.",
+            inputSchema: { type: "object", properties: {} },
+            async execute() {
+                return ok([
+                    `Music beds — one per scene, looping, cross-fading into the next:`,
+                    ...soundCatalogue("bed").map(line => `  ${line}`),
+                    ``,
+                    `Stings and effects — for a beat's "sound":`,
+                    ...soundCatalogue("cue", "sfx").map(line => `  ${line}`),
+                    ``,
+                    `Set a scene's bed with stage_create music, and fire a sting with a beat's sound.`,
+                ].join("\n"), { beds: soundNames("bed"), cues: soundNames("cue", "sfx") });
+            },
+        },
         {
             name: "show_play",
             title: "Put the show on",
@@ -134,6 +156,13 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                 id: { type: "string", description: "Who this beat is about." },
                                 do: { type: "string", enum: [...MOVES], description: "What they do." },
                                 say: { type: "string", description: "A line, in a bubble above them." },
+                                sound: {
+                                    type: "string",
+                                    enum: soundNames("cue", "sfx"),
+                                    description:
+                                        "A sting fired as the beat starts. Rides along with a move rather " +
+                                        "than taking its own time. Call show_sounds for what each is.",
+                                },
                                 to: {
                                     type: "object",
                                     description: "Where a walk or jump ends up, relative to now, in canvas units.",
@@ -171,6 +200,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         `${absent.map(id => `"${id}"`).join(", ")} ${absent.length === 1 ? "is" : "are"} not in ` +
                         `"${stage.name}". Put ${absent.length === 1 ? "it" : "them"} in with stage_cast first, ` +
                         `or the beats would play on somebody who is not on stage.`);
+                }
+
+                const unknown = beats.map(b => str(b?.sound)).filter(id => id && !findSound(id));
+                if (unknown.length) {
+                    return fail(
+                        `No sound called ${unknown.map(id => `"${id}"`).join(", ")}. Call show_sounds.`);
                 }
 
                 const { plan, problems } = planScene(beats);
@@ -229,11 +264,20 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             "Layer id to draw behind everything. It never acts and never enters — it is the " +
                             "room, not somebody in it. Pass 'none' to remove it.",
                     },
+                    music: {
+                        type: "string",
+                        enum: [...soundNames("bed"), "none"],
+                        description:
+                            "A bed to play under this scene, cross-fading in from the last one. Call " +
+                            "show_sounds to hear what each is. 'none' removes it.",
+                    },
                     hold: { type: "number", description: "Seconds to wait at the end before moving on." },
                     show: { type: "boolean", description: "Show this scene on the canvas. Default true for a new one." },
                 },
             },
-            async execute(args: { id?: string; name?: string; backdrop?: string; hold?: number; show?: boolean }) {
+            async execute(args: {
+                id?: string; name?: string; backdrop?: string; music?: string; hold?: number; show?: boolean;
+            }) {
                 const id = str(args?.id);
                 if (id && !collage.getStage(id)) {
                     return fail(`There is no stage with id "${id}". Call stage_describe to list them.`);
@@ -243,9 +287,15 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     return fail(`There is no layer "${backdrop}" to use as a backdrop. Call collage_describe.`);
                 }
 
+                const music = str(args?.music);
+                if (music && music !== "none" && !findSound(music)) {
+                    return fail(
+                        `There is no sound called "${music}". Call show_sounds for what there is.`);
+                }
                 const patch = {
                     ...(str(args?.name) ? { name: str(args.name) } : {}),
                     ...(backdrop ? { backdrop: backdrop === "none" ? null : backdrop } : {}),
+                    ...(music ? { music: music === "none" ? null : music } : {}),
                     ...(num(args?.hold) ? { hold: Math.max(0, args.hold) } : {}),
                 };
                 const stage = id ? collage.updateStage(id, patch)! : collage.addStage(patch);
@@ -258,7 +308,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 return ok(
                     `${id ? "Changed" : "Made"} the scene "${stage.name}" as ${stage.id}` +
-                    `${stage.backdrop ? `, with ${stage.backdrop} behind it` : ""}. ` +
+                    `${stage.backdrop ? `, with ${stage.backdrop} behind it` : ""}` +
+                    `${stage.music ? `, under "${stage.music}"` : ""}. ` +
                     `Put layers in it with stage_cast.`,
                     { stage });
             },

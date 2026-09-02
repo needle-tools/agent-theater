@@ -651,6 +651,7 @@ export class Collage {
             backdrop: spec.backdrop ?? null,
             cast: [...(spec.cast ?? [])],
             script: [...(spec.script ?? [])],
+            ...(spec.music !== undefined ? { music: spec.music } : {}),
             ...(typeof spec.hold === "number" ? { hold: spec.hold } : {}),
         };
         this.stages.set(stage.id, stage);
@@ -668,6 +669,7 @@ export class Collage {
             ...(patch.backdrop !== undefined ? { backdrop: patch.backdrop } : {}),
             ...(patch.cast ? { cast: [...patch.cast] } : {}),
             ...(patch.script ? { script: [...patch.script] } : {}),
+            ...(patch.music !== undefined ? { music: patch.music } : {}),
             ...(typeof patch.hold === "number" ? { hold: patch.hold } : {}),
         };
         this.stages.set(id, next);

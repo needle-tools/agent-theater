@@ -30,6 +30,7 @@ import {
 import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
 import { plan as planScene, type Plan } from "./perform.js";
 import { DEFAULT_HOLD, sceneBeats, type ShowTiming } from "./show.js";
+import { SILENT, type Speaker } from "./audio.js";
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
 
@@ -205,6 +206,9 @@ export interface CollageStudio {
     setPerformer(performer: ((plan: Plan) => Promise<void>) | null): void;
     /** The canvas hands back a way to abandon what it is playing. */
     setStopper(stop: (() => void) | null): void;
+    /** And a way to make a noise. Silent until the canvas has mounted. */
+    setSpeaker(speaker: Speaker | null): void;
+    readonly speaker: Speaker;
     /** Abandon whatever is playing. */
     stopScene(): void;
     /**
@@ -355,6 +359,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
     /** The scene the show is on, and whether it should still be going. */
     let running: string | null = null;
     let wanted = false;
+    let speaker: Speaker = SILENT;
 
     /**
      * The show itself.
@@ -370,6 +375,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
             if (!wanted) break;
             running = stage.id;
             collage.setActiveStage(stage.id);
+            // Started with the scene rather than with its first beat, so the
+            // bed is already under the build-up. Cross-fading is the speaker's
+            // business; from here it is just "this scene wants this".
+            speaker.music(stage.music ?? null);
 
             const { approach, beats } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
             // Arrivals start off stage. Done through the placement, so the
@@ -391,6 +400,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
         }
         running = null;
         wanted = false;
+        speaker.music(null);
     };
     const announceSettle = () => { for (const watcher of [...settleWatchers]) watcher(); };
 
@@ -1195,6 +1205,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
             stopPerformance = stop;
         },
 
+        setSpeaker(next: Speaker | null) {
+            speaker = next ?? SILENT;
+        },
+
+        get speaker() {
+            return speaker;
+        },
+
         get performing() {
             return acting;
         },
@@ -1249,6 +1267,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             wanted = false;
             running = null;
             stopPerformance?.();
+            speaker.stop();
         },
 
         save(view) {

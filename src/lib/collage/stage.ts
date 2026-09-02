@@ -51,6 +51,8 @@ export interface Stage {
      * again, which is not a play — it is a rehearsal.
      */
     script: Beat[];
+    /** A bed under the whole scene, cross-fading into the next one's. */
+    music?: string | null;
     /** Seconds to hold after the scene before moving on. */
     hold?: number;
 }
@@ -61,6 +63,7 @@ export interface StageSpec {
     backdrop?: string | null;
     cast?: Placement[];
     script?: Beat[];
+    music?: string | null;
     hold?: number;
 }
 

@@ -8,6 +8,7 @@ import {
 import { createAllCollageTools, createCollageTools, type WebMcpToolDef } from "../src/lib/collage/tools.js";
 import type { LoadedImage } from "../src/lib/collage/imaging.js";
 import type { Plan } from "../src/lib/collage/perform.js";
+import { SILENT } from "../src/lib/collage/audio.js";
 
 /**
  * The tools are the agent's whole surface onto the collage, so what is tested
@@ -100,6 +101,8 @@ function fakeStudio(options: FakeOptions = {}) {
         setStopper() { /* nothing is playing to stop */ },
         stopScene() { /* nor here */ },
         stopShow() { /* nor this */ },
+        setSpeaker() { /* the fake is deaf */ },
+        get speaker() { return SILENT; },
         get showing() { return null; },
         // The fake plays a whole show instantly, so the tools can be tested for
         // what they say rather than for how long they take.
@@ -751,7 +754,7 @@ describe("the surface an agent actually sees", () => {
         expect(createCollageTools(studio).map(t => t.name).sort()).toEqual([
             "collage_add_image", "collage_add_text", "collage_batch", "collage_describe",
             "collage_preview", "collage_remove", "collage_transform", "collage_watch",
-            "show_play", "show_stop",
+            "show_play", "show_sounds", "show_stop",
             "stage_cast", "stage_create", "stage_describe", "stage_script",
         ]);
     });

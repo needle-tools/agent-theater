@@ -30,6 +30,8 @@ export interface Stagehand {
     say(id: string, line: string | null, progress: number): void;
     /** True once a layer has left, so it stays gone rather than snapping back. */
     setGone(id: string, gone: boolean): void;
+    /** Make a noise. Fired as a beat begins, and not waited for. */
+    cue(id: string): void;
 }
 
 export interface Playing {
@@ -69,6 +71,9 @@ export function play(plan: Plan, hand: Stagehand): Playing {
     })();
 
     async function playBeat(beat: PlannedBeat): Promise<void> {
+        // Fired first and not awaited, so a sting lands on the movement rather
+        // than after it. A beat with only a sound takes no time at all.
+        if (beat.sound) hand.cue(beat.sound);
         if (beat.say) return speak(beat);
         if (!beat.move) return;
 

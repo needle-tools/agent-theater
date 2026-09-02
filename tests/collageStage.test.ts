@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { Collage, type ImageLayer } from "../src/lib/collage/model.js";
 import { castOf, placed, type EntranceName, type Stage } from "../src/lib/collage/stage.js";
 import { buildUp, handOff, sceneBeats } from "../src/lib/collage/show.js";
-import type { Beat } from "../src/lib/collage/perform.js";
+import { plan as planBeats, type Beat } from "../src/lib/collage/perform.js";
+import { SOUNDS, findSound, soundCatalogue, soundNames } from "../src/lib/collage/audio.js";
 
 /**
  * Scenes.
@@ -283,5 +284,59 @@ describe("putting the show on", () => {
     it("is just the script when nobody has an entrance", () => {
         const stage = scene([{ id: "a" }], [{ id: "a", do: "jump" }]);
         expect(sceneBeats(stage, sizeOf).beats).toEqual([{ id: "a", do: "jump" }]);
+    });
+});
+
+describe("sound", () => {
+    /**
+     * Levels are set when the audio is generated so the beds and the stings sit
+     * together correctly. Nothing here re-balances them; volume is used for
+     * fading only, which is a change over time rather than a change of level.
+     */
+    it("names every sound in the manifest exactly once", () => {
+        const ids = SOUNDS.map(s => s.id);
+        expect(new Set(ids).size).toBe(ids.length);
+        expect(SOUNDS.length).toBeGreaterThan(10);
+    });
+
+    it("splits beds from stings, because they are used differently", () => {
+        // A bed loops under a whole scene; a sting fires on a beat and finishes.
+        expect(soundNames("bed").length).toBeGreaterThan(3);
+        expect(soundNames("cue", "sfx").length).toBeGreaterThan(3);
+        for (const id of soundNames("bed")) expect(findSound(id)!.seconds).toBeGreaterThan(30);
+        for (const id of soundNames("cue", "sfx")) expect(findSound(id)!.seconds).toBeLessThan(30);
+    });
+
+    it("says what each one sounds like, so a choice is not a guess", () => {
+        // Eight beds with only ids to tell them apart makes the choice arbitrary.
+        for (const line of soundCatalogue("bed")) {
+            expect(line).toMatch(/ — .+/);
+        }
+    });
+
+    it("points every sound at a file under the served audio directory", () => {
+        for (const sound of SOUNDS) {
+            expect(sound.file.startsWith("/audio/")).toBe(true);
+            expect(sound.file.endsWith(".opus")).toBe(true);
+        }
+    });
+
+    it("does not know a sound that is not there", () => {
+        expect(findSound("dramatic-chipmunk")).toBeNull();
+    });
+
+    it("lets a beat carry a sound with no move and no line", () => {
+        // A sting on its own is a legitimate beat, and it takes no time: the
+        // scene carries on over it, which is what a sting is.
+        const { plan, problems } = planBeats([{ id: "a", sound: "laugh-cute" }]);
+        expect(problems).toEqual([]);
+        expect(plan.beats[0]).toMatchObject({ sound: "laugh-cute", duration: 0 });
+    });
+
+    it("rides a sound along with a move rather than delaying it", () => {
+        const { plan } = planBeats([{ id: "a", do: "jump", sound: "laugh-cute" }]);
+        expect(plan.beats).toHaveLength(1);
+        expect(plan.beats[0].move).toBe("jump");
+        expect(plan.beats[0].duration).toBeGreaterThan(100);
     });
 });

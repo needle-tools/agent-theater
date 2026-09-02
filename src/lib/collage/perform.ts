@@ -462,6 +462,8 @@ export interface Beat {
     id: string;
     do?: MoveName;
     say?: string;
+    /** A noise, fired as the beat starts. Rides along with whatever else it does. */
+    sound?: string;
     to?: { x?: number; y?: number };
     duration?: number;
 }
@@ -470,6 +472,7 @@ export interface PlannedBeat {
     id: string;
     move: MoveName | null;
     say: string | null;
+    sound: string | null;
     /** Where this beat leaves the layer, relative to where it started. */
     travel: { dx: number; dy: number } | null;
     duration: number;
@@ -506,22 +509,27 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
             continue;
         }
         const say = typeof beat?.say === "string" && beat.say.trim() ? beat.say.trim() : null;
-        if (!move && !say) {
-            problems.push({ index, reason: `a beat must have a "do" or a "say"` });
+        const sound = typeof beat?.sound === "string" && beat.sound.trim() ? beat.sound.trim() : null;
+        if (!move && !say && !sound) {
+            problems.push({ index, reason: `a beat must have a "do", a "say" or a "sound"` });
             continue;
         }
 
-        const duration = Math.min(30_000, Math.max(120,
+        const duration = Math.min(30_000, Math.max(0,
             typeof beat?.duration === "number" && beat.duration > 0
                 ? beat.duration
-                : move ? DEFAULT_DURATION[move] : readingTime(say!)));
+                : move ? DEFAULT_DURATION[move]
+                    : say ? readingTime(say)
+                        // A sound on its own takes no time: it fires and the
+                        // scene carries on over it, which is what a sting is.
+                        : 0));
 
         const travel = move && TRAVELS.has(move) && beat?.to
             ? { dx: typeof beat.to.x === "number" ? beat.to.x : 0,
                 dy: typeof beat.to.y === "number" ? beat.to.y : 0 }
             : null;
 
-        planned.push({ id, move, say, travel, duration });
+        planned.push({ id, move, say, sound, travel, duration });
     }
 
     const duration = planned.reduce((total, beat) => total + beat.duration, 0);

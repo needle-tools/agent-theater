@@ -23,6 +23,7 @@
     import { FREE_PAGE, type CollageStudio } from "./studio.js";
     import type { Plan } from "./perform.js";
     import { play, type Playing, type Stagehand } from "./player.js";
+    import { createSpeaker } from "./audio.js";
 
     interface Props {
         studio: CollageStudio;
@@ -141,7 +142,10 @@
         return said;
     });
 
+    const speaker = createSpeaker();
+
     const stagehand: Stagehand = {
+        cue: (id) => speaker.cue(id),
         elementFor: (id) => viewport?.querySelector(`[data-layer="${CSS.escape(id)}"]`) ?? null,
         stateOf(id) {
             const layer = studio.collage.get(id);
@@ -174,9 +178,11 @@
     $effect(() => {
         studio.setPerformer(playScene);
         studio.setStopper(stopScene);
+        studio.setSpeaker(speaker);
         return () => {
             studio.setPerformer(null);
             studio.setStopper(null);
+            studio.setSpeaker(null);
         };
     });
 
