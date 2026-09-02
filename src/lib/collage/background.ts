@@ -109,6 +109,13 @@ export interface CutResult {
      * Absent for a single cut-out, which is the ordinary case.
      */
     pieces?: CutPiece[];
+    /**
+     * The scene with its objects painted out, when one was asked for and could
+     * be made. Slicing says what was in the photo; this says what was behind
+     * them, which is what turns one flat picture into a background and a set of
+     * things that can be moved around on it.
+     */
+    backplate?: Blob;
     /** The size the pieces' boxes are measured against. */
     source?: { width: number; height: number };
     /** Why nothing happened, phrased for a person or an agent to read. */
@@ -216,6 +223,9 @@ function listen() {
                     height: piece.boxHeight ?? piece.height ?? 1,
                 })),
                 source: { width: data.width, height: data.height },
+                ...(data.backplate
+                    ? { backplate: new Blob([data.backplate], { type: "image/png" }) }
+                    : {}),
             });
         } else if (data.ok && data.png) {
             waiting.resolve({ ok: true, blob: new Blob([data.png], { type: "image/png" }) });
@@ -255,6 +265,13 @@ export async function removeBackground(
          */
         slice?: boolean;
         size?: { width: number; height: number };
+        /**
+         * Also ask for the scene with its objects painted out.
+         *
+         * Off unless asked: it is a second model, about 28 MB, and a slow pass
+         * on top of the cut-out. Only meaningful alongside `slice`.
+         */
+        heal?: boolean;
     } = {},
 ): Promise<CutResult> {
     if (options.coverage !== undefined && options.coverage < ALREADY_CUT_OUT) {
@@ -302,6 +319,7 @@ export async function removeBackground(
                         ? {
                             slice: true,
                             minPixels: smallestPiece(options.size!.width, options.size!.height),
+                            ...(options.heal ? { heal: true } : {}),
                         }
                         : {}),
                 },

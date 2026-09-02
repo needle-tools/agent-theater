@@ -98,6 +98,16 @@
     /** Where the next batch of images should land, if somewhere was pointed at. */
     let dropPoint: { x: number; y: number } | null = null;
 
+    /**
+     * Ask for the scene behind the objects as well, when a photo splits.
+     *
+     * Off by default and deliberately a choice: it downloads a second model of
+     * about 28 MB and adds a slow pass, which is not a price to charge someone
+     * who only wanted a sticker. For a photo of things on a table it is the
+     * difference between one flat picture and a background with things on it.
+     */
+    let fillBackground = $state(false);
+
     /** Save the whole collage as a picture that opens again. */
     async function saveToFile() {
         if (!collage.list().length) {
@@ -178,6 +188,7 @@
         const toast = toasts.push(many ? `Cutting out ${images.length} images…` : "Cutting it out…", "busy");
         let cut = 0;
         let separated = 0;
+        let healed = false;
         let failed: string | null = null;
         try {
             for (const [index, file] of images.entries()) {
@@ -189,6 +200,9 @@
                     near: near ?? undefined,
                     // The whole point of dropping a photo here is the cut-out.
                     removeBackground: true,
+                    // A photo of things on a surface becomes the things and
+                    // the surface, when asked.
+                    heal: fillBackground,
                     onProgress: progress => {
                         // The model is tens of megabytes on first use; silence
                         // would read as a hang.
@@ -203,7 +217,13 @@
                 // A photo that held several things becomes several layers, and
                 // saying "added 1" for six stickers is the kind of small lie
                 // that makes people distrust the rest of the message.
-                if (pieces && pieces.length > 1) separated += pieces.length;
+                // Not counting the backplate: "6 pieces" for five stickers
+                // and a desk is a small lie that makes the rest of the
+                // message untrustworthy.
+                if (pieces && pieces.length > 1) {
+                    separated += pieces.length - (background.backplate ? 1 : 0);
+                    if (background.backplate) healed = true;
+                }
             }
             toast.close();
             if (failed) {
@@ -211,7 +231,7 @@
                 toasts.push(`Added ${images.length}. ${shortFailure(failed)}`, "error");
             } else {
                 toasts.push(separated
-                    ? `Cut out ${separated} separate pieces.`
+                    ? `Cut out ${separated} separate pieces${healed ? ", and painted in the scene behind them" : ""}.`
                     : cut
                         ? `${cut === 1 ? "Cut it out" : `Cut out ${cut}`} and added.`
                         : `Added ${images.length}.`);
@@ -602,6 +622,7 @@
             studio.setPageBackground(background);
             toasts.push(background === "transparent" ? "Background off." : "Background white.");
         }}
+        bind:fillBackground
         onArrange={applyLayout}
         onExport={exportAs}
         onClear={clearCanvas}

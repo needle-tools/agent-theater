@@ -17,6 +17,8 @@
         studio: CollageStudio;
         open: boolean;
         toolsRegistered: boolean;
+        /** Ask for the scene behind the objects when a dropped photo splits. */
+        fillBackground: boolean;
         onSetPage: (presetId: string) => void;
         onSetBackground: (background: string) => void;
         onArrange: (mode: LayoutMode) => void;
@@ -25,7 +27,10 @@
         onClose: () => void;
     }
 
-    let { studio, open, toolsRegistered, onSetPage, onSetBackground, onArrange, onExport, onClear, onClose }: Props = $props();
+    let {
+        studio, open, toolsRegistered, fillBackground = $bindable(),
+        onSetPage, onSetBackground, onArrange, onExport, onClear, onClose,
+    }: Props = $props();
 
     let version = $state(0);
     $effect(() => studio.collage.onChanged(() => version++));
@@ -129,6 +134,20 @@
         </section>
 
         <section style:--i="1">
+            <h2>Dropping</h2>
+            <!-- A drop-time choice, so it lives with the other global settings
+                 rather than on a picture that does not exist yet. -->
+            <label class="check">
+                <input type="checkbox" bind:checked={fillBackground} />
+                <span>
+                    Paint in what was behind
+                    <small>When a photo holds several things, also keep the emptied
+                    scene as a backdrop. Downloads a second model, and is slower.</small>
+                </span>
+            </label>
+        </section>
+
+        <section style:--i="2">
             <h2>Arrange</h2>
             <!-- One button, run again for a different result. The other layouts
                  remain available to an agent through collage_arrange. -->
@@ -137,7 +156,7 @@
             </button>
         </section>
 
-        <section style:--i="2">
+        <section style:--i="3">
             <h2>Export</h2>
             <div class="grid">
                 <button disabled={!hasLayers} onclick={() => onExport("png")}>PNG</button>
@@ -150,7 +169,7 @@
             {/if}
         </section>
 
-        <footer style:--i="3">
+        <footer style:--i="4">
             <p class="muted">
                 {toolsRegistered
                     ? "WebMCP tools are registered — an agent in this tab can build this with you, and can watch what you do."

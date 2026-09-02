@@ -61,6 +61,15 @@ export interface AddImageOptions {
      * stickers on a desk was dropped in to get five stickers.
      */
     slice?: boolean;
+    /**
+     * Also place the scene with its objects painted out, behind them.
+     *
+     * Off by default. It costs a second model of about 28 MB and a slow pass,
+     * which is not a price to charge every drop — but for one photo of things
+     * on a surface it turns a flat picture into a background and a set of
+     * things that can be moved around on it.
+     */
+    heal?: boolean;
     onProgress?: (p: Progress) => void;
     /** Who is doing this, for the event log a watching agent reads. */
     by?: "human" | "agent";
@@ -608,6 +617,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                         // for. The size goes along because "big enough to be an
                         // object" is a fraction of the image, not a fixed count.
                         slice: options.slice !== false,
+                        heal: options.heal === true,
                         size: { width: original.width, height: original.height },
                     })
                     : { ok: false, reason: "The image's pixels could not be read, so its background was left alone." };
@@ -681,6 +691,32 @@ export function createStudio(collage = new Collage()): CollageStudio {
             });
 
             const added: ImageLayer[] = [];
+
+            // The backplate first, so everything else stacks on top of it, and
+            // filling the group's whole box because that is exactly the frame
+            // the objects were lifted out of. No sticker rim on it either: it
+            // is a scene, not a cut-out, and a white edge round the room would
+            // be absurd.
+            if (cut.backplate) {
+                const storageKey = newImageKey();
+                await putImage(storageKey, cut.backplate);
+                const src = trackUrl(URL.createObjectURL(cut.backplate));
+                const loaded = await loadImage(src);
+                const layer = collage.addImage({
+                    src,
+                    storageKey,
+                    label: options.label ? `${options.label} background` : "background",
+                    natural: { width: loaded.width, height: loaded.height },
+                    crop: loaded.crop,
+                    x: spot.x,
+                    y: spot.y,
+                    width: spot.width,
+                    style: { silhouette: null, outline: null, shadow: null, opacity: 1 },
+                });
+                images.set(layer.id, loaded);
+                added.push(collage.get(layer.id) as ImageLayer);
+            }
+
             for (const [index, piece] of pieces.entries()) {
                 const storageKey = newImageKey();
                 await putImage(storageKey, piece.blob);
@@ -702,17 +738,25 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 added.push(collage.get(layer.id) as ImageLayer);
             }
 
+            // The objects, not counting the scene they came out of — "6 pieces"
+            // for five stickers and a desk is the kind of small lie that makes
+            // the rest of the message untrustworthy.
+            const objects = added.slice(cut.backplate ? 1 : 0);
             record(
                 "image-added",
-                `${added.length} separate pieces were cut out of "${options.label ?? "an image"}".`,
+                `${objects.length} separate pieces were cut out of "${options.label ?? "an image"}"` +
+                `${cut.backplate ? ", and the scene behind them was painted in" : ""}.`,
                 options.by ?? "human",
-                { ids: added.map(l => l.id), pieces: added.length });
+                { ids: added.map(l => l.id), pieces: objects.length, backplate: !!cut.backplate });
 
             void original;
+            // The first *object*, not the backplate: a caller asking "what did I
+            // just add" means the thing, not the room behind it.
+            const primary = objects[0] ?? added[0];
             return {
-                layer: added[0],
+                layer: primary,
                 pieces: added,
-                loaded: images.get(added[0].id)!,
+                loaded: images.get(primary.id)!,
                 background: cut,
             };
         },
