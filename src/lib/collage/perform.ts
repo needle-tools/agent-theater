@@ -59,6 +59,16 @@ export interface MoveContext {
     /** Distance still to travel, for the moves that go somewhere. */
     dx: number;
     dy: number;
+    /**
+     * What the layer already is, for the keyframes to build on.
+     *
+     * The Web Animations API *replaces* the property it animates, so a beat
+     * that wrote only its own rotation would snap a tilted layer upright for
+     * the length of the beat and back again afterwards. Same for opacity. The
+     * layer's own values have to be part of every frame.
+     */
+    rotation?: number;
+    opacity?: number;
 }
 
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
@@ -391,4 +401,136 @@ export function restingPlaces(score: Score): Map<string, { dx: number; dy: numbe
         });
     }
     return moved;
+}
+
+// ── Keyframes ───────────────────────────────────────────────────────────────
+
+/**
+ * A beat as the browser wants it.
+ *
+ * The pose functions above stay the definition of what each move *means* —
+ * they are tuned, and every invariant worth having is asserted on them. This
+ * turns one into keyframes by sampling it, so playback moves to the Web
+ * Animations API without the vocabulary changing at all.
+ *
+ * Why hand it to the browser: `transform` and `opacity` animate on the
+ * compositor, so a beat stays smooth while the main thread is busy. It
+ * demonstrably is — tracing an image blocks it for seconds — and a scene that
+ * stutters whenever something else happens is not a scene.
+ */
+export interface Keyframe {
+    offset: number;
+    transform: string;
+    opacity: number;
+    /** The DOM's own keyframe type is indexed; this keeps ours assignable. */
+    [property: string]: string | number | undefined;
+}
+
+/** How finely a pose is sampled. Enough for the browser to interpolate between. */
+const SAMPLES = 30;
+
+/**
+ * Keyframes for one beat, ending where the layer already is.
+ *
+ * Travelling moves are written *backwards*: the document is updated to the
+ * destination first, and the animation runs from minus the journey to zero. It
+ * comes to the same thing on screen and avoids the alternative, which is
+ * holding the end state with `fill: forwards` and then swapping it for a real
+ * position — one frame of which is a flicker, every time anybody walks.
+ */
+export function keyframesFor(move: MoveName, context: MoveContext, samples = SAMPLES): Keyframe[] {
+    const frames: Keyframe[] = [];
+    for (let i = 0; i <= samples; i++) {
+        const t = i / samples;
+        const pose = poseFor(move, t, context);
+        const dx = pose.dx - context.dx;
+        const dy = pose.dy - context.dy;
+        frames.push({
+            offset: t,
+            transform:
+                `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) ` +
+                `rotate(${(pose.rotate + (context.rotation ?? 0)).toFixed(2)}deg) ` +
+                `scale(${pose.scaleX.toFixed(4)}, ${pose.scaleY.toFixed(4)})`,
+            opacity: pose.opacity * (context.opacity ?? 1),
+        });
+    }
+    return frames;
+}
+
+/** One thing that happens, in a scene where things happen one at a time. */
+export interface Beat {
+    id: string;
+    do?: MoveName;
+    say?: string;
+    to?: { x?: number; y?: number };
+    duration?: number;
+}
+
+export interface PlannedBeat {
+    id: string;
+    move: MoveName | null;
+    say: string | null;
+    /** Where this beat leaves the layer, relative to where it started. */
+    travel: { dx: number; dy: number } | null;
+    duration: number;
+}
+
+export interface Plan {
+    beats: PlannedBeat[];
+    /** End to end, since nothing overlaps. */
+    duration: number;
+}
+
+/**
+ * Turn a script into a plan.
+ *
+ * Sequential, with no timing arithmetic anywhere: a beat starts when the last
+ * one ends. That was a deliberate narrowing — an agent given a timeline writes
+ * a timeline, and then owns the problem of two beats disagreeing about who is
+ * where. One thing at a time is also how a play reads: the eye is meant to know
+ * where to look.
+ */
+export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
+    const problems: ScoreProblem[] = [];
+    const planned: PlannedBeat[] = [];
+
+    for (const [index, beat] of beats.entries()) {
+        const id = typeof beat?.id === "string" ? beat.id.trim() : "";
+        if (!id) {
+            problems.push({ index, reason: `every beat needs an "id" naming who it is about` });
+            continue;
+        }
+        const move = beat?.do ?? null;
+        if (move && !MOVES.includes(move)) {
+            problems.push({ index, reason: `"${move}" is not a move. Use one of: ${MOVES.join(", ")}` });
+            continue;
+        }
+        const say = typeof beat?.say === "string" && beat.say.trim() ? beat.say.trim() : null;
+        if (!move && !say) {
+            problems.push({ index, reason: `a beat must have a "do" or a "say"` });
+            continue;
+        }
+
+        const duration = Math.min(30_000, Math.max(120,
+            typeof beat?.duration === "number" && beat.duration > 0
+                ? beat.duration
+                : move ? DEFAULT_DURATION[move] : readingTime(say!)));
+
+        const travel = move && TRAVELS.has(move) && beat?.to
+            ? { dx: typeof beat.to.x === "number" ? beat.to.x : 0,
+                dy: typeof beat.to.y === "number" ? beat.to.y : 0 }
+            : null;
+
+        planned.push({ id, move, say, travel, duration });
+    }
+
+    const duration = planned.reduce((total, beat) => total + beat.duration, 0);
+    if (duration > MAX_PERFORMANCE_MS) {
+        problems.push({
+            index: -1,
+            reason: `the scene runs ${Math.round(duration / 1000)}s, longer than the ` +
+                `${MAX_PERFORMANCE_MS / 1000}s limit. Split it across scenes.`,
+        });
+    }
+    return { plan: { beats: planned, duration }, problems };
 }

@@ -15,6 +15,9 @@
  * only shows up when someone asks for 300 dpi.
  */
 
+import { castOf, placed, placeWith, withoutPlacement, type Placement, type Stage, type StageSpec } from "./stage.js";
+export type { EntranceName, Placement, Stage, StageSpec } from "./stage.js";
+
 export const MM_PER_INCH = 25.4;
 /** CSS pixels per inch — the ratio that makes a frame look life-sized on screen. */
 export const SCREEN_DPI = 96;
@@ -363,6 +366,33 @@ const FULL_CROP: CropBox = { x: 0, y: 0, width: 1, height: 1 };
 interface Snapshot {
     layers: Layer[];
     frames: Frame[];
+    stages: Stage[];
+}
+
+/** Does this edit say where something stands, rather than what it is? */
+function isPlacement(patch: LayerPatch): boolean {
+    return ["x", "y", "width", "height", "rotation", "z"].some(key => key in patch);
+}
+
+/**
+ * A placement edit, with height folded into width.
+ *
+ * A placement stores one dimension because the other follows the layer's own
+ * shape; an edit that gave only a height would otherwise be silently dropped.
+ */
+function sizedPatch(patch: LayerPatch, layer: Layer) {
+    const width = typeof patch.width === "number" && patch.width > 0
+        ? patch.width
+        : typeof patch.height === "number" && patch.height > 0 && layer.height > 0
+            ? (patch.height / layer.height) * layer.width
+            : undefined;
+    return {
+        ...(typeof patch.x === "number" ? { x: patch.x } : {}),
+        ...(typeof patch.y === "number" ? { y: patch.y } : {}),
+        ...(width !== undefined ? { width } : {}),
+        ...(typeof patch.rotation === "number" ? { rotation: patch.rotation } : {}),
+        ...(typeof patch.z === "number" ? { z: patch.z } : {}),
+    };
 }
 
 /** Edits of the same kind closer together than this undo as one step. */
@@ -380,6 +410,17 @@ const MAX_HISTORY = 120;
 export class Collage {
     private readonly layers = new Map<string, Layer>();
     private readonly frames = new Map<string, Frame>();
+    private readonly stages = new Map<string, Stage>();
+    /**
+     * The stage being shown, if any.
+     *
+     * When set, this document presents itself as that stage: `list` and `get`
+     * answer with its cast standing where the stage says, and an edit to a
+     * position writes to the placement rather than to the layer. That is what
+     * keeps the canvas, dragging, arranging, capture and export stage-aware
+     * without any of them knowing that stages exist.
+     */
+    private active: string | null = null;
     private readonly changed = new Set<() => void>();
     private readonly newId: (prefix: string) => string;
     private counter = 0;
@@ -479,7 +520,7 @@ export class Collage {
             // One snapshot for the whole group, taken before the first change.
             if (this.groupOpen) return;
             this.groupOpen = true;
-            this.past.push({ layers: [...this.layers.values()], frames: [...this.frames.values()] });
+            this.past.push(this.snapshot());
             if (this.past.length > MAX_HISTORY) this.past.shift();
             this.future.length = 0;
             // Cleared so the next edit after the group cannot coalesce into it.
@@ -491,7 +532,7 @@ export class Collage {
             this.lastEdit.at = now;
             return;
         }
-        this.past.push({ layers: [...this.layers.values()], frames: [...this.frames.values()] });
+        this.past.push(this.snapshot());
         if (this.past.length > MAX_HISTORY) this.past.shift();
         // Any new edit abandons the redo branch, as everywhere else.
         this.future.length = 0;
@@ -509,7 +550,7 @@ export class Collage {
     undo(): boolean {
         const previous = this.past.pop();
         if (!previous) return false;
-        this.future.push({ layers: [...this.layers.values()], frames: [...this.frames.values()] });
+        this.future.push(this.snapshot());
         this.apply(previous);
         return true;
     }
@@ -517,17 +558,37 @@ export class Collage {
     redo(): boolean {
         const next = this.future.pop();
         if (!next) return false;
-        this.past.push({ layers: [...this.layers.values()], frames: [...this.frames.values()] });
+        this.past.push(this.snapshot());
         this.apply(next);
         return true;
+    }
+
+    /**
+     * The whole document, cheaply.
+     *
+     * References, not copies: nothing here mutates a layer in place — every
+     * edit replaces it — so a snapshot is two array copies rather than a deep
+     * clone of the canvas. Stages are copied one level down because their cast
+     * array IS replaced by placement edits.
+     */
+    private snapshot(): Snapshot {
+        return {
+            layers: [...this.layers.values()],
+            frames: [...this.frames.values()],
+            stages: [...this.stages.values()],
+        };
     }
 
     private apply(snapshot: Snapshot) {
         this.replaying = true;
         this.layers.clear();
         this.frames.clear();
+        this.stages.clear();
         for (const layer of snapshot.layers) this.layers.set(layer.id, layer);
         for (const frame of snapshot.frames) this.frames.set(frame.id, frame);
+        for (const stage of snapshot.stages ?? []) this.stages.set(stage.id, stage);
+        // A stage that was undone out of existence cannot stay on screen.
+        if (this.active && !this.stages.has(this.active)) this.active = null;
         // A fresh edit after an undo must not coalesce into the edit it undid.
         this.lastEdit = null;
         this.replaying = false;
@@ -535,11 +596,91 @@ export class Collage {
     }
 
     list(): Layer[] {
+        const stage = this.activeStage;
+        if (stage) return castOf(stage, id => this.layers.get(id) ?? null);
+        return [...this.layers.values()].sort((a, b) => a.z - b.z);
+    }
+
+    /** Every layer, whatever stage is showing. For anything that edits the cast. */
+    listAll(): Layer[] {
         return [...this.layers.values()].sort((a, b) => a.z - b.z);
     }
 
     get(id: string): Layer | null {
-        return this.layers.get(id) ?? null;
+        const layer = this.layers.get(id);
+        if (!layer) return null;
+        const stage = this.activeStage;
+        if (!stage) return layer;
+        const index = stage.cast.findIndex(member => member.id === id);
+        if (index < 0) return stage.backdrop === id ? { ...layer, z: -1_000_000 } : layer;
+        return placed(layer, stage.cast[index], index);
+    }
+
+    // ── Stages ──────────────────────────────────────────────────────────────
+
+    get activeStage(): Stage | null {
+        return this.active ? this.stages.get(this.active) ?? null : null;
+    }
+
+    get activeStageId(): string | null {
+        return this.activeStage ? this.active : null;
+    }
+
+    /** Show a stage, or `null` for the whole canvas. Not an edit; not undoable. */
+    setActiveStage(id: string | null): Stage | null {
+        const next = id && this.stages.has(id) ? id : null;
+        if (next === this.active) return this.activeStage;
+        this.active = next;
+        this.emit();
+        return this.activeStage;
+    }
+
+    listStages(): Stage[] {
+        return [...this.stages.values()];
+    }
+
+    getStage(id: string): Stage | null {
+        return this.stages.get(id) ?? null;
+    }
+
+    addStage(spec: StageSpec = {}): Stage {
+        this.remember(`stage-add-${this.stages.size}`);
+        const stage: Stage = {
+            id: spec.id ?? this.newId("stage"),
+            name: spec.name?.trim() || `Scene ${this.stages.size + 1}`,
+            backdrop: spec.backdrop ?? null,
+            cast: [...(spec.cast ?? [])],
+            ...(typeof spec.hold === "number" ? { hold: spec.hold } : {}),
+        };
+        this.stages.set(stage.id, stage);
+        this.emit();
+        return stage;
+    }
+
+    updateStage(id: string, patch: Omit<StageSpec, "id">): Stage | null {
+        const current = this.stages.get(id);
+        if (!current) return null;
+        this.remember(`stage-${id}`);
+        const next: Stage = {
+            ...current,
+            ...(typeof patch.name === "string" && patch.name.trim() ? { name: patch.name.trim() } : {}),
+            ...(patch.backdrop !== undefined ? { backdrop: patch.backdrop } : {}),
+            ...(patch.cast ? { cast: [...patch.cast] } : {}),
+            ...(typeof patch.hold === "number" ? { hold: patch.hold } : {}),
+        };
+        this.stages.set(id, next);
+        this.emit();
+        return next;
+    }
+
+    removeStage(id: string): Stage | null {
+        const stage = this.stages.get(id);
+        if (!stage) return null;
+        this.remember(`stage-remove-${id}`);
+        this.stages.delete(id);
+        if (this.active === id) this.active = null;
+        this.emit();
+        return stage;
     }
 
     listFrames(): Frame[] {
@@ -691,7 +832,7 @@ export class Collage {
     }
 
     /** Replace the whole document — used when restoring a saved collage. */
-    restore(layers: Layer[], frames: Frame[]) {
+    restore(layers: Layer[], frames: Frame[], stages: Stage[] = []) {
         // Loading a session is not an edit, and undoing back past it into the
         // previous session's contents would be nonsense.
         this.past.length = 0;
@@ -699,6 +840,9 @@ export class Collage {
         this.lastEdit = null;
         this.layers.clear();
         this.frames.clear();
+        this.stages.clear();
+        this.active = null;
+        for (const stage of stages) this.stages.set(stage.id, stage);
         for (const layer of layers) {
             this.layers.set(layer.id, layer);
             if (layer.z > this.topZ) this.topZ = layer.z;
@@ -709,6 +853,37 @@ export class Collage {
     }
 
     update(id: string, patch: LayerPatch): Layer | null {
+        const current = this.layers.get(id);
+        if (!current) return null;
+
+        // While a stage is showing, where something stands is the stage's
+        // business and everything else is the layer's. Routing it here rather
+        // than at every call site is what lets dragging, arranging and the
+        // agent's own transforms all do the right thing without knowing that
+        // stages exist — and stops a scene's blocking leaking into the others
+        // the same character appears in.
+        const stage = this.activeStage;
+        if (stage && isPlacement(patch)) {
+            const index = stage.cast.findIndex(member => member.id === id);
+            if (index >= 0) {
+                this.remember(`place-${Object.keys(patch).sort().join(",")}-${id}`);
+                const cast = [...stage.cast];
+                cast[index] = placeWith(cast[index], sizedPatch(patch, current));
+                this.stages.set(stage.id, { ...stage, cast });
+                const rest = withoutPlacement(patch);
+                if (Object.keys(rest).length) {
+                    // Anything that is not about position still belongs to the
+                    // layer, so one call can move a character and recolour it.
+                    this.applyToLayer(id, rest as LayerPatch);
+                }
+                this.emit();
+                return this.get(id);
+            }
+        }
+        return this.applyToLayer(id, patch);
+    }
+
+    private applyToLayer(id: string, patch: LayerPatch): Layer | null {
         const current = this.layers.get(id);
         if (!current) return null;
         // Grouped by what is being changed, so a whole drag is one undo step

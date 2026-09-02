@@ -1,0 +1,149 @@
+/**
+ * Playing a scene, one beat at a time.
+ *
+ * The browser does the animating. Each beat becomes a keyframe set handed to
+ * the Web Animations API, which runs `transform` and `opacity` on the
+ * compositor — so a beat stays smooth while the main thread is busy, and it
+ * demonstrably is: tracing an image blocks it for seconds.
+ *
+ * Sequential throughout. A beat starts when the last one ends, which is a
+ * narrowing rather than a limitation: an agent handed a timeline writes a
+ * timeline, and then owns the problem of two beats disagreeing about where
+ * somebody is. It is also how a play reads — the eye is meant to know where to
+ * look.
+ *
+ * Travel is committed BEFORE its beat plays, and the beat then animates in from
+ * behind. The alternative is holding the end state with `fill: forwards` and
+ * swapping it for a real position afterwards, and the swap is one frame of
+ * flicker every time anybody walks.
+ */
+import { keyframesFor, type Plan, type PlannedBeat } from "./perform.js";
+
+export interface Stagehand {
+    /** The element drawing a layer, if it is on screen. */
+    elementFor(id: string): Element | null;
+    /** What the layer already is, so a beat builds on it rather than replacing it. */
+    stateOf(id: string): { size: number; rotation: number; opacity: number };
+    /** Move a layer for real. Called before a travelling beat animates. */
+    commit(id: string, dx: number, dy: number): void;
+    /** Put a line above somebody, or take it away. */
+    say(id: string, line: string | null, progress: number): void;
+    /** True once a layer has left, so it stays gone rather than snapping back. */
+    setGone(id: string, gone: boolean): void;
+}
+
+export interface Playing {
+    /** Resolves when the scene is over, or when it is stopped. */
+    finished: Promise<void>;
+    stop(): void;
+}
+
+/** Bubbles are typed in over the first part of their life, then held to be read. */
+const TYPING_SHARE = 0.45;
+/** How often a bubble redraws while typing. Smooth enough; not a frame loop. */
+const TYPING_TICK_MS = 40;
+
+/**
+ * Play a plan.
+ *
+ * Stopping is honoured between beats and mid-beat: a scene that could only be
+ * abandoned at a boundary would keep going for a second after the person asked
+ * it to stop, which is exactly the moment they will press it again.
+ */
+export function play(plan: Plan, hand: Stagehand): Playing {
+    let stopped = false;
+    let current: Animation | null = null;
+    let typing: ReturnType<typeof setInterval> | null = null;
+
+    const clear = () => {
+        if (typing) clearInterval(typing);
+        typing = null;
+    };
+
+    const finished = (async () => {
+        for (const beat of plan.beats) {
+            if (stopped) break;
+            await playBeat(beat);
+        }
+        clear();
+    })();
+
+    async function playBeat(beat: PlannedBeat): Promise<void> {
+        if (beat.say) return speak(beat);
+        if (!beat.move) return;
+
+        // The document is told where this ends up first; the animation then
+        // runs from minus the journey back to zero.
+        if (beat.travel) hand.commit(beat.id, beat.travel.dx, beat.travel.dy);
+
+        const element = hand.elementFor(beat.id);
+        if (!element || typeof element.animate !== "function") {
+            // No element to animate — the layer is off screen or the browser
+            // has no Web Animations. The scene still has to take its time, or
+            // narration written against it lands early.
+            return wait(beat.duration);
+        }
+
+        const layer = hand.stateOf(beat.id);
+        const frames = keyframesFor(beat.move, {
+            size: layer.size,
+            dx: beat.travel?.dx ?? 0,
+            dy: beat.travel?.dy ?? 0,
+            rotation: layer.rotation,
+            opacity: layer.opacity,
+        });
+        hand.setGone(beat.id, false);
+        current = element.animate(frames, { duration: beat.duration, easing: "linear", fill: "none" });
+        try {
+            await current.finished;
+        } catch {
+            // Cancelling an animation rejects. That is a stop, not a fault.
+        }
+        current = null;
+        if (!stopped && beat.move === "exit") hand.setGone(beat.id, true);
+    }
+
+    async function speak(beat: PlannedBeat): Promise<void> {
+        const line = beat.say!;
+        const started = performance.now();
+        hand.say(beat.id, line, 0);
+        // A timer rather than an animation: the bubble is text being revealed,
+        // not a transform, so there is nothing for the compositor to do.
+        await new Promise<void>(resolve => {
+            typing = setInterval(() => {
+                const elapsed = performance.now() - started;
+                if (stopped || elapsed >= beat.duration) {
+                    clear();
+                    resolve();
+                    return;
+                }
+                hand.say(beat.id, line, Math.min(1, elapsed / beat.duration / TYPING_SHARE));
+            }, TYPING_TICK_MS);
+        });
+        hand.say(beat.id, null, 0);
+    }
+
+    function wait(ms: number): Promise<void> {
+        return new Promise(resolve => {
+            const timer = setTimeout(resolve, ms);
+            // Stopping must not leave the scene waiting out a beat nobody can
+            // see, so the check runs alongside rather than after.
+            const poll = setInterval(() => {
+                if (!stopped) return;
+                clearTimeout(timer);
+                clearInterval(poll);
+                resolve();
+            }, 60);
+            setTimeout(() => clearInterval(poll), ms + 100);
+        });
+    }
+
+    return {
+        finished,
+        stop() {
+            stopped = true;
+            clear();
+            current?.cancel();
+        },
+    };
+}

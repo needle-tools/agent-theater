@@ -21,7 +21,8 @@
     import { maskHit } from "./imaging.js";
     import { overlaps, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
     import { FREE_PAGE, type CollageStudio } from "./studio.js";
-    import { AT_REST, stateAt, type Playing, type Score } from "./perform.js";
+    import type { Plan } from "./perform.js";
+    import { play, type Playing, type Stagehand } from "./player.js";
 
     interface Props {
         studio: CollageStudio;
@@ -91,102 +92,101 @@
     }));
 
     /**
-     * The performance, if one is running.
+     * The scene being played, if any.
      *
-     * An agent hands over a whole score and this plays it, because a tool call
-     * is a round trip and a walk cycle is sixty frames a second. Poses are held
-     * here rather than written to the document: a three-second walk would
-     * otherwise be a hundred and eighty edits through undo and IndexedDB, and
-     * undoing it would step back through the animation.
+     * The browser does the animating: each beat is a keyframe set handed to the
+     * Web Animations API, which runs transform and opacity on the compositor —
+     * so a beat stays smooth while the main thread is busy, and it demonstrably
+     * is. This end only supplies what the player cannot know: which element
+     * draws a layer, how big it is, and where to put a speech bubble.
      */
-    let cast = $state(new Map<string, Playing>());
-    let playing: { score: Score; started: number; frame: number; done: () => void } | null = null;
-
-    // The studio holds the tools' end of this; the clock lives here, where
-    // there is a requestAnimationFrame to hang it on.
-    $effect(() => {
-        studio.setPerformer(perform);
-        return () => studio.setPerformer(null);
-    });
-
-    export function perform(score: Score): Promise<void> {
-        stopPerforming();
-        if (!score.cues.length) return Promise.resolve();
-        return new Promise(resolve => {
-            const tick = (now: number) => {
-                if (!playing) return;
-                const elapsed = now - playing.started;
-                cast = stateAt(playing.score, elapsed, id => studio.collage.get(id)?.height ?? 100);
-                if (elapsed < playing.score.duration) {
-                    playing.frame = requestAnimationFrame(tick);
-                    return;
-                }
-                // Held on the final frame rather than cleared, so a layer that
-                // exited stays gone until something puts it back.
-                playing.frame = 0;
-                const finish = playing.done;
-                playing = null;
-                finish();
-            };
-            playing = { score, started: performance.now(), frame: 0, done: resolve };
-            playing.frame = requestAnimationFrame(tick);
-        });
-    }
-
-    export function stopPerforming() {
-        if (!playing) return;
-        if (playing.frame) cancelAnimationFrame(playing.frame);
-        const finish = playing.done;
-        playing = null;
-        cast = new Map();
-        finish();
-    }
-
-    const poseOf = (id: string) => cast.get(id)?.pose ?? AT_REST;
+    let scene: Playing | null = null;
+    /** Who is speaking and how far through, keyed by layer. */
+    let spoken = $state(new Map<string, { line: string; progress: number }>());
+    /** Layers that have exited and should stay gone. */
+    let gone = $state(new Set<string>());
 
     /**
      * Who is speaking, and where the bubble goes.
      *
-     * Above the layer and following whatever it is doing, because a bubble that
-     * stays put while its speaker jumps belongs to nobody. Sized against the
-     * layer so a bubble over a small sprite is a small bubble.
+     * Above the speaker and sized against them, so a bubble over a small sprite
+     * is a small bubble. It does not follow the beat's motion: the layer is
+     * being animated by the compositor and its live position is not readable
+     * from here without asking the DOM every frame, which is the one thing
+     * handing the animation to the browser was meant to avoid.
      */
     const speaking = $derived.by(() => {
         void version;
         const said: Array<{
             id: string; text: string; shown: string; x: number; y: number; size: number;
         }> = [];
-        for (const [id, state] of cast) {
-            if (!state.say || state.gone) continue;
+        for (const [id, state] of spoken) {
             const layer = studio.collage.get(id);
-            if (!layer) continue;
-            // Typed in over the first part of its life, then held: the reveal is
-            // the point, but reading time is what the rest of it is for.
-            const typed = Math.min(1, state.saying / 0.45);
-            const shown = state.say.slice(0, Math.max(1, Math.round(state.say.length * typed)));
+            if (!layer || gone.has(id)) continue;
             said.push({
                 id,
-                text: state.say,
-                shown,
-                x: layer.x + layer.width / 2 + state.pose.dx,
-                y: layer.y + state.pose.dy,
+                text: state.line,
+                // Revealed as it is spoken. The whole line is in the bubble
+                // already, invisible, so it does not grow a word at a time.
+                shown: state.line.slice(0, Math.max(1, Math.round(state.line.length * state.progress))),
+                x: layer.x + layer.width / 2,
+                y: layer.y,
                 size: Math.max(13, Math.min(34, layer.height * 0.075)),
             });
         }
         return said;
     });
 
-    /** The performed transform, appended to whatever the layer already does. */
-    function acting(layer: Layer): string {
-        const pose = poseOf(layer.id);
-        if (pose === AT_REST) return "";
-        const parts: string[] = [];
-        if (pose.dx || pose.dy) parts.push(`translate(${pose.dx.toFixed(2)}px, ${pose.dy.toFixed(2)}px)`);
-        if (pose.rotate) parts.push(`rotate(${pose.rotate.toFixed(2)}deg)`);
-        if (pose.scaleX !== 1 || pose.scaleY !== 1) {
-            parts.push(`scale(${pose.scaleX.toFixed(3)}, ${pose.scaleY.toFixed(3)})`);
-        }
-        return parts.join(" ");
+    const stagehand: Stagehand = {
+        elementFor: (id) => viewport?.querySelector(`[data-layer="${CSS.escape(id)}"]`) ?? null,
+        stateOf(id) {
+            const layer = studio.collage.get(id);
+            return {
+                size: layer?.height ?? 100,
+                rotation: layer?.rotation ?? 0,
+                opacity: layer && layer.kind === "image" ? layer.style.opacity : 1,
+            };
+        },
+        commit(id, dx, dy) {
+            const layer = studio.collage.get(id);
+            if (layer) studio.collage.update(id, { x: layer.x + dx, y: layer.y + dy });
+        },
+        say(id, line, progress) {
+            const next = new Map(spoken);
+            if (line) next.set(id, { line, progress });
+            else next.delete(id);
+            spoken = next;
+        },
+        setGone(id, away) {
+            const next = new Set(gone);
+            if (away) next.add(id);
+            else next.delete(id);
+            gone = next;
+        },
+    };
+
+    // The studio holds the tools' end of this; the clock lives here, where the
+    // elements are.
+    $effect(() => {
+        studio.setPerformer(playScene);
+        studio.setStopper(stopScene);
+        return () => {
+            studio.setPerformer(null);
+            studio.setStopper(null);
+        };
+    });
+
+    export async function playScene(plan: Plan): Promise<void> {
+        stopScene();
+        scene = play(plan, stagehand);
+        await scene.finished;
+        scene = null;
+    }
+
+    export function stopScene() {
+        scene?.stop();
+        scene = null;
+        spoken = new Map();
     }
 
     /** Layers cut or copied, waiting to be pasted. */
@@ -832,20 +832,23 @@
             `top: ${layer.y}px`,
             `width: ${layer.width}px`,
             `height: ${layer.height}px`,
-            // The performed transform goes first, so it moves the layer as a
-            // whole rather than being applied inside its own rotation.
-            `transform: ${[acting(layer), `rotate(${layer.rotation}deg)`].filter(Boolean).join(" ")}`,
+            `transform: rotate(${layer.rotation}deg)`,
             `z-index: ${layer.z}`,
             filters ? `filter: ${filters}` : "",
             performedOpacity(layer, layer.style.opacity),
         ].filter(Boolean).join("; ");
     }
 
-    /** A layer's own opacity, dimmed by whatever it is doing. */
+    /**
+     * A layer's opacity, or nothing at all once it has left the scene.
+     *
+     * Only the departure is held here. Everything else about a beat is the
+     * animation's business, and writing opacity inline while the Web Animations
+     * API is animating it would be two things arguing over one property.
+     */
     function performedOpacity(layer: Layer, own: number): string {
-        const state = cast.get(layer.id);
-        const opacity = (state?.gone ? 0 : state?.pose.opacity ?? 1) * own;
-        return opacity !== 1 ? `opacity: ${opacity.toFixed(3)}` : "";
+        if (gone.has(layer.id)) return "opacity: 0";
+        return own !== 1 ? `opacity: ${own}` : "";
     }
 
     /**
@@ -886,7 +889,7 @@
             `top: ${layer.y}px`,
             `width: ${layer.width}px`,
             `font-size: ${layer.fontSize}px`,
-            `transform: ${[acting(layer), `rotate(${layer.rotation}deg)`].filter(Boolean).join(" ")}`,
+            `transform: rotate(${layer.rotation}deg)`,
             `z-index: ${layer.z}`,
             indicator ? `filter: ${indicator}` : "",
             performedOpacity(layer, 1),
@@ -976,6 +979,7 @@
             {#if layer.kind === "image"}
                 <figure
                     class="layer"
+                    data-layer={layer.id}
                     class:layer--selected={selectedIds.length > 1 && isSelected(layer.id)}
                     class:layer--settling={settling}
                     style={imageStyle(layer)}
@@ -993,6 +997,7 @@
                     class:layer--settling={settling}
                     class:layer--editing={editingId === layer.id}
                     contenteditable={editingId === layer.id ? "plaintext-only" : "false"}
+                    data-layer={layer.id}
                     style={textStyle(layer)}
                     {@attach node => { if (editingId === layer.id) focusForEditing(node); }}
                     onblur={event => commitEdit(event.currentTarget as HTMLElement, layer.id)}

@@ -28,7 +28,7 @@ import {
     type StoredDoc, type StoredView,
 } from "./persistence.js";
 import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
-import { restingPlaces, type Score } from "./perform.js";
+import type { Plan } from "./perform.js";
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
 
@@ -194,14 +194,18 @@ export interface CollageStudio {
     /** Announce such a move. Call before mutating, so the view can prepare. */
     settle(): void;
     /**
-     * Play a score. Resolves when the last beat finishes.
+     * Play a scene. Resolves when the last beat finishes.
      *
      * The canvas registers itself as the performer; without one this is a no-op
-     * that still commits where things were meant to end up, so the tools behave
-     * the same in a test as in a browser.
+     * that still commits where things end up, so the tools behave the same in a
+     * test as in a browser.
      */
-    performScore(score: Score): Promise<void>;
-    setPerformer(performer: ((score: Score) => Promise<void>) | null): void;
+    playScene(plan: Plan): Promise<void>;
+    setPerformer(performer: ((plan: Plan) => Promise<void>) | null): void;
+    /** The canvas hands back a way to abandon what it is playing. */
+    setStopper(stop: (() => void) | null): void;
+    /** Abandon whatever is playing. */
+    stopScene(): void;
     /** True while a score is playing, so a second one can be refused. */
     readonly performing: boolean;
     /**
@@ -333,7 +337,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
     let selection: string[] = [];
     const selectionWatchers = new Set<() => void>();
     const settleWatchers = new Set<() => void>();
-    let performer: ((score: Score) => Promise<void>) | null = null;
+    let performer: ((plan: Plan) => Promise<void>) | null = null;
+    let stopPerformance: (() => void) | null = null;
     let acting = false;
     const announceSettle = () => { for (const watcher of [...settleWatchers]) watcher(); };
 
@@ -375,10 +380,13 @@ export function createStudio(collage = new Collage()): CollageStudio {
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
             saveTimer = null;
-            saveDoc(collage.list(), collage.listFrames(), lastView);
+            saveDoc(collage.listAll(), collage.listFrames(), lastView, collage.listStages());
             // Cheap enough to run alongside a save, and it keeps a long session
             // from leaving every superseded cut-out behind in the store.
-            void collectGarbage(collage.list());
+            // listAll, emphatically. With a stage showing, list() answers with
+            // that stage's cast — and collecting against it would delete the
+            // stored bytes of every layer in every OTHER scene.
+            void collectGarbage(collage.listAll());
         }, SAVE_DEBOUNCE_MS);
     };
 
@@ -390,7 +398,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
     // catches all of those in one place instead of one call site at a time.
     let webFontsLinked = false;
     collage.onChanged(() => {
-        if (webFontsLinked || !webFontsUsed(collage.list()).length) return;
+        if (webFontsLinked || !webFontsUsed(collage.listAll()).length) return;
         webFontsLinked = true;
         void loadWebFonts();
     });
@@ -1014,7 +1022,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // becomes the page and the rest are dropped.
             const frames = doc.frames.slice(0, 1);
             pagePreset = knownPage(frames[0]?.presetId);
-            collage.restore(restored, frames);
+            collage.restore(restored, frames, doc.stages ?? []);
             // Decode in parallel — a dozen images should not be a dozen waits.
             await Promise.all(restored
                 .filter((l): l is ImageLayer => l.kind === "image")
@@ -1043,7 +1051,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // Each layer's bytes, once, however many layers share them.
             const assets: CollageAsset[] = [];
             const seen = new Set<string>();
-            for (const layer of collage.list()) {
+            // Every layer, not the visible stage's: a saved file has to carry
+            // the whole show, not the scene that happened to be up.
+            for (const layer of collage.listAll()) {
                 if (layer.kind !== "image" || !layer.storageKey || seen.has(layer.storageKey)) continue;
                 seen.add(layer.storageKey);
                 const blob = await getImage(layer.storageKey);
@@ -1060,7 +1070,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 savedAt: Date.now(),
                 // Same rule as localStorage: a blob: URL means nothing to
                 // whoever opens this next, so the storageKey is what travels.
-                layers: collage.list().map(layer =>
+                layers: collage.listAll().map(layer =>
                     layer.kind === "image" && layer.storageKey ? { ...layer, src: "" } : layer),
                 frames: [frame],
                 ...(lastView ? { view: lastView } : {}),
@@ -1106,7 +1116,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
             // An empty canvas takes the file's page; an occupied one keeps its
             // own, because the person arranging it chose that.
-            if (collage.list().length === arriving.length) {
+            if (collage.listAll().length === arriving.length) {
                 const frame = payload.doc.frames[0];
                 if (frame) this.setPage(knownPage(frame.presetId));
                 lastView = payload.doc.view;
@@ -1128,33 +1138,33 @@ export function createStudio(collage = new Collage()): CollageStudio {
             performer = next;
         },
 
+        /** The canvas hands this back so a scene can be abandoned from anywhere. */
+        setStopper(stop: (() => void) | null) {
+            stopPerformance = stop;
+        },
+
         get performing() {
             return acting;
         },
 
-        async performScore(score) {
+        async playScene(plan) {
             acting = true;
             try {
-                if (performer) await performer(score);
+                // One undo entry for the scene. Every travelling beat commits
+                // as it plays — the beat then animates in from behind, which is
+                // how a walk arrives without a frame of flicker — and grouping
+                // them means undo takes back the scene, not each footstep.
+                await collage.batch(async () => {
+                    if (performer) await performer(plan);
+                });
             } finally {
                 acting = false;
             }
-            // Where the travelling beats left everyone, applied once. During the
-            // performance the layers only *appear* to move — writing each frame
-            // to the document would put a hundred and eighty entries through
-            // undo and IndexedDB for one walk.
-            const moved = restingPlaces(score);
-            if (!moved.size) return;
-            announceSettle();
-            collage.batch(() => {
-                for (const [id, offset] of moved) {
-                    const layer = collage.get(id);
-                    if (!layer) continue;
-                    collage.update(id, { x: layer.x + offset.dx, y: layer.y + offset.dy });
-                }
-            });
-            record("layer-moved", `${moved.size} layer(s) ended up somewhere new after performing.`, "agent");
             scheduleSave();
+        },
+
+        stopScene() {
+            stopPerformance?.();
         },
 
         save(view) {

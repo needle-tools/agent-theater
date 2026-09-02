@@ -21,7 +21,8 @@ import { FONTS, FRAME_PRESETS, findFont, outputSize, type Frame, type ImageLayer
 import { LAYOUT_MODES, type LayoutMode } from "./layout.js";
 import { checkFrame } from "./quality.js";
 import { FREE_PAGE, type CollageStudio, type ExportFormat } from "./studio.js";
-import { MAX_CUES, MOVES, score, type Cue } from "./perform.js";
+
+import { createStageTools } from "./stageTools.js";
 
 export interface ToolResult {
     content: Array<
@@ -73,10 +74,81 @@ async function within<T>(work: Promise<T>, waiting: () => ToolResult): Promise<T
     return winner ?? waiting();
 }
 
+/**
+ * What an agent putting on a show actually needs.
+ *
+ * Tool definitions are re-sent on every turn of a conversation, so the surface
+ * is not free — every tool an agent will never use is paid for in every message
+ * and read past when it is choosing what to do. This is the theatre: get
+ * pictures in, put them in scenes, block them, act them, look.
+ *
+ * Left out on purpose, and still there for the person: arranging a collage,
+ * tracing to vector, paper sizes, exporting a PNG or a page, styling a cut-out.
+ * Those are real features with real interfaces — a menu item, a button, a
+ * picker — and none of them is a thing an agent needs in order to stage a play.
+ */
+const THEATRE = new Set([
+    "collage_describe", "collage_add_image", "collage_add_text",
+    "collage_transform", "collage_remove", "collage_preview", "collage_watch",
+]);
+
 export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
-    const tools = buildTools(studio);
+    // Scene tools alongside the canvas ones, and both reachable from a batch:
+    // staging a scene is blocking a cast, which is many small placements and
+    // exactly the thing worth doing in one call.
+    const tools = [
+        ...buildTools(studio).filter(tool => THEATRE.has(tool.name)),
+        ...createStageTools(studio),
+    ];
+    return [...tools, batchTool(studio, tools)].map(tool => reportChanges(studio, tool));
+}
+
+/** Every tool, registered or not — the tests exercise the ones a person still reaches. */
+export function createAllCollageTools(studio: CollageStudio): WebMcpToolDef[] {
+    const tools = [...buildTools(studio), ...createStageTools(studio)];
     return [...tools, batchTool(studio, tools)];
 }
+
+/**
+ * Tell the agent what it missed.
+ *
+ * A person keeps editing while an agent thinks, so anything the agent believes
+ * about the canvas can be stale by the time it acts — and the failure is quiet:
+ * it moves a layer that is no longer where it thought, or reports a result
+ * confidently having never looked. Polling would fix it and no agent reliably
+ * remembers to poll.
+ *
+ * So every result carries a line when something has happened since that agent
+ * last called anything. Only when there is something to say: an agent told
+ * "nothing changed" fifteen times a minute learns to skip the line.
+ */
+function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDef {
+    return {
+        ...tool,
+        async execute(args: unknown, options?: { signal?: AbortSignal }) {
+            const since = seen;
+            const result = await tool.execute(args, options);
+            const events = studio.eventsSince(since);
+            seen = events.length ? events[events.length - 1].seq : since;
+            // Its own doing is not news; the person's is.
+            const theirs = events.filter(event => event.by === "human");
+            if (!theirs.length) return result;
+            const what = theirs.length === 1
+                ? theirs[0].summary
+                : `${theirs.length} things happened, the last: ${theirs[theirs.length - 1].summary}`;
+            return {
+                ...result,
+                content: [
+                    ...result.content,
+                    { type: "text" as const, text: `Meanwhile, the person was working: ${what}` },
+                ],
+            };
+        },
+    };
+}
+
+/** The last event this agent has been told about. */
+let seen = 0;
 
 /**
  * Run several tools in one call.
@@ -704,85 +776,6 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 if (args?.order === "front") layer = collage.bringToFront(found.layer.id);
                 if (args?.order === "back") layer = collage.sendToBack(found.layer.id);
                 return ok(`Updated ${describeLayer(layer!)}.`, { layer });
-            },
-        },
-        {
-            name: "collage_perform",
-            title: "Act out a scene",
-            description:
-                "Play a timed score: who moves, when, and what they say. Hand over the WHOLE sequence in one " +
-                "call — you cannot animate by calling a tool per frame, and you do not need to. The page " +
-                "plays it on its own clock and this returns immediately with the timings, so you are free to " +
-                "narrate over the top. " +
-                `Moves: ${MOVES.join(", ")}. "walk" and "jump" take a "to" and end up there; the rest return ` +
-                "to where they started. A cue with no \"at\" follows on from that layer's last move, so a " +
-                "scene reads as a list of things happening rather than as arithmetic. A layer can move and " +
-                "speak at once. Nothing is written to the document while it plays, so undo afterwards is one " +
-                "step.",
-            inputSchema: {
-                type: "object",
-                properties: {
-                    cues: {
-                        type: "array",
-                        description: "The score, in the order it should be read.",
-                        items: {
-                            type: "object",
-                            properties: {
-                                id: { type: "string", description: "Which layer acts." },
-                                do: { type: "string", enum: [...MOVES], description: "What it does." },
-                                say: { type: "string", description: "A line, in a bubble above it." },
-                                at: { type: "number", description: "Milliseconds from the start. Omit to follow on." },
-                                duration: { type: "number", description: "Override the beat's own length, in ms." },
-                                to: {
-                                    type: "object",
-                                    description: "Where a walk or jump ends up, relative to now, in canvas units.",
-                                    properties: { x: { type: "number" }, y: { type: "number" } },
-                                },
-                            },
-                            required: ["id"],
-                        },
-                    },
-                },
-                required: ["cues"],
-            },
-            async execute(args: { cues?: Cue[] }) {
-                const cues = Array.isArray(args?.cues) ? args.cues : [];
-                if (!cues.length) return fail(`Pass "cues" — the score to play.`);
-                if (cues.length > MAX_CUES) {
-                    return fail(`${cues.length} cues is more than the ${MAX_CUES} this plays at once. Send the scene in parts.`);
-                }
-                if (studio.performing) {
-                    return fail(`Something is already being performed. Wait for it to finish, or the two would play over each other.`);
-                }
-
-                const missing = [...new Set(cues.map(c => str(c?.id)).filter(Boolean))].filter(id => !collage.get(id));
-                if (missing.length) {
-                    return fail(
-                        `No layer called ${missing.map(id => `"${id}"`).join(", ")}. Call collage_describe for ` +
-                        `what is on the canvas.`);
-                }
-
-                const { score: plan, problems } = score(cues);
-                if (problems.length) {
-                    return fail(
-                        ["The score has problems:", ...problems.map(
-                            p => (p.index >= 0 ? `cue ${p.index + 1}: ${p.reason}` : p.reason))].join("\n"));
-                }
-
-                // Deliberately not awaited. A scene runs for seconds; blocking
-                // on it would burn the caller's whole timeout watching an
-                // animation it cannot see, when the point is to narrate over it.
-                void studio.performScore(plan).catch(error => {
-                    console.warn("[collage] the performance failed:", error);
-                });
-
-                const timeline = plan.cues.map(cue =>
-                    `${(cue.start / 1000).toFixed(1)}s ${cue.id} ${cue.move ?? `says "${truncate(cue.say ?? "", 40)}"`}`);
-                return ok(
-                    [`Playing — ${plan.cues.length} cues over ${(plan.duration / 1000).toFixed(1)}s. ` +
-                     `It is running now, so narrate along with it rather than waiting.`,
-                     ...timeline].join("\n"),
-                    { playing: true, duration: plan.duration, cues: plan.cues });
             },
         },
         {

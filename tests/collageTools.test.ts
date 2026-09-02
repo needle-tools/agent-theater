@@ -5,9 +5,9 @@ import {
     FREE_PAGE, fitAround,
     type ArrangeOptions, type CollageEvent, type CollageStudio, type ExportFormat, type ExportOptions,
 } from "../src/lib/collage/studio.js";
-import { createCollageTools, type WebMcpToolDef } from "../src/lib/collage/tools.js";
+import { createAllCollageTools, createCollageTools, type WebMcpToolDef } from "../src/lib/collage/tools.js";
 import type { LoadedImage } from "../src/lib/collage/imaging.js";
-import { restingPlaces, type Score } from "../src/lib/collage/perform.js";
+import type { Plan } from "../src/lib/collage/perform.js";
 
 /**
  * The tools are the agent's whole surface onto the collage, so what is tested
@@ -42,7 +42,7 @@ function fakeStudio(options: FakeOptions = {}) {
     let pagePreset = FREE_PAGE;
     let selection: string[] = [];
 
-    const studio: CollageStudio & { performed: Score[] } = {
+    const studio: CollageStudio & { played: Plan[] } = {
         collage,
         images,
         async addImage(url, opts = {}) {
@@ -92,17 +92,19 @@ function fakeStudio(options: FakeOptions = {}) {
         async openFile() { return 0; },
         onSettle() { return () => { /* nothing to stop */ }; },
         settle() { /* the fake has no view to animate */ },
-        // No canvas to act on, so a score is accepted and finishes at once —
-        // which is what lets the tool be tested without a clock.
-        performed: [] as Score[],
+        // No canvas to act on, so a scene is accepted and finishes at once —
+        // which is what lets the tools be tested without a clock.
+        played: [] as Plan[],
         setPerformer() { /* the fake is its own performer */ },
+        setStopper() { /* nothing is playing to stop */ },
+        stopScene() { /* nor here */ },
         get performing() { return false; },
-        async performScore(score: Score) {
-            (studio as any).performed.push(score);
-            const moved = restingPlaces(score);
-            for (const [id, offset] of moved) {
-                const layer = collage.get(id);
-                if (layer) collage.update(id, { x: layer.x + offset.dx, y: layer.y + offset.dy });
+        async playScene(plan: Plan) {
+            (studio as any).played.push(plan);
+            for (const beat of plan.beats) {
+                if (!beat.travel) continue;
+                const layer = collage.get(beat.id);
+                if (layer) collage.update(beat.id, { x: layer.x + beat.travel.dx, y: layer.y + beat.travel.dy });
             }
         },
         save() { /* nothing to persist in a fake */ },
@@ -196,7 +198,7 @@ function fakeStudio(options: FakeOptions = {}) {
         },
     };
 
-    const tools = createCollageTools(studio);
+    const tools = createAllCollageTools(studio);
     return {
         studio,
         collage,
@@ -223,7 +225,7 @@ describe("tool surface", () => {
         const { tools } = fakeStudio();
         expect(tools.length).toBeGreaterThan(0);
         for (const tool of tools) {
-            expect(tool.name).toMatch(/^collage_[a-z_]+$/);
+            expect(tool.name).toMatch(/^(collage|stage|show)_[a-z_]+$/);
             expect(tool.description.length).toBeGreaterThan(20);
             expect((tool.inputSchema as { type?: string }).type).toBe("object");
             expect(typeof tool.execute).toBe("function");
@@ -721,5 +723,38 @@ describe("running several tools at once", () => {
         const tooMany = await batch.execute({ steps: many });
         expect(tooMany.isError).toBe(true);
         expect(textOf(tooMany)).toMatch(/smaller batches/);
+    });
+});
+
+describe("the surface an agent actually sees", () => {
+    /**
+     * Definitions are re-sent on every turn of a conversation, so a tool an
+     * agent will never use is paid for in every message and read past every
+     * time it chooses what to do. The registered set is the theatre; the rest
+     * are features with interfaces of their own.
+     */
+    it("is the theatre and nothing else", () => {
+        const { studio } = fakeStudio();
+        expect(createCollageTools(studio).map(t => t.name).sort()).toEqual([
+            "collage_add_image", "collage_add_text", "collage_batch", "collage_describe",
+            "collage_preview", "collage_remove", "collage_transform", "collage_watch",
+            "stage_cast", "stage_create", "stage_describe", "stage_script",
+        ]);
+    });
+
+    it("leaves the authoring features out, not deleted", () => {
+        // They are still reachable — a menu item, a button, a picker — because
+        // a person tracing a sprite to vector is a real thing to want. It is
+        // just not a thing an agent needs in order to stage a play.
+        const { studio } = fakeStudio();
+        const everything = createAllCollageTools(studio).map(t => t.name);
+        for (const left of ["collage_arrange", "collage_trace", "collage_export", "collage_style"]) {
+            expect(everything).toContain(left);
+        }
+    });
+
+    it("no longer offers the score tool the scenes replaced", () => {
+        const { studio } = fakeStudio();
+        expect(createAllCollageTools(studio).map(t => t.name)).not.toContain("collage_perform");
     });
 });
