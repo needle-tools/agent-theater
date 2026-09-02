@@ -10,7 +10,7 @@
 import {
     Collage, bounds, overlaps,
     type AddFrameSpec, type Frame, type ImageLayer, type Layer, type Rect,
-    outputSize, presetCanvasSize, findPreset, unionBounds,
+    outputSize, presetCanvasSize, findPreset, unionBounds, type Stage,
 } from "./model.js";
 import { arrange as computeLayout, type LayoutMode, type LayoutOptions } from "./layout.js";
 import { loadImage, readPixels, toDataUrl, type LoadedImage } from "./imaging.js";
@@ -28,7 +28,8 @@ import {
     type StoredDoc, type StoredView,
 } from "./persistence.js";
 import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
-import type { Plan } from "./perform.js";
+import { plan as planScene, type Plan } from "./perform.js";
+import { DEFAULT_HOLD, sceneBeats, type ShowTiming } from "./show.js";
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
 
@@ -206,6 +207,17 @@ export interface CollageStudio {
     setStopper(stop: (() => void) | null): void;
     /** Abandon whatever is playing. */
     stopScene(): void;
+    /**
+     * Run the scenes one after another: build-up, script, hand-off, next.
+     *
+     * Returns the timings straight away and keeps playing, because the point of
+     * a show is that somebody narrates over it — a call that blocked for the
+     * length of the play would be the one thing the agent could not talk during.
+     */
+    playShow(stageIds?: string[]): { timings: ShowTiming[]; duration: number };
+    stopShow(): void;
+    /** The scene the show is on, or null when nothing is running. */
+    readonly showing: string | null;
     /** True while a score is playing, so a second one can be refused. */
     readonly performing: boolean;
     /**
@@ -340,6 +352,46 @@ export function createStudio(collage = new Collage()): CollageStudio {
     let performer: ((plan: Plan) => Promise<void>) | null = null;
     let stopPerformance: (() => void) | null = null;
     let acting = false;
+    /** The scene the show is on, and whether it should still be going. */
+    let running: string | null = null;
+    let wanted = false;
+
+    /**
+     * The show itself.
+     *
+     * Each scene is: put the arrivals where they come in from, play the whole
+     * thing as one plan, hold, then move on. Stopping is checked between every
+     * step rather than only between scenes — a show that ignored the request
+     * until the current scene ended would ignore it for half a minute.
+     */
+    const runShow = async (stages: Stage[]) => {
+        wanted = true;
+        for (const stage of stages) {
+            if (!wanted) break;
+            running = stage.id;
+            collage.setActiveStage(stage.id);
+
+            const { approach, beats } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
+            // Arrivals start off stage. Done through the placement, so the
+            // walk that brings them on commits back to exactly where the stage
+            // says they stand — no drift, however many times the show runs.
+            if (approach.length) {
+                collage.batch(() => {
+                    for (const step of approach) {
+                        const layer = collage.get(step.id);
+                        if (layer) collage.update(step.id, { x: layer.x + step.dx, y: layer.y + step.dy });
+                    }
+                });
+            }
+
+            const { plan } = planScene(beats);
+            if (plan.beats.length) await studio.playScene(plan);
+            if (!wanted) break;
+            await new Promise(resolve => setTimeout(resolve, (stage.hold ?? DEFAULT_HOLD) * 1000));
+        }
+        running = null;
+        wanted = false;
+    };
     const announceSettle = () => { for (const watcher of [...settleWatchers]) watcher(); };
 
     const record = (
@@ -471,7 +523,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
         return loaded;
     };
 
-    return {
+    const studio: CollageStudio = {
         collage,
         images,
 
@@ -1167,6 +1219,38 @@ export function createStudio(collage = new Collage()): CollageStudio {
             stopPerformance?.();
         },
 
+        get showing() {
+            return running;
+        },
+
+        playShow(stageIds) {
+            const wanted = stageIds?.length
+                ? stageIds.map(id => collage.getStage(id)).filter((s): s is Stage => !!s)
+                : collage.listStages();
+
+            // The plan is worked out for every scene before the first one runs,
+            // so the agent gets the whole timetable in the reply rather than
+            // discovering scene four's start time when it arrives.
+            const timings: ShowTiming[] = [];
+            let at = 0;
+            for (const stage of wanted) {
+                const { beats } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
+                const { plan } = planScene(beats);
+                const hold = (stage.hold ?? DEFAULT_HOLD) * 1000;
+                timings.push({ stage: stage.id, name: stage.name, at, duration: plan.duration + hold });
+                at += plan.duration + hold;
+            }
+
+            void runShow(wanted);
+            return { timings, duration: at };
+        },
+
+        stopShow() {
+            wanted = false;
+            running = null;
+            stopPerformance?.();
+        },
+
         save(view) {
             if (view) lastView = view;
             scheduleSave();
@@ -1302,6 +1386,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
             };
         },
     };
+
+    return studio;
 }
 
 /**

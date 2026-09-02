@@ -14,6 +14,7 @@
  * becomes stage-aware without knowing that stages exist, which is the only way
  * a feature this broad stays out of every other file.
  */
+import type { Beat } from "./perform.js";
 import type { Layer } from "./model.js";
 
 /** How a cast member arrives when a stage builds up. */
@@ -41,6 +42,15 @@ export interface Stage {
      */
     backdrop: string | null;
     cast: Placement[];
+    /**
+     * What happens once the scene has built up.
+     *
+     * Stored rather than played and forgotten: a show runs its scenes one after
+     * another and has to know what each of them does. A script that only
+     * existed at the moment it was sent could be performed once and never
+     * again, which is not a play — it is a rehearsal.
+     */
+    script: Beat[];
     /** Seconds to hold after the scene before moving on. */
     hold?: number;
 }
@@ -50,6 +60,7 @@ export interface StageSpec {
     name?: string;
     backdrop?: string | null;
     cast?: Placement[];
+    script?: Beat[];
     hold?: number;
 }
 

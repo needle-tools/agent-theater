@@ -215,7 +215,7 @@
                         {#each item.items as child (child.label)}
                             <button
                                 class="item"
-                                role="menuitem"
+                                role={child.checked === undefined ? "menuitem" : "menuitemcheckbox"}
                                 aria-checked={child.checked === undefined ? undefined : child.checked}
                                 disabled={child.disabled}
                                 onclick={() => select(child)}
@@ -241,7 +241,7 @@
             <button
                 class="item"
                 class:item--danger={item.danger}
-                role="menuitem"
+                role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"}
                 aria-checked={item.checked === undefined ? undefined : item.checked}
                 disabled={item.disabled}
                 onclick={() => select(item)}

@@ -47,6 +47,65 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
 
     return [
         {
+            name: "show_play",
+            title: "Put the show on",
+            description:
+                "Run the scenes one after another. Each one builds up — everybody with an entrance arrives — " +
+                "then its script plays, then they leave and the next scene begins. Returns the whole timetable " +
+                "at once and keeps playing, so you know when each scene starts and can narrate to it rather " +
+                "than waiting. The build-up and the exits are made for you; you only write what happens in " +
+                "between, with stage_script.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    stages: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Scene ids, in the order to play them. Omit for all of them, as created.",
+                    },
+                },
+            },
+            async execute(args: { stages?: string[] }) {
+                if (studio.showing) {
+                    return fail(`The show is already running. Stop it with show_stop before starting another.`);
+                }
+                const wanted = (Array.isArray(args?.stages) ? args.stages : []).map(str).filter(Boolean);
+                const missing = wanted.filter(id => !collage.getStage(id));
+                if (missing.length) {
+                    return fail(`No scene called ${missing.map(id => `"${id}"`).join(", ")}. Call stage_describe.`);
+                }
+                if (!collage.listStages().length) {
+                    return fail(`There are no scenes to play. Make one with stage_create.`);
+                }
+
+                const { timings, duration } = studio.playShow(wanted.length ? wanted : undefined);
+                if (!timings.length) return fail(`Nothing to play.`);
+
+                return ok(
+                    [`The show is running — ${timings.length} scene(s), ${(duration / 1000).toFixed(1)}s. ` +
+                     `Narrate along with it; do not wait for it.`,
+                     ...timings.map(t =>
+                         `${(t.at / 1000).toFixed(1)}s  "${t.name}"  (${(t.duration / 1000).toFixed(1)}s)`),
+                    ].join("\n"),
+                    { playing: true, timings, duration });
+            },
+        },
+        {
+            name: "show_stop",
+            title: "Stop the show",
+            annotations: { readOnlyHint: false },
+            description:
+                "Stop the show wherever it has got to. The scene it was on stays on screen, so the canvas is " +
+                "left somewhere sensible rather than blank.",
+            inputSchema: { type: "object", properties: {} },
+            async execute() {
+                if (!studio.showing) return ok(`Nothing was running.`, { stopped: false });
+                const where = collage.activeStage?.name ?? "a scene";
+                studio.stopShow();
+                return ok(`Stopped during "${where}". It is still on screen.`, { stopped: true });
+            },
+        },
+        {
             name: "stage_script",
             title: "Act out a scene",
             description:
@@ -54,13 +113,18 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "call — you cannot animate by calling a tool per frame, and you do not need to. The page " +
                 "plays it and this returns at once with the timings, so you are free to narrate over the top. " +
                 "One thing happens at a time: a beat starts when the last one ends, and there is no timing to " +
-                "work out. " +
+                "work out. The scene KEEPS its script, so show_play can run it again as part of the whole " +
+                "show — pass rehearse:false to write it without playing it now. " +
                 `Moves: ${MOVES.join(", ")}. "walk" and "jump" take a "to" and leave the layer there; ` +
                 "everything else finishes exactly where it started.",
             inputSchema: {
                 type: "object",
                 properties: {
                     stage: { type: "string", description: "Which scene. Omit for the one being shown." },
+                    rehearse: {
+                        type: "boolean",
+                        description: "Play it now as well as saving it. Default true.",
+                    },
                     beats: {
                         type: "array",
                         description: "What happens, in order.",
@@ -83,17 +147,18 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 },
                 required: ["beats"],
             },
-            async execute(args: { stage?: string; beats?: Beat[] }) {
+            async execute(args: { stage?: string; beats?: Beat[]; rehearse?: boolean }) {
                 const beats = Array.isArray(args?.beats) ? args.beats : [];
                 if (!beats.length) return fail(`Pass "beats" — what happens in the scene.`);
-                if (studio.performing) {
+                const rehearse = args?.rehearse !== false;
+                if (rehearse && studio.performing) {
                     return fail(`A scene is already playing. Wait for it to finish, or the two run over each other.`);
                 }
 
                 const found = resolve(str(args?.stage));
                 if ("error" in found) return found.error;
                 const stage = found.stage;
-                if (collage.activeStageId !== stage.id) collage.setActiveStage(stage.id);
+                if (rehearse && collage.activeStageId !== stage.id) collage.setActiveStage(stage.id);
 
                 // Everyone in the script has to be in the scene, or the beat
                 // plays against a layer nobody can see and the agent is told it
@@ -114,12 +179,21 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         p => (p.index >= 0 ? `beat ${p.index + 1}: ${p.reason}` : p.reason))].join("\n"));
                 }
 
+                // Kept, not just played. A show runs its scenes one after
+                // another and has to know what each of them does; a script that
+                // only existed at the moment it was sent could be performed
+                // once and never again, which is a rehearsal, not a play.
+                collage.updateStage(stage.id, { script: beats });
+                studio.save();
+
                 // Deliberately not awaited: a scene runs for seconds and the
                 // point is to talk over it, not to sit watching an animation
                 // the caller cannot see.
-                void studio.playScene(plan).catch((error: unknown) => {
-                    console.warn("[collage] the scene failed:", error);
-                });
+                if (rehearse) {
+                    void studio.playScene(plan).catch((error: unknown) => {
+                        console.warn("[collage] the scene failed:", error);
+                    });
+                }
 
                 let at = 0;
                 const timeline = plan.beats.map(beat => {

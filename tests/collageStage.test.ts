@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { Collage, type ImageLayer } from "../src/lib/collage/model.js";
-import { castOf, placed } from "../src/lib/collage/stage.js";
+import { castOf, placed, type EntranceName, type Stage } from "../src/lib/collage/stage.js";
+import { buildUp, handOff, sceneBeats } from "../src/lib/collage/show.js";
+import type { Beat } from "../src/lib/collage/perform.js";
 
 /**
  * Scenes.
@@ -104,7 +106,7 @@ describe("a stage holds placements, not layers", () => {
             { id: "a", width: 10, height: 10, z: 99 },
             { id: "b", width: 10, height: 10, z: 1 },
         ] as ImageLayer[];
-        const stage = { id: "s", name: "s", backdrop: null, cast: [{ id: "b", x: 0, y: 0 }, { id: "a", x: 0, y: 0 }] };
+        const stage = { id: "s", name: "s", backdrop: null, script: [], cast: [{ id: "b", x: 0, y: 0 }, { id: "a", x: 0, y: 0 }] };
         const order = castOf(stage, id => layers.find(l => l.id === id) ?? null).map(l => l.id);
         expect(order).toEqual(["b", "a"]);
     });
@@ -213,5 +215,73 @@ describe("scenes and history", () => {
         expect(back.name).toBe("rooftop");
         expect(back.backdrop).toBe(layers[1].id);
         expect(back.cast[0]).toMatchObject({ x: 33, y: 44, entrance: "left" });
+    });
+});
+
+describe("putting the show on", () => {
+    /**
+     * A scene is not just its script. It arrives, plays, and leaves — and the
+     * arriving and leaving are generated, because an agent asked to write them
+     * for every scene would write six near-identical scripts and the seventh
+     * would differ for no reason anybody could name.
+     */
+    const sizeOf = () => 200;
+
+    function scene(cast: Array<{ id: string; entrance?: EntranceName }>, script: Beat[] = []): Stage {
+        return {
+            id: "s", name: "scene", backdrop: null, script,
+            cast: cast.map(m => ({ id: m.id, x: 0, y: 0, ...(m.entrance ? { entrance: m.entrance } : {}) })),
+        };
+    }
+
+    it("brings on only those with an entrance", () => {
+        // Somebody already standing there was not brought on, so making them
+        // arrive would turn every scene into a parade.
+        const built = buildUp(scene([{ id: "a", entrance: "fade" }, { id: "b" }]), sizeOf);
+        expect(built.beats.map(b => b.id)).toEqual(["a"]);
+    });
+
+    it("starts a sliding arrival off stage and walks it back", () => {
+        // A walk goes from where you are, so the arriver has to be put outside
+        // first — and the walk then commits to exactly where the stage says.
+        const built = buildUp(scene([{ id: "a", entrance: "left" }]), sizeOf);
+        expect(built.approach).toHaveLength(1);
+        expect(built.approach[0].dx).toBeLessThan(0);
+        expect(built.beats[0]).toMatchObject({ id: "a", do: "walk" });
+        expect(built.beats[0].to!.x).toBe(-built.approach[0].dx);
+    });
+
+    it("comes in from the right on the other side", () => {
+        const built = buildUp(scene([{ id: "a", entrance: "right" }]), sizeOf);
+        expect(built.approach[0].dx).toBeGreaterThan(0);
+    });
+
+    it("drops in from above", () => {
+        const built = buildUp(scene([{ id: "a", entrance: "above" }]), sizeOf);
+        expect(built.approach[0].dy).toBeLessThan(0);
+        expect(built.beats[0]).toMatchObject({ do: "jump" });
+    });
+
+    it("scales the approach to the arriver, not to a fixed distance", () => {
+        const small = buildUp(scene([{ id: "a", entrance: "left" }]), () => 50);
+        const large = buildUp(scene([{ id: "a", entrance: "left" }]), () => 500);
+        expect(Math.abs(large.approach[0].dx)).toBeGreaterThan(Math.abs(small.approach[0].dx) * 5);
+    });
+
+    it("takes away only those it brought on", () => {
+        const stage = scene([{ id: "a", entrance: "fade" }, { id: "b" }, { id: "c", entrance: "left" }]);
+        expect(handOff(stage).map(b => b.id)).toEqual(["a", "c"]);
+        expect(handOff(stage).every(b => b.do === "exit")).toBe(true);
+    });
+
+    it("puts the script between the arriving and the leaving", () => {
+        const stage = scene([{ id: "a", entrance: "fade" }], [{ id: "a", say: "hello" }]);
+        const { beats } = sceneBeats(stage, sizeOf);
+        expect(beats.map(b => b.do ?? "say")).toEqual(["enter", "say", "exit"]);
+    });
+
+    it("is just the script when nobody has an entrance", () => {
+        const stage = scene([{ id: "a" }], [{ id: "a", do: "jump" }]);
+        expect(sceneBeats(stage, sizeOf).beats).toEqual([{ id: "a", do: "jump" }]);
     });
 });

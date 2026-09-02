@@ -650,6 +650,7 @@ export class Collage {
             name: spec.name?.trim() || `Scene ${this.stages.size + 1}`,
             backdrop: spec.backdrop ?? null,
             cast: [...(spec.cast ?? [])],
+            script: [...(spec.script ?? [])],
             ...(typeof spec.hold === "number" ? { hold: spec.hold } : {}),
         };
         this.stages.set(stage.id, stage);
@@ -666,6 +667,7 @@ export class Collage {
             ...(typeof patch.name === "string" && patch.name.trim() ? { name: patch.name.trim() } : {}),
             ...(patch.backdrop !== undefined ? { backdrop: patch.backdrop } : {}),
             ...(patch.cast ? { cast: [...patch.cast] } : {}),
+            ...(patch.script ? { script: [...patch.script] } : {}),
             ...(typeof patch.hold === "number" ? { hold: patch.hold } : {}),
         };
         this.stages.set(id, next);

@@ -1,0 +1,146 @@
+﻿[
+    {
+        "id":  "fairy-tale-ambience",
+        "category":  "music",
+        "file":  "/audio/music/fairy-tale-ambience.opus",
+        "seconds":  120.01,
+        "kb":  1607,
+        "srcKB":  20674
+    },
+    {
+        "id":  "fantasy-forest-1",
+        "category":  "music",
+        "file":  "/audio/music/fantasy-forest-1.opus",
+        "seconds":  120.01,
+        "kb":  1516,
+        "srcKB":  20674
+    },
+    {
+        "id":  "fantasy-forest-2",
+        "category":  "music",
+        "file":  "/audio/music/fantasy-forest-2.opus",
+        "seconds":  120.01,
+        "kb":  1510,
+        "srcKB":  20674
+    },
+    {
+        "id":  "superhero-triumph-1",
+        "category":  "music",
+        "file":  "/audio/music/superhero-triumph-1.opus",
+        "seconds":  120.01,
+        "kb":  1340,
+        "srcKB":  20674
+    },
+    {
+        "id":  "superhero-triumph-2",
+        "category":  "music",
+        "file":  "/audio/music/superhero-triumph-2.opus",
+        "seconds":  120.01,
+        "kb":  1415,
+        "srcKB":  20674
+    },
+    {
+        "id":  "superhero-triumph-3",
+        "category":  "music",
+        "file":  "/audio/music/superhero-triumph-3.opus",
+        "seconds":  120.01,
+        "kb":  1356,
+        "srcKB":  20674
+    },
+    {
+        "id":  "mystery-underscore-1",
+        "category":  "music",
+        "file":  "/audio/music/mystery-underscore-1.opus",
+        "seconds":  120.01,
+        "kb":  1482,
+        "srcKB":  20674
+    },
+    {
+        "id":  "mystery-underscore-2",
+        "category":  "music",
+        "file":  "/audio/music/mystery-underscore-2.opus",
+        "seconds":  120.01,
+        "kb":  1469,
+        "srcKB":  20674
+    },
+    {
+        "id":  "light-and-airy-1",
+        "category":  "cues",
+        "file":  "/audio/cues/light-and-airy-1.opus",
+        "seconds":  5.01,
+        "kb":  54,
+        "srcKB":  863
+    },
+    {
+        "id":  "light-and-airy-2",
+        "category":  "cues",
+        "file":  "/audio/cues/light-and-airy-2.opus",
+        "seconds":  5.01,
+        "kb":  47,
+        "srcKB":  863
+    },
+    {
+        "id":  "suspense-stalking-1",
+        "category":  "cues",
+        "file":  "/audio/cues/suspense-stalking-1.opus",
+        "seconds":  5.01,
+        "kb":  40,
+        "srcKB":  863
+    },
+    {
+        "id":  "suspense-stalking-2",
+        "category":  "cues",
+        "file":  "/audio/cues/suspense-stalking-2.opus",
+        "seconds":  5.01,
+        "kb":  42,
+        "srcKB":  863
+    },
+    {
+        "id":  "suspense-stalking-3",
+        "category":  "cues",
+        "file":  "/audio/cues/suspense-stalking-3.opus",
+        "seconds":  5.01,
+        "kb":  44,
+        "srcKB":  863
+    },
+    {
+        "id":  "suspense-stalking-4",
+        "category":  "cues",
+        "file":  "/audio/cues/suspense-stalking-4.opus",
+        "seconds":  5.01,
+        "kb":  42,
+        "srcKB":  863
+    },
+    {
+        "id":  "suspense-crescendo-1",
+        "category":  "cues",
+        "file":  "/audio/cues/suspense-crescendo-1.opus",
+        "seconds":  5.01,
+        "kb":  43,
+        "srcKB":  863
+    },
+    {
+        "id":  "suspense-crescendo-2",
+        "category":  "cues",
+        "file":  "/audio/cues/suspense-crescendo-2.opus",
+        "seconds":  5.01,
+        "kb":  49,
+        "srcKB":  863
+    },
+    {
+        "id":  "suspense-crescendo-3",
+        "category":  "cues",
+        "file":  "/audio/cues/suspense-crescendo-3.opus",
+        "seconds":  5.01,
+        "kb":  41,
+        "srcKB":  863
+    },
+    {
+        "id":  "laugh-cute",
+        "category":  "sfx",
+        "file":  "/audio/sfx/laugh-cute.opus",
+        "seconds":  2.01,
+        "kb":  14,
+        "srcKB":  346
+    }
+]

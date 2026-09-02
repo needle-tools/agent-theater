@@ -42,7 +42,7 @@ function fakeStudio(options: FakeOptions = {}) {
     let pagePreset = FREE_PAGE;
     let selection: string[] = [];
 
-    const studio: CollageStudio & { played: Plan[] } = {
+    const studio: CollageStudio & { played: Plan[]; shows: string[][] } = {
         collage,
         images,
         async addImage(url, opts = {}) {
@@ -95,9 +95,22 @@ function fakeStudio(options: FakeOptions = {}) {
         // No canvas to act on, so a scene is accepted and finishes at once —
         // which is what lets the tools be tested without a clock.
         played: [] as Plan[],
+        shows: [] as string[][],
         setPerformer() { /* the fake is its own performer */ },
         setStopper() { /* nothing is playing to stop */ },
         stopScene() { /* nor here */ },
+        stopShow() { /* nor this */ },
+        get showing() { return null; },
+        // The fake plays a whole show instantly, so the tools can be tested for
+        // what they say rather than for how long they take.
+        playShow(ids?: string[]) {
+            const stages = ids?.length
+                ? ids.map(id => collage.getStage(id)).filter(Boolean)
+                : collage.listStages();
+            (studio as any).shows.push(stages.map((s: any) => s.id));
+            return { timings: stages.map((s: any, i: number) => (
+                { stage: s.id, name: s.name, at: i * 1000, duration: 1000 })), duration: stages.length * 1000 };
+        },
         get performing() { return false; },
         async playScene(plan: Plan) {
             (studio as any).played.push(plan);
@@ -738,6 +751,7 @@ describe("the surface an agent actually sees", () => {
         expect(createCollageTools(studio).map(t => t.name).sort()).toEqual([
             "collage_add_image", "collage_add_text", "collage_batch", "collage_describe",
             "collage_preview", "collage_remove", "collage_transform", "collage_watch",
+            "show_play", "show_stop",
             "stage_cast", "stage_create", "stage_describe", "stage_script",
         ]);
     });

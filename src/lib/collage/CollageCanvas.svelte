@@ -66,7 +66,11 @@
         | { mode: "rotate"; id: string; centre: { x: number; y: number }; startAngle: number; originRotation: number }
         | { mode: "marquee"; startX: number; startY: number; additive: boolean };
 
-    let drag: Drag | null = null;
+    // $state, because the template reads it: the viewport's hover cursor is
+    // "and nothing is being dragged". Without it the cursor stayed as it was
+    // at the moment a drag began and only caught up on the next unrelated
+    // change — the kind of wrongness that reads as the canvas being sticky.
+    let drag: Drag | null = $state(null);
     /** The rubber band, in screen coordinates. */
     let marquee = $state<{ x: number; y: number; width: number; height: number } | null>(null);
     /** The text layer being typed into, if any. */
