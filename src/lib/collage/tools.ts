@@ -152,7 +152,11 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "The background is removed automatically — this page cuts it out in the browser, so do NOT " +
                 "open FastCut or any other tool first; just pass the original photo. " +
                 "An image that is already transparent is left alone. Pass removeBackground: false to keep a " +
-                "background on purpose. The result says what happened, and what to do if the cut could not run.",
+                "background on purpose. The result says what happened, and what to do if the cut could not run. " +
+                "A picture holding several distinct objects — a poster, a sheet of stickers, things laid out " +
+                "on a table — comes apart into one layer per object, each where it was, so what arrives is " +
+                "editable rather than flat. That is usually the point of handing one over: generate the " +
+                "picture, pass it here, and every part of it can then be moved, restyled or replaced.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -162,18 +166,35 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                     x: { type: "number", description: "Canvas x. Omit to place it automatically." },
                     y: { type: "number", description: "Canvas y." },
                     width: { type: "number", description: "Canvas width. Height follows the aspect ratio." },
+                    slice: {
+                        type: "boolean",
+                        description:
+                            "Default true. Set false to keep a picture of several things as one layer.",
+                    },
+                    heal: {
+                        type: "boolean",
+                        description:
+                            "Default false. When the picture comes apart, also keep the scene behind the " +
+                            "objects as a backdrop layer. Costs a second model download and a slow pass, so " +
+                            "ask for it when the background is worth having, not by habit.",
+                    },
                 },
                 required: ["url"],
             },
-            async execute(args: { url?: string; label?: string; removeBackground?: boolean; x?: number; y?: number; width?: number }) {
+            async execute(args: {
+                url?: string; label?: string; removeBackground?: boolean;
+                x?: number; y?: number; width?: number; slice?: boolean; heal?: boolean;
+            }) {
                 const url = str(args?.url);
                 if (!url) return fail(`Pass a "url" — http(s) or data:.`);
                 if (!/^(https?:|data:image\/)/i.test(url))
                     return fail(`"${truncate(url, 60)}" is not an image URL. Use http(s), or a data:image/… URL.`);
                 try {
-                    const { layer, loaded, background } = await studio.addImage(url, {
+                    const { layer, loaded, background, pieces } = await studio.addImage(url, {
                         label: args?.label,
                         removeBackground: args?.removeBackground,
+                        slice: args?.slice,
+                        heal: args?.heal,
                         x: args?.x,
                         y: args?.y,
                         width: args?.width,
@@ -193,6 +214,26 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                         : background.skipped
                             ? "It was already a cut-out, so it was left as it is."
                             : `The background was NOT removed — ${background.reason}`;
+
+                    // A picture that came apart is a different answer, and
+                    // reporting it as one layer would send the agent looking for
+                    // a layer that is only a sixth of what arrived.
+                    if (pieces && pieces.length > 1) {
+                        const backdrop = !!background.backplate;
+                        const objects = backdrop ? pieces.slice(1) : pieces;
+                        return ok(
+                            `"${layer.label}" held ${objects.length} separate things, so it came apart into ` +
+                            `${objects.length} layers, each where it was in the picture` +
+                            `${backdrop ? `, with the emptied scene behind them as "${pieces[0].label}"` : ""}. ` +
+                            `Every one can be moved, restyled or replaced on its own. ` +
+                            `Ids: ${pieces.map(p => p.id).join(", ")}. Look with collage_preview.`,
+                            {
+                                layers: pieces,
+                                pieces: objects.length,
+                                backdrop: backdrop ? pieces[0].id : null,
+                                source: { width: loaded.width, height: loaded.height, colors: loaded.colors, tainted: loaded.tainted },
+                            });
+                    }
 
                     return ok(
                         `Added "${layer.label}" as ${layer.id} — ${notes.join(", ")}. ${cut} ` +
