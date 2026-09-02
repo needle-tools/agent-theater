@@ -25,9 +25,17 @@
     // read once and never again. A show ending changes nothing in the document
     // either, so this cannot ride on the document's own signal.
     let showing = $state<string | null>(null);
+    // Which scene the agent is working on, if any. Same signal as `showing`,
+    // since both are studio state that the document's change event knows
+    // nothing about.
+    let busy = $state<string | null>(null);
     $effect(() => {
-        showing = studio.showing;
-        return studio.onShowChanged(() => (showing = studio.showing));
+        const read = () => {
+            showing = studio.showing;
+            busy = studio.busyStage;
+        };
+        read();
+        return studio.onShowChanged(read);
     });
 
     const stages = $derived.by(() => (version, collage.listStages()));
@@ -42,9 +50,17 @@
                     <button
                         class="scene"
                         class:scene--active={stage.id === activeId}
+                        class:scene--busy={stage.id === busy}
                         aria-pressed={stage.id === activeId}
                         onclick={() => collage.setActiveStage(stage.id)}
-                    >{stage.name}</button>
+                    >
+                        <!-- A pulsing dot on whichever scene the agent is
+                             touching. An agent building four scenes edits three
+                             of them out of sight, and without this the page
+                             either sits still or changes with no clue why. -->
+                        {#if stage.id === busy}<span class="pip" aria-label="being worked on"></span>{/if}
+                        {stage.name}
+                    </button>
                 {/each}
             </div>
         {:else}
@@ -140,6 +156,9 @@
 
     .scene {
         flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
         min-height: 32px;
         padding: 0 0.7rem;
         border: 0;
@@ -167,6 +186,27 @@
         background: var(--surface-panel-strong, var(--surface-panel-muted));
         color: var(--text-primary);
         font-weight: 600;
+    }
+
+    .scene--busy {
+        color: var(--text-primary);
+    }
+
+    .pip {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent-secondary, #0BA398);
+        animation: pip 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pip {
+        0%, 100% { opacity: 0.35; scale: 0.8; }
+        50% { opacity: 1; scale: 1; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .pip { animation: none; opacity: 1; }
     }
 
     .now {

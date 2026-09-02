@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { artPrompt, scrubBrands } from "../src/lib/collage/artPrompt.js";
-import { cellPixels, gridCells } from "../src/lib/collage/sheet.js";
+import { cellPixels, gridCells, paperBox } from "../src/lib/collage/sheet.js";
 
 /**
  * Asking for the artwork, and cutting up what comes back.
@@ -221,5 +221,71 @@ describe("how much comes back per generation", () => {
             const subjects = artPrompt({ kind }).subjects;
             expect(new Set(subjects).size).toBe(subjects.length);
         }
+    });
+});
+
+describe("trimming the paper a backdrop came on", () => {
+    /**
+     * A backdrop arrives as a torn card centred on a white sheet. Sending it
+     * through the background remover with everything else looked reasonable and
+     * destroyed it: a remover looks for a SUBJECT, found the trees, and threw
+     * away the sky. A winter forest came back as four trunks on nothing.
+     *
+     * So this is arithmetic. It can crop blank paper; it cannot decide that any
+     * of the picture is blank.
+     */
+    const sheet = (
+        width: number,
+        height: number,
+        ink: (x: number, y: number) => boolean,
+        alpha: (x: number, y: number) => number = () => 255,
+    ) => {
+        const pixels = new Uint8ClampedArray(width * height * 4);
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const at = (y * width + x) * 4;
+                const dark = ink(x, y);
+                pixels[at] = pixels[at + 1] = pixels[at + 2] = dark ? 20 : 255;
+                pixels[at + 3] = alpha(x, y);
+            }
+        }
+        return pixels;
+    };
+
+    it("crops to the picture and leaves the picture alone", () => {
+        // Ink from 10..39 across and 5..24 down, white everywhere else.
+        const pixels = sheet(50, 30, (x, y) => x >= 10 && x < 40 && y >= 5 && y < 25);
+        expect(paperBox(pixels, 50, 30)).toEqual({ x: 10, y: 5, width: 30, height: 20 });
+    });
+
+    it("keeps a picture that already fills its cell", () => {
+        const pixels = sheet(20, 10, () => true);
+        expect(paperBox(pixels, 20, 10)).toEqual({ x: 0, y: 0, width: 20, height: 10 });
+    });
+
+    it("is not anchored by a speck of texture in the margin", () => {
+        // One stray dark pixel near the edge. Without a tolerance it would hold
+        // the whole crop open and the trim would do nothing at all.
+        const pixels = sheet(100, 40, (x, y) =>
+            (x === 1 && y === 1) || (x >= 20 && x < 80 && y >= 10 && y < 30));
+        const box = paperBox(pixels, 100, 40);
+        expect(box.x).toBe(20);
+        expect(box.y).toBe(10);
+    });
+
+    it("treats transparent margin as blank, not as picture", () => {
+        // A cell that has already been cut out has margin made of nothing
+        // rather than of white.
+        const pixels = sheet(
+            40, 20,
+            (x, y) => x >= 8 && x < 32 && y >= 4 && y < 16,
+            (x, y) => (x >= 8 && x < 32 && y >= 4 && y < 16 ? 255 : 0));
+        expect(paperBox(pixels, 40, 20)).toEqual({ x: 8, y: 4, width: 24, height: 12 });
+    });
+
+    it("never collapses to nothing on a blank cell", () => {
+        const box = paperBox(sheet(30, 30, () => false), 30, 30);
+        expect(box.width).toBeGreaterThan(0);
+        expect(box.height).toBeGreaterThan(0);
     });
 });

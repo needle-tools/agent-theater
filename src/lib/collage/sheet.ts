@@ -85,3 +85,72 @@ export function cellPixels(cell: Cell, width: number, height: number) {
         height: Math.max(1, Math.round((cell.y + cell.height) * height) - y),
     };
 }
+
+/**
+ * The white paper the picture is sitting on, as a box to crop to.
+ *
+ * A generated backdrop arrives as a torn paper card centred on a white sheet,
+ * and the sheet is not part of the picture: left on, it draws a hard white
+ * rectangle round the scene and turns the deckle edge — the nice part — into
+ * the inside of a frame.
+ *
+ * The obvious fix was to send it through the background remover with everything
+ * else. That was wrong in a way worth recording: a remover looks for a SUBJECT,
+ * and on a backdrop it finds the trees and throws away the sky. A whole winter
+ * forest came back as four bare trunks floating on nothing.
+ *
+ * So this instead — no model, no judgement, and nothing it can decide to
+ * discard. It walks in from each edge while the rows are blank and stops. A row
+ * counts as blank when nearly all of it is near-white; nearly, rather than all,
+ * because a stray speck of texture in the margin should not anchor the crop.
+ *
+ * The corners between a torn edge and the box survive, and should: they are a
+ * few pixels of white against the paper they came from, which is what the edge
+ * of a piece of paper looks like.
+ */
+export function paperBox(
+    pixels: Uint8ClampedArray,
+    width: number,
+    height: number,
+): { x: number; y: number; width: number; height: number } {
+    /** Above this on every channel is "the sheet" rather than "the picture". */
+    const WHITE = 244;
+    /** A row may be this fraction non-white and still count as margin. */
+    const SPECKS = 0.02;
+
+    const blankRow = (y: number) => {
+        let ink = 0;
+        for (let x = 0; x < width; x++) {
+            const at = (y * width + x) * 4;
+            // Transparent counts as blank: a cell that has already been cut out
+            // has margin made of nothing rather than of white.
+            if (pixels[at + 3] < 8) continue;
+            if (pixels[at] > WHITE && pixels[at + 1] > WHITE && pixels[at + 2] > WHITE) continue;
+            if (++ink > width * SPECKS) return false;
+        }
+        return true;
+    };
+
+    const blankColumn = (x: number, top: number, bottom: number) => {
+        let ink = 0;
+        const tall = Math.max(1, bottom - top);
+        for (let y = top; y < bottom; y++) {
+            const at = (y * width + x) * 4;
+            if (pixels[at + 3] < 8) continue;
+            if (pixels[at] > WHITE && pixels[at + 1] > WHITE && pixels[at + 2] > WHITE) continue;
+            if (++ink > tall * SPECKS) return false;
+        }
+        return true;
+    };
+
+    let top = 0;
+    while (top < height - 1 && blankRow(top)) top++;
+    let bottom = height;
+    while (bottom > top + 1 && blankRow(bottom - 1)) bottom--;
+    let left = 0;
+    while (left < width - 1 && blankColumn(left, top, bottom)) left++;
+    let right = width;
+    while (right > left + 1 && blankColumn(right - 1, top, bottom)) right--;
+
+    return { x: left, y: top, width: right - left, height: bottom - top };
+}

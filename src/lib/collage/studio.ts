@@ -29,7 +29,7 @@ import {
 } from "./persistence.js";
 import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
 import { renamedIn } from "./stage.js";
-import { cellPixels, gridCells } from "./sheet.js";
+import { cellPixels, gridCells, paperBox } from "./sheet.js";
 import {
     creditLines, creditsDuration, creditsFor, performers, TITLE_MS, WAIT_FOR_AUDIENCE_MS,
     type Billboard,
@@ -272,6 +272,15 @@ export interface CollageStudio {
      */
     readonly billboard: Billboard | null;
     /**
+     * The scene an agent has just been working on, if it was recently.
+     *
+     * Null once it has been quiet for a moment. Something has to say where the
+     * work is happening: an agent building four scenes edits three of them out
+     * of sight, and from the person's side the page simply sits there — or
+     * worse, changes under them with no clue as to why.
+     */
+    readonly busyStage: string | null;
+    /**
      * Told when the show starts, moves on, or ends.
      *
      * `showing` is read by the canvas to dim itself and to point the camera at
@@ -415,6 +424,15 @@ const STAGE_WIDTH = 960;
  */
 const CUT_OUT_HEIGHT = (STAGE_WIDTH * 9) / 16 * 0.55;
 
+/**
+ * How long a scene keeps its "being worked on" mark after the last edit.
+ *
+ * Long enough to bridge the gap between one tool call and the next — an agent
+ * thinking between calls is still working — and short enough that the mark is
+ * gone by the time somebody wonders why it is still there.
+ */
+const BUSY_FOR_MS = 4000;
+
 export function createStudio(collage = new Collage()): CollageStudio {
     const images = new Map<string, LoadedImage>();
     const objectUrls = new Set<string>();
@@ -437,6 +455,26 @@ export function createStudio(collage = new Collage()): CollageStudio {
     let billboard: Billboard | null = null;
     const showWatchers = new Set<() => void>();
     const announceShow = () => { for (const watcher of [...showWatchers]) watcher(); };
+
+    /**
+     * Where the agent is working, and a timer that forgets.
+     *
+     * Kept as a scene id with a fuse rather than a flag that something clears,
+     * because there is no "the agent has stopped" event to hang the clearing
+     * on — an agent stops by simply not calling anything else.
+     */
+    let busy: string | null = null;
+    let busyTimer: ReturnType<typeof setTimeout> | null = null;
+    const markBusy = (stage: string | null) => {
+        if (!stage) return;
+        busy = stage;
+        announceShow();
+        if (busyTimer) clearTimeout(busyTimer);
+        busyTimer = setTimeout(() => {
+            busy = null;
+            announceShow();
+        }, BUSY_FOR_MS);
+    };
 
     const setRunning = (stage: string | null) => {
         if (running === stage) return;
@@ -615,6 +653,12 @@ export function createStudio(collage = new Collage()): CollageStudio {
         detail?: object,
     ) => {
         events.push({ seq: ++sequence, at: Date.now(), kind, summary, by, ...(detail ? { detail } : {}) });
+        // The agent names the scene it touched when it knows one; otherwise the
+        // one on screen is the best guess, and a wrong guess here costs a dot
+        // in the wrong place rather than anything real.
+        if (by === "agent") {
+            markBusy((detail as { stage?: string } | undefined)?.stage ?? collage.activeStageId);
+        }
         if (events.length > MAX_EVENTS) events.splice(0, events.length - MAX_EVENTS);
         // Wake every watcher; each re-reads from its own cursor.
         for (const wake of [...waiters]) wake();
@@ -938,6 +982,36 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 if (!ctx) continue;
                 ctx.drawImage(sheet.image, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height);
 
+                /*
+                 * A backdrop loses its white margin here, not in the cutter.
+                 *
+                 * It used to go through background removal with everything
+                 * else, which was wrong in a way worth remembering: a remover
+                 * looks for a SUBJECT, and on a backdrop it finds the trees and
+                 * throws away the sky. A whole winter forest came back as four
+                 * bare trunks floating on nothing.
+                 *
+                 * This is arithmetic instead. It crops off the blank paper
+                 * around the picture and cannot decide that any of the picture
+                 * is blank.
+                 */
+                if (options.asBackdrop) {
+                    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const paper = paperBox(pixels.data, canvas.width, canvas.height);
+                    if (paper.width > 8 && paper.height > 8 &&
+                        (paper.width < canvas.width || paper.height < canvas.height)) {
+                        const trimmed = document.createElement("canvas");
+                        trimmed.width = paper.width;
+                        trimmed.height = paper.height;
+                        trimmed.getContext("2d")?.drawImage(
+                            canvas, paper.x, paper.y, paper.width, paper.height,
+                            0, 0, paper.width, paper.height);
+                        canvas.width = paper.width;
+                        canvas.height = paper.height;
+                        ctx.drawImage(trimmed, 0, 0);
+                    }
+                }
+
                 // Through addImage rather than straight to the document, so a
                 // cell gets everything an added picture gets: bytes in
                 // IndexedDB, a measured crop, a hit-testing mask.
@@ -953,12 +1027,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
                 const { layer } = await this.addImage(url, {
                     label: cell.label ?? `cell ${index + 1}`,
-                    // Backdrops go through the cutter too. They arrive as a
-                    // torn paper card sitting on a white sheet, and the white
-                    // sheet is not part of the picture — left on, it draws a
-                    // hard white rectangle round the scene and turns the deckle
-                    // edge, which is the nice part, into the inside of a frame.
-                    removeBackground: options.removeBackground !== false,
+                    // Cut-outs go through the remover; backdrops do not, and
+                    // must not. Their white margin was trimmed above, by
+                    // arithmetic that cannot mistake the sky for background.
+                    removeBackground: !options.asBackdrop && options.removeBackground !== false,
                     // Never. The cell is one thing by construction, and asking
                     // for it to be split again is how a figure holding a basket
                     // arrives as a figure and a basket.
@@ -1596,6 +1668,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
         get billboard() {
             return billboard;
+        },
+
+        get busyStage() {
+            return busy;
         },
 
         onShowChanged(callback) {

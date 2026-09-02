@@ -106,6 +106,7 @@ function fakeStudio(options: FakeOptions = {}) {
         get showing() { return null; },
         onShowChanged() { return () => { /* the fake never changes */ }; },
         get billboard() { return null; },
+        get busyStage() { return null; },
         // The fake has no canvas to draw crops on, so a sheet is reported as
         // arriving whole. The cutting itself is tested against gridCells.
         async addSheet() { return []; },
