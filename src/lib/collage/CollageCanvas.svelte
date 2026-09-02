@@ -62,6 +62,16 @@
     const fixedPage = $derived(studio.pagePreset !== FREE_PAGE);
 
     let showing = $state(false);
+
+    /**
+     * Who is currently being drawn as somebody else.
+     *
+     * A costume change: the part keeps its place, its size and its rotation,
+     * and only the picture is swapped. Held here rather than in the document
+     * because it is presentational — the same scene played again starts in the
+     * first costume, which is what a scene is.
+     */
+    let worn = $state(new Map<string, string>());
     $effect(() => {
         showing = !!studio.showing;
         return studio.onShowChanged(() => (showing = !!studio.showing));
@@ -112,10 +122,44 @@
      * parallax on a canvas being edited would mean a picture sat somewhere
      * slightly different depending on where the view happened to be.
      */
+    /**
+     * The cast, wearing whatever they have changed into.
+     *
+     * The picture is taken from the other layer; everything about where and how
+     * big stays with the part. Done before parallax so a swapped costume slides
+     * with its plane like anything else.
+     */
+    const dressed = $derived.by(() => {
+        void version;
+        if (!worn.size) return placed;
+        return placed.map(layer => {
+            const other = worn.get(layer.id);
+            const wearing = other ? studio.collage.get(other) : null;
+            if (!wearing || wearing.kind !== "image" || layer.kind !== "image") return layer;
+            // The height follows the new picture's shape at the same width, so
+            // a wider costume does not squash: it is the same character,
+            // standing where they were.
+            const height = wearing.width > 0
+                ? (layer.width / wearing.width) * wearing.height
+                : layer.height;
+            return {
+                ...layer,
+                src: wearing.src,
+                storageKey: wearing.storageKey,
+                natural: wearing.natural,
+                crop: wearing.crop,
+                // Anchored at the feet, so a taller costume grows upward rather
+                // than sinking through the floor.
+                y: layer.y + layer.height - height,
+                height,
+            };
+        });
+    });
+
     const layers = $derived.by(() => {
-        if (!showing || !viewport) return placed;
+        if (!showing || !viewport) return dressed;
         const floor = stageRect();
-        if (!floor) return placed;
+        if (!floor) return dressed;
         // Measured from the middle of the stage, so a camera framing the scene
         // head-on has every plane exactly where it was placed.
         const anchorX = floor.x + floor.width / 2;
@@ -123,7 +167,7 @@
         const cameraX = (viewport.clientWidth / 2 - view.x) / view.zoom;
         const cameraY = (viewport.clientHeight / 2 - view.y) / view.zoom;
 
-        return placed.map(layer => {
+        return dressed.map(layer => {
             const share = parallaxOf(studio.collage.planeOf(layer.id));
             if (share === 1) return layer;
             // Derived in the module: the offset that makes a plane travel
@@ -337,6 +381,12 @@
             gone = next;
         },
         camera: (ids, tight, duration) => frame(ids, tight, duration),
+        wear(id, becomes) {
+            const next = new Map(worn);
+            if (becomes) next.set(id, becomes);
+            else next.delete(id);
+            worn = next;
+        },
     };
 
     /**
@@ -405,6 +455,20 @@
         return () => clearTimeout(timer);
     });
 
+    /**
+     * A stable number per layer, for staggering idle motion.
+     *
+     * Derived from the id rather than random, so a character does not change
+     * its rhythm every time the component re-renders — and so two of them never
+     * sway in lockstep, which is the thing that makes an idle read as a loop
+     * rather than as breathing.
+     */
+    function layerSeed(id: string): number {
+        let hash = 0;
+        for (let at = 0; at < id.length; at++) hash = (hash * 31 + id.charCodeAt(at)) | 0;
+        return Math.abs(hash);
+    }
+
     /** Is this box wholly within that one? */
     function inside(
         box: { x: number; y: number; width: number; height: number },
@@ -470,6 +534,9 @@
         scene?.stop();
         scene = null;
         spoken = new Map();
+        // Costumes are part of the performance, not of the document: a scene
+        // played again starts in the one it opened in.
+        worn = new Map();
     }
 
     /** Layers cut or copied, waiting to be pasted. */
@@ -1451,6 +1518,9 @@
                     data-layer={layer.id}
                     class:layer--selected={selectedIds.length > 1 && isSelected(layer.id)}
                     class:layer--settling={settling}
+                    class:layer--alive={showing && !gone.has(layer.id)}
+                    style:--sway="{(layerSeed(layer.id) % 1400) + 3200}ms"
+                    style:--sway-at="-{layerSeed(layer.id) % 2000}ms"
                     style={imageStyle(layer)}
                 >
                     {#if layer.style.silhouette}
@@ -1835,6 +1905,45 @@
 
     @media (prefers-reduced-motion: reduce) {
         .wings { transition-duration: 0s; }
+    }
+
+    /*
+     * Nothing on a stage is ever completely still.
+     *
+     * Between beats the whole scene held its breath — every character a cut-out
+     * with no motion of its own — so a long line played over what was, to the
+     * eye, a photograph with text on it. This is the smallest thing that fixes
+     * that: a slow rock of about a degree, offset per character so they are
+     * never in step, and stopped entirely for anybody who has asked for less
+     * motion.
+     *
+     * Only while the show runs, and only for what is on stage. It must not
+     * fight a beat: a beat animates the element itself through the Web
+     * Animations API, which replaces `transform` outright — so this rocks a
+     * wrapper property that nothing else touches, and the two compose instead
+     * of cancelling.
+     */
+    .layer--alive {
+        /*
+         * The `rotate` property, not `transform`.
+         *
+         * The layer's own rotation is a `transform`, and a beat animates
+         * `transform` through the Web Animations API — which REPLACES the
+         * property outright while it runs. Rocking a different property means
+         * the two compose instead of one cancelling the other, so a character
+         * keeps breathing through its own walk.
+         */
+        animation: sway var(--sway, 4s) ease-in-out infinite alternate;
+        animation-delay: var(--sway-at, 0ms);
+    }
+
+    @keyframes sway {
+        from { rotate: -0.55deg; }
+        to { rotate: 0.55deg; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .layer--alive { animation: none; }
     }
 
     /* The rubber band is the act of selecting, so it wears the selection's

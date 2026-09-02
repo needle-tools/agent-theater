@@ -551,12 +551,24 @@ export interface Beat {
     sound?: string;
     /** Move the view rather than anybody in it. */
     camera?: CameraMove;
+    /**
+     * Swap this character's picture for another one, at this beat.
+     *
+     * A costume change, and the only way a cut-out can do anything its drawing
+     * does not already do: a bird with its wings folded cannot open them, but
+     * it can become the drawing of a bird with its wings open, standing in the
+     * same place at the same size. Ask for both on the same sheet and they will
+     * match.
+     */
+    becomes?: string;
     to?: { x?: number; y?: number };
     duration?: number;
 }
 
 export interface PlannedBeat {
     id: string;
+    /** Another layer to draw in this one's place from here on. */
+    becomes: string | null;
     move: MoveName | null;
     say: string | null;
     sound: string | null;
@@ -619,10 +631,14 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
         }
         const say = typeof beat?.say === "string" && beat.say.trim() ? beat.say.trim() : null;
         const sound = typeof beat?.sound === "string" && beat.sound.trim() ? beat.sound.trim() : null;
-        if (!move && !say && !sound && !camera && !wait) {
+        const becomes = typeof beat?.becomes === "string" && beat.becomes.trim()
+            ? beat.becomes.trim()
+            : null;
+        if (!move && !say && !sound && !camera && !wait && !becomes) {
             problems.push({
                 index,
-                reason: `a beat must have a "do", a "say", a "sound", a "camera" or a "wait"`,
+                reason:
+                    `a beat must have a "do", a "say", a "sound", a "camera", a "wait" or a "becomes"`,
             });
             continue;
         }
@@ -650,13 +666,13 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
         // where the silence is instead of hiding it inside somebody's line.
         if (say && lastSpeaker && lastSpeaker !== id) {
             planned.push({
-                id: "", move: null, say: null, sound: null, camera: null,
+                id: "", becomes: null, move: null, say: null, sound: null, camera: null,
                 travel: null, duration: BREATH_MS,
             });
         }
         if (say) lastSpeaker = id;
 
-        planned.push({ id, move, say, sound, camera, travel, duration });
+        planned.push({ id, becomes, move, say, sound, camera, travel, duration });
     }
 
     const duration = planned.reduce((total, beat) => total + beat.duration, 0);

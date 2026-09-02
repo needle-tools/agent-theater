@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { Collage, type ImageLayer } from "../src/lib/collage/model.js";
 import { castOf, placed, renamedIn, type EntranceName, type Stage } from "../src/lib/collage/stage.js";
-import { buildUp, entering, handOff, sceneBeats } from "../src/lib/collage/show.js";
+import { buildUp, entering, filmed, handOff, sceneBeats } from "../src/lib/collage/show.js";
 import { plan as planBeats, type Beat } from "../src/lib/collage/perform.js";
 import { SOUNDS, findSound, soundCatalogue, soundNames } from "../src/lib/collage/audio.js";
 import { creditLines, creditsFor, performers } from "../src/lib/collage/billboard.js";
@@ -279,12 +279,50 @@ describe("putting the show on", () => {
     it("puts the script between the arriving and the leaving", () => {
         const stage = scene([{ id: "a", entrance: "fade" }], [{ id: "a", say: "hello" }]);
         const { beats } = sceneBeats(stage, sizeOf);
-        expect(beats.map(b => b.do ?? "say")).toEqual(["enter", "say", "exit"]);
+        // The camera beats are added by `filmed`, which is tested on its own.
+        expect(beats.filter(b => !b.camera).map(b => b.do ?? "say"))
+            .toEqual(["enter", "say", "exit"]);
     });
 
-    it("is just the script when nobody has an entrance", () => {
+    it("is just the script, plus a camera, when nobody has an entrance", () => {
         const stage = scene([{ id: "a" }], [{ id: "a", do: "jump" }]);
-        expect(sceneBeats(stage, sizeOf).beats).toEqual([{ id: "a", do: "jump" }]);
+        const { beats } = sceneBeats(stage, sizeOf);
+        expect(beats.filter(b => !b.camera)).toEqual([{ id: "a", do: "jump" }]);
+    });
+
+    describe("the camera a scene gets whether or not it asked", () => {
+        /**
+         * Camera beats existed, stage_script asked for two, and it complained
+         * afterwards when a scene had none — and it kept not happening. Advice
+         * in a tool description is read once, in a list of twenty, at the
+         * moment the agent is deciding something else. So the default moves.
+         *
+         * The cost is real and is the right way round: a scene that wants one
+         * held wide shot now has to say so, and a held shot is a decision where
+         * a scene that never moves because nobody thought about it is not.
+         */
+        it("establishes, then finds whoever speaks first", () => {
+            const filmedBeats = filmed([
+                { id: "a", do: "walk" },
+                { id: "b", say: "Who is there?" },
+            ]);
+            expect(filmedBeats[0].camera?.on).toBe("all");
+            const pushIn = filmedBeats.findIndex(beat => Array.isArray(beat.camera?.on));
+            expect(filmedBeats[pushIn].camera?.on).toEqual(["b"]);
+            // Immediately before the line it is pushing in on.
+            expect(filmedBeats[pushIn + 1].say).toBe("Who is there?");
+        });
+
+        it("leaves a scene alone once it has a camera of its own", () => {
+            const own = [{ camera: { on: "all" as const } }, { id: "a", say: "Hello" }];
+            expect(filmed(own)).toBe(own);
+        });
+
+        it("still establishes a scene with no lines in it", () => {
+            const filmedBeats = filmed([{ id: "a", do: "nod" }]);
+            expect(filmedBeats).toHaveLength(2);
+            expect(filmedBeats[0].camera?.on).toBe("all");
+        });
     });
 });
 

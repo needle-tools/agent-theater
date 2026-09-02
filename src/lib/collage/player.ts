@@ -33,6 +33,15 @@ export interface Stagehand {
     /** Make a noise. Fired as a beat begins, and not waited for. */
     cue(id: string): void;
     /**
+     * Draw one layer in another's place, from now on.
+     *
+     * A costume change. The position, size and rotation stay with the part
+     * rather than the picture, so a bird that becomes a flying bird is in the
+     * same spot at the same scale — which is the only way the swap reads as the
+     * same character rather than as a cut.
+     */
+    wear(id: string, becomes: string | null): void;
+    /**
      * Move the view to frame these layers over this long.
      *
      * Separate from the moves because the camera is not on the stage: nothing
@@ -94,6 +103,9 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         // Fired first and not awaited, so a sting lands on the movement rather
         // than after it. A beat with only a sound takes no time at all.
         if (beat.sound) hand.cue(beat.sound);
+        // Before anything moves, so a beat that both changes costume and acts
+        // does the acting in the new one.
+        if (beat.becomes) hand.wear(beat.id, beat.becomes);
         // Ordered before the move so a beat can do both: the camera pushes in
         // while the person it is pushing in on takes their step.
         if (beat.camera) {
@@ -102,6 +114,8 @@ export function play(plan: Plan, hand: Stagehand): Playing {
             void framing;
         }
         if (beat.say) return speak(beat);
+        // A costume change on its own is instant: it is a cut, and holding the
+        // scene still afterwards would draw attention to the seam.
         if (!beat.move) return;
 
         // The document is told where this ends up first; the animation then

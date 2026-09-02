@@ -458,6 +458,11 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     stage.cast.length &&
                     !stage.cast.some(member => member.plane === "back" || member.plane === "front"));
                 const unscripted = stages.filter(stage => stage.cast.length && !stage.script.length);
+                // Every scene can name its own bed and they end up with one
+                // between them, because nothing ever said otherwise. Only worth
+                // raising once there are enough scenes for it to be audible.
+                const beds = new Set(stages.map(stage => stage.music ?? ""));
+                const sameBed = stages.length > 2 && beds.size === 1 && !beds.has("");
                 const next =
                     !layers.length
                         ? `NEXT: there is nothing to stage. Ask the person what the play should be about, ` +
@@ -482,6 +487,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         ? `NEXT: ${unscripted.map(stage => `"${stage.name}"`).join(" and ")} ` +
                           `${unscripted.length === 1 ? "has" : "have"} a cast but nothing to do. Call ` +
                           `stage_script with the whole scene — moves, lines, sounds, camera — in one call.`
+                    : sameBed
+                        ? `NEXT: every scene is playing the same music, so the whole show sounds like ` +
+                          `one long moment. Give each its own bed with stage_create — call show_sounds ` +
+                          `for what there is. It is the cheapest way to make four scenes feel like four.`
                     : !billing.title
                         ? `NEXT: the play works but has no name. Call show_title, then show_play.`
                         : `NEXT: it is ready. Call show_play and narrate over the top of it.`;

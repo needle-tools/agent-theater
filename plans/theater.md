@@ -256,3 +256,77 @@ not enough.
 but nothing synchronises the two. If drift turns out to matter, the fix is for
 the show to emit beat-boundary events the agent can follow — which the event log
 already supports.
+
+---
+
+# Reported, 2026-09-03
+
+From a run of "The Paper Bird Learns to Fly" — four scenes, 54 pieces. Seven
+things were wrong with it, and they fall into three groups: broken, missing,
+and available-but-unused. The third group is the interesting one, because
+everything in it works and none of it was reached for.
+
+## Fixed
+
+**The saved play was full of holes.** The exported PNG had the sky punched out
+in yellow and black speckles. Not the export: the backdrop had been through the
+background remover, which looks for a *subject*, found the trees, and threw the
+sky away. Backdrops are trimmed by `paperBox` now — arithmetic that can crop
+blank paper and cannot decide that any of the picture is blank. Files saved
+before that carry the damage and cannot be repaired.
+
+**No pauses between speakers.** There was no way to write one: every beat had to
+be somebody doing something. `wait` is a beat with nothing in it, and a 700ms
+breath now goes in automatically between two *different* speakers. Not within
+one person's own lines — that pause is a hesitation, which is deliberate.
+
+## Built in response
+
+**One character, several pictures.** A cut-out can only do what its drawing
+does. `becomes` on a beat swaps the picture while the part keeps its place,
+size and rotation — a bird with folded wings becomes the drawing of a bird with
+open wings, standing where it stood. Ask for both on the same sheet and they
+match. The costume is presentational: a scene played again opens in the first
+one.
+
+## Also built in response
+
+**Nothing idles.** Between beats the stage is completely still, which reads as a
+freeze rather than as a pause. Every character is a cut-out with no motion of
+its own, so a scene with a long line in it is a photograph with text over it. A
+slow per-character sway during a show costs nothing and is the difference
+between a set and a diorama. Built: about a degree, offset per character from a
+hash of its id so no two are in step, and on the `rotate` property rather than
+`transform` — a beat animates `transform` through the Web Animations API, which
+replaces the property outright, so the two compose instead of cancelling.
+
+**The camera is never used, and so parallax never happens.** Camera beats exist,
+`stage_script` asks for at least two and complains afterwards when there are
+none, and it is still not being reached for. Parallax is the casualty: three
+depth planes that only mean anything while the view is moving. The fix was
+not more advice. A scene with no camera beats now gets an establishing move and
+a push-in on its first speaker for free, so the default is a scene that moves.
+The cost is real and is the right way round: a scene that wants one held wide
+shot has to say so, and a held shot is a decision where a scene that never moves
+because nobody thought about it is not.
+
+**The music never changes.** Every scene can name its own bed, and they end up
+with one between them. Nothing points this out: `stage_create` accepts whatever
+it is given and says nothing about the shape of the whole show. `theater_start` now says so
+when three or more scenes share one bed, in the NEXT line, where it is read.
+
+## Still open
+
+**Nothing checks a show as a whole.** Every warning so far is about one scene,
+or one placement. Nobody looks at four scenes together and says the middle two
+are the same scene twice, or that nothing changes pace from beginning to end.
+
+## The pattern worth naming
+
+Five of the seven were features that already existed and were not used. Advice
+in a tool description is weak — it is read once, in a list of twenty other
+descriptions, at the moment the agent is deciding something else. Two things
+have actually worked: making the *reply* say what is wrong after the fact
+(`thin`, "standing in mid-air", "NEXT:"), and making the good thing the
+default so that not deciding produces it. Prefer both over another sentence in
+a description.

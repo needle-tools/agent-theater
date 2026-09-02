@@ -105,9 +105,47 @@ export function sceneBeats(stage: Stage, sizeOf: (id: string) => number): BuildU
     const built = buildUp(stage, sizeOf);
     return {
         approach: built.approach,
-        beats: [...built.beats, ...stage.script, ...handOff(stage)],
+        beats: [...built.beats, ...filmed(stage.script), ...handOff(stage)],
         hidden: entering(stage),
     };
+}
+
+/**
+ * A script with a camera in it, whether or not anybody wrote one.
+ *
+ * Camera beats have existed for a while; stage_script asks for two and says so
+ * again afterwards when a scene has none. It kept not happening. Advice in a
+ * tool description is read once, in a list of twenty, at the moment the agent
+ * is deciding something else — so the answer is to stop asking and make the
+ * default good instead.
+ *
+ * The cost of that is real and worth stating: a scene that deliberately holds
+ * one fixed wide shot now has to say so, by writing its own camera beats. That
+ * is the right way round. A held shot is a decision, and a scene that never
+ * moves because nobody thought about it is not.
+ *
+ * Parallax is the other reason. Three depth planes only mean anything while the
+ * view is moving; a set built carefully on three planes and then filmed from a
+ * tripod is three flat pictures in a stack.
+ */
+export function filmed(script: Beat[]): Beat[] {
+    if (script.some(beat => beat.camera)) return script;
+
+    // Establish, then find whoever speaks first. Two moves is the minimum that
+    // reads as a camera rather than as a glitch.
+    const opening: Beat = { camera: { on: "all", tight: 0.95 }, duration: 1600 };
+    const firstLine = script.findIndex(beat => beat.say && beat.id);
+    if (firstLine < 0) return [opening, ...script];
+
+    const speaker = script[firstLine].id!;
+    return [
+        opening,
+        ...script.slice(0, firstLine),
+        // Pushed in a little past snug, so it is closer than the establishing
+        // shot without cropping anybody.
+        { camera: { on: [speaker], tight: 1.15 }, duration: 1800 },
+        ...script.slice(firstLine),
+    ];
 }
 
 /**
