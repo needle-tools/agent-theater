@@ -32,6 +32,14 @@ export interface Stagehand {
     setGone(id: string, gone: boolean): void;
     /** Make a noise. Fired as a beat begins, and not waited for. */
     cue(id: string): void;
+    /**
+     * Move the view to frame these layers over this long.
+     *
+     * Separate from the moves because the camera is not on the stage: nothing
+     * about the scene changes when it moves, and a layer animation cannot
+     * express it — the whole world has to slide, not one picture in it.
+     */
+    camera(ids: string[] | "all", tight: number, duration: number): Promise<void>;
 }
 
 export interface Playing {
@@ -40,8 +48,15 @@ export interface Playing {
     stop(): void;
 }
 
-/** Bubbles are typed in over the first part of their life, then held to be read. */
-const TYPING_SHARE = 0.45;
+/**
+ * Bubbles are typed in over the first part of their life, then held to be read.
+ *
+ * Most of it, so the words appear at something close to the speed they would
+ * be spoken, with a beat at the end to finish reading. Typing faster than that
+ * is a line that has arrived before the eye has got to it and then sits there
+ * fully formed — which reads as a caption rather than as somebody talking.
+ */
+const TYPING_SHARE = 0.72;
 /** How often a bubble redraws while typing. Smooth enough; not a frame loop. */
 const TYPING_TICK_MS = 40;
 
@@ -62,6 +77,11 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         typing = null;
     };
 
+    // Taken off stage before the first beat, and put back by their own
+    // entrance. Done synchronously, before anything is awaited, so there is not
+    // even one frame in which the whole cast is standing there.
+    for (const id of plan.hidden ?? []) hand.setGone(id, true);
+
     const finished = (async () => {
         for (const beat of plan.beats) {
             if (stopped) break;
@@ -74,6 +94,13 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         // Fired first and not awaited, so a sting lands on the movement rather
         // than after it. A beat with only a sound takes no time at all.
         if (beat.sound) hand.cue(beat.sound);
+        // Ordered before the move so a beat can do both: the camera pushes in
+        // while the person it is pushing in on takes their step.
+        if (beat.camera) {
+            const framing = hand.camera(beat.camera.on, beat.camera.tight ?? 1, beat.duration);
+            if (!beat.move && !beat.say) return framing;
+            void framing;
+        }
         if (beat.say) return speak(beat);
         if (!beat.move) return;
 

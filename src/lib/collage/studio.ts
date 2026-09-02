@@ -28,9 +28,15 @@ import {
     type StoredDoc, type StoredView,
 } from "./persistence.js";
 import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
+import { renamedIn } from "./stage.js";
+import { cellPixels, gridCells } from "./sheet.js";
+import {
+    creditLines, creditsDuration, creditsFor, performers, TITLE_MS, WAIT_FOR_AUDIENCE_MS,
+    type Billboard,
+} from "./billboard.js";
 import { plan as planScene, type Plan } from "./perform.js";
-import { DEFAULT_HOLD, sceneBeats, type ShowTiming } from "./show.js";
-import { SILENT, type Speaker } from "./audio.js";
+import { DEFAULT_HOLD, MIN_SCENE_MS, sceneBeats, type ShowTiming } from "./show.js";
+import { ENDING_FADE_MS, SILENT, type Speaker } from "./audio.js";
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
 
@@ -162,9 +168,43 @@ export interface CollageEvent {
     detail?: object;
 }
 
+export interface AddSheetOptions {
+    columns: number;
+    rows: number;
+    labels?: string[];
+    inset?: number;
+    /** Cut each cell out of its background. */
+    removeBackground?: boolean;
+    /**
+     * These cells are stages rather than things standing on one.
+     *
+     * Only affects how they are sized and laid out — a backdrop is the stage,
+     * so it gets a stage's width, where cut-outs are scaled against each other.
+     * It says nothing about whether the background comes off: it does either
+     * way, because a generated backdrop arrives as a torn paper card on a white
+     * sheet and the white sheet is not part of the picture.
+     */
+    asBackdrop?: boolean;
+    by?: "human" | "agent";
+}
+
 export interface CollageStudio {
     readonly collage: Collage;
     addImage(url: string, options?: AddImageOptions): Promise<AddImageResult>;
+    /**
+     * Cut one picture into a grid and add every cell as its own layer.
+     *
+     * The cutting is done here, in the page, because a grid is arithmetic and
+     * there is nothing to guess: the caller said three columns, so the cells
+     * are at thirds. Asking a remote cutter to find the subjects in a picture
+     * whose layout we already know is a round trip spent re-deriving something
+     * we were told — and when it comes back with one object instead of three,
+     * there is nothing to look at and no way to tell why.
+     *
+     * `removeBackground` then runs per cell, which is the operation that does
+     * need a model. Characters want it; backdrops emphatically do not.
+     */
+    addSheet(url: string, options: AddSheetOptions): Promise<Layer[]>;
     /**
      * Place the separate objects a photo turned out to contain. Called by
      * addImage; exposed because it is the whole of the multi-piece path.
@@ -222,6 +262,24 @@ export interface CollageStudio {
     stopShow(): void;
     /** The scene the show is on, or null when nothing is running. */
     readonly showing: string | null;
+    /**
+     * The title card or the credit roll, while one is up.
+     *
+     * Read by the overlay rather than pushed to it, so the studio keeps the
+     * timing — it is the thing that knows the running order, and a show whose
+     * title card was timed by the component drawing it would drift out of step
+     * with the scenes.
+     */
+    readonly billboard: Billboard | null;
+    /**
+     * Told when the show starts, moves on, or ends.
+     *
+     * `showing` is read by the canvas to dim itself and to point the camera at
+     * each new scene, and neither can be driven by polling. The document's own
+     * change signal is not enough: a show ending changes nothing in the
+     * document, so the house lights would have stayed down.
+     */
+    onShowChanged(callback: () => void): () => void;
     /** True while a score is playing, so a second one can be refused. */
     readonly performing: boolean;
     /**
@@ -339,6 +397,24 @@ export function capturedLayers(
     return all.filter(layer => overlaps(bounds(layer), region));
 }
 
+/**
+ * How big a stage is, in canvas units.
+ *
+ * An arbitrary number that has to be picked somewhere: the canvas has no
+ * inherent scale, so "a backdrop" is only large or small relative to what is
+ * standing on it. Everything else is derived from this one.
+ */
+const STAGE_WIDTH = 960;
+
+/**
+ * How tall the biggest thing on a sheet of cut-outs arrives.
+ *
+ * A little over half the height of a 16:9 stage, which is roughly a person on
+ * a set — and leaves room for a tree to be told it is bigger without going off
+ * the top.
+ */
+const CUT_OUT_HEIGHT = (STAGE_WIDTH * 9) / 16 * 0.55;
+
 export function createStudio(collage = new Collage()): CollageStudio {
     const images = new Map<string, LoadedImage>();
     const objectUrls = new Set<string>();
@@ -358,6 +434,33 @@ export function createStudio(collage = new Collage()): CollageStudio {
     let acting = false;
     /** The scene the show is on, and whether it should still be going. */
     let running: string | null = null;
+    let billboard: Billboard | null = null;
+    const showWatchers = new Set<() => void>();
+    const announceShow = () => { for (const watcher of [...showWatchers]) watcher(); };
+
+    const setRunning = (stage: string | null) => {
+        if (running === stage) return;
+        running = stage;
+        announceShow();
+    };
+
+    /**
+     * Put something in front of the show, and wait it out.
+     *
+     * Interruptible, because a show being stopped during its own credits must
+     * stop then rather than after them — polled rather than raced, so there is
+     * one place that decides how long a billboard lasts.
+     */
+    const holdBillboard = async (next: Billboard) => {
+        billboard = next;
+        announceShow();
+        const until = Date.now() + next.duration;
+        while (wanted && Date.now() < until) {
+            await new Promise(resolve => setTimeout(resolve, 80));
+        }
+        billboard = null;
+        announceShow();
+    };
     let wanted = false;
     let speaker: Speaker = SILENT;
 
@@ -371,16 +474,60 @@ export function createStudio(collage = new Collage()): CollageStudio {
      */
     const runShow = async (stages: Stage[]) => {
         wanted = true;
+
+        /*
+         * Wait to be let in.
+         *
+         * The browser will not make a sound until the person has interacted
+         * with the page, and an agent starting a show is not an interaction —
+         * so a play begun this way runs its whole length in silence unless
+         * somebody happens to click during it. Holding here turns that from a
+         * thing they discover afterwards into a thing they are asked for
+         * beforehand, and the click that answers is itself what unlocks the
+         * sound. Any pointer or key does it; the canvas listens for all of them.
+         */
+        if (!speaker.ready) {
+            billboard = {
+                kind: "waiting",
+                ...(collage.billing.title ? { title: collage.billing.title } : {}),
+                duration: WAIT_FOR_AUDIENCE_MS,
+            };
+            announceShow();
+            const until = Date.now() + WAIT_FOR_AUDIENCE_MS;
+            while (wanted && !speaker.ready && Date.now() < until) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            billboard = null;
+            announceShow();
+            if (!wanted) {
+                setRunning(null);
+                return;
+            }
+        }
+
+        // The title card, if the show has been named. Before the first scene
+        // and over a dark stage, which is the one moment the audience is
+        // willing to look at text instead of at the play.
+        const billing = collage.billing;
+        if (billing.title) {
+            await holdBillboard({
+                kind: "title",
+                title: billing.title,
+                ...(billing.byline ? { byline: billing.byline } : {}),
+                duration: TITLE_MS,
+            });
+        }
+
         for (const stage of stages) {
             if (!wanted) break;
-            running = stage.id;
+            setRunning(stage.id);
             collage.setActiveStage(stage.id);
             // Started with the scene rather than with its first beat, so the
             // bed is already under the build-up. Cross-fading is the speaker's
             // business; from here it is just "this scene wants this".
-            speaker.music(stage.music ?? null);
+            speaker.music(stage.music ?? null, stage.musicEnd ?? "loop");
 
-            const { approach, beats } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
+            const { approach, beats, hidden } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
             // Arrivals start off stage. Done through the placement, so the
             // walk that brings them on commits back to exactly where the stage
             // says they stand — no drift, however many times the show runs.
@@ -394,14 +541,71 @@ export function createStudio(collage = new Collage()): CollageStudio {
             }
 
             const { plan } = planScene(beats);
-            if (plan.beats.length) await studio.playScene(plan);
+            const began = Date.now();
+            if (plan.beats.length) await studio.playScene({ ...plan, hidden });
             if (!wanted) break;
-            await new Promise(resolve => setTimeout(resolve, (stage.hold ?? DEFAULT_HOLD) * 1000));
+            // The hold, or whatever is left of the minimum — whichever is
+            // longer. A scene nobody wrote anything for still has to be looked
+            // at, and one that ran its own length is not shortened by this.
+            const held = (stage.hold ?? DEFAULT_HOLD) * 1000;
+            const shortfall = MIN_SCENE_MS - (Date.now() - began);
+            await new Promise(resolve => setTimeout(resolve, Math.max(held, shortfall)));
         }
-        running = null;
+
+        if (wanted) await curtainCall(stages);
+
+        setRunning(null);
         wanted = false;
-        speaker.music(null);
+        // Fades rather than stops. The bed has usually been let go under the
+        // credits already, and this is the backstop for every other way a show
+        // can end — no credits, no cast, or a run that fell off the end of its
+        // last scene. Music that simply stopped there would sound like the tab
+        // being closed.
+        speaker.fadeMusic();
     };
+
+    /**
+     * The bows, then the roll.
+     *
+     * One at a time, in the order the audience met them, because that is what a
+     * curtain call is — everybody bowing at once is a crowd flinching. The
+     * player already runs beats one after another, so this is nothing more than
+     * a scene made of bows.
+     */
+    const curtainCall = async (stages: Stage[]) => {
+        const credits = creditsFor(stages, id => collage.get(id)?.label ?? null);
+        if (!credits.length) return;
+
+        // Bowing happens on the last scene, because that is what is on screen.
+        // Anybody not in it takes their bow in the roll instead: dragging the
+        // whole company back on would rearrange a stage the show just left.
+        //
+        // And only the people. The set is cast exactly the way the cast is —
+        // the house and the bush go in through the same tool with the same
+        // fields — so without this the scenery bowed too, which is funny once.
+        const acted = performers(stages);
+        const last = stages[stages.length - 1];
+        const bowing = last?.cast.filter(member =>
+            acted.has(member.id) && collage.get(member.id)) ?? [];
+        if (bowing.length) {
+            const { plan } = planScene(bowing.map(member => ({ id: member.id, do: "bow" as const })));
+            if (plan.beats.length) await studio.playScene(plan);
+        }
+        if (!wanted) return;
+
+        // Started with the roll rather than after it, so the last thing that
+        // happens is the music running out under the names — which is how a
+        // film ends and the reason the fade is longer than a scene change's.
+        const lines = creditLines(credits);
+        speaker.fadeMusic(Math.min(ENDING_FADE_MS, creditsDuration(lines.length)));
+        await holdBillboard({
+            kind: "credits",
+            ...(collage.billing.title ? { title: collage.billing.title } : {}),
+            lines,
+            duration: creditsDuration(lines.length),
+        });
+    };
+
     const announceSettle = () => { for (const watcher of [...settleWatchers]) watcher(); };
 
     const record = (
@@ -442,7 +646,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
             saveTimer = null;
-            saveDoc(collage.listAll(), collage.listFrames(), lastView, collage.listStages());
+            saveDoc(collage.listAll(), collage.listFrames(), lastView, collage.listStages(), collage.billing);
             // Cheap enough to run alongside a save, and it keeps a long session
             // from leaving every superseded cut-out behind in the store.
             // listAll, emphatically. With a stage showing, list() answers with
@@ -455,7 +659,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
     collage.onChanged(scheduleSave);
 
     // Whoever put a fetched face on the canvas — the font menu, an agent
-    // calling collage_style, a reloaded session, a paste — the stylesheet has
+    // calling piece_style, a reloaded session, a paste — the stylesheet has
     // to be on the page or the text draws in the fallback. Watching the model
     // catches all of those in one place instead of one call site at a time.
     let webFontsLinked = false;
@@ -710,6 +914,120 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 signal?.addEventListener("abort", onAbort, { once: true });
                 waiters.add(wake);
             });
+        },
+
+        async addSheet(url, options) {
+            const sheet = await loadImage(url);
+            const cells = gridCells({
+                columns: options.columns,
+                rows: options.rows,
+                ...(options.labels ? { labels: options.labels } : {}),
+                ...(typeof options.inset === "number" ? { inset: options.inset } : {}),
+            });
+
+            record("working",
+                `Cutting a sheet into ${cells.length} pieces…`, options.by ?? "human");
+
+            const made: Layer[] = [];
+            for (const [index, cell] of cells.entries()) {
+                const box = cellPixels(cell, sheet.width, sheet.height);
+                const canvas = document.createElement("canvas");
+                canvas.width = box.width;
+                canvas.height = box.height;
+                const ctx = canvas.getContext("2d");
+                if (!ctx) continue;
+                ctx.drawImage(sheet.image, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height);
+
+                // Through addImage rather than straight to the document, so a
+                // cell gets everything an added picture gets: bytes in
+                // IndexedDB, a measured crop, a hit-testing mask.
+                const url = await new Promise<string>((resolve, reject) => {
+                    canvas.toBlob(blob => {
+                        if (!blob) return reject(new Error("the cell could not be encoded"));
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(String(reader.result));
+                        reader.onerror = () => reject(reader.error ?? new Error("unreadable"));
+                        reader.readAsDataURL(blob);
+                    }, "image/png");
+                });
+
+                const { layer } = await this.addImage(url, {
+                    label: cell.label ?? `cell ${index + 1}`,
+                    // Backdrops go through the cutter too. They arrive as a
+                    // torn paper card sitting on a white sheet, and the white
+                    // sheet is not part of the picture — left on, it draws a
+                    // hard white rectangle round the scene and turns the deckle
+                    // edge, which is the nice part, into the inside of a frame.
+                    removeBackground: options.removeBackground !== false,
+                    // Never. The cell is one thing by construction, and asking
+                    // for it to be split again is how a figure holding a basket
+                    // arrives as a figure and a basket.
+                    slice: false,
+                    by: options.by,
+                });
+                made.push(layer);
+            }
+
+            /*
+             * One scale for the whole sheet, chosen so the biggest piece is a
+             * sensible height — and applied to every piece equally.
+             *
+             * Equally is the point. Every cell of a sheet is the same size, so
+             * a mushroom drawn small in its cell and a tree drawn large in its
+             * one arrive with their relative sizes already correct: that is the
+             * artist's own judgement, and normalising each piece to a standard
+             * height would throw it away and make the mushroom as tall as the
+             * tree. So the sheet is scaled, not the pieces.
+             *
+             * Without this, every cut-out arrives at the same 420-unit width
+             * whatever it is, which is how a standing figure ended up three
+             * times taller than the backdrop it was meant to stand on and the
+             * camera pulled back to the far end of the room to fit it in.
+             */
+            collage.batch(() => {
+                if (!options.asBackdrop) {
+                    const tallest = Math.max(...made.map(layer => layer.height), 1);
+                    const factor = CUT_OUT_HEIGHT / tallest;
+                    for (const layer of made) collage.update(layer.id, { width: layer.width * factor });
+                } else {
+                    // A backdrop is not one thing among others; it is the stage.
+                    // They all share an aspect ratio, so one width does for all.
+                    for (const layer of made) collage.update(layer.id, { width: STAGE_WIDTH });
+                }
+
+                /*
+                 * Laid out as a tray, below whatever is already here.
+                 *
+                 * Every layer added on its own goes to the next place on a
+                 * spiral, which is right for a photo dropped in and wrong for
+                 * twenty-five pieces of one set: they came off a grid, they
+                 * belong together, and scattered across the canvas they read as
+                 * a mess somebody has to tidy before they can find anything.
+                 * Keeping the sheet's own order also means the tray matches the
+                 * list of subjects that was asked for.
+                 */
+                const fresh = new Set(made.map(layer => layer.id));
+                const others = collage.listAll().filter(layer => !fresh.has(layer.id));
+                const below = others.length
+                    ? Math.max(...others.map(layer => layer.y + layer.height)) + 120
+                    : 0;
+
+                const sized = made.map(layer => collage.get(layer.id) ?? layer);
+                const cellW = Math.max(...sized.map(layer => layer.width), 1) + 40;
+                const cellH = Math.max(...sized.map(layer => layer.height), 1) + 40;
+                const left = -(options.columns * cellW) / 2;
+                for (const [index, layer] of sized.entries()) {
+                    collage.update(layer.id, {
+                        x: left + (index % options.columns) * cellW + (cellW - layer.width) / 2,
+                        // Bottom-aligned within the row, so a row of cut-outs
+                        // stands on a line rather than floating at its centre.
+                        y: below + Math.floor(index / options.columns) * cellH + (cellH - layer.height),
+                    });
+                }
+            });
+
+            record("image-added", `A sheet came apart into ${made.length} pieces.`, options.by ?? "human");
+            return made.map(layer => collage.get(layer.id) ?? layer);
         },
 
         async addImage(url, options = {}) {
@@ -1084,7 +1402,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // becomes the page and the rest are dropped.
             const frames = doc.frames.slice(0, 1);
             pagePreset = knownPage(frames[0]?.presetId);
-            collage.restore(restored, frames, doc.stages ?? []);
+            collage.restore(restored, frames, doc.stages ?? [], doc.billing ?? {});
             // Decode in parallel — a dozen images should not be a dozen waits.
             await Promise.all(restored
                 .filter((l): l is ImageLayer => l.kind === "image")
@@ -1135,13 +1453,24 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 layers: collage.listAll().map(layer =>
                     layer.kind === "image" && layer.storageKey ? { ...layer, src: "" } : layer),
                 frames: [frame],
+                // The scenes travel with it. A file that carried the cast but
+                // not the play would open as a pile of cut-outs — the work of
+                // casting, staging and scripting is most of what is in a show,
+                // and it is the part that cannot be reconstructed by looking.
+                ...(collage.listStages().length ? { stages: collage.listStages() } : {}),
+                ...(collage.billing.title || collage.billing.byline ? { billing: collage.billing } : {}),
                 ...(lastView ? { view: lastView } : {}),
             };
 
-            record("exported", `Saved "${frame.name}" as an openable collage.`, "human", { format: "collage" });
+            // Named after the play, when it has a name. A folder of files all
+            // called canvas.collage.png is a folder with one play in it as far
+            // as anybody can tell — and the title is the one thing the person
+            // definitely recognises.
+            const called = collage.billing.title?.trim() || frame.name;
+            record("exported", `Saved "${called}" as an openable play.`, "human", { format: "collage" });
             return {
                 blob: new Blob([packCollage(png, { doc, assets })], { type: "image/png" }),
-                filename: `${slug(frame.name)}.collage.png`,
+                filename: `${slug(called)}.play.png`,
             };
         },
 
@@ -1163,9 +1492,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // not throw that work away — and because these are ordinary adds,
             // one Ctrl+Z takes the whole thing back off again.
             const arriving: Layer[] = [];
+            // Layer ids are re-minted for the same reason storage keys are, so
+            // the scenes coming in behind them need to know what became of who.
+            const renamed = new Map<string, string>();
             for (const layer of payload.doc.layers) {
                 if (layer.kind !== "image") {
-                    arriving.push(collage.addText({ ...layer, id: undefined }));
+                    const text = collage.addText({ ...layer, id: undefined });
+                    renamed.set(layer.id, text.id);
+                    arriving.push(text);
                     continue;
                 }
                 const key = layer.storageKey ? remap.get(layer.storageKey) ?? null : null;
@@ -1173,7 +1507,23 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 const blob = key ? await getImage(key) : null;
                 const src = blob ? trackUrl(URL.createObjectURL(blob)) : layer.src;
                 if (!src) continue;
-                arriving.push(collage.addImage({ ...layer, id: undefined, src, storageKey: key }));
+                const image = collage.addImage({ ...layer, id: undefined, src, storageKey: key });
+                renamed.set(layer.id, image.id);
+                arriving.push(image);
+            }
+
+            // The title is taken only by a canvas that has none. Overwriting
+            // it would rename somebody else's show on the way past.
+            if (!collage.billing.title && payload.doc.billing?.title) {
+                collage.setBilling(payload.doc.billing);
+            }
+
+            // Scenes are added rather than replacing what is there, so opening
+            // a show onto a show gives you both to choose between.
+            for (const stage of payload.doc.stages ?? []) {
+                const scene = renamedIn(stage, renamed);
+                if (!scene.cast.length) continue;
+                collage.addStage({ ...scene, id: undefined });
             }
 
             // An empty canvas takes the file's page; an occupied one keeps its
@@ -1190,7 +1540,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
             selection = arriving.map(l => l.id);
             for (const watcher of [...selectionWatchers]) watcher();
             scheduleSave();
-            record("opened", `Opened a saved collage — ${arriving.length} layer(s).`);
+            const scenes = (payload.doc.stages ?? []).length;
+            record("opened",
+                `Opened a saved collage — ${arriving.length} layer(s)` +
+                `${scenes ? `, ${scenes} scene(s)` : ""}.`);
             return arriving.length;
         },
 
@@ -1241,6 +1594,15 @@ export function createStudio(collage = new Collage()): CollageStudio {
             return running;
         },
 
+        get billboard() {
+            return billboard;
+        },
+
+        onShowChanged(callback) {
+            showWatchers.add(callback);
+            return () => showWatchers.delete(callback);
+        },
+
         playShow(stageIds) {
             const wanted = stageIds?.length
                 ? stageIds.map(id => collage.getStage(id)).filter((s): s is Stage => !!s)
@@ -1255,8 +1617,11 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 const { beats } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
                 const { plan } = planScene(beats);
                 const hold = (stage.hold ?? DEFAULT_HOLD) * 1000;
-                timings.push({ stage: stage.id, name: stage.name, at, duration: plan.duration + hold });
-                at += plan.duration + hold;
+                // Same floor the run uses, so the timetable an agent narrates
+                // to matches what it will actually see.
+                const duration = Math.max(MIN_SCENE_MS, plan.duration + hold);
+                timings.push({ stage: stage.id, name: stage.name, at, duration });
+                at += duration;
             }
 
             void runShow(wanted);
@@ -1266,8 +1631,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
         stopShow() {
             wanted = false;
             running = null;
+            billboard = null;
+            announceShow();
             stopPerformance?.();
-            speaker.stop();
+            // Stopping is a person pressing stop, and they want it to stop —
+            // but a bed cut dead mid-bar is a jolt, so the music is let down
+            // quickly rather than instantly. Cues still stop at once: a sting
+            // fading out is a sting that sounds broken.
+            speaker.fadeMusic(600);
         },
 
         save(view) {

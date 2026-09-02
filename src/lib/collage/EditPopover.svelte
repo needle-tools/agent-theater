@@ -1,79 +1,66 @@
 <script lang="ts">
     /**
-     * Everything the sidebar used to be, folded into one corner button.
+     * Keeping a play, and getting it back.
      *
-     * A collage page should be mostly collage. These are the things that are
-     * genuinely global — what am I making, how should it be laid out, how do I
-     * get it out — so they live one click away rather than taking a permanent
-     * column. Anything that acts on a single picture belongs in the right-click
-     * menu, next to the picture.
+     * That is the whole panel. It used to hold everything a collage editor
+     * needed — page sizes, layouts, four kinds of export — and none of that is
+     * what somebody comes here for now. A play is hours of casting, blocking
+     * and scripting, so the thing worth one click is not losing it.
+     *
+     * Everything else found a better home. What a picture looks like is in the
+     * right-click menu next to the picture; playing and switching scenes is on
+     * the bar at the bottom of the stage; the stage's own size is whatever the
+     * backdrop is, which is what a set is anyway.
      */
-    import { FRAME_PRESETS, findPreset, outputSize, presetAspect } from "./model.js";
-    import type { LayoutMode } from "./layout.js";
-    import { checkFrame } from "./quality.js";
-    import { FREE_PAGE, type CollageStudio } from "./studio.js";
+    import type { CollageStudio } from "./studio.js";
+    import { toolCalls, toolLogFile } from "./toolLog.js";
 
     interface Props {
         studio: CollageStudio;
         open: boolean;
         toolsRegistered: boolean;
-        /** Ask for the scene behind the objects when a dropped photo splits. */
-        fillBackground: boolean;
-        onSetPage: (presetId: string) => void;
-        onSetBackground: (background: string) => void;
-        onArrange: (mode: LayoutMode) => void;
-        onExport: (format: "png" | "print" | "html" | "embed") => void;
+        /** Pack the whole play into one openable picture and download it. */
+        onSave: () => void;
+        /** Ask for a saved play, or pictures, from disk. */
+        onLoad: () => void;
         onClear: () => void;
         onClose: () => void;
     }
 
-    let {
-        studio, open, toolsRegistered, fillBackground = $bindable(),
-        onSetPage, onSetBackground, onArrange, onExport, onClear, onClose,
-    }: Props = $props();
+    let { studio, open, toolsRegistered, onSave, onLoad, onClear, onClose }: Props = $props();
 
     let version = $state(0);
     $effect(() => studio.collage.onChanged(() => version++));
 
     let panel: HTMLDivElement | null = $state(null);
 
-    const frames = $derived.by(() => (version, studio.collage.listFrames()));
-    const activeFrame = $derived(frames[0] ?? null);
-    const page = $derived.by(() => (version, studio.pagePreset));
-    const hasLayers = $derived.by(() => (version, studio.collage.list().length > 0));
-    const quality = $derived.by(() =>
-        (version, activeFrame ? checkFrame(studio.collage.layersIn(activeFrame.id), activeFrame) : null));
-    const size = $derived(activeFrame ? outputSize(activeFrame) : null);
+    const hasLayers = $derived.by(() => (version, studio.collage.listAll().length > 0));
 
-    /**
-     * The shapes on offer: the common presets, plus whatever is currently set.
+    /*
+     * The log of what the agent did.
      *
-     * That last part is what stops the control going blank. An agent can name
-     * any of the eleven presets, and a session saved on another build can
-     * restore one this picker does not list — either way the answer is to show
-     * it, not to pretend nothing is selected.
+     * Counted on every open rather than watched, because the count only has to
+     * be right at the moment somebody looks at it — and the log is written by
+     * tool calls, which do not go through the document's change signal.
      */
-    const pages = $derived.by(() => {
-        const choices = [
-            { id: FREE_PAGE, name: "Free", aspect: 1, title: "Free canvas — no fixed size" },
-            ...FRAME_PRESETS.filter(p => p.common).map(p => ({
-                id: p.id,
-                name: p.short ?? p.name,
-                aspect: presetAspect(p),
-                title: p.name,
-            })),
-        ];
-        if (choices.some(c => c.id === page)) return choices;
-        const current = findPreset(page);
-        return current
-            ? [...choices, {
-                id: current.id,
-                name: current.short ?? current.name,
-                aspect: presetAspect(current),
-                title: current.name,
-            }]
-            : choices;
-    });
+    const calls = $derived.by(() => (open, toolCalls().length));
+
+    let copiedLog = $state(false);
+
+    async function copyLog() {
+        const file = toolLogFile({
+            play: studio.collage.billing.title ?? null,
+            scenes: studio.collage.listStages().length,
+            pieces: studio.collage.listAll().length,
+            soundAllowed: studio.speaker.ready,
+        });
+        // Copied rather than downloaded: this gets pasted into a conversation
+        // with whoever is being asked about it, and a file on disk is two more
+        // steps between noticing something and being able to show it.
+        await navigator.clipboard.writeText(file);
+        copiedLog = true;
+        setTimeout(() => (copiedLog = false), 1800);
+    }
 </script>
 
 <svelte:window
@@ -86,96 +73,34 @@
 />
 
 {#if open}
-    <div class="panel" bind:this={panel} role="dialog" aria-label="Collage options">
+    <div class="panel" bind:this={panel} role="dialog" aria-label="The play">
         <section style:--i="0">
-            <h2>Making</h2>
-            <!-- Shapes rather than a list of names. "A4 wide" and "Social card"
-                 are the same words to anyone who has not memorised them; the
-                 proportions are the actual choice being made. -->
-            <div class="pages" role="radiogroup" aria-label="Output size">
-                {#each pages as choice (choice.id)}
-                    <button
-                        class="page"
-                        class:page--on={page === choice.id}
-                        role="radio"
-                        aria-checked={page === choice.id}
-                        title={choice.title}
-                        onclick={() => onSetPage(choice.id)}
-                    >
-                        <span class="page__frame" class:page__frame--free={choice.id === FREE_PAGE}>
-                            <span class="page__shape" style:aspect-ratio={choice.aspect}></span>
-                        </span>
-                        <span class="page__name">{choice.name}</span>
-                    </button>
-                {/each}
-            </div>
-            <!-- Labelled, because "Transparent / White" on its own does not say
-                 what it is the background OF. The page on the canvas shows the
-                 choice as you make it. -->
-            <h3>Behind the pictures</h3>
-            <div class="segmented" role="group" aria-label="Page background">
-                <button
-                    class:on={activeFrame?.background === "transparent"}
-                    onclick={() => onSetBackground("transparent")}
-                >Transparent</button>
-                <button
-                    class:on={activeFrame?.background !== "transparent"}
-                    onclick={() => onSetBackground("#FFFFFF")}
-                >White</button>
-            </div>
-            {#if size}
-                <p class="note">
-                    Exports at <span class="num">{size.width}×{size.height}</span>px{activeFrame?.physical
-                        ? ` — ${activeFrame.physical.width}×${activeFrame.physical.height}mm at 300 dpi`
-                        : ""}.
-                    {#if page === FREE_PAGE}The outline follows whatever you put on the canvas.{/if}
-                </p>
-            {/if}
-        </section>
-
-        <section style:--i="1">
-            <h2>Dropping</h2>
-            <!-- A drop-time choice, so it lives with the other global settings
-                 rather than on a picture that does not exist yet. -->
-            <label class="check">
-                <input type="checkbox" bind:checked={fillBackground} />
-                <span>
-                    Paint in what was behind
-                    <small>When a photo holds several things, also keep the emptied
-                    scene as a backdrop. Downloads a second model, and is slower.</small>
-                </span>
-            </label>
-        </section>
-
-        <section style:--i="2">
-            <h2>Arrange</h2>
-            <!-- One button, run again for a different result. The other layouts
-                 remain available to an agent through collage_arrange. -->
-            <button class="wide" disabled={!hasLayers} onclick={() => onArrange("collage")}>
-                Arrange the collage
-            </button>
-        </section>
-
-        <section style:--i="3">
-            <h2>Export</h2>
             <div class="grid">
-                <button disabled={!hasLayers} onclick={() => onExport("png")}>PNG</button>
-                <button disabled={!hasLayers} onclick={() => onExport("print")}>Print / PDF</button>
-                <button disabled={!hasLayers} onclick={() => onExport("html")}>Copy HTML</button>
-                <button disabled={!hasLayers} onclick={() => onExport("embed")}>Embed page</button>
+                <button class="strong" disabled={!hasLayers} onclick={onSave}>Save play</button>
+                <button class="strong" onclick={onLoad}>Load play</button>
             </div>
-            {#if quality?.summary}
-                <p class="warn">{quality.summary}</p>
-            {/if}
+            <p class="note">
+                Saves as one picture holding everything — the pieces, the scenes, the script and the
+                title. Drop it back here, or load it, to carry on where you left off.
+                <span class="num">Ctrl</span> + <span class="num">S</span> does the same.
+            </p>
         </section>
 
-        <footer style:--i="4">
+        <footer style:--i="1">
             <p class="muted">
                 {toolsRegistered
-                    ? "WebMCP tools are registered — an agent in this tab can build this with you, and can watch what you do."
-                    : "WebMCP is off in this browser. The editor works regardless."}
+                    ? "WebMCP tools are registered — an agent in this tab can put on a show with you, and can see what you change."
+                    : "WebMCP is off in this browser. The stage works regardless."}
             </p>
-            <button class="quiet" onclick={onClear}>Clear the canvas</button>
+            <!-- A debug affordance, and deliberately a plain one. The failures
+                 worth reporting here are not crashes: they are an agent calling
+                 the right tool with plausible arguments and getting a plausible
+                 answer that is wrong, which leaves no trace anybody can hand
+                 over afterwards. This is that trace. -->
+            <button class="quiet" disabled={!calls} onclick={copyLog}>
+                {copiedLog ? "Copied" : calls ? `Copy AI tool log (${calls})` : "No AI tool calls yet"}
+            </button>
+            <button class="quiet" onclick={onClear}>Clear the stage</button>
         </footer>
     </div>
 {/if}
@@ -187,8 +112,6 @@
         right: 16px;
         z-index: 40;
         width: 300px;
-        max-height: calc(100svh - 88px);
-        overflow-y: auto;
         /* Outer 18 = inner 12 + 6 padding, so the corners stay concentric with
            the controls sitting against them. */
         border-radius: 18px;
@@ -223,147 +146,14 @@
         .panel, section, footer { animation: none; }
     }
 
-    h3 {
-        margin: 10px 0 4px;
-        font-size: var(--type-body-muted-size);
-        font-weight: 500;
-        color: var(--text-secondary);
-    }
-
-    h2 {
-        margin: 0 0 8px;
-        font-size: var(--type-micro-label-size);
-        font-weight: var(--type-micro-label-weight);
-        letter-spacing: var(--type-micro-label-tracking);
-        text-transform: uppercase;
-        color: var(--text-muted);
-    }
-
-    .pages {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 4px;
-    }
-
-    .page {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 5px;
-        /* Outer 10 = inner shape's box plus its padding, so a selected tile's
-           corners stay concentric with the preview inside it. */
-        min-height: 62px;
-        padding: 7px 4px 6px;
-        border: 1px solid transparent;
-        border-radius: 10px;
-        background: none;
-    }
-
-    /* A fixed box the shape is drawn inside, so a portrait and a landscape
-       preview sit on the same baseline instead of jostling the row. */
-    .page__frame {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 34px;
-        height: 30px;
-    }
-
-    .page__shape {
-        max-width: 100%;
-        max-height: 100%;
-        /* One of the two has to be set for aspect-ratio to have anything to
-           work from; max-* then pulls whichever side is too long back in. */
-        width: 34px;
-        height: 30px;
-        border-radius: 2px;
-        background: var(--surface-panel-strong);
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 60%, transparent);
-    }
-
-    /* The free canvas has no shape, so it is drawn as the absence of one. */
-    .page__frame--free .page__shape {
-        background: none;
-        box-shadow: none;
-        border: 1px dashed color-mix(in srgb, var(--text-muted) 55%, transparent);
-        border-radius: 6px;
-    }
-
-    .page__name {
-        font-size: var(--type-micro-label-size);
-        line-height: 1.1;
-        color: var(--text-muted);
-        white-space: nowrap;
-    }
-
-    .page:hover:not(.page--on) {
-        background: var(--surface-panel-muted);
-    }
-
-    .page--on {
-        border-color: color-mix(in srgb, var(--accent-brand) 55%, transparent);
-        background: color-mix(in srgb, var(--accent-brand) 10%, transparent);
-    }
-
-    .page--on .page__shape {
-        background: var(--surface-page-elevated, #fff);
-        box-shadow: inset 0 0 0 1px var(--accent-brand);
-    }
-
-    .page--on .page__name {
-        color: var(--text-primary);
-        font-weight: 600;
-    }
-
-    /* One track, two segments — the standard shape for a binary choice, and it
-       shows the current state without needing a label to explain it. */
-    .segmented {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2px;
-        margin-top: 6px;
-        /* Outer 12 = inner 10 + 2 padding. */
-        padding: 2px;
-        border-radius: 12px;
-        background: var(--surface-panel-strong);
-    }
-
-    .segmented button {
-        min-height: 28px;
-        padding: 0 8px;
-        border: 1px solid transparent;
-        border-radius: 10px;
-        background: none;
-        color: var(--text-muted);
-        font-size: var(--type-micro-label-size);
-    }
-
-    .segmented button:hover:not(.on) {
-        background: color-mix(in srgb, var(--surface-panel) 60%, transparent);
-        border-color: transparent;
-    }
-
-    .segmented button.on {
-        background: var(--surface-panel);
-        border-color: color-mix(in srgb, var(--border-subtle) 70%, transparent);
-        color: var(--text-primary);
-        font-weight: 600;
-    }
-
     .grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 6px;
     }
 
-    .wide {
-        width: 100%;
-    }
-
-    /* Everything except the page tiles, which are their own shape entirely and
-       would otherwise inherit a control's padding and hover. */
-    button:not(.page) {
-        min-height: 34px;
+    button {
+        min-height: 38px;
         padding: 0 11px;
         border-radius: 12px;
         border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
@@ -376,7 +166,7 @@
         transition-duration: 0.14s;
     }
 
-    button:not(.page):hover:not(:disabled) {
+    button:hover:not(:disabled) {
         border-color: var(--border-strong);
         background: var(--surface-panel-muted);
     }
@@ -390,12 +180,14 @@
         cursor: not-allowed;
     }
 
-
-
+    .strong {
+        font-weight: 600;
+    }
 
     .quiet {
         width: 100%;
         margin-top: 8px;
+        min-height: 34px;
         border-color: transparent;
         background: none;
         color: var(--text-muted);
@@ -416,22 +208,8 @@
         text-wrap: pretty;
     }
 
-
     .num {
         font-variant-numeric: tabular-nums;
-    }
-
-
-    .warn {
-        margin: 8px 0 0;
-        padding: 8px 10px;
-        /* 12 inner radius matches the buttons above it. */
-        border-radius: 12px;
-        background: color-mix(in srgb, var(--accent-highlight) 20%, transparent);
-        color: var(--text-primary);
-        font-size: var(--type-body-muted-size);
-        line-height: var(--type-body-muted-line-height);
-        text-wrap: pretty;
     }
 
     footer {

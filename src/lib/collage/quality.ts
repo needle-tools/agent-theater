@@ -6,7 +6,7 @@
  * told anyone that. Nobody finds out until it is printed.
  *
  * So the check is explicit, and — more importantly — it is reported to the
- * agent, in `collage_describe` and again when it exports. An agent that is told
+ * agent, in `piece_list` and again when it exports. An agent that is told
  * "this cut-out is 412 px in a slot that needs 1200" can go back to FastCut and
  * re-cut from the original at full size. An agent that is told nothing ships a
  * blurry poster.

@@ -104,6 +104,11 @@ function fakeStudio(options: FakeOptions = {}) {
         setSpeaker() { /* the fake is deaf */ },
         get speaker() { return SILENT; },
         get showing() { return null; },
+        onShowChanged() { return () => { /* the fake never changes */ }; },
+        get billboard() { return null; },
+        // The fake has no canvas to draw crops on, so a sheet is reported as
+        // arriving whole. The cutting itself is tested against gridCells.
+        async addSheet() { return []; },
         // The fake plays a whole show instantly, so the tools can be tested for
         // what they say rather than for how long they take.
         playShow(ids?: string[]) {
@@ -241,7 +246,7 @@ describe("tool surface", () => {
         const { tools } = fakeStudio();
         expect(tools.length).toBeGreaterThan(0);
         for (const tool of tools) {
-            expect(tool.name).toMatch(/^(collage|stage|show)_[a-z_]+$/);
+            expect(tool.name).toMatch(/^(piece|stage|show|theater)_[a-z_]+$/);
             expect(tool.description.length).toBeGreaterThan(20);
             expect((tool.inputSchema as { type?: string }).type).toBe("object");
             expect(typeof tool.execute).toBe("function");
@@ -251,9 +256,9 @@ describe("tool surface", () => {
     it("never throws at the browser, whatever it is handed", async () => {
         const { tools } = fakeStudio();
         for (const tool of tools) {
-            // collage_watch blocks on purpose; an already-aborted signal is how
+            // show_watch blocks on purpose; an already-aborted signal is how
             // a caller cancels one, and it must come back rather than reject.
-            const options = tool.name === "collage_watch" ? { signal: AbortSignal.abort() } : undefined;
+            const options = tool.name === "show_watch" ? { signal: AbortSignal.abort() } : undefined;
             for (const args of [undefined, {}, { id: "nope" }, { url: 12 }, { format: "gif" }, { layout: "spiral" }]) {
                 await expect(tool.execute(args as any, options)).resolves.toBeTruthy();
             }
@@ -264,14 +269,14 @@ describe("tool surface", () => {
 describe("adding images", () => {
     it("takes a data URL and reports what it got", async () => {
         const { tool } = fakeStudio({ natural: { width: 800, height: 600 }, coverage: 0.3 });
-        const result = await tool("collage_add_image").execute({ url: "data:image/png;base64,AAA", label: "sneaker" });
+        const result = await tool("piece_add").execute({ url: "data:image/png;base64,AAA", label: "sneaker" });
         expect(result.isError).toBeFalsy();
         expect(textOf(result)).toContain("800×600px");
     });
 
     it("removes the background by default, without being asked", async () => {
         const { tool, cuts } = fakeStudio({ coverage: 1 });
-        const result = await tool("collage_add_image").execute({ url: "https://example.test/photo.jpg" });
+        const result = await tool("piece_add").execute({ url: "https://example.test/photo.jpg" });
         expect(cuts).toHaveLength(1);
         expect(textOf(result)).toContain("Background removed");
         expect((result.structuredContent as any).background.removed).toBe(true);
@@ -279,21 +284,21 @@ describe("adding images", () => {
 
     it("says so in the description, so an agent knows not to go elsewhere first", () => {
         const { tool } = fakeStudio();
-        const description = tool("collage_add_image").description;
+        const description = tool("piece_add").description;
         expect(description).toMatch(/background is removed automatically/i);
         expect(description).toMatch(/do NOT\s+open FastCut/i);
     });
 
     it("leaves an image that is already a cut-out alone", async () => {
         const { tool } = fakeStudio({ coverage: 0.2 });
-        const result = await tool("collage_add_image").execute({ url: "https://example.test/cut.png" });
+        const result = await tool("piece_add").execute({ url: "https://example.test/cut.png" });
         expect(textOf(result)).toContain("already a cut-out");
         expect((result.structuredContent as any).background.skipped).toBe(true);
     });
 
     it("skips the cut when told to, and does not pretend otherwise", async () => {
         const { tool, cuts } = fakeStudio({ coverage: 1 });
-        const result = await tool("collage_add_image").execute({
+        const result = await tool("piece_add").execute({
             url: "https://example.test/photo.jpg",
             removeBackground: false,
         });
@@ -303,7 +308,7 @@ describe("adding images", () => {
 
     it("names the fallback when the remover is unavailable", async () => {
         const { tool } = fakeStudio({ coverage: 1, cutUnavailable: true });
-        const result = await tool("collage_add_image").execute({ url: "https://example.test/photo.jpg" });
+        const result = await tool("piece_add").execute({ url: "https://example.test/photo.jpg" });
         // The layer is still added — a missing model must not lose the image.
         expect(result.isError).toBeFalsy();
         expect(textOf(result)).toContain("NOT removed");
@@ -312,35 +317,35 @@ describe("adding images", () => {
 
     it("can re-cut a layer that is already on the canvas", async () => {
         const { tool, cuts } = fakeStudio({ coverage: 1 });
-        const added = await tool("collage_add_image").execute({
+        const added = await tool("piece_add").execute({
             url: "https://example.test/photo.jpg",
             removeBackground: false,
         });
         const id = (added.structuredContent as any).layer.id;
-        const result = await tool("collage_remove_background").execute({ id });
+        const result = await tool("piece_recut").execute({ id });
         expect(result.isError).toBeFalsy();
         expect(cuts).toContain(id);
     });
 
     it("refuses to cut the background out of text", async () => {
         const { tool } = fakeStudio();
-        const added = await tool("collage_add_text").execute({ text: "Summer" });
+        const added = await tool("piece_text").execute({ text: "Summer" });
         const id = (added.structuredContent as any).layer.id;
-        const result = await tool("collage_remove_background").execute({ id });
+        const result = await tool("piece_recut").execute({ id });
         expect(result.isError).toBe(true);
         expect(textOf(result)).toContain("no background");
     });
 
     it("refuses something that is not an image URL, and says what to pass", async () => {
         const { tool } = fakeStudio();
-        const result = await tool("collage_add_image").execute({ url: "javascript:alert(1)" });
+        const result = await tool("piece_add").execute({ url: "javascript:alert(1)" });
         expect(result.isError).toBe(true);
         expect(textOf(result)).toContain("http(s)");
     });
 
     it("turns a loading failure into an explanation, not an exception", async () => {
         const { tool } = fakeStudio({ failLoading: true });
-        const result = await tool("collage_add_image").execute({ url: "https://example.test/missing.png" });
+        const result = await tool("piece_add").execute({ url: "https://example.test/missing.png" });
         expect(result.isError).toBe(true);
         expect(textOf(result)).toContain("404");
     });
@@ -351,20 +356,20 @@ describe("the output page", () => {
         // A page is a setting with a sensible default, not a thing to be built
         // before anything else can happen.
         const { tool, collage } = fakeStudio();
-        await tool("collage_add_image").execute({ url: "https://example.test/a.png" });
+        await tool("piece_add").execute({ url: "https://example.test/a.png" });
 
-        const arranged = await tool("collage_arrange").execute({ layout: "grid" });
+        const arranged = await tool("piece_arrange").execute({ layout: "grid" });
         expect(arranged.isError).toBeFalsy();
         expect(collage.listFrames()).toHaveLength(1);
 
-        const exported = await tool("collage_export").execute({ format: "png" });
+        const exported = await tool("show_export").execute({ format: "png" });
         expect(exported.isError).toBeFalsy();
     });
 
     it("replaces the page rather than stacking another one", async () => {
         const { tool, collage } = fakeStudio();
-        await tool("collage_set_page").execute({ page: "a4-portrait" });
-        await tool("collage_set_page").execute({ page: "og-1200x630" });
+        await tool("show_page").execute({ page: "a4-portrait" });
+        await tool("show_page").execute({ page: "og-1200x630" });
         // Two overlapping pages that could not be deleted was the bug.
         expect(collage.listFrames()).toHaveLength(1);
         expect(collage.listFrames()[0].presetId).toBe("og-1200x630");
@@ -372,7 +377,7 @@ describe("the output page", () => {
 
     it("rejects an unknown page by listing the real ones", async () => {
         const { tool } = fakeStudio();
-        const result = await tool("collage_set_page").execute({ page: "a2-poster" });
+        const result = await tool("show_page").execute({ page: "a2-poster" });
         expect(result.isError).toBe(true);
         expect(textOf(result)).toContain("a4-portrait");
         expect(textOf(result)).toContain(FREE_PAGE);
@@ -380,14 +385,14 @@ describe("the output page", () => {
 
     it("reports the export size in the terms the person asked in", async () => {
         const { tool } = fakeStudio();
-        const result = await tool("collage_set_page").execute({ page: "a4-portrait" });
+        const result = await tool("show_page").execute({ page: "a4-portrait" });
         expect(textOf(result)).toContain("2480×3508px");
         expect(textOf(result)).toContain("210×297mm");
     });
 
     it("accepts the free page, which has no fixed size", async () => {
         const { tool, studio } = fakeStudio();
-        const result = await tool("collage_set_page").execute({ page: FREE_PAGE });
+        const result = await tool("show_page").execute({ page: FREE_PAGE });
         expect(result.isError).toBeFalsy();
         expect(studio.pagePreset).toBe(FREE_PAGE);
     });
@@ -398,7 +403,7 @@ describe("selecting and capturing", () => {
         const kit = fakeStudio({ coverage: 0.2 });
         const ids: string[] = [];
         for (let i = 0; i < n; i++) {
-            const added = await kit.tool("collage_add_image").execute({
+            const added = await kit.tool("piece_add").execute({
                 url: `https://example.test/${i}.png`,
                 label: ["cactus", "lego man", "monstera", "sneaker"][i] ?? `thing ${i}`,
             });
@@ -409,7 +414,7 @@ describe("selecting and capturing", () => {
 
     it("selects by name, which is how a person would say it", async () => {
         const { tool, studio } = await withImages(4);
-        const result = await tool("collage_select").execute({ query: "cactus monstera" });
+        const result = await tool("piece_select").execute({ query: "cactus monstera" });
         expect(result.isError).toBeFalsy();
         expect(studio.selection).toHaveLength(2);
         expect(textOf(result)).toContain("cactus");
@@ -417,15 +422,15 @@ describe("selecting and capturing", () => {
 
     it("adds to a selection instead of replacing it when asked", async () => {
         const { tool, studio, ids } = await withImages(4);
-        await tool("collage_select").execute({ ids: [ids[0]] });
-        await tool("collage_select").execute({ ids: [ids[1]], add: true });
+        await tool("piece_select").execute({ ids: [ids[0]] });
+        await tool("piece_select").execute({ ids: [ids[1]], add: true });
         expect(studio.selection).toEqual([ids[0], ids[1]]);
     });
 
     it("reports the current selection when asked nothing", async () => {
         const { tool, studio, ids } = await withImages(2);
         studio.setSelection([ids[0]]);
-        const result = await tool("collage_select").execute({});
+        const result = await tool("piece_select").execute({});
         expect(textOf(result)).toContain("Currently selected");
         expect(result.isError).toBeFalsy();
     });
@@ -433,7 +438,7 @@ describe("selecting and capturing", () => {
     it("captures the selection as a real image", async () => {
         const { tool, studio, ids } = await withImages(3);
         studio.setSelection([ids[0], ids[1]]);
-        const result = await tool("collage_capture").execute({});
+        const result = await tool("show_capture").execute({});
 
         const image = result.content.find(c => c.type === "image") as any;
         expect(image?.data).toBeTruthy();
@@ -443,25 +448,25 @@ describe("selecting and capturing", () => {
     it("hands back the region, so a generated image can go back in its place", async () => {
         const { tool, studio, ids } = await withImages(2);
         studio.setSelection([ids[0]]);
-        const result = await tool("collage_capture").execute({});
+        const result = await tool("show_capture").execute({});
         const region = (result.structuredContent as any).region;
 
         expect(region).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
         // The text has to say it too — that is what the agent acts on.
-        expect(textOf(result)).toContain("collage_add_image");
+        expect(textOf(result)).toContain("piece_add");
         expect(textOf(result)).toContain(`x ${Math.round(region.x)}`);
     });
 
     it("takes an explicit rectangle over the selection", async () => {
         const { tool, captures, studio, ids } = await withImages(2);
         studio.setSelection([ids[0]]);
-        await tool("collage_capture").execute({ x: 10, y: 20, width: 300, height: 200 });
+        await tool("show_capture").execute({ x: 10, y: 20, width: 300, height: 200 });
         expect(captures.at(-1)!.region).toEqual({ x: 10, y: 20, width: 300, height: 200 });
     });
 
     it("refuses a rectangle with no area", async () => {
         const { tool } = await withImages(1);
-        const result = await tool("collage_capture").execute({ x: 0, y: 0, width: 0, height: 50 });
+        const result = await tool("show_capture").execute({ x: 0, y: 0, width: 0, height: 50 });
         expect(result.isError).toBe(true);
     });
 });
@@ -469,7 +474,7 @@ describe("selecting and capturing", () => {
 describe("watching", () => {
     it("returns as soon as something happens", async () => {
         const { tool, studio } = fakeStudio();
-        const watching = tool("collage_watch").execute({ cursor: 0, timeoutSeconds: 5 });
+        const watching = tool("show_watch").execute({ cursor: 0, timeoutSeconds: 5 });
         studio.record("layer-moved", "A person moved \"sneaker\".", "human");
 
         const result = await watching;
@@ -483,18 +488,18 @@ describe("watching", () => {
         studio.record("image-added", "one", "agent");
         studio.record("image-added", "two", "human");
 
-        const first = await tool("collage_watch").execute({ cursor: 0, timeoutSeconds: 1 });
+        const first = await tool("show_watch").execute({ cursor: 0, timeoutSeconds: 1 });
         const cursor = (first.structuredContent as any).nextCursor;
         expect((first.structuredContent as any).events).toHaveLength(2);
 
         studio.record("image-added", "three", "human");
-        const second = await tool("collage_watch").execute({ cursor, timeoutSeconds: 1 });
+        const second = await tool("show_watch").execute({ cursor, timeoutSeconds: 1 });
         expect((second.structuredContent as any).events.map((e: any) => e.summary)).toEqual(["three"]);
     });
 
     it("comes back empty rather than hanging when nothing happens", async () => {
         const { tool } = fakeStudio();
-        const result = await tool("collage_watch").execute({ cursor: 0, timeoutSeconds: 1 });
+        const result = await tool("show_watch").execute({ cursor: 0, timeoutSeconds: 1 });
         expect(result.isError).toBeFalsy();
         expect((result.structuredContent as any).idle).toBe(true);
         // It has to say how to carry on, or the loop stops here.
@@ -504,7 +509,7 @@ describe("watching", () => {
     it("starts from now when given no cursor, instead of replaying history", async () => {
         const { tool, studio } = fakeStudio();
         studio.record("image-added", "something that happened before anyone was watching");
-        const result = await tool("collage_watch").execute({ timeoutSeconds: 1 });
+        const result = await tool("show_watch").execute({ timeoutSeconds: 1 });
         expect((result.structuredContent as any).events).toHaveLength(0);
     });
 });
@@ -512,12 +517,12 @@ describe("watching", () => {
 describe("arranging", () => {
     it("lays out what is inside the frame and points at the preview", async () => {
         const { tool, collage } = fakeStudio();
-        for (let i = 0; i < 4; i++) await tool("collage_add_image").execute({ url: `https://example.test/${i}.png` });
-        await tool("collage_set_page").execute({ page:"square-1080" });
+        for (let i = 0; i < 4; i++) await tool("piece_add").execute({ url: `https://example.test/${i}.png` });
+        await tool("show_page").execute({ page:"square-1080" });
 
-        const result = await tool("collage_arrange").execute({ layout: "packed" });
+        const result = await tool("piece_arrange").execute({ layout: "packed" });
         expect(result.isError).toBeFalsy();
-        expect(textOf(result)).toContain("collage_preview");
+        expect(textOf(result)).toContain("show_look");
 
         const frame = collage.listFrames()[0];
         for (const layer of collage.layersIn(frame.id)) {
@@ -528,31 +533,31 @@ describe("arranging", () => {
 
     it("says so plainly when the frame is empty", async () => {
         const { tool } = fakeStudio();
-        await tool("collage_set_page").execute({ page:"square-1080" });
-        const result = await tool("collage_arrange").execute({ layout: "grid" });
+        await tool("show_page").execute({ page:"square-1080" });
+        const result = await tool("piece_arrange").execute({ layout: "grid" });
         expect(result.isError).toBe(true);
-        expect(textOf(result)).toContain("collage_add_image");
+        expect(textOf(result)).toContain("piece_add");
     });
 });
 
 describe("styling", () => {
     it("applies a silhouette and can take it away again", async () => {
         const { tool, collage } = fakeStudio();
-        const added = await tool("collage_add_image").execute({ url: "https://example.test/a.png" });
+        const added = await tool("piece_add").execute({ url: "https://example.test/a.png" });
         const id = (added.structuredContent as any).layer.id;
 
-        await tool("collage_style").execute({ id, silhouette: "#826AED" });
+        await tool("piece_style").execute({ id, silhouette: "#826AED" });
         expect((collage.get(id) as ImageLayer).style.silhouette).toBe("#826AED");
 
-        await tool("collage_style").execute({ id, silhouette: null });
+        await tool("piece_style").execute({ id, silhouette: null });
         expect((collage.get(id) as ImageLayer).style.silhouette).toBeNull();
     });
 
     it("refuses to style text, and says why", async () => {
         const { tool } = fakeStudio();
-        const added = await tool("collage_add_text").execute({ text: "Summer" });
+        const added = await tool("piece_text").execute({ text: "Summer" });
         const id = (added.structuredContent as any).layer.id;
-        const result = await tool("collage_style").execute({ id, shadow: true });
+        const result = await tool("piece_style").execute({ id, shadow: true });
         expect(result.isError).toBe(true);
         expect(textOf(result)).toContain("image layers");
     });
@@ -561,8 +566,8 @@ describe("styling", () => {
 describe("looking at the result", () => {
     it("hands back an actual image, not a description of one", async () => {
         const { tool } = fakeStudio();
-        await tool("collage_set_page").execute({ page:"square-1080" });
-        const result = await tool("collage_preview").execute({});
+        await tool("show_page").execute({ page:"square-1080" });
+        const result = await tool("show_look").execute({});
         const image = result.content.find(c => c.type === "image") as any;
         expect(image).toBeTruthy();
         expect(image.mimeType).toBe("image/jpeg");
@@ -571,11 +576,11 @@ describe("looking at the result", () => {
 
     it("warns about resolution in the preview, before anything is exported", async () => {
         const { tool } = fakeStudio({ natural: { width: 120, height: 120 } });
-        await tool("collage_add_image").execute({ url: "https://example.test/tiny.png" });
-        await tool("collage_set_page").execute({ page:"a4-portrait" });
-        await tool("collage_arrange").execute({ layout: "grid" });
+        await tool("piece_add").execute({ url: "https://example.test/tiny.png" });
+        await tool("show_page").execute({ page:"a4-portrait" });
+        await tool("piece_arrange").execute({ layout: "grid" });
 
-        const result = await tool("collage_preview").execute({});
+        const result = await tool("show_look").execute({});
         expect(textOf(result)).toMatch(/soft/i);
     });
 });
@@ -583,11 +588,11 @@ describe("looking at the result", () => {
 describe("exporting", () => {
     it("passes the format through and repeats any resolution warning", async () => {
         const { tool, exports } = fakeStudio({ natural: { width: 100, height: 100 } });
-        await tool("collage_add_image").execute({ url: "https://example.test/tiny.png" });
-        await tool("collage_set_page").execute({ page:"a4-portrait" });
-        await tool("collage_arrange").execute({ layout: "grid" });
+        await tool("piece_add").execute({ url: "https://example.test/tiny.png" });
+        await tool("show_page").execute({ page:"a4-portrait" });
+        await tool("piece_arrange").execute({ layout: "grid" });
 
-        const result = await tool("collage_export").execute({ format: "html", interactive: true });
+        const result = await tool("show_export").execute({ format: "html", interactive: true });
         expect(result.isError).toBeFalsy();
         expect(exports[0]).toMatchObject({ format: "html", options: { interactive: true } });
         expect(textOf(result)).toContain("Heads up");
@@ -595,15 +600,15 @@ describe("exporting", () => {
 
     it("clamps dpi rather than trusting the number it was given", async () => {
         const { tool, exports } = fakeStudio();
-        await tool("collage_set_page").execute({ page:"a4-portrait" });
-        await tool("collage_export").execute({ format: "png", dpi: 9000 });
+        await tool("show_page").execute({ page:"a4-portrait" });
+        await tool("show_export").execute({ format: "png", dpi: 9000 });
         expect(exports[0].options.dpi).toBe(600);
     });
 
     it("rejects a format it does not have", async () => {
         const { tool } = fakeStudio();
-        await tool("collage_set_page").execute({ page:"a4-portrait" });
-        const result = await tool("collage_export").execute({ format: "svg" });
+        await tool("show_page").execute({ page:"a4-portrait" });
+        const result = await tool("show_export").execute({ format: "svg" });
         expect(result.isError).toBe(true);
         expect(textOf(result)).toContain("png, print, html or embed");
     });
@@ -612,18 +617,18 @@ describe("exporting", () => {
 describe("describing", () => {
     it("says the canvas is empty rather than returning nothing", async () => {
         const { tool } = fakeStudio();
-        const result = await tool("collage_describe").execute({});
-        expect(textOf(result)).toContain("collage_add_image");
-        expect(textOf(result)).toContain("collage_set_page");
+        const result = await tool("piece_list").execute({});
+        expect(textOf(result)).toContain("piece_add");
+        expect(textOf(result)).toContain("show_page");
     });
 
     it("lists frames, layers and any resolution problem in one call", async () => {
         const { tool } = fakeStudio({ natural: { width: 100, height: 100 } });
-        await tool("collage_add_image").execute({ url: "https://example.test/a.png", label: "sneaker" });
-        await tool("collage_set_page").execute({ page:"a4-portrait" });
-        await tool("collage_arrange").execute({ layout: "grid" });
+        await tool("piece_add").execute({ url: "https://example.test/a.png", label: "sneaker" });
+        await tool("show_page").execute({ page:"a4-portrait" });
+        await tool("piece_arrange").execute({ layout: "grid" });
 
-        const text = textOf(await tool("collage_describe").execute({}));
+        const text = textOf(await tool("piece_list").execute({}));
         expect(text).toContain("A4 portrait");
         expect(text).toContain("sneaker");
         expect(text).toContain("Resolution:");
@@ -639,17 +644,17 @@ describe("running several tools at once", () => {
      */
     async function withText() {
         const fake = fakeStudio();
-        await fake.tool("collage_add_text").execute({ text: "Hello" });
-        return { ...fake, id: fake.collage.list()[0].id, batch: fake.tool("collage_batch") };
+        await fake.tool("piece_text").execute({ text: "Hello" });
+        return { ...fake, id: fake.collage.list()[0].id, batch: fake.tool("theater_batch") };
     }
 
     it("runs the steps in order", async () => {
         const { batch, collage, id } = await withText();
         const result = await batch.execute({
             steps: [
-                { tool: "collage_transform", args: { id, x: 100, y: 50 } },
-                { tool: "collage_transform", args: { id, rotation: 15 } },
-                { tool: "collage_set_text", args: { id, text: "Goodbye" } },
+                { tool: "piece_move", args: { id, x: 100, y: 50 } },
+                { tool: "piece_move", args: { id, rotation: 15 } },
+                { tool: "piece_set_text", args: { id, text: "Goodbye" } },
             ],
         });
 
@@ -665,9 +670,9 @@ describe("running several tools at once", () => {
 
         await batch.execute({
             steps: [
-                { tool: "collage_transform", args: { id, x: 300 } },
-                { tool: "collage_transform", args: { id, y: 400 } },
-                { tool: "collage_transform", args: { id, rotation: 30 } },
+                { tool: "piece_move", args: { id, x: 300 } },
+                { tool: "piece_move", args: { id, y: 400 } },
+                { tool: "piece_move", args: { id, rotation: 30 } },
             ],
         });
         collage.undo();
@@ -681,9 +686,9 @@ describe("running several tools at once", () => {
         const y = collage.get(id)!.y;
         const result = await batch.execute({
             steps: [
-                { tool: "collage_transform", args: { id, x: 100 } },
-                { tool: "collage_transform", args: { id: "img-nope", x: 5 } },
-                { tool: "collage_transform", args: { id, y: 999 } },
+                { tool: "piece_move", args: { id, x: 100 } },
+                { tool: "piece_move", args: { id: "img-nope", x: 5 } },
+                { tool: "piece_move", args: { id, y: 999 } },
             ],
         });
 
@@ -699,8 +704,8 @@ describe("running several tools at once", () => {
         const result = await batch.execute({
             stopOnError: false,
             steps: [
-                { tool: "collage_transform", args: { id: "img-nope", x: 5 } },
-                { tool: "collage_transform", args: { id, y: 250 } },
+                { tool: "piece_move", args: { id: "img-nope", x: 5 } },
+                { tool: "piece_move", args: { id, y: 250 } },
             ],
         });
 
@@ -715,19 +720,19 @@ describe("running several tools at once", () => {
         const x = collage.get(id)!.x;
         const result = await batch.execute({
             steps: [
-                { tool: "collage_transform", args: { id, x: 700 } },
-                { tool: "collage_teleport", args: {} },
+                { tool: "piece_move", args: { id, x: 700 } },
+                { tool: "piece_teleport", args: {} },
             ],
         });
 
         expect(result.isError).toBe(true);
-        expect(textOf(result)).toContain("collage_teleport");
+        expect(textOf(result)).toContain("piece_teleport");
         expect(collage.get(id)!.x).toBe(x);
     });
 
     it("refuses to nest itself", async () => {
         const { batch } = await withText();
-        const result = await batch.execute({ steps: [{ tool: "collage_batch", args: { steps: [] } }] });
+        const result = await batch.execute({ steps: [{ tool: "theater_batch", args: { steps: [] } }] });
         expect(result.isError).toBe(true);
     });
 
@@ -735,7 +740,7 @@ describe("running several tools at once", () => {
         const { batch } = await withText();
         expect((await batch.execute({ steps: [] })).isError).toBe(true);
 
-        const many = Array.from({ length: 41 }, () => ({ tool: "collage_describe", args: {} }));
+        const many = Array.from({ length: 41 }, () => ({ tool: "piece_list", args: {} }));
         const tooMany = await batch.execute({ steps: many });
         expect(tooMany.isError).toBe(true);
         expect(textOf(tooMany)).toMatch(/smaller batches/);
@@ -752,10 +757,10 @@ describe("the surface an agent actually sees", () => {
     it("is the theatre and nothing else", () => {
         const { studio } = fakeStudio();
         expect(createCollageTools(studio).map(t => t.name).sort()).toEqual([
-            "collage_add_image", "collage_add_text", "collage_batch", "collage_describe",
-            "collage_preview", "collage_remove", "collage_transform", "collage_watch",
-            "show_play", "show_sounds", "show_stop",
+            "piece_add", "piece_list", "piece_move", "piece_remove", "piece_sheet", "piece_text",
+            "show_look", "show_play", "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_script",
+            "theater_art_prompt", "theater_batch", "theater_start",
         ]);
     });
 
@@ -765,13 +770,93 @@ describe("the surface an agent actually sees", () => {
         // just not a thing an agent needs in order to stage a play.
         const { studio } = fakeStudio();
         const everything = createAllCollageTools(studio).map(t => t.name);
-        for (const left of ["collage_arrange", "collage_trace", "collage_export", "collage_style"]) {
+        for (const left of ["piece_arrange", "piece_trace", "show_export", "piece_style"]) {
             expect(everything).toContain(left);
         }
     });
 
-    it("no longer offers the score tool the scenes replaced", () => {
+    it("has nothing left called collage", () => {
+        // The names are the first thing an agent reads, and this is a theatre.
         const { studio } = fakeStudio();
-        expect(createAllCollageTools(studio).map(t => t.name)).not.toContain("collage_perform");
+        for (const tool of createAllCollageTools(studio)) {
+            expect(tool.name.startsWith("collage_")).toBe(false);
+        }
+    });
+});
+
+describe("the guide", () => {
+    /**
+     * The failure this exists to catch is not a crash. It is an agent reading
+     * "2 scenes" and reporting "everything is still there" while both scenes
+     * are empty and would play as still pictures of a backdrop. A status line
+     * gets repeated back as a status line; a sentence saying what to do next
+     * gets acted on.
+     */
+    const guideOf = async (studio: any) => {
+        const start = createCollageTools(studio).find(t => t.name === "theater_start")!;
+        const result = await start.execute({});
+        return {
+            text: result.content.map((c: any) => c.text).join("\n"),
+            data: result.structuredContent as any,
+        };
+    };
+
+    it("sends an empty canvas to the artwork, not to the scenes", async () => {
+        const { studio } = fakeStudio();
+        const { text } = await guideOf(studio);
+        expect(text).toContain("NEXT: there is nothing to stage");
+        expect(text).toContain("theater_art_prompt");
+    });
+
+    it("says a scene with nobody in it will play as a still picture", async () => {
+        const { studio, collage } = fakeStudio();
+        collage.addImage({ src: "a", natural: { width: 100, height: 100 } });
+        collage.addStage({ name: "Der Waldweg" });
+        const { text, data } = await guideOf(studio);
+        expect(text).toContain("EMPTY");
+        expect(text).toContain(`"Der Waldweg"`);
+        expect(text).toContain("still picture");
+        expect(text).toContain("stage_cast");
+        expect(data.stages[0].cast).toBe(0);
+    });
+
+    it("asks for scenery when a scene is a backdrop with figures on it", async () => {
+        // Where every attempt so far has stopped: a backdrop, one character
+        // standing on it, and nothing on the other two planes — which is a
+        // picture rather than a set, and leaves the parallax nothing to do.
+        const { studio, collage } = fakeStudio();
+        const layer = collage.addImage({ src: "a", natural: { width: 100, height: 100 } });
+        const stage = collage.addStage({ name: "Der Waldweg" });
+        collage.updateStage(stage.id, { cast: [{ id: layer.id, x: 0, y: 0 }] });
+        const { text } = await guideOf(studio);
+        expect(text).toContain("not a set");
+        expect(text).toContain("scenery");
+    });
+
+    it("moves on to the script once the scene has depth in it", async () => {
+        const { studio, collage } = fakeStudio();
+        const tree = collage.addImage({ src: "t", natural: { width: 100, height: 100 } });
+        const her = collage.addImage({ src: "a", natural: { width: 100, height: 100 } });
+        const stage = collage.addStage({ name: "Der Waldweg" });
+        collage.updateStage(stage.id, {
+            cast: [{ id: tree.id, x: 0, y: 0, plane: "back" }, { id: her.id, x: 0, y: 0 }],
+        });
+        const { text } = await guideOf(studio);
+        expect(text).toContain("nothing to do");
+        expect(text).toContain("stage_script");
+    });
+
+    it("asks for a title last, when the play would otherwise run", async () => {
+        const { studio, collage } = fakeStudio();
+        const tree = collage.addImage({ src: "t", natural: { width: 100, height: 100 } });
+        const layer = collage.addImage({ src: "a", natural: { width: 100, height: 100 } });
+        const stage = collage.addStage({ name: "Der Waldweg" });
+        collage.updateStage(stage.id, {
+            cast: [{ id: tree.id, x: 0, y: 0, plane: "back" }, { id: layer.id, x: 0, y: 0 }],
+            script: [{ id: layer.id, do: "nod" }],
+        });
+        const { text } = await guideOf(studio);
+        expect(text).toContain("no name");
+        expect(text).toContain("show_title");
     });
 });

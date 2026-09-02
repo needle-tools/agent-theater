@@ -36,6 +36,8 @@ export interface Approach {
 }
 
 export interface BuildUp {
+    /** Who is not on stage yet when it begins. */
+    hidden?: string[];
     /** Applied before anything animates: where each arrival starts from. */
     approach: Approach[];
     beats: Beat[];
@@ -104,11 +106,42 @@ export function sceneBeats(stage: Stage, sizeOf: (id: string) => number): BuildU
     return {
         approach: built.approach,
         beats: [...built.beats, ...stage.script, ...handOff(stage)],
+        hidden: entering(stage),
     };
 }
 
+/**
+ * Everybody who arrives rather than being there from the start.
+ *
+ * They have to be hidden until their own entrance plays. The scene runs its
+ * beats in order, so the third character to arrive stands in plain view through
+ * the first two entrances and then fades in from nothing — the audience sees
+ * the whole cast, then watches them appear one at a time.
+ *
+ * A backdrop is never in this list: it is the room, it does not arrive.
+ */
+export function entering(stage: Stage): string[] {
+    return stage.cast
+        .filter(member => member.id !== stage.backdrop)
+        .filter(member => member.entrance && member.entrance !== "none")
+        .map(member => member.id);
+}
+
 /** Seconds a scene waits at the end before the next one begins. */
-export const DEFAULT_HOLD = 1;
+export const DEFAULT_HOLD = 2;
+
+/**
+ * The least time a scene may take, whatever is in it.
+ *
+ * A scene with nothing scripted in it is still a scene: the set has been built,
+ * the camera has found it, and somebody is meant to look at it. Without a floor
+ * it lasts as long as its build-up and then cuts, which reads as a bug rather
+ * than as a tableau — the audience sees a flash of a forest and the next scene.
+ *
+ * Four seconds. Long enough to take in a picture and read a caption, short
+ * enough that an empty scene does not feel like a hang.
+ */
+export const MIN_SCENE_MS = 4000;
 
 /**
  * Where each scene starts, so a narrating agent knows when to say what.

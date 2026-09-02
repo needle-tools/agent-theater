@@ -4,10 +4,10 @@
  * The shape of this API is an argument about how an agent should work with a
  * visual medium. Three things follow from that:
  *
- *  - It can *look*. `collage_preview` hands back an actual picture, so the
+ *  - It can *look*. `show_look` hands back an actual picture, so the
  *    agent can see that two cut-outs overlap instead of inferring it from
  *    coordinates. Every mutating tool ends by suggesting a look.
- *  - It does not do arithmetic it cannot check. `collage_arrange` takes a word
+ *  - It does not do arithmetic it cannot check. `piece_arrange` takes a word
  *    ("packed") and does the geometry here, where the frame's real size is
  *    known.
  *  - It is told when the result will be bad. Resolution warnings ride along in
@@ -23,6 +23,8 @@ import { checkFrame } from "./quality.js";
 import { FREE_PAGE, type CollageStudio, type ExportFormat } from "./studio.js";
 
 import { createStageTools } from "./stageTools.js";
+import { artPrompt } from "./artPrompt.js";
+import { noteCall } from "./toolLog.js";
 
 export interface ToolResult {
     content: Array<
@@ -60,7 +62,7 @@ const fail = (text: string, structured?: object): ToolResult => ({ ...ok(text), 
  * is left believing nothing happened, which is worse than being told to wait.
  *
  * So: answer inside the window, say the work is running, and point at
- * collage_watch. Twenty seconds is under every browser-automation timeout seen
+ * show_watch. Twenty seconds is under every browser-automation timeout seen
  * so far and long enough that a warm cut still answers in one call.
  */
 const PATIENCE_MS = 20_000;
@@ -88,8 +90,9 @@ async function within<T>(work: Promise<T>, waiting: () => ToolResult): Promise<T
  * picker — and none of them is a thing an agent needs in order to stage a play.
  */
 const THEATRE = new Set([
-    "collage_describe", "collage_add_image", "collage_add_text",
-    "collage_transform", "collage_remove", "collage_preview", "collage_watch",
+    "theater_start", "theater_art_prompt",
+    "piece_list", "piece_add", "piece_sheet", "piece_text",
+    "piece_move", "piece_remove", "show_look", "show_watch",
 ]);
 
 export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
@@ -127,28 +130,116 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
         ...tool,
         async execute(args: unknown, options?: { signal?: AbortSignal }) {
             const since = seen;
+            const began = performance.now();
             const result = await tool.execute(args, options);
+            // Logged here rather than in each tool, so a tool cannot be added
+            // and quietly not appear in the record.
+            noteCall({
+                tool: tool.name,
+                ms: performance.now() - began,
+                ok: !result.isError,
+                args,
+                // Text parts only. An image part is a screenshot of the canvas,
+                // and a base64 PNG per call is the one thing that would make
+                // this log too big to open.
+                reply: result.content
+                    .map(part => (part.type === "text" ? part.text : `[${part.mimeType}]`))
+                    .join(" | "),
+            });
             const events = studio.eventsSince(since);
             seen = events.length ? events[events.length - 1].seq : since;
+
+            /*
+             * Point at the guide, once, on the way past.
+             *
+             * WebMCP has no way for a page to hand an agent instructions — no
+             * skills, no prompts, no server instructions; tools are the entire
+             * surface, and "skills" is an open question in the explainer rather
+             * than an API. So the only thing a page can be sure an agent sees
+             * is the reply to a call it already made, and this is that: an
+             * agent that started somewhere in the middle gets told where the
+             * beginning is, whether or not it read the tool list closely.
+             *
+             * Once per page load, and not on theater_start itself, because a
+             * pointer to the thing you are already reading is noise.
+             */
+            const guide = !greeted && tool.name !== "theater_start";
+            greeted = true;
+
             // Its own doing is not news; the person's is.
             const theirs = events.filter(event => event.by === "human");
-            if (!theirs.length) return result;
-            const what = theirs.length === 1
+            if (!theirs.length && !guide) return result;
+            const what = !theirs.length ? "" : theirs.length === 1
                 ? theirs[0].summary
                 : `${theirs.length} things happened, the last: ${theirs[theirs.length - 1].summary}`;
             return {
                 ...result,
                 content: [
                     ...result.content,
-                    { type: "text" as const, text: `Meanwhile, the person was working: ${what}` },
+                    ...(guide ? [{
+                        type: "text" as const,
+                        text:
+                            `This page is a theatre and you are directing it. Call theater_start for ` +
+                            `what it can do and the order to do it in — it is one call and it will ` +
+                            `save you several.`,
+                    }] : []),
+                    ...(theirs.length ? [{
+                        type: "text" as const,
+                        text: `Meanwhile, the person was working: ${what}`,
+                    }] : []),
                 ],
             };
         },
     };
 }
 
+/**
+ * Which page this is, and whether anybody can see it.
+ *
+ * Two problems that only show up from the agent's side of the wire. Tools are
+ * registered per page, so two tabs on this site publish two identical sets and
+ * an agent has no way to tell which one a call reached — the symptom is a reply
+ * describing a canvas that does not match the one on screen. And a tab can be
+ * in the background, where everything works and nobody sees any of it; an agent
+ * that has just played a whole show to a hidden tab should say so rather than
+ * report success.
+ *
+ * The id is per page load and deliberately short: it exists to be compared
+ * between two replies, not to be meaningful.
+ */
+const PAGE_KEY = "theatre:page";
+
+function whichPage(): { id: string; hidden: boolean; others: boolean } {
+    if (typeof document === "undefined") return { id: "server", hidden: false, others: false };
+    const held = (window as unknown as { __theatrePage?: string });
+    if (!held.__theatrePage) {
+        held.__theatrePage = Math.random().toString(36).slice(2, 7);
+        // Claimed once, at first ask. The newest page to load owns the key, so
+        // any page that later reads back somebody else's id knows it is not the
+        // only one — which is as close to counting tabs as a page can get
+        // without a lock or a broadcast channel.
+        try {
+            localStorage.setItem(PAGE_KEY, held.__theatrePage);
+        } catch {
+            // Private mode, or storage full. Not knowing about other tabs is a
+            // missing warning, not a broken page.
+        }
+    }
+    let claimed: string | null = null;
+    try {
+        claimed = localStorage.getItem(PAGE_KEY);
+    } catch { /* as above */ }
+    return {
+        id: held.__theatrePage,
+        hidden: document.visibilityState === "hidden",
+        others: !!claimed && claimed !== held.__theatrePage,
+    };
+}
+
 /** The last event this agent has been told about. */
 let seen = 0;
+/** Whether the agent has been pointed at theater_start yet, this page load. */
+let greeted = false;
 
 /**
  * Run several tools in one call.
@@ -174,14 +265,14 @@ let seen = 0;
 function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef {
     const byName = new Map(tools.map(tool => [tool.name, tool]));
     return {
-        name: "collage_batch",
+        name: "theater_batch",
         title: "Run several collage tools at once",
         description:
             "Run a list of collage tools in order, in one call. Use it whenever you know more than one step " +
             "in advance — moving six layers, styling a set, building a layout — because it is one round trip " +
             "instead of six, it undoes as a single step, and the canvas animates it as one motion. Each step " +
             "is { tool, args } exactly as you would have called it. Steps see what earlier steps did, so ids " +
-            "from a collage_add_image step are usable later in the same batch.",
+            "from a piece_add step are usable later in the same batch.",
         inputSchema: {
             type: "object",
             properties: {
@@ -191,7 +282,7 @@ function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef
                     items: {
                         type: "object",
                         properties: {
-                            tool: { type: "string", description: `A collage tool name, e.g. "collage_transform".` },
+                            tool: { type: "string", description: `A collage tool name, e.g. "piece_move".` },
                             args: { type: "object", description: "That tool's own arguments." },
                         },
                         required: ["tool"],
@@ -212,19 +303,19 @@ function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef
             if (steps.length > MAX_BATCH) {
                 return fail(
                     `${steps.length} steps is more than the ${MAX_BATCH} this runs at once. Send them in ` +
-                    `smaller batches, looking with collage_preview between them.`);
+                    `smaller batches, looking with show_look between them.`);
             }
 
             // Named before anything runs, so a typo does not leave half a batch
             // applied and the other half unexplained.
-            const unknown = steps.filter(step => !byName.has(str(step?.tool)) || str(step?.tool) === "collage_batch");
+            const unknown = steps.filter(step => !byName.has(str(step?.tool)) || str(step?.tool) === "theater_batch");
             if (unknown.length) {
                 return fail(
                     `${unknown.map(s => `"${str(s?.tool) || "(missing)"}"`).join(", ")} — not a tool that can ` +
                     `run in a batch. Available: ${[...byName.keys()].join(", ")}.`);
             }
 
-            const stopOnError = args?.stopOnError !== false;
+            const stopOnError = bool(args?.stopOnError, true);
             // One motion and one undo entry for the whole list.
             studio.settle();
             const outcomes: Array<{ tool: string; ok: boolean; text: string }> = [];
@@ -253,7 +344,7 @@ function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef
                 : `All ${ran} steps ran.`;
             return {
                 ...ok(
-                    `${summary}\n${lines.join("\n")}\n\nLook at the result with collage_preview.`,
+                    `${summary}\n${lines.join("\n")}\n\nLook at the result with show_look.`,
                     { ran, failed, outcomes }),
                 ...(failed && stopOnError ? { isError: true } : {}),
             };
@@ -297,7 +388,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
     const resolveFrame = (id: unknown): { frame: Frame } | { error: ToolResult } => {
         if (typeof id === "string" && id) {
             const frame = collage.getFrame(id);
-            if (!frame) return { error: fail(`There is no page with id "${id}". Call collage_describe to see it.`) };
+            if (!frame) return { error: fail(`There is no page with id "${id}". Call piece_list to see it.`) };
             return { frame };
         }
         const frames = collage.listFrames();
@@ -312,20 +403,400 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
     };
 
     const requireLayer = (id: unknown): { layer: Layer } | { error: ToolResult } => {
-        if (typeof id !== "string" || !id) return { error: fail(`Pass the "id" of a layer. Call collage_describe to list them.`) };
+        if (typeof id !== "string" || !id) return { error: fail(`Pass the "id" of a layer. Call piece_list to list them.`) };
         const layer = collage.get(id);
-        if (!layer) return { error: fail(`There is no layer with id "${id}". Call collage_describe for what is on the canvas.`) };
+        if (!layer) return { error: fail(`There is no layer with id "${id}". Call piece_list for what is on the canvas.`) };
         return { layer };
     };
 
     return [
         {
-            name: "collage_describe",
+            name: "theater_start",
+            title: "What this page is, and how to put on a show",
+            annotations: { readOnlyHint: true },
+            description:
+                "READ THIS FIRST. What this page is, what the tools do, and the order to use them in. " +
+                "Also says what is already here, so a show in progress can be picked up rather than " +
+                "started over. Costs one call and saves several.",
+            inputSchema: { type: "object", properties: {} },
+            async execute() {
+                const layers = collage.listAll();
+                const stages = collage.listStages();
+                const billing = collage.billing;
+                const where = whichPage();
+
+                const state = [
+                    billing.title ? `The piece is called "${billing.title}".` : `The piece has no title yet.`,
+                    layers.length ? `${layers.length} piece(s) on the canvas.` : `The canvas is empty.`,
+                    stages.length
+                        ? `${stages.length} scene(s): ${stages.map(stage =>
+                            `"${stage.name}" (${stage.cast.length ? `${stage.cast.length} in it` : "EMPTY"}` +
+                            `${stage.backdrop ? "" : ", no backdrop"}` +
+                            `${stage.script.length ? "" : ", nothing scripted"})`).join(", ")}.`
+                        : `No scenes yet.`,
+                ].join(" ");
+
+                /*
+                 * What to do next, not just what is there.
+                 *
+                 * A state summary gets read as a status report and repeated back
+                 * as one — "two scenes, everything still there" — which is true
+                 * and useless when the two scenes are empty. Counts do not tell
+                 * anybody that a scene with nobody in it will play as a still
+                 * picture of a backdrop; a sentence saying so does.
+                 *
+                 * One next step, not a list. The first thing that is missing is
+                 * the thing to do, and offering three options is how an agent
+                 * picks the easiest rather than the first.
+                 */
+                const emptyStages = stages.filter(stage => !stage.cast.length);
+                // A scene where everybody stands on the middle plane is a
+                // backdrop with figures on it. That is where every one of these
+                // has stopped so far, because nothing was asking for the layer
+                // that makes it a place rather than a picture.
+                const flat = stages.filter(stage =>
+                    stage.cast.length &&
+                    !stage.cast.some(member => member.plane === "back" || member.plane === "front"));
+                const unscripted = stages.filter(stage => stage.cast.length && !stage.script.length);
+                const next =
+                    !layers.length
+                        ? `NEXT: there is nothing to stage. Ask the person what the play should be about, ` +
+                          `then call theater_art_prompt — backgrounds first, then scenery, then actors.`
+                    : !stages.length
+                        ? `NEXT: there are pieces but no scenes. Call stage_create for the first scene, ` +
+                          `giving it one of the backdrops.`
+                    : emptyStages.length
+                        ? `NEXT: ${emptyStages.map(stage => `"${stage.name}"`).join(" and ")} ` +
+                          `${emptyStages.length === 1 ? "has" : "have"} nobody in ` +
+                          `${emptyStages.length === 1 ? "it" : "them"} and will play as a still picture of ` +
+                          `the backdrop. Call stage_cast — the scenery and the cast both go in this way, ` +
+                          `each with a plane and an "at".`
+                    : flat.length
+                        ? `NEXT: ${flat.map(stage => `"${stage.name}"`).join(" and ")} ` +
+                          `${flat.length === 1 ? "is" : "are"} a backdrop with figures standing on ` +
+                          `${flat.length === 1 ? "it" : "them"} and nothing else — which is a picture, ` +
+                          `not a set. Get a "scenery" sheet from theater_art_prompt and cast a few ` +
+                          `pieces onto the "back" and "front" planes: a tree behind them, a bush in ` +
+                          `front. That is what the parallax has to work with.`
+                    : unscripted.length
+                        ? `NEXT: ${unscripted.map(stage => `"${stage.name}"`).join(" and ")} ` +
+                          `${unscripted.length === 1 ? "has" : "have"} a cast but nothing to do. Call ` +
+                          `stage_script with the whole scene — moves, lines, sounds, camera — in one call.`
+                    : !billing.title
+                        ? `NEXT: the play works but has no name. Call show_title, then show_play.`
+                        : `NEXT: it is ready. Call show_play and narrate over the top of it.`;
+
+                return ok([
+                    `This is a theatre. The canvas is a stage, the pictures on it are the cast and the`,
+                    `set, and you are directing. A person is watching the same canvas and can rearrange`,
+                    `it while you work — show_watch tells you what they changed.`,
+                    ``,
+                    `THE ONE THING TO GET RIGHT`,
+                    `  A set is BUILT, not painted. Do not ask an image model for "a forest" and use what`,
+                    `  comes back: that is one flat picture with the trunks, the ferns and the light baked`,
+                    `  into it, and nothing in it can move, stand in front of anything, or slide past`,
+                    `  anything as the camera pans. It is a photograph of a set.`,
+                    `  Ask instead for THREE things and assemble them here:`,
+                    `    - a backdrop that is nearly empty — sky, distance, a ground line, nothing else;`,
+                    `    - scenery as separate cut-outs — a tree, a bush, a door, a rock, one per cell;`,
+                    `    - the cast as separate cut-outs, full body, feet visible.`,
+                    `  Then put the scenery on the "back", "mid" and "front" planes with stage_cast. They`,
+                    `  paint in that order and slide by different amounts when the camera moves, and that`,
+                    `  is what turns flat pictures into a place with depth in it.`,
+                    ``,
+                    `THIS STAGE IS FLAT, AND THAT IS THE POINT`,
+                    `  It is a paper theatre seen from the front, not a 3D world. Everything is drawn`,
+                    `  straight on, with no perspective and no vanishing point — a backdrop with a path`,
+                    `  winding into the distance cannot be layered or parallaxed, it can only be stared`,
+                    `  at. Depth comes from the three planes and nothing else.`,
+                    `  So people move LEFT and RIGHT. A "walk" takes a "to" in canvas units and should`,
+                    `  change x, not y: someone crossing the stage goes sideways, and someone walking`,
+                    `  "into" the scene has nowhere to go. To make somebody arrive from far away, put`,
+                    `  them on the back plane and move them forward a plane instead.`,
+                    ``,
+                    `THE ORDER OF WORK`,
+                    `  1. theater_art_prompt writes the prompt — once per kind: backgrounds, scenery,`,
+                    `     actors. Ask for ONE FULL SHEET each time, never one picture at a time: 5 × 5 for`,
+                    `     scenery and actors, which is 25 pieces from one generation, and 2 × 2 for`,
+                    `     backdrops, which need the pixels. A sheet also comes back looking like one set,`,
+                    `     where 25 separate generations come back looking like 25 different books.`,
+                    `  2. piece_sheet brings each sheet in, one piece per cell.`,
+                    `  3. show_title names the piece. It opens on a title card and heads the credits.`,
+                    `  4. stage_create per scene, with its backdrop and its music.`,
+                    `  5. stage_cast for everybody in it — scenery included. Say where with "at": that is`,
+                    `     fractions of the backdrop, x across and y where the FEET go, because you cannot`,
+                    `     see where the backdrop sits on the canvas and a raw x/y is a guess. Give each a`,
+                    `     plane, an entrance, and an "as" naming who they play.`,
+                    `  6. stage_script — moves, lines, sounds and camera moves, in order.`,
+                    `  7. show_play. It returns at once with the timings; narrate over the top of it.`,
+                    ``,
+                    `WHAT ELSE TO KNOW`,
+                    `  - One call, whole scene. You cannot animate by calling a tool per frame, and you`,
+                    `    do not need to: hand over the entire script and the page performs it.`,
+                    `  - Look before you judge. show_look returns a picture of the canvas — you are`,
+                    `    staging something visual, and the ids alone will not tell you it looks wrong.`,
+                    `  - theater_batch runs many calls at once when you already know what you want.`,
+                    ``,
+                    `RIGHT NOW`,
+                    `  This page: ${where.id}${where.hidden ? "  (NOT VISIBLE)" : ""}`,
+                    ...(where.hidden
+                        ? [`  The person cannot see this tab — it is in the background or minimised. ` +
+                           `Everything below will happen where nobody is watching, and a show played ` +
+                           `here plays to an empty room. Ask them to bring it to the front first.`]
+                        : []),
+                    ...(where.others
+                        ? [`  More than one theatre page is open in this browser and each registers its ` +
+                           `own copy of these tools. If a call seems to land somewhere unexpected, that ` +
+                           `is why: check this id against the one in the last reply.`]
+                        : []),
+                    `  ${state}`,
+                    `  ${next}`,
+                ].join("\n"), {
+                    layers: layers.length,
+                    stages: stages.map(stage => ({
+                        id: stage.id,
+                        name: stage.name,
+                        cast: stage.cast.length,
+                        backdrop: stage.backdrop,
+                        beats: stage.script.length,
+                    })),
+                    billing,
+                    next,
+                    page: where.id,
+                    visible: !where.hidden,
+                });
+            },
+        },
+        {
+            name: "theater_art_prompt",
+            title: "Write the prompt for the artwork",
+            annotations: { readOnlyHint: true },
+            description:
+                "Get a ready-to-use image-generation prompt for the art this show needs, then paste it " +
+                "into whatever can draw. Ask for one SHEET — a grid of separate pictures in a single " +
+                "image — because that is what piece_sheet cuts apart, and because one sheet comes back " +
+                "looking like one set rather than nine unrelated drawings. " +
+                "THREE kinds, and a scene needs all three: 'backgrounds' is the far plane only — sky, " +
+                "distance, a ground line and nothing else; 'scenery' is the trees, bushes, doors and " +
+                "rocks that stand in FRONT of it, one per cell, cut out on white; 'actors' is the cast, " +
+                "full body with their feet visible. Do NOT ask for a finished-looking scene: a painting " +
+                "with the trees already in it cannot be stood in front of, animated, or parallaxed, and " +
+                "it is the single most common way a show ends up flat. " +
+                "All three are written in one house style so the cast and the set match. Brand and " +
+                "studio names in your topic are replaced with what they actually describe, and the " +
+                "reply says which. " +
+                "Ask for a FULL SHEET each time — 5 × 5 for actors and scenery, which is 25 pieces in " +
+                "one go. A set is made of a lot of small things, and generating them one at a time is " +
+                "the slowest possible way to build one.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    kind: {
+                        type: "string",
+                        enum: ["actors", "backgrounds", "scenery"],
+                        description:
+                            "The far backdrop, the cut-out scenery that stands in front of it, or the " +
+                            "cast. A scene is built from all three.",
+                    },
+                    topic: {
+                        type: "string",
+                        description:
+                            "What the play is about, in the words the person used — 'Little Red Riding " +
+                            "Hood', 'a robot who loses a bolt'.",
+                    },
+                    columns: {
+                        type: "number",
+                        description:
+                            "Cells across, 1–5. Leave it alone: the defaults are 5 × 5 for actors and " +
+                            "scenery — 25 pieces from one generation — and 2 × 2 for backdrops, which " +
+                            "need the resolution because each one fills the whole stage.",
+                    },
+                    rows: { type: "number", description: "Cells down, 1–5." },
+                    shape: {
+                        type: "string",
+                        enum: ["wide", "square", "tall"],
+                        description:
+                            "The shape of one cell. Backgrounds default to wide (16:9) so the camera has " +
+                            "room to move; actors default to square.",
+                    },
+                    subjects: {
+                        type: "array",
+                        items: { type: "string" },
+                        description:
+                            "What goes in each cell, in reading order. Worth giving: the defaults are a " +
+                            "generic folk tale and you know the story. Keep the same order when you pass " +
+                            "labels to piece_sheet and every piece arrives named.",
+                    },
+                },
+                required: ["kind"],
+            },
+            async execute(args: {
+                kind?: string; topic?: string; columns?: number; rows?: number;
+                shape?: string; subjects?: string[];
+            }) {
+                const kind = args?.kind === "backgrounds" ? "backgrounds"
+                    : args?.kind === "scenery" ? "scenery"
+                        : "actors";
+                const shape = args?.shape;
+                const written = artPrompt({
+                    kind,
+                    ...(str(args?.topic) ? { topic: str(args.topic) } : {}),
+                    ...(num(args?.columns) ? { columns: args.columns } : {}),
+                    ...(num(args?.rows) ? { rows: args.rows } : {}),
+                    ...(shape === "wide" || shape === "square" || shape === "tall" ? { shape } : {}),
+                    ...(Array.isArray(args?.subjects) ? { subjects: args.subjects.map(str) } : {}),
+                });
+
+                const swapped = written.removed.length
+                    ? `Note: ${written.removed.map(name => `"${name}"`).join(", ")} ` +
+                      `${written.removed.length === 1 ? "was" : "were"} taken out of the topic and replaced ` +
+                      `with what ${written.removed.length === 1 ? "it describes" : "they describe"}. Say so, ` +
+                      `so the result is not a surprise.`
+                    : null;
+
+                const cells = written.columns * written.rows;
+                return ok([
+                    swapped,
+                    // Agents paraphrase prompts. Every clause in this one was
+                    // added because something came back wrong without it — the
+                    // grid, the flatness, the white outlines, the uniqueness —
+                    // so a helpful summary is a regeneration.
+                    `PASS THIS PROMPT EXACTLY AS WRITTEN. Do not shorten it, summarise it, translate it ` +
+                    `or write your own version: every rule in it is there because the picture came back ` +
+                    `wrong without it, and the ones that look like fussy detail are the ones that matter ` +
+                    `most. Copy it whole.`,
+                    ...(cells < 9 && kind !== "backgrounds"
+                        ? [`You asked for only ${cells} cells. A set needs a lot of small things and each ` +
+                           `generation is a round trip — 5 × 5 is the default for a reason. Unless you ` +
+                           `have a specific reason for ${cells}, call this again without columns/rows.`]
+                        : []),
+                    `Then bring the sheet back with piece_sheet(url, columns: ${written.columns}, ` +
+                    `rows: ${written.rows}, as: "${kind === "backgrounds" ? "backgrounds" : "actors"}").`,
+                    ...(kind === "backgrounds"
+                        ? [`This is only the far plane. Ask for a "scenery" sheet too, or the scene will ` +
+                           `be one flat card with nothing in front of it.`]
+                        : []),
+                    ``,
+                    written.prompt,
+                ].filter(Boolean).join("\n"), {
+                    prompt: written.prompt,
+                    columns: written.columns,
+                    rows: written.rows,
+                    subjects: written.subjects,
+                    removed: written.removed,
+                    as: kind,
+                });
+            },
+        },
+        {
+            name: "piece_sheet",
+            title: "Cut a sheet into pieces",
+            description:
+                "One image holding a grid of separate pictures becomes one piece per cell. This is how " +
+                "art written by theater_art_prompt gets onto the canvas: an image model will not hand " +
+                "over nine cut-outs, it hands over one sheet, and this is the other half of that. " +
+                "'actors' cuts each cell out of its background so it can stand on a stage; 'backgrounds' " +
+                "keeps each cell whole, because a backdrop IS a background and removing it would leave " +
+                "nothing. Pass the same labels you gave as subjects and every piece arrives named.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    url: { type: "string", description: "http(s) or data: URL of the sheet." },
+                    columns: { type: "number", description: "Cells across." },
+                    rows: { type: "number", description: "Cells down." },
+                    as: {
+                        type: "string",
+                        enum: ["actors", "backgrounds"],
+                        description:
+                            "What is on it. 'actors' is for anything that stands on a stage — use it for " +
+                            "scenery too, since a tree is cut out exactly as a person is. 'backgrounds' " +
+                            "is for the stages themselves: they are sized to fill a stage rather than " +
+                            "scaled against each other. Both have their white surround removed.",
+                    },
+                    labels: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "What each cell is, in reading order — left to right, then down.",
+                    },
+                },
+                required: ["url", "columns", "rows", "as"],
+            },
+            async execute(args: {
+                url?: string; columns?: number; rows?: number; as?: string; labels?: string[];
+            }) {
+                const url = str(args?.url);
+                if (!url) return fail(`Pass a "url" — http(s) or data:.`);
+                if (!/^(https?:|data:image\/)/i.test(url)) {
+                    return fail(`"${truncate(url, 60)}" is not an image URL. Use http(s), or a data:image/… URL.`);
+                }
+
+                const columns = num(args?.columns) ? Math.round(args.columns) : 0;
+                const rows = num(args?.rows) ? Math.round(args.rows) : 0;
+                if (columns < 1 || rows < 1 || columns > 8 || rows > 8) {
+                    return fail(
+                        `"columns" and "rows" say how the sheet is divided, and both must be between 1 and ` +
+                        `8. A 2 x 2 sheet of backdrops is columns: 2, rows: 2.`);
+                }
+                const labels = (Array.isArray(args?.labels) ? args.labels : []).map(str);
+                const actors = args?.as !== "backgrounds";
+
+                try {
+                    // The grid is cut here, in the page. There is nothing to
+                    // guess: three columns means thirds. Handing the whole
+                    // sheet to the cutter and asking it to find the subjects
+                    // spends a round trip re-deriving what it was already told,
+                    // and when it answers with one object instead of three
+                    // there is nothing to look at and no way to say why.
+                    const work = studio.addSheet(url, {
+                        columns, rows, labels,
+                        // Everything is cut out, backdrops included: a
+                        // generated backdrop is a torn paper card on a white
+                        // sheet, and the sheet is not part of the picture.
+                        removeBackground: true,
+                        asBackdrop: !actors,
+                        by: "agent",
+                    });
+                    const raced = await within(work, () => ok(
+                        `Cutting the sheet — this is taking a while, which on a first call means the ` +
+                        `background remover is still downloading (tens of megabytes, once per browser). ` +
+                        `It is still running. Do NOT call this again with the same sheet: follow it with ` +
+                        `show_watch, then piece_list.`,
+                        { pending: true }));
+                    if (!("value" in raced)) return raced;
+
+                    const made = raced.value;
+                    if (!made.length) return fail(`The sheet could not be cut — none of its cells came back.`);
+                    if (made.length < columns * rows) {
+                        return ok(
+                            `${made.length} of ${columns * rows} cells came back: ` +
+                            `${made.map(layer => `"${layer.label}" [${layer.id}]`).join(", ")}. ` +
+                            `A cell that comes back empty is usually a blank one on the sheet. ` +
+                            `Look with show_look.`,
+                            { layers: made, pieces: made.length, as: actors ? "actors" : "backgrounds" });
+                    }
+
+                    return ok(
+                        actors
+                            ? `Cut into ${made.length} piece(s): ` +
+                              `${made.map(layer => `"${layer.label}" [${layer.id}]`).join(", ")}. ` +
+                              `Each is its own cut-out and can be cast, moved and animated. Look with show_look.`
+                            : `Cut into ${made.length} backdrop(s): ` +
+                              `${made.map(layer => `"${layer.label}" [${layer.id}]`).join(", ")}. ` +
+                              `Each is ready to be a scene's backdrop — pass one to stage_create as ` +
+                              `"backdrop". Look with show_look.`,
+                        { layers: made, pieces: made.length, as: actors ? "actors" : "backgrounds" });
+                } catch (error) {
+                    return fail(`The sheet could not be cut — ${(error as Error).message}`);
+                }
+            },
+        },
+        {
+            name: "piece_list",
             title: "Describe the collage",
             annotations: { readOnlyHint: true },
             description:
                 "Everything on the canvas, the output page, and any resolution problems. " +
-                "Call before changing anything, and call collage_preview to actually see it.",
+                "Call before changing anything, and call show_look to actually see it.",
             inputSchema: { type: "object", properties: {} },
             async execute() {
                 const layers = collage.list();
@@ -337,16 +808,16 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     frames.length
                         ? `Page: ${frames.map(describeFrame).join("\n")}`
                         : `Page: none set yet — it defaults to "${FREE_PAGE}", the canvas itself. ` +
-                          `Use collage_set_page for a fixed size like a4-portrait.`,
+                          `Use show_page for a fixed size like a4-portrait.`,
                     layers.length
                         ? `Layers (back to front):\n${layers.map(describeLayer).join("\n")}`
-                        : `The canvas is empty. Add photos with collage_add_image — backgrounds come off automatically.`,
+                        : `The canvas is empty. Add photos with piece_add — backgrounds come off automatically.`,
                 ];
                 if (studio.selection.length) {
                     const chosen = studio.selection.map(id => collage.get(id)).filter(Boolean) as Layer[];
                     parts.push(
                         `Selected: ${chosen.map(l => `"${l.label}" [${l.id}]`).join(", ")}. ` +
-                        `collage_capture returns a picture of just these.`);
+                        `show_capture returns a picture of just these.`);
                 }
                 if (warnings.length) parts.push(`Resolution:\n${warnings.join("\n")}`);
 
@@ -361,7 +832,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_add_image",
+            name: "piece_add",
             title: "Add an image to the collage",
             description:
                 "Put an image on the canvas from an http(s) or data: URL. " +
@@ -448,9 +919,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     // first cut still lands on the canvas.
                     const work = studio.addImage(url, {
                         label: args?.label,
-                        removeBackground: args?.removeBackground,
-                        slice: args?.slice,
-                        heal: args?.heal,
+                        removeBackground: bool(args?.removeBackground, true),
+                        slice: bool(args?.slice, true),
+                        heal: bool(args?.heal, false),
                         regions: regions.length
                             ? regions.map(r => ({
                                 x: r.x as number, y: r.y as number,
@@ -468,7 +939,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         `Working on "${args?.label ?? "the image"}" — this is taking a while, which on a first ` +
                         `call means the background remover is still downloading (tens of megabytes, once per ` +
                         `browser). It is still running and will land on the canvas. Do NOT call this again ` +
-                        `with the same image: follow it with collage_watch, then collage_describe.`,
+                        `with the same image: follow it with show_watch, then piece_list.`,
                         { pending: true }));
                     if (!("value" in raced)) return raced;
                     const { layer, loaded, background, pieces } = raced.value;
@@ -502,7 +973,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                                 ? `Added "${layer.label}" as ${layer.id}, but the ${regions.length} regions did ` +
                                   `not separate it. The background came off, so the boxes are the suspect — ` +
                                   `they are fractions of the image from the top left, 0–1. Look with ` +
-                                  `collage_preview and try again, or leave it as one layer.`
+                                  `show_look and try again, or leave it as one layer.`
                                 : `Added "${layer.label}" as ${layer.id} with its background still on, so the ` +
                                   `regions never got a chance — ${background.reason ?? "the cut-out failed"}. ` +
                                   `This is not about where the boxes are.`,
@@ -523,7 +994,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                             `${objects.length} layers, each where it was in the picture` +
                             `${backdrop ? `, with the emptied scene behind them as "${pieces[0].label}"` : ""}. ` +
                             `Every one can be moved, restyled or replaced on its own. ` +
-                            `Ids: ${pieces.map(p => p.id).join(", ")}. Look with collage_preview.`,
+                            `Ids: ${pieces.map(p => p.id).join(", ")}. Look with show_look.`,
                             {
                                 layers: pieces,
                                 pieces: objects.length,
@@ -535,7 +1006,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     return ok(
                         `Added "${layer.label}" as ${layer.id} — ${notes.join(", ")}. ${cut} ` +
                         (cutout ? `Cropped to its visible shape. ` : "") +
-                        `Arrange it with collage_arrange, then look with collage_preview.`,
+                        `Arrange it with piece_arrange, then look with show_look.`,
                         {
                             layer,
                             background: { removed: background.ok, skipped: !!background.skipped, reason: background.reason ?? null },
@@ -547,7 +1018,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_remove_background",
+            name: "piece_recut",
             title: "Cut the background out of a layer",
             description:
                 "Re-run background removal on an image already on the canvas — for one that was added with " +
@@ -565,14 +1036,14 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     const result = await studio.removeBackgroundFor(found.layer.id);
                     if (!result.ok) return fail(result.reason ?? "The background could not be removed.");
                     const layer = collage.get(found.layer.id);
-                    return ok(`Cut the background out of "${found.layer.label}". Look at it with collage_preview.`, { layer });
+                    return ok(`Cut the background out of "${found.layer.label}". Look at it with show_look.`, { layer });
                 } catch (error) {
                     return fail(`Background removal failed: ${message(error)}`);
                 }
             },
         },
         {
-            name: "collage_add_text",
+            name: "piece_text",
             title: "Add text to the collage",
             description: "Put a headline or caption on the canvas. It stays real text in the exported HTML.",
             inputSchema: {
@@ -604,7 +1075,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_set_text",
+            name: "piece_set_text",
             title: "Change a text layer",
             description:
                 "Rewrite a text layer, or restyle it: colour, size, typeface, alignment. " +
@@ -625,7 +1096,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 const found = requireLayer(args?.id);
                 if ("error" in found) return found.error;
                 if (found.layer.kind !== "text")
-                    return fail(`${found.layer.id} is an image. Use collage_style or collage_transform for that.`);
+                    return fail(`${found.layer.id} is an image. Use piece_style or piece_move for that.`);
 
                 const patch: any = {};
                 if (str(args?.text)) patch.text = str(args.text);
@@ -647,7 +1118,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_set_page",
+            name: "show_page",
             title: "Set the output page",
             description:
                 "Choose what the collage is being made for, which sets the export size and shape. " +
@@ -686,13 +1157,13 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         ? `The page now follows the canvas — it exports whatever is on it (currently ${size.width}×${size.height}px).`
                         : `The page is "${frame.name}", exporting at ${size.width}×${size.height}px` +
                           `${frame.physical ? ` (${frame.physical.width}×${frame.physical.height}mm at 300 dpi)` : ""}. ` +
-                          `${inside.length} layer(s) fall inside it — collage_arrange will fit them.`) +
+                          `${inside.length} layer(s) fall inside it — piece_arrange will fit them.`) +
                     ` ${behind}`,
                     { frame, page, background: frame.background, layersInside: inside.length });
             },
         },
         {
-            name: "collage_arrange",
+            name: "piece_arrange",
             title: "Arrange the collage",
             description:
                 `Lay the images out inside a frame: ${LAYOUT_MODES.join(", ")}. ` +
@@ -722,14 +1193,14 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     seed: args?.seed,
                 });
                 if (!count)
-                    return fail(`Nothing to arrange in "${resolved.frame.name}" — add images with collage_add_image first.`);
+                    return fail(`Nothing to arrange in "${resolved.frame.name}" — add images with piece_add first.`);
                 return ok(
-                    `Arranged ${count} layer(s) in "${resolved.frame.name}" as a ${mode}. Call collage_preview to see it.`,
+                    `Arranged ${count} layer(s) in "${resolved.frame.name}" as a ${mode}. Call show_look to see it.`,
                     { frameId: resolved.frame.id, layout: mode, count });
             },
         },
         {
-            name: "collage_transform",
+            name: "piece_move",
             title: "Move, scale or rotate a layer",
             description:
                 "Change one layer's position, size, rotation or stacking order, by id. " +
@@ -779,7 +1250,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_trace",
+            name: "piece_trace",
             title: "Trace a picture into vector shapes",
             description:
                 "Replace an image layer's pixels with traced vector shapes. Two reasons to: it stays crisp at " +
@@ -812,7 +1283,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_style",
+            name: "piece_style",
             title: "Style a cut-out",
             description:
                 "Style one image layer using its own transparency: a flat silhouette fill, a sticker outline, " +
@@ -857,7 +1328,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_remove",
+            name: "piece_remove",
             title: "Remove a layer or frame",
             annotations: { destructiveHint: true },
             description: "Take one layer or frame off the canvas, by id.",
@@ -875,12 +1346,12 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     return ok(`Removed the frame "${frame.name}". The layers it covered are still on the canvas.`, { frame });
                 }
                 const layer = collage.remove(id);
-                if (!layer) return fail(`There is nothing with id "${id}". Call collage_describe.`);
+                if (!layer) return fail(`There is nothing with id "${id}". Call piece_list.`);
                 return ok(`Removed "${layer.label}".`, { layer });
             },
         },
         {
-            name: "collage_select",
+            name: "piece_select",
             title: "Pick out layers",
             description:
                 "Select layers by id or by words matching their names, so they can be captured, styled or " +
@@ -914,16 +1385,16 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 studio.setSelection(args?.add ? [...studio.selection, ...ids] : ids);
                 const chosen = studio.selection.map(id => collage.get(id)).filter(Boolean) as Layer[];
-                if (!chosen.length) return fail(`Nothing matched. Call collage_describe to see what is on the canvas.`);
+                if (!chosen.length) return fail(`Nothing matched. Call piece_list to see what is on the canvas.`);
                 const region = studio.selectionBounds();
                 return ok(
                     `Selected ${chosen.length}: ${chosen.map(l => `"${l.label}"`).join(", ")}. ` +
-                    `Capture them with collage_capture.`,
+                    `Capture them with show_capture.`,
                     { selection: studio.selection, region });
             },
         },
         {
-            name: "collage_capture",
+            name: "show_capture",
             title: "Capture part of the canvas as an image",
             annotations: { readOnlyHint: true },
             description:
@@ -931,7 +1402,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 "or an explicit rectangle. Layers give you those layers alone, on their own, with nothing " +
                 "behind them; a rectangle gives you everything inside it. Use it to send a piece of the " +
                 "collage to something that makes pictures; the result comes back with the exact region, so " +
-                "a generated image can be dropped into the same place with collage_add_image.",
+                "a generated image can be dropped into the same place with piece_add.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -971,7 +1442,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                                     `${shot.width}×${shot.height}px of the canvas, covering ` +
                                     `x ${Math.round(r.x)}, y ${Math.round(r.y)}, ${Math.round(r.width)}×${Math.round(r.height)} ` +
                                     `and ${shot.ids.length} layer(s). To put something back in its place, call ` +
-                                    `collage_add_image with x ${Math.round(r.x)}, y ${Math.round(r.y)}, width ${Math.round(r.width)}.`,
+                                    `piece_add with x ${Math.round(r.x)}, y ${Math.round(r.y)}, width ${Math.round(r.width)}.`,
                             },
                         ],
                         structuredContent: { region: r, ids: shot.ids, width: shot.width, height: shot.height },
@@ -982,7 +1453,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_watch",
+            name: "show_watch",
             title: "Watch the collage for changes",
             annotations: { readOnlyHint: true },
             description:
@@ -1024,7 +1495,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 // Seeing the result is the difference between reacting and
                 // guessing — "a person moved the cactus" says nothing about
                 // whether the picture now works.
-                if (args?.preview !== false) {
+                if (bool(args?.preview, true)) {
                     try {
                         const shot = await studio.capture({ maxSize: 512 });
                         const [, mimeType = "image/png", data = ""] = /^data:([^;]+);base64,(.*)$/.exec(shot.dataUrl) ?? [];
@@ -1045,7 +1516,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_preview",
+            name: "show_look",
             title: "Look at the collage",
             annotations: { readOnlyHint: true },
             description:
@@ -1084,7 +1555,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
-            name: "collage_export",
+            name: "show_export",
             title: "Export the collage",
             description:
                 "Export a frame. 'png' downloads an image, 'print' opens the print dialogue (Save as PDF for paper), " +
@@ -1113,7 +1584,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     const output = await studio.exportFrame(frame.id, format as ExportFormat, {
                         dpi,
                         inlineImages: args?.inlineImages,
-                        interactive: args?.interactive,
+                        interactive: bool(args?.interactive, false),
                     });
                     const warning = quality.summary ? `\n\nHeads up: ${quality.summary}` : "";
                     return ok(`${output.summary}${warning}${output.code ? `\n\n${output.code}` : ""}`, {
@@ -1141,6 +1612,26 @@ function num(value: unknown): value is number {
  */
 function str(value: unknown): string {
     return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * A boolean from an agent, which is not always a boolean.
+ *
+ * Models send `"false"`, `"no"` and `0` for false often enough that a plain
+ * `!== false` check reads every one of them as true — and the failure is
+ * silent, because the tool does exactly what it was asked while the caller sees
+ * the opposite happen. `rehearse: "false"` played a scene that was meant to be
+ * written quietly. Same lesson as `str()`: trust the meaning, not the shape.
+ */
+function bool(value: unknown, fallback: boolean): boolean {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    if (typeof value === "string") {
+        const word = value.trim().toLowerCase();
+        if (["false", "no", "off", "0", ""].includes(word)) return false;
+        if (["true", "yes", "on", "1"].includes(word)) return true;
+    }
+    return fallback;
 }
 
 function truncate(value: string, max: number): string {

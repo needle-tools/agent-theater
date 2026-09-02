@@ -1,8 +1,4 @@
 <script lang="ts">
-    import { onMount } from "svelte";
-    import registry from "../../registry.json";
-    import { registerWebMcpTools } from "$lib/webmcp";
-
     let { children } = $props();
 
     // Chrome ships WebMCP behind an origin trial. This is the needle.tools
@@ -13,9 +9,15 @@
         import.meta.env.VITE_WEBMCP_ORIGIN_TRIAL_TOKEN ||
         "ArulNF59jmGx6OwxGl6DaZU8g60uiQKkwKLC1ml/1gjTEeNQ1+pB4ujxawuK6rj7RIyCgDOU5YGDT8NxFwDQuAgAAABfeyJvcmlnaW4iOiJodHRwczovL25lZWRsZS50b29sczo0NDMiLCJmZWF0dXJlIjoiV2ViTUNQIiwiZXhwaXJ5IjoxNzk0ODczNjAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=";
 
-    onMount(() => {
-        registerWebMcpTools(registry);
-    });
+    // The Needle app directory used to register four tools here —
+    // list_needle_webmcp_apps, find_tool_for_task, get_workflow and
+    // search_needle_knowledge_base. They are gone from this page.
+    //
+    // Not because they were broken: because definitions are re-sent on every
+    // turn of a conversation, and an agent staging a play reads past "route a
+    // 3D-webdev task to the right Needle app" every single message. The
+    // registry and registerWebMcpTools are still there for any page that wants
+    // them; this one is a theatre.
 </script>
 
 <svelte:head>
@@ -36,6 +38,49 @@
 </a>
 
 <style>
+    /*
+     * A programme, not a control panel.
+     *
+     * The Needle tokens are built for tools: a cool grey-green paper and a
+     * geometric sans, which is right for an inspector and slightly wrong for a
+     * theatre. These are the smallest changes that move it — warm the paper
+     * toward something you would print on, and set headings in a serif — while
+     * leaving the brand's greens, radii, shadows and body face exactly as they
+     * are. brand.css is the shared design system and is not edited; this is a
+     * page dressing itself, which is what a token is for.
+     *
+     * The serif is a system stack rather than the brand's --font-family-accent-serif,
+     * which ships as an italic-only file: a title card set in it would be
+     * italic with no way to be anything else.
+     */
+    :global(:root) {
+        --surface-page: #F5F1E8;
+        --surface-page-elevated: #FBF8F2;
+        --surface-panel: #FFFDF8;
+        --surface-panel-muted: #F6F2E9;
+        --surface-panel-strong: #F0EBDF;
+        --surface-code: #FBF8F2;
+        --border-subtle: #E3DBCC;
+        --border-strong: #D3C9B6;
+        --font-family-display: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+    }
+
+    /*
+     * The dark theme is warmed rather than deepened. It was already dark; the
+     * job here is to stop it reading as slate, which is the colour of every
+     * developer tool ever made.
+     */
+    :global(:root[data-theme="dark"]) {
+        --surface-page: #16130F;
+        --surface-page-elevated: #1B1712;
+        --surface-panel: #211C16;
+        --surface-panel-muted: #26211A;
+        --surface-panel-strong: #2C261E;
+        --surface-code: #1B1712;
+        --border-subtle: #3A322A;
+        --border-strong: #4A4137;
+    }
+
     :global(body) {
         margin: 0;
         background: var(--surface-page);

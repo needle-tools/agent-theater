@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { smallestPiece } from "../src/lib/collage/background.js";
-import { Collage } from "../src/lib/collage/model.js";
+import { Collage, stickerStyle } from "../src/lib/collage/model.js";
 
 /**
  * Cutting a photo of several things into several things.
@@ -95,25 +95,29 @@ describe("placing the pieces where they were", () => {
     });
 });
 
-describe("the sticker look", () => {
-    it("is on for a newly added image", () => {
-        // What makes a cut-out read as a cut-out: without a rim, its edge is
-        // wherever the model happened to stop.
+describe("how an added picture is styled", () => {
+    it("stands on a shadow, with no rim around it", () => {
+        // The rim used to be on by default, from when this was a collage of
+        // photographs: a cut-out photo has no edge of its own. Drawn artwork
+        // does, and a white line around a backdrop is a border on the scenery.
         const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
         const layer = collage.addImage({ src: "a", natural: { width: 400, height: 400 }, width: 200 });
-        expect(layer.style.outline?.color).toBe("#FFFFFF");
-        expect(layer.style.outline!.width).toBeGreaterThan(0);
+        expect(layer.style.outline).toBeNull();
         expect(layer.style.shadow).toBeTruthy();
     });
 
-    it("sizes the rim to the layer instead of using one number for everything", () => {
+    it("sizes the shadow to the layer instead of using one number for everything", () => {
         const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
         const small = collage.addImage({ src: "a", natural: { width: 400, height: 400 }, width: 60 });
         const large = collage.addImage({ src: "b", natural: { width: 400, height: 400 }, width: 600 });
-        expect(large.style.outline!.width).toBeGreaterThan(small.style.outline!.width);
-        // Both still a rim rather than a hairline or a frame.
-        expect(small.style.outline!.width).toBeGreaterThanOrEqual(3);
-        expect(large.style.outline!.width).toBeLessThanOrEqual(18);
+        expect(large.style.shadow!.blur).toBeGreaterThan(small.style.shadow!.blur);
+    });
+
+    it("still has the sticker look available for anything that wants it", () => {
+        // Not deleted, just not automatic: a rim is right for a photograph.
+        const style = stickerStyle(200, 200);
+        expect(style.outline?.color).toBe("#FFFFFF");
+        expect(style.outline!.width).toBeGreaterThan(0);
     });
 
     it("never overrides a style that was asked for", () => {
@@ -130,7 +134,7 @@ describe("the sticker look", () => {
         expect(layer.style.shadow).toBeNull();
     });
 
-    it("is off for a piece cut out of a larger picture", () => {
+    it("leaves a piece cut out of a larger picture exactly as asked", () => {
         // The rule: a lone cut-out is a sticker, a piece of a scene is not.
         // Three heroes lifted out of one poster are still standing in the
         // poster's arrangement, and a white rim round each draws a border
@@ -143,9 +147,11 @@ describe("the sticker look", () => {
         expect(piece.style.outline).toBeNull();
         expect(piece.style.shadow).toBeNull();
 
-        // ...while a photo added on its own still gets it.
+        // ...and one added on its own gets a shadow and nothing more, so an
+        // explicit "no shadow" is still distinguishable from the default.
         const alone = collage.addImage({ src: "sticker", natural: { width: 400, height: 400 }, width: 200 });
-        expect(alone.style.outline).toBeTruthy();
+        expect(alone.style.outline).toBeNull();
+        expect(alone.style.shadow).toBeTruthy();
     });
 
     it("leaves text alone", () => {

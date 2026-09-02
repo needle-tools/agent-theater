@@ -22,6 +22,7 @@
     import { overlaps, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
     import { FREE_PAGE, type CollageStudio } from "./studio.js";
     import type { Plan } from "./perform.js";
+    import { parallaxOf } from "./stage.js";
     import { play, type Playing, type Stagehand } from "./player.js";
     import { createSpeaker } from "./audio.js";
 
@@ -52,7 +53,67 @@
     let version = $state(0);
     $effect(() => studio.collage.onChanged(() => version++));
 
-    const layers = $derived.by(() => (version, studio.collage.list()));
+    /**
+     * Whether a show is running, mirrored into state.
+     *
+     * The studio is plain TypeScript and its `showing` is a getter, so reading
+     * it in a template would be read once and never again. This subscribes.
+     */
+    const fixedPage = $derived(studio.pagePreset !== FREE_PAGE);
+
+    let showing = $state(false);
+    $effect(() => {
+        showing = !!studio.showing;
+        return studio.onShowChanged(() => (showing = !!studio.showing));
+    });
+
+    /** The stage rectangle while a show runs, for masking off the wings. */
+    const wings = $derived.by(() => (version, showing ? stageRect() : null));
+
+    const placed = $derived.by(() => (version, studio.collage.list()));
+
+    /**
+     * The cast, slid by depth.
+     *
+     * Parallax is applied here — to the list everything else reads — rather
+     * than as a transform on three containers, because then it is true for
+     * every part of the canvas at once: what is drawn, what the pointer hits,
+     * where a speech bubble sits, where the handles are. Three transformed
+     * containers would have moved the pictures and left the pointer behind.
+     *
+     * The document is untouched. A layer's real position is where the person
+     * put it; this is only where it is standing while the camera is over
+     * there. Dragging still commits from `collage.get`, so nothing here can
+     * write a parallax offset into the document by accident.
+     *
+     * Only while a show runs. Parallax on a still camera is nothing, and
+     * parallax on a canvas being edited would mean a picture sat somewhere
+     * slightly different depending on where the view happened to be.
+     */
+    const layers = $derived.by(() => {
+        if (!showing || !viewport) return placed;
+        const floor = stageRect();
+        if (!floor) return placed;
+        // Measured from the middle of the stage, so a camera framing the scene
+        // head-on has every plane exactly where it was placed.
+        const anchorX = floor.x + floor.width / 2;
+        const anchorY = floor.y + floor.height / 2;
+        const cameraX = (viewport.clientWidth / 2 - view.x) / view.zoom;
+        const cameraY = (viewport.clientHeight / 2 - view.y) / view.zoom;
+
+        return placed.map(layer => {
+            const share = parallaxOf(studio.collage.planeOf(layer.id));
+            if (share === 1) return layer;
+            // Derived in the module: the offset that makes a plane travel
+            // `share` as far across the screen as the middle one does.
+            const lag = 1 - share;
+            return {
+                ...layer,
+                x: layer.x + (cameraX - anchorX) * lag,
+                y: layer.y + (cameraY - anchorY) * lag,
+            };
+        });
+    });
     const frames = $derived.by(() => (version, studio.collage.listFrames()));
 
     let view = $state({ x: 0, y: 0, zoom: 0.55 });
@@ -123,26 +184,108 @@
     const speaking = $derived.by(() => {
         void version;
         const said: Array<{
-            id: string; text: string; shown: string; x: number; y: number; size: number;
+            id: string; text: string; shown: string;
+            x: number; y: number; size: number; width: number; below: boolean;
         }> = [];
+        const seen = visibleRect();
+        const zoom = view.zoom;
+
         for (const [id, state] of spoken) {
             const layer = studio.collage.get(id);
             if (!layer || gone.has(id)) continue;
+
+            /*
+             * Sized in SCREEN pixels, then converted back to canvas units.
+             *
+             * The bubble is drawn inside the world, so anything measured in
+             * canvas units is multiplied by the zoom before anybody sees it.
+             * That made a bubble twice the size when the camera pushed in and
+             * a hairline when it pulled back — and worse, the wrap width was
+             * being clamped to the *visible* width, which shrinks as you zoom
+             * in, so the text got bigger and the column narrower at the same
+             * time. Four words a line, in letters an inch tall.
+             *
+             * A speech bubble is a label, not scenery: it should be the same
+             * size on screen wherever the camera is. So everything here is
+             * decided in pixels and divided by the zoom on the way out, which
+             * is the same trick the selection handles use.
+             */
+            const onScreenHeight = layer.height * zoom;
+            const sizePx = Math.max(15, Math.min(30, onScreenHeight * 0.075));
+
+            // Wide enough for a real sentence, and never wider than the window.
+            const roomPx = viewport ? viewport.clientWidth * 0.74 : 560;
+            const widthPx = Math.max(sizePx * 12, Math.min(560, roomPx));
+
+            // Roughly what the words will occupy, so a three-word line is not
+            // treated as a paragraph when it comes to centring.
+            const likelyPx = Math.min(widthPx, Math.max(sizePx * 6, state.line.length * sizePx * 0.5));
+            const lines = Math.max(1, Math.ceil(likelyPx / widthPx));
+            const heightPx = lines * sizePx * 1.3 + sizePx * 1.4;
+
+            const size = sizePx / zoom;
+            const width = widthPx / zoom;
+
+            // Kept on the screen, not merely on the stage: the camera is often
+            // somewhere other than squarely on the scene, and a bubble
+            // obediently inside a half-visible stage is half off the window.
+            let x = layer.x + layer.width / 2;
+            if (seen) {
+                const half = likelyPx / 2 / zoom + size;
+                const left = seen.x + half;
+                const right = seen.x + seen.width - half;
+                x = left <= right ? Math.min(Math.max(x, left), right) : seen.x + seen.width / 2;
+            }
+
+            // Below when the whole bubble would not fit above — measured
+            // against the real height rather than a guess at one, because a
+            // three-line bubble needs three times the headroom of a one-liner
+            // and it was the long ones that ran off the top.
+            const below = !!seen && layer.y - (heightPx + sizePx) / zoom < seen.y;
+
             said.push({
                 id,
                 text: state.line,
                 // Revealed as it is spoken. The whole line is in the bubble
                 // already, invisible, so it does not grow a word at a time.
                 shown: state.line.slice(0, Math.max(1, Math.round(state.line.length * state.progress))),
-                x: layer.x + layer.width / 2,
-                y: layer.y,
-                size: Math.max(13, Math.min(34, layer.height * 0.075)),
+                x,
+                y: below ? layer.y + layer.height : layer.y,
+                size,
+                width,
+                below,
             });
         }
         return said;
     });
 
     const speaker = createSpeaker();
+
+    /*
+     * Buy permission to make a noise, at the first opportunity.
+     *
+     * A browser refuses audio until the person has interacted with the page,
+     * and there is no way to ask in advance — only to try from inside a gesture
+     * and see. So every gesture tries, until one is allowed. Capture phase and
+     * on the window, because the try has to happen whatever the event was for:
+     * pressing Play is a gesture, but so is dragging a picture ten minutes
+     * earlier, and by the time a show starts it is too late to ask.
+     */
+    $effect(() => {
+        const ask = () => {
+            speaker.unlock();
+            if (speaker.ready) stopAsking();
+        };
+        const stopAsking = () => {
+            for (const type of ["pointerdown", "keydown", "touchstart"]) {
+                window.removeEventListener(type, ask, true);
+            }
+        };
+        for (const type of ["pointerdown", "keydown", "touchstart"]) {
+            window.addEventListener(type, ask, true);
+        }
+        return stopAsking;
+    });
 
     const stagehand: Stagehand = {
         cue: (id) => speaker.cue(id),
@@ -171,7 +314,115 @@
             else next.delete(id);
             gone = next;
         },
+        camera: (ids, tight, duration) => frame(ids, tight, duration),
     };
+
+    /**
+     * Follow what the agent is doing.
+     *
+     * An agent working on this canvas is working somewhere, and without this
+     * the person watches an empty patch of paper while the set goes up off
+     * screen — or, once the agent has sized everything down, watches a scene
+     * the size of a stamp because the camera is still framing what it used to
+     * be. Both were real: the first thing anybody said about this page was that
+     * they could not see what was happening on it.
+     *
+     * Two different corrections, because they are two different mistakes:
+     *
+     *  - Something changed that cannot be seen. The view WIDENS to include it,
+     *    rather than re-centring on it. Refitting on every change would twitch
+     *    the canvas on each of twenty-five pieces from a sheet and drag anybody
+     *    off the corner they were looking at; framing the union of what is
+     *    already visible with what just moved leaves everything where it is on
+     *    screen and only ever pulls back.
+     *  - Everything is visible but has become tiny. Then it fits, because at
+     *    that point there is nothing on screen worth preserving the framing of.
+     *
+     * Neither runs during a drag or a show: both of those have a camera of
+     * their own, and two things steering it is worse than neither.
+     */
+    let placedBefore = new Map<string, string>();
+    $effect(() => {
+        const now = layers;
+        // A cheap fingerprint of where everything stands. Rounded, so the
+        // sub-pixel drift of an animation settling does not read as an edit.
+        const shape = (layer: Layer) =>
+            `${Math.round(layer.x)},${Math.round(layer.y)},${Math.round(layer.width)},${Math.round(layer.height)}`;
+        const changed = now.filter(layer => placedBefore.get(layer.id) !== shape(layer));
+        placedBefore = new Map(now.map(layer => [layer.id, shape(layer)]));
+
+        // `fitted` guards the first paint, where everything is new and fitAll
+        // is already about to do a better job than this could.
+        if (!changed.length || !fitted || drag || showing || !viewport) return;
+
+        // A moment's wait, so a sheet arriving as twenty-five separate adds —
+        // or a batch moving a whole cast — moves the camera once at the end.
+        const timer = setTimeout(() => {
+            const seen = visibleRect();
+            if (!seen) return;
+
+            const boxes = changed.map(layerBounds);
+            const hidden = boxes.filter(box => !inside(box, seen));
+            if (hidden.length) {
+                frameRects([seen, ...hidden], 0.94, true, 700);
+                return;
+            }
+
+            // Visible, but is any of it big enough to look at? Measured against
+            // everything on the canvas rather than against what just moved, so
+            // nudging one small prop does not zoom the camera onto it.
+            const all = now.map(layerBounds);
+            if (!all.length) return;
+            const minX = Math.min(...all.map(box => box.x));
+            const minY = Math.min(...all.map(box => box.y));
+            const maxX = Math.max(...all.map(box => box.x + box.width));
+            const maxY = Math.max(...all.map(box => box.y + box.height));
+            const share = ((maxX - minX) * (maxY - minY)) / (seen.width * seen.height);
+            if (share < 0.22) fitAll({ animate: true, duration: 700 });
+        }, 150);
+        return () => clearTimeout(timer);
+    });
+
+    /** Is this box wholly within that one? */
+    function inside(
+        box: { x: number; y: number; width: number; height: number },
+        outer: { x: number; y: number; width: number; height: number },
+    ): boolean {
+        return box.x >= outer.x && box.y >= outer.y &&
+            box.x + box.width <= outer.x + outer.width &&
+            box.y + box.height <= outer.y + outer.height;
+    }
+
+    /**
+     * Point the camera at each new scene as the show reaches it.
+     *
+     * Only while a show is running. Outside one, refitting on a stage change
+     * would drag the view away from someone who has just clicked a scene in
+     * order to work on a particular corner of it.
+     *
+     * Reading `showing` and `activeStage` is the whole subscription: the scene
+     * changes, the camera follows. The wait is for the stage's own layers to be
+     * in the document — framing them a frame earlier frames the scene before.
+     */
+    $effect(() => {
+        void version;
+        const stage = showing ? studio.collage.activeStageId : null;
+        if (!stage) return;
+        let cancelled = false;
+        const timer = setTimeout(() => {
+            if (!cancelled) frame("all", 1, SCENE_FRAMING_MS);
+        }, 60);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    });
+
+    /**
+     * Long enough to read as the camera finding the scene rather than cutting
+     * to it, short enough that it is over before the first beat matters.
+     */
+    const SCENE_FRAMING_MS = 900;
 
     // The studio holds the tools' end of this; the clock lives here, where the
     // elements are.
@@ -375,7 +626,7 @@
     }
 
     /** Fit the view to everything, or centre on nothing when the canvas is empty. */
-    export function fitAll(options: { animate?: boolean } = {}) {
+    export function fitAll(options: { animate?: boolean; duration?: number } = {}) {
         if (!viewport) return;
         const rects = [
             ...frames.map(f => ({ x: f.x, y: f.y, width: f.width, height: f.height })),
@@ -385,21 +636,150 @@
             moveTo({ x: viewport.clientWidth / 2, y: viewport.clientHeight / 2, zoom: 0.55 }, options.animate);
             return;
         }
+        frameRects(rects, 0.82, options.animate ?? false, options.duration);
+        fitted = true;
+    }
+
+    /**
+     * Point the camera at some of the cast, over a length of time the caller
+     * chooses.
+     *
+     * This is what a camera beat comes down to. It takes ids rather than a
+     * rectangle because an agent writing a show knows who it wants looked at
+     * and does not know where they are standing — and by the time the beat
+     * runs they may have walked.
+     */
+    export function frame(
+        ids: string[] | "all",
+        tight = 1,
+        duration = 1400,
+    ): Promise<void> {
+        if (!viewport) return Promise.resolve();
+        const stage = stageRect();
+
+        // "Everything" means the stage, not every layer on the canvas. People
+        // waiting in the wings are placed outside it until their entrance, and
+        // framing them would point the camera at an empty margin and shrink the
+        // scene to fit somebody the audience is not supposed to see yet.
+        if (ids === "all") {
+            // The stage AND whoever is standing on it, not one or the other.
+            // The stage alone is what a set designer means by the scene; it is
+            // not what the audience needs to see, because a figure taller than
+            // the backdrop hangs off the top and a figure standing at its edge
+            // hangs off the side — which is exactly what happened.
+            const rects = [
+                ...(stage ? [stage] : []),
+                ...onStageOnly(layers.map(layerBounds), stage),
+            ];
+            if (!rects.length) return waitOut(duration);
+            fitted = true;
+            return frameRects(rects, tight, true, duration);
+        }
+
+        const wanted = onStageOnly(
+            layers.filter(layer => ids.includes(layer.id)).map(layerBounds), stage);
+        // Nothing to look at is not a reason to lurch somewhere arbitrary; the
+        // camera holds where it is and the beat still takes its time.
+        if (!wanted.length) return waitOut(duration);
+        fitted = true;
+        return frameRects(wanted, tight, true, duration);
+    }
+
+    /**
+     * What counts as "the stage" for the camera.
+     *
+     * The page, when there is a real one — that is the rectangle everything is
+     * composed against and exported to. NOT when the page is free: the free
+     * page is a frame around the whole canvas rather than a stage, and framing
+     * it pulled the camera back until the scene was a postage stamp in the
+     * corner, which is exactly what it looked like.
+     *
+     * Failing that, the scene's backdrop, which is the most literal answer
+     * available — a backdrop IS the stage, painted. Failing that, nothing, and
+     * the camera falls back to framing whoever is about.
+     */
+    function stageRect(): { x: number; y: number; width: number; height: number } | null {
+        const page = fixedPage ? frames[0] : null;
+        if (page) return { x: page.x, y: page.y, width: page.width, height: page.height };
+        const backdrop = studio.collage.activeStage?.backdrop;
+        const layer = backdrop ? placed.find(item => item.id === backdrop) : null;
+        return layer ? layerBounds(layer) : null;
+    }
+
+    /**
+     * Drop anything standing off the stage.
+     *
+     * A layer is off stage when it does not overlap the floor at all — which is
+     * exactly how an entrance is staged, so this is the difference between
+     * framing the scene and framing the wings. With nothing to measure against
+     * every rect counts, because then there is no such thing as off stage.
+     */
+    function onStageOnly(
+        rects: { x: number; y: number; width: number; height: number }[],
+        stage: { x: number; y: number; width: number; height: number } | null,
+    ) {
+        if (!stage) return rects;
+        const on = rects.filter(r =>
+            r.x < stage.x + stage.width && r.x + r.width > stage.x &&
+            r.y < stage.y + stage.height && r.y + r.height > stage.y);
+        // Everybody off stage means the scene is off stage, and the honest
+        // answer is to look at them rather than at nothing.
+        return on.length ? on : rects;
+    }
+
+    /**
+     * What the camera can actually see, in canvas units.
+     *
+     * The stage is where things are composed; this is what is on the screen,
+     * and they are not the same rectangle whenever the camera is anywhere but
+     * squarely on the scene. Anything that must be legible — a speech bubble
+     * above all — belongs inside this one.
+     */
+    function visibleRect() {
+        if (!viewport) return null;
+        return {
+            x: -view.x / view.zoom,
+            y: -view.y / view.zoom,
+            width: viewport.clientWidth / view.zoom,
+            height: viewport.clientHeight / view.zoom,
+        };
+    }
+
+    function waitOut(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * The shared framing sum.
+     *
+     * `tight` scales how much of the view the contents fill: 1 is snug inside
+     * the margin, below 1 pulls back to leave air, above 1 pushes in past the
+     * edges for a close-up that crops.
+     */
+    function frameRects(
+        rects: { x: number; y: number; width: number; height: number }[],
+        tight: number,
+        animate: boolean,
+        duration?: number,
+    ): Promise<void> {
+        if (!viewport) return Promise.resolve();
         const minX = Math.min(...rects.map(r => r.x));
         const minY = Math.min(...rects.map(r => r.y));
         const maxX = Math.max(...rects.map(r => r.x + r.width));
         const maxY = Math.max(...rects.map(r => r.y + r.height));
-        const margin = 80;
+        // Tighter than it was, and allowed to go closer. The old margin and cap
+        // were set for editing, where you want to see what is around the thing;
+        // watching wants the thing.
+        const margin = 48;
         const zoom = Math.min(
             (viewport.clientWidth - margin * 2) / Math.max(1, maxX - minX),
             (viewport.clientHeight - margin * 2) / Math.max(1, maxY - minY),
-            1.5);
-        moveTo({
+            2.6) * Math.max(0.05, tight);
+        return moveTo({
             zoom,
             x: viewport.clientWidth / 2 - ((minX + maxX) / 2) * zoom,
             y: viewport.clientHeight / 2 - ((minY + maxY) / 2) * zoom,
-        }, options.animate);
-        fitted = true;
+        }, animate, duration);
     }
 
     let flight: number | null = null;
@@ -414,30 +794,38 @@
      * Any pointer interaction cancels it — a camera that keeps flying while you
      * try to grab something is a camera fighting you.
      */
-    function moveTo(target: { x: number; y: number; zoom: number }, animate = false) {
+    function moveTo(
+        target: { x: number; y: number; zoom: number },
+        animate = false,
+        duration = 420,
+    ): Promise<void> {
         stopFlight();
         if (!animate || reducedMotion()) {
             view = target;
-            return;
+            return Promise.resolve();
         }
         const from = { ...view };
         const start = performance.now();
-        const duration = 420;
-        const step = (now: number) => {
-            const t = Math.min(1, (now - start) / duration);
-            // The same easing the arrange transition uses, so the canvas has
-            // one sense of how things move.
-            const eased = 1 - Math.pow(1 - t, 3);
-            const zoom = Math.exp(Math.log(from.zoom) + (Math.log(target.zoom) - Math.log(from.zoom)) * eased);
-            view = {
-                zoom,
-                x: from.x + (target.x - from.x) * eased,
-                y: from.y + (target.y - from.y) * eased,
+        return new Promise(resolve => {
+            const step = (now: number) => {
+                const t = Math.min(1, (now - start) / duration);
+                // The same easing the arrange transition uses, so the canvas has
+                // one sense of how things move.
+                const eased = 1 - Math.pow(1 - t, 3);
+                const zoom = Math.exp(Math.log(from.zoom) + (Math.log(target.zoom) - Math.log(from.zoom)) * eased);
+                view = {
+                    zoom,
+                    x: from.x + (target.x - from.x) * eased,
+                    y: from.y + (target.y - from.y) * eased,
+                };
+                flight = t < 1 ? requestAnimationFrame(step) : null;
+                if (t >= 1) {
+                    view = target;
+                    resolve();
+                }
             };
-            flight = t < 1 ? requestAnimationFrame(step) : null;
-            if (t >= 1) view = target;
-        };
-        flight = requestAnimationFrame(step);
+            flight = requestAnimationFrame(step);
+        });
     }
 
     function stopFlight() {
@@ -515,6 +903,8 @@
     }
 
     function onWheel(event: WheelEvent) {
+        // As above: the camera belongs to the show while it runs.
+        if (showing) return;
         event.preventDefault();
         stopFlight();
         const rect = viewport!.getBoundingClientRect();
@@ -532,6 +922,17 @@
     }
 
     function onPointerDown(event: PointerEvent) {
+        /*
+         * Nothing is grabbable during a show.
+         *
+         * A performance is watched, not handled: dragging an actor mid-line
+         * fights the animation for the same position, and panning fights the
+         * camera, which is moving on its own to find each scene. Both look like
+         * the page is broken when in fact it is being steered by two people at
+         * once. Stopping is still one click away on the bar, which is outside
+         * the canvas and therefore still live.
+         */
+        if (showing) return;
         stopFlight();
         if (event.button === 2) return; // The context menu handler deals with it.
         if (event.button !== 0 && event.button !== 1) return;
@@ -749,6 +1150,20 @@
             pasteLayers(selectedIds.map(id => studio.collage.get(id)).filter((l): l is Layer => !!l));
             return;
         }
+        // Depth, on the keys every design tool uses for it. These had lived in
+        // the right-click menu, which is gone — and ordering is one of the five
+        // things a person genuinely does to a picture on a stage, so it needed
+        // somewhere to go rather than simply stopping.
+        if (accel && (event.key === "]" || event.key === "[")) {
+            if (!selectedIds.length) return;
+            event.preventDefault();
+            for (const id of selectedIds) {
+                if (event.key === "]") studio.collage.bringToFront(id);
+                else studio.collage.sendToBack(id);
+            }
+            studio.save();
+            return;
+        }
         // F for frame, as in every 3D tool. No modifier: it is a view command,
         // it changes nothing, and it is the one people reach for blind.
         if (!accel && key === "f") {
@@ -921,7 +1336,6 @@
      * nothing — there is no edge to be surprised by. A chosen paper size is the
      * opposite: it crops, so it is drawn.
      */
-    const fixedPage = $derived(studio.pagePreset !== FREE_PAGE);
 
     /**
      * Under everything, always — computed rather than assumed.
@@ -945,9 +1359,10 @@
 <div
     class="viewport"
     class:viewport--over={!!hoverId && !drag}
+    class:viewport--showing={showing}
     bind:this={viewport}
     role="application"
-    aria-label="Collage canvas"
+    aria-label="Theater stage"
     tabindex="-1"
     style:background-position="{view.x}px {view.y}px"
     style:background-size="{24 * view.zoom}px {24 * view.zoom}px"
@@ -961,6 +1376,25 @@
     ondblclick={onDoubleClick}
 >
     <div class="world" style:transform="translate({view.x}px, {view.y}px) scale({view.zoom})">
+        {#if wings}
+            <!-- Masks everything outside the stage while the show runs. An
+                 entrance is staged by standing somebody off the backdrop and
+                 walking them on, which only reads as an entrance if the
+                 audience cannot already see them standing there — and they
+                 could: the wolf waited in plain sight at the edge of the
+                 screen for the whole of the first scene.
+
+                 One element with an enormous shadow spread, rather than four
+                 panels: it is one box to keep aligned instead of four, and it
+                 covers whatever the view is, however far it pans. -->
+            <div
+                class="wings"
+                style:left="{wings.x}px"
+                style:top="{wings.y}px"
+                style:width="{wings.width}px"
+                style:height="{wings.height}px"
+            ></div>
+        {/if}
         {#if showPage}
             {#each frames as frame (frame.id)}
                 <!-- Drawn as an actual sheet, not just a rule. It is the edge
@@ -1052,10 +1486,11 @@
         {#each speaking as line (line.id)}
             <div
                 class="bubble"
+                class:bubble--below={line.below}
                 style:left="{line.x}px"
                 style:top="{line.y}px"
                 style:font-size="{line.size}px"
-                style:max-width="{Math.max(220, line.size * 14)}px"
+                style:max-width="{line.width}px"
             >
                 <!-- The full text is present but invisible, so the bubble is
                      the size it will end at and does not grow a word at a time
@@ -1117,6 +1552,37 @@
     :global(:root[data-theme="dark"]) .viewport {
         --collage-hover-mark: #7E8B9B;
         --collage-select-mark: #A9B6C6;
+    }
+
+    /*
+     * The house lights going down.
+     *
+     * A show is meant to be watched, and everything that helps while building —
+     * the dot grid, the page outline and its label, the handles round whatever
+     * happened to be selected — is furniture in front of it. It is hidden
+     * rather than unmounted so nothing has to be rebuilt when the show ends,
+     * and the surround darkens so the eye goes to the scene instead of the
+     * edges of the window.
+     */
+    .viewport--showing {
+        background-color: #14161a;
+        background-image: none;
+        /* Not a grab cursor: there is nothing to grab. */
+        cursor: default;
+        transition-property: background-color;
+        transition-duration: 0.6s;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .viewport--showing :is(.handles, .marquee, .page__label) {
+        opacity: 0;
+    }
+
+    /* The page keeps its fill — it is the floor the scene stands on — but
+       loses the outline that says "this is where the export crops". */
+    .viewport--showing .page {
+        box-shadow: none;
+        outline: none;
     }
 
     .viewport:active {
@@ -1258,12 +1724,41 @@
         text-align: center;
         text-wrap: balance;
         pointer-events: none;
-        animation: bubble-in 0.22s cubic-bezier(0.2, 0, 0, 1);
+        /* Overshoots and settles. A bubble is somebody starting to talk, and
+           the small pop is the only cue the canvas gives that it has begun —
+           a linear fade would have it simply be there, which reads as a label
+           rather than as speech. Scaled from the tail, so it grows out of the
+           speaker's head instead of out of its own middle. */
+        transform-origin: bottom center;
+        animation: bubble-in 0.44s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     @keyframes bubble-in {
-        from { opacity: 0; scale: 0.9; translate: -50% calc(-100% - 0.2em); }
+        from { opacity: 0; scale: 0.6; translate: -50% calc(-100% - 0.1em); }
+        60% { opacity: 1; }
         to { opacity: 1; scale: 1; translate: -50% calc(-100% - 0.7em); }
+    }
+
+    /* Under the speaker, for anybody standing at the top of the stage. The
+       tail moves to the top edge with it, or it would point at nothing. */
+    .bubble--below {
+        translate: -50% 0.7em;
+        transform-origin: top center;
+        animation-name: bubble-in-below;
+    }
+
+    @keyframes bubble-in-below {
+        from { opacity: 0; scale: 0.6; translate: -50% 0.1em; }
+        60% { opacity: 1; }
+        to { opacity: 1; scale: 1; translate: -50% 0.7em; }
+    }
+
+    .bubble--below::after {
+        top: -0.31em;
+        bottom: auto;
+        border: 0.09em solid var(--text-primary);
+        border-bottom: 0;
+        border-right: 0;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1297,6 +1792,15 @@
 
     .bubble__grow {
         visibility: hidden;
+    }
+
+    .wings {
+        position: absolute;
+        z-index: 6;
+        pointer-events: none;
+        /* The same colour the viewport goes during a show, so the mask and the
+           surround are one continuous darkness rather than two greys. */
+        box-shadow: 0 0 0 100000px #14161a;
     }
 
     /* The rubber band is the act of selecting, so it wears the selection's

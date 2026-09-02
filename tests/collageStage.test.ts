@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { Collage, type ImageLayer } from "../src/lib/collage/model.js";
-import { castOf, placed, type EntranceName, type Stage } from "../src/lib/collage/stage.js";
-import { buildUp, handOff, sceneBeats } from "../src/lib/collage/show.js";
+import { castOf, placed, renamedIn, type EntranceName, type Stage } from "../src/lib/collage/stage.js";
+import { buildUp, entering, handOff, sceneBeats } from "../src/lib/collage/show.js";
 import { plan as planBeats, type Beat } from "../src/lib/collage/perform.js";
 import { SOUNDS, findSound, soundCatalogue, soundNames } from "../src/lib/collage/audio.js";
+import { creditLines, creditsFor, performers } from "../src/lib/collage/billboard.js";
 
 /**
  * Scenes.
@@ -338,5 +339,158 @@ describe("sound", () => {
         expect(plan.beats).toHaveLength(1);
         expect(plan.beats[0].move).toBe("jump");
         expect(plan.beats[0].duration).toBeGreaterThan(100);
+    });
+});
+
+describe("a scene that travels", () => {
+    it("follows its cast to their new ids", () => {
+        // Opening a file re-mints every layer id, so a scene carried across
+        // without rewriting would cast people who do not exist.
+        const stage: Stage = {
+            id: "s1", name: "the wood", backdrop: "old-trees",
+            cast: [{ id: "old-mother", x: 10, y: 20 }, { id: "old-child", x: 90, y: 20 }],
+            script: [
+                { id: "old-mother", say: "Wait here." },
+                { camera: { on: ["old-child"] } },
+            ],
+        };
+        const moved = renamedIn(stage, new Map([
+            ["old-mother", "new-mother"], ["old-child", "new-child"], ["old-trees", "new-trees"],
+        ]));
+
+        expect(moved.backdrop).toBe("new-trees");
+        expect(moved.cast.map(m => m.id)).toEqual(["new-mother", "new-child"]);
+        expect(moved.script[0].id).toBe("new-mother");
+        expect(moved.script[1].camera?.on).toEqual(["new-child"]);
+        // Everything else about the placement survives the move.
+        expect(moved.cast[1].x).toBe(90);
+    });
+
+    it("drops anybody whose picture did not arrive, and the beats about them", () => {
+        // A beat about a layer that is not there cannot happen, and leaving it
+        // in would make the scene silently longer than it looks.
+        const stage: Stage = {
+            id: "s1", name: "half a scene", backdrop: null,
+            cast: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 0, y: 0 }],
+            script: [{ id: "a", do: "walk" }, { id: "b", do: "jump" }],
+        };
+        const moved = renamedIn(stage, new Map([["a", "a2"]]));
+        expect(moved.cast.map(m => m.id)).toEqual(["a2"]);
+        expect(moved.script).toHaveLength(1);
+        expect(moved.script[0].id).toBe("a2");
+    });
+
+    it("keeps a camera beat even when it is about the whole scene", () => {
+        const stage: Stage = {
+            id: "s1", name: "wide", backdrop: null,
+            cast: [{ id: "a", x: 0, y: 0 }],
+            script: [{ camera: { on: "all" }, duration: 2000 }],
+        };
+        const moved = renamedIn(stage, new Map([["a", "a2"]]));
+        expect(moved.script).toHaveLength(1);
+        expect(moved.script[0].camera?.on).toBe("all");
+    });
+});
+
+describe("the credits", () => {
+    const stage = (id: string, cast: { id: string; as?: string }[]): Stage => ({
+        id, name: id, backdrop: null,
+        cast: cast.map(member => ({ ...member, x: 0, y: 0 })),
+        script: [],
+    });
+
+    it("names who played whom, in the order they first appeared", () => {
+        const credits = creditsFor(
+            [stage("s1", [{ id: "a", as: "the grandmother" }, { id: "b", as: "the wolf" }]),
+             stage("s2", [{ id: "b" }, { id: "c", as: "the woodsman" }])],
+            id => ({ a: "gran.png", b: "wolf.png", c: "axe.png" })[id] ?? null);
+
+        expect(creditLines(credits)).toEqual([
+            "the grandmother — played by gran.png",
+            "the wolf — played by wolf.png",
+            "the woodsman — played by axe.png",
+        ]);
+    });
+
+    it("credits somebody once, keeping the first role they were given", () => {
+        const credits = creditsFor(
+            [stage("s1", [{ id: "a", as: "the grandmother" }]), stage("s2", [{ id: "a", as: "a tree" }])],
+            () => "gran.png");
+        expect(credits).toEqual([{ role: "the grandmother", actor: "gran.png" }]);
+    });
+
+    it("falls back to the picture's name when somebody acted but was never named", () => {
+        const acted: Stage = {
+            ...stage("s1", [{ id: "a" }]),
+            script: [{ id: "a", say: "Hello" }],
+        };
+        expect(creditLines(creditsFor([acted], () => "IMG_4021.jpg"))).toEqual(["IMG_4021.jpg"]);
+    });
+
+    it("leaves out a cast member whose picture has been deleted", () => {
+        // Not somebody to thank: there is nothing left of them to bow.
+        const credits = creditsFor(
+            [stage("s1", [{ id: "a", as: "gran" }, { id: "gone", as: "the wolf" }])],
+            id => (id === "a" ? "gran.png" : null));
+        expect(credits).toHaveLength(1);
+    });
+
+    it("credits the cast and not the scenery", () => {
+        // The set goes in through stage_cast exactly as the cast does — the
+        // house and the bush have a position and a plane like anybody else — so
+        // without a rule for this the curtain call had the house take a bow.
+        const scene: Stage = {
+            id: "s1", name: "outside the cottage", backdrop: "sky",
+            cast: [
+                { id: "sky", x: 0, y: 0 },
+                { id: "gran", x: 0, y: 0, as: "the grandmother" },
+                { id: "her", x: 0, y: 0 },
+                { id: "house", x: 0, y: 0, plane: "back" },
+                { id: "bush", x: 0, y: 0, plane: "front" },
+            ],
+            script: [{ id: "her", say: "Grandmother?" }],
+        };
+        const who = creditsFor([scene], id => `${id}.png`).map(credit => credit.actor);
+        // She has a role; she spoke. Neither is true of the house or the bush.
+        expect(who).toEqual(["gran.png", "her.png"]);
+        expect(performers([scene]).has("house")).toBe(false);
+        expect(performers([scene]).has("sky")).toBe(false);
+    });
+});
+
+describe("who is on stage when the scene starts", () => {
+    it("keeps everybody with an entrance off until their own beat", () => {
+        // The bug this exists to catch: beats run one after another, so the
+        // third character to arrive stood in plain view through the first two
+        // entrances and then faded in from nothing. The audience saw the whole
+        // cast, then watched them appear one at a time.
+        const stage: Stage = {
+            id: "s1", name: "the wood", backdrop: "trees",
+            cast: [
+                { id: "trees", x: 0, y: 0 },
+                { id: "her", x: 10, y: 0, entrance: "fade" },
+                { id: "wolf", x: 90, y: 0, entrance: "left" },
+                { id: "rock", x: 40, y: 0, entrance: "none" },
+                { id: "bush", x: 60, y: 0 },
+            ],
+            script: [],
+        };
+        const hidden = entering(stage);
+        expect(hidden).toContain("her");
+        expect(hidden).toContain("wolf");
+        // Already there: no entrance, or told explicitly not to have one.
+        expect(hidden).not.toContain("rock");
+        expect(hidden).not.toContain("bush");
+        // And the room does not arrive.
+        expect(hidden).not.toContain("trees");
+    });
+
+    it("carries them through to the plan the player is handed", () => {
+        const stage: Stage = {
+            id: "s1", name: "the wood", backdrop: null,
+            cast: [{ id: "her", x: 0, y: 0, entrance: "grow" }],
+            script: [{ id: "her", say: "Hello" }],
+        };
+        expect(sceneBeats(stage, () => 100).hidden).toEqual(["her"]);
     });
 });

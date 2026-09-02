@@ -15,8 +15,11 @@
  * only shows up when someone asks for 300 dpi.
  */
 
-import { castOf, placed, placeWith, withoutPlacement, type Placement, type Stage, type StageSpec } from "./stage.js";
-export type { EntranceName, Placement, Stage, StageSpec } from "./stage.js";
+import {
+    castOf, placed, placeWith, withoutPlacement,
+    type Placement, type PlaneName, type Stage, type StageSpec,
+} from "./stage.js";
+export type { EntranceName, Placement, PlaneName, Stage, StageSpec } from "./stage.js";
 
 export const MM_PER_INCH = 25.4;
 /** CSS pixels per inch — the ratio that makes a frame look life-sized on screen. */
@@ -158,7 +161,7 @@ export const FRAME_PRESETS: FramePreset[] = [
 
     // Not in the picker. Every one of these is a near-duplicate in shape of one
     // above it, and a list of eleven paper sizes is a list nobody reads. They
-    // stay reachable through collage_set_page, where naming one costs nothing.
+    // stay reachable through show_page, where naming one costs nothing.
     { id: "a5-portrait", name: "A5 portrait", physical: { width: 148, height: 210, unit: "mm" } },
     { id: "a3-portrait", name: "A3 portrait", physical: { width: 297, height: 420, unit: "mm" } },
     { id: "letter-portrait", name: "US Letter portrait", physical: { width: 215.9, height: 279.4, unit: "mm" } },
@@ -212,19 +215,41 @@ export const DEFAULT_STYLE: LayerStyle = {
 /**
  * The sticker look, sized to the layer it is going on.
  *
- * On by default for a dropped photo, because it is the thing that makes a
- * cut-out read as a cut-out: without a rim the shape's edge is wherever the
- * model happened to stop, and against a busy neighbour that edge disappears
- * entirely. The shadow does the same job in depth.
+ * The white rim is NOT applied by default any more. It was, back when the page
+ * was a collage of photographs: a cut-out photo has no edge of its own, so
+ * without a rim its outline is wherever the background remover happened to
+ * stop, and against a busy neighbour it vanishes. Drawn artwork does not have
+ * that problem — it arrives with its own edges — and a rim around a backdrop,
+ * which is a full-bleed rectangle, is simply a white border on the scenery.
  *
- * Proportional, not fixed. These are canvas units, so an eight-unit rim is a
- * fat white border on a small sticker and a hairline on a large one — the same
- * number cannot be right for both, and a collage is made of both.
+ * Still here, because it is the right look for a photo and the tools can turn
+ * it on. Proportional, not fixed: these are canvas units, so one number cannot
+ * be right for a small sticker and a large one at once.
  */
 export function stickerStyle(width: number, height: number): Partial<LayerStyle> {
     const size = Math.max(1, Math.min(width, height));
     return {
         outline: { width: clampSize(size * 0.035, 3, 18), color: "#FFFFFF" },
+        shadow: {
+            x: 0,
+            y: clampSize(size * 0.035, 2, 14),
+            blur: clampSize(size * 0.08, 6, 30),
+            color: "#222C20",
+            opacity: 0.3,
+        },
+    };
+}
+
+/**
+ * How a piece stands on a stage: a shadow under it, and nothing else.
+ *
+ * Enough to look like it is standing on something rather than pasted onto it,
+ * and not so much that it looks like a sticker. Sized against the layer for the
+ * same reason the rim is.
+ */
+export function standingStyle(width: number, height: number): Partial<LayerStyle> {
+    const size = Math.max(1, Math.min(width, height));
+    return {
         shadow: {
             x: 0,
             y: clampSize(size * 0.035, 2, 14),
@@ -367,6 +392,22 @@ interface Snapshot {
     layers: Layer[];
     frames: Frame[];
     stages: Stage[];
+    billing: Billing;
+}
+
+/**
+ * What the show is called, and who to thank.
+ *
+ * Show-wide rather than per-scene, because a title card belongs to the whole
+ * play and a credit roll that restarted between scenes would be a different
+ * thing entirely. Held on the document so it is saved, undone and exported
+ * with everything else — a title that lived only in the tool call would be
+ * gone the moment the page reloaded.
+ */
+export interface Billing {
+    title?: string;
+    /** The line under the title — "a play in two scenes", "after Grimm". */
+    byline?: string;
 }
 
 /** Does this edit say where something stands, rather than what it is? */
@@ -411,6 +452,7 @@ export class Collage {
     private readonly layers = new Map<string, Layer>();
     private readonly frames = new Map<string, Frame>();
     private readonly stages = new Map<string, Stage>();
+    private billed: Billing = {};
     /**
      * The stage being shown, if any.
      *
@@ -576,6 +618,7 @@ export class Collage {
             layers: [...this.layers.values()],
             frames: [...this.frames.values()],
             stages: [...this.stages.values()],
+            billing: { ...this.billed },
         };
     }
 
@@ -587,6 +630,7 @@ export class Collage {
         for (const layer of snapshot.layers) this.layers.set(layer.id, layer);
         for (const frame of snapshot.frames) this.frames.set(frame.id, frame);
         for (const stage of snapshot.stages ?? []) this.stages.set(stage.id, stage);
+        this.billed = { ...(snapshot.billing ?? {}) };
         // A stage that was undone out of existence cannot stay on screen.
         if (this.active && !this.stages.has(this.active)) this.active = null;
         // A fresh edit after an undo must not coalesce into the edit it undid.
@@ -643,6 +687,32 @@ export class Collage {
         return this.stages.get(id) ?? null;
     }
 
+    /**
+     * Which depth plane a layer stands on in the scene being shown.
+     *
+     * The middle whenever there is no scene, because the middle is the plane
+     * that behaves exactly as a flat canvas always has.
+     */
+    planeOf(id: string): PlaneName {
+        return this.activeStage?.cast.find(member => member.id === id)?.plane ?? "mid";
+    }
+
+    /** What the show is called. Empty until somebody names it. */
+    get billing(): Billing {
+        return { ...this.billed };
+    }
+
+    setBilling(patch: Billing): Billing {
+        this.remember("billing");
+        this.billed = {
+            ...this.billed,
+            ...(patch.title !== undefined ? { title: patch.title } : {}),
+            ...(patch.byline !== undefined ? { byline: patch.byline } : {}),
+        };
+        this.emit();
+        return this.billing;
+    }
+
     addStage(spec: StageSpec = {}): Stage {
         this.remember(`stage-add-${this.stages.size}`);
         const stage: Stage = {
@@ -652,6 +722,7 @@ export class Collage {
             cast: [...(spec.cast ?? [])],
             script: [...(spec.script ?? [])],
             ...(spec.music !== undefined ? { music: spec.music } : {}),
+            ...(spec.musicEnd ? { musicEnd: spec.musicEnd } : {}),
             ...(typeof spec.hold === "number" ? { hold: spec.hold } : {}),
         };
         this.stages.set(stage.id, stage);
@@ -670,6 +741,7 @@ export class Collage {
             ...(patch.cast ? { cast: [...patch.cast] } : {}),
             ...(patch.script ? { script: [...patch.script] } : {}),
             ...(patch.music !== undefined ? { music: patch.music } : {}),
+            ...(patch.musicEnd ? { musicEnd: patch.musicEnd } : {}),
             ...(typeof patch.hold === "number" ? { hold: patch.hold } : {}),
         };
         this.stages.set(id, next);
@@ -727,10 +799,12 @@ export class Collage {
             height,
             rotation: spec.rotation ?? 0,
             z: spec.z ?? ++this.topZ,
-            // Sized against the layer, so the rim is a rim at any scale. An
-            // explicit style still wins outright — a paste carries the original
-            // layer's, and restoring one must not restyle it.
-            style: { ...DEFAULT_STYLE, ...stickerStyle(width, height), ...spec.style },
+            // A shadow, and nothing else: enough that a figure looks like it
+            // is standing on the scenery rather than pasted onto it, without
+            // the white rim that used to come with it. An explicit style still
+            // wins outright — a paste carries the original layer's, and
+            // restoring one must not restyle it.
+            style: { ...DEFAULT_STYLE, ...standingStyle(width, height), ...spec.style },
         };
         if (layer.z > this.topZ) this.topZ = layer.z;
         this.layers.set(layer.id, layer);
@@ -836,7 +910,7 @@ export class Collage {
     }
 
     /** Replace the whole document — used when restoring a saved collage. */
-    restore(layers: Layer[], frames: Frame[], stages: Stage[] = []) {
+    restore(layers: Layer[], frames: Frame[], stages: Stage[] = [], billing: Billing = {}) {
         // Loading a session is not an edit, and undoing back past it into the
         // previous session's contents would be nonsense.
         this.past.length = 0;
@@ -846,6 +920,7 @@ export class Collage {
         this.frames.clear();
         this.stages.clear();
         this.active = null;
+        this.billed = { ...billing };
         for (const stage of stages) this.stages.set(stage.id, stage);
         for (const layer of layers) {
             this.layers.set(layer.id, layer);

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-    AT_REST, DEFAULT_DURATION, MOVES, compose, poseFor, readingTime,
-    restingPlaces, score, stateAt, type MoveName,
+    AT_REST, DEFAULT_CAMERA_MS, DEFAULT_DURATION, MOVES, compose, plan as planScene, poseFor,
+    readingTime, restingPlaces, score, stateAt, type MoveName,
 } from "../src/lib/collage/perform.js";
 
 /**
@@ -203,7 +203,10 @@ describe("writing a score", () => {
 
     it("gives a longer line longer to be read", () => {
         expect(readingTime("Hi")).toBeLessThan(readingTime("A considerably longer thing to say out loud"));
-        expect(readingTime("x".repeat(500))).toBeLessThanOrEqual(6000);
+        // Capped, so a monologue pasted into one beat cannot hold the scene.
+        expect(readingTime("x".repeat(500))).toBeLessThanOrEqual(14_000);
+        // And a floor, because a two-word line still has to be seen at all.
+        expect(readingTime("Hi")).toBeGreaterThanOrEqual(3000);
     });
 
     it("names what is wrong instead of guessing", () => {
@@ -285,5 +288,40 @@ describe("where everyone ends up", () => {
             { id: "a", do: "jump", to: { x: 50, y: -30 } },
         ]);
         expect(restingPlaces(plan).get("a")).toEqual({ dx: 250, dy: -30 });
+    });
+});
+
+describe("the camera", () => {
+    it("takes a beat of its own, with nobody in it", () => {
+        // A camera beat is about the view, so requiring an "id" would mean
+        // naming somebody it is not about.
+        const { plan, problems } = planScene([{ camera: { on: "all" } }]);
+        expect(problems).toEqual([]);
+        expect(plan.beats).toHaveLength(1);
+        expect(plan.beats[0].camera).toEqual({ on: "all" });
+    });
+
+    it("lasts as long as the agent says, because that is the whole point", () => {
+        const { plan } = planScene([
+            { camera: { on: ["a"] } },
+            { camera: { on: ["a", "b"], tight: 0.6 }, duration: 3000 },
+        ]);
+        expect(plan.beats[0].duration).toBe(DEFAULT_CAMERA_MS);
+        expect(plan.beats[1].duration).toBe(3000);
+        expect(plan.beats[1].camera).toEqual({ on: ["a", "b"], tight: 0.6 });
+    });
+
+    it("rides along with a move, so one beat can push in on somebody stepping", () => {
+        const { plan, problems } = planScene([
+            { id: "a", do: "walk", to: { x: 200 }, camera: { on: ["a"], tight: 1.3 } },
+        ]);
+        expect(problems).toEqual([]);
+        expect(plan.beats[0].move).toBe("walk");
+        expect(plan.beats[0].camera?.tight).toBe(1.3);
+    });
+
+    it("still refuses a beat that does nothing at all", () => {
+        const { problems } = planScene([{ id: "a" }]);
+        expect(problems).toHaveLength(1);
     });
 });

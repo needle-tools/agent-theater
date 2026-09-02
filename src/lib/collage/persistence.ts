@@ -15,7 +15,7 @@
  * thrown from an unrelated line. So `src` is stripped on save for anything
  * IndexedDB owns, and rebuilt as a blob: URL on load.
  */
-import type { Frame, Layer, Stage } from "./model.js";
+import type { Billing, Frame, Layer, Stage } from "./model.js";
 
 const DOC_KEY = "needle-collage/doc/v1";
 const DB_NAME = "needle-collage";
@@ -35,12 +35,20 @@ export interface StoredDoc {
     frames: Frame[];
     /** Scenes, when any have been made. Absent in documents saved before them. */
     stages?: Stage[];
+    /** What the show is called, so a title card survives a reload. */
+    billing?: Billing;
     view?: StoredView;
 }
 
 // ── The document ────────────────────────────────────────────────────────────
 
-export function saveDoc(layers: Layer[], frames: Frame[], view?: StoredView, stages: Stage[] = []): boolean {
+export function saveDoc(
+    layers: Layer[],
+    frames: Frame[],
+    view?: StoredView,
+    stages: Stage[] = [],
+    billing: Billing = {},
+): boolean {
     if (typeof localStorage === "undefined") return false;
     const doc: StoredDoc = {
         version: 1,
@@ -51,6 +59,7 @@ export function saveDoc(layers: Layer[], frames: Frame[], view?: StoredView, sta
             layer.kind === "image" && layer.storageKey ? { ...layer, src: "" } : layer),
         frames,
         ...(stages.length ? { stages } : {}),
+        ...(billing.title || billing.byline ? { billing } : {}),
         ...(view ? { view } : {}),
     };
     try {

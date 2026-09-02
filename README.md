@@ -116,4 +116,6 @@ Found a Needle app whose tools are missing or out of date here? Open an issue or
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Third-party fonts, vendored code, audio and the Needle brand are
+listed in [THIRD-PARTY.md](THIRD-PARTY.md), which also names the two things still
+needing confirmation.

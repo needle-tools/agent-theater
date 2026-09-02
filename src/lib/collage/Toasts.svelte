@@ -94,10 +94,18 @@
 </div>
 
 <style>
+    /*
+     * Top left, under the wordmark.
+     *
+     * They were bottom left, which is where a browser-integrated agent shows
+     * what it is doing — "Agent used piece_list" landed directly on top of
+     * them. Two systems narrating themselves in the same corner is a pile,
+     * and this is the page's own corner to give up.
+     */
     .stack {
         position: absolute;
         left: 16px;
-        bottom: 16px;
+        top: 58px;
         z-index: 35;
         display: flex;
         flex-direction: column;

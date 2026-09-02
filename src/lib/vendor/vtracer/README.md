@@ -2,8 +2,10 @@
 
 `@visioncortex/vtracer` 1.0.0-alpha.4, from the VisionCortex project, licensed
 **MIT OR Apache-2.0** as declared in that package's `package.json`. The npm
-package ships no licence text of its own; the full texts are in the upstream
-repository at <https://github.com/visioncortex/vtracer>.
+package ships no licence text of its own, so the MIT text is reproduced in
+`LICENSE` beside this file — redistributing the build without it is the one
+thing that licence actually asks for. Upstream is
+<https://github.com/visioncortex/vtracer>.
 
 ## Why it is vendored rather than installed
 

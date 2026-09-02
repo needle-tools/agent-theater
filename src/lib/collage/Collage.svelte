@@ -14,15 +14,14 @@
      */
     import { onMount } from "svelte";
     import CollageCanvas from "$lib/collage/CollageCanvas.svelte";
-    import ContextMenu, { type MenuItem } from "$lib/collage/ContextMenu.svelte";
     import EditPopover from "$lib/collage/EditPopover.svelte";
+    import ShowOverlay from "$lib/collage/ShowOverlay.svelte";
+    import StageBar from "$lib/collage/StageBar.svelte";
     import Toasts, { createToasts, LIFETIME } from "$lib/collage/Toasts.svelte";
     import { createStudio, download, FREE_PAGE } from "$lib/collage/studio";
     import { createCollageTools } from "$lib/collage/tools";
-    import { FONTS, type ImageLayer, type TextLayer } from "$lib/collage/model";
-    import { loadWebFonts } from "$lib/collage/webfonts";
-    import type { LayoutMode } from "$lib/collage/layout";
     import { registerTools } from "$lib/webmcp";
+    import { invitation } from "$lib/collage/invitation";
 
     const studio = createStudio();
     const collage = studio.collage;
@@ -31,24 +30,35 @@
     let version = $state(0);
     let toolsRegistered = $state(false);
     let editOpen = $state(false);
-    let menu = $state<{ x: number; y: number; items: MenuItem[] } | null>(null);
-    /**
-     * Canvas point the menu was opened at. Whatever the menu adds goes here —
-     * "add text" should put the text where you asked for it, not wherever the
-     * automatic spiral had got to.
-     */
-    let menuPoint: { x: number; y: number } | null = null;
     let canvas = $state<CollageCanvas | null>(null);
     let fileInput: HTMLInputElement | null = $state(null);
     let restored = $state(false);
 
     $effect(() => collage.onChanged(() => version++));
 
+    /*
+     * Say so when the show is going to be silent.
+     *
+     * The browser refuses audio until the person has interacted with the page,
+     * and an agent can start a show on a page nobody has touched — so the one
+     * time this matters is also the one time there is nobody to notice. Said
+     * once per page load: a bubble on every scene change would be worse than
+     * the silence.
+     */
+    let warnedSilent = false;
+    $effect(() => studio.onShowChanged(() => {
+        if (!studio.showing || warnedSilent || studio.speaker.ready) return;
+        warnedSilent = true;
+        toasts.push("Click anywhere to turn the sound on — the browser keeps it off until you do.");
+    }));
+
     const layers = $derived.by(() => (version, collage.list()));
     const frames = $derived.by(() => (version, collage.listFrames()));
     const empty = $derived(!layers.length && !frames.length);
 
     onMount(async () => {
+        prompt = invitation(location.origin);
+
         // Restore before registering tools: an agent that calls describe on the
         // first turn should see the collage the person left, not an empty one.
         try {
@@ -107,6 +117,17 @@
      * difference between one flat picture and a background with things on it.
      */
     let fillBackground = $state(false);
+
+    // The page's own sentence, shown on the empty stage. Same string the help
+    // panel offers, from the same place, so they cannot say different things.
+    let prompt = $state(invitation("https://webmcp.needle.tools"));
+    let copiedInvite = $state(false);
+
+    async function copyInvitation() {
+        await navigator.clipboard.writeText(prompt);
+        copiedInvite = true;
+        setTimeout(() => (copiedInvite = false), 1800);
+    }
 
     /** Save the whole collage as a picture that opens again. */
     async function saveToFile() {
@@ -348,15 +369,6 @@
         toasts.push("Undone.");
     }
 
-    function applyLayout(mode: LayoutMode) {
-        if (!collage.list().length) {
-            toasts.push("Nothing to arrange yet — drop some photos in.");
-            return;
-        }
-        const count = studio.arrange(pageFrame().id, mode, { seed: Math.floor(Math.random() * 1000) });
-        // A control that reports nothing is indistinguishable from a broken one.
-        toasts.push(count ? `Arranged ${count} — ${mode}.` : "Nothing moved — try again?", count ? "info" : "error");
-    }
 
     /** Short, human phrasing. The long version goes to agents, not to a toast. */
     const EXPORT_DONE = {
@@ -400,193 +412,20 @@
         toasts.push("Cleared.");
     }
 
-    // ── The right-click menu ────────────────────────────────────────────────
+    /*
+     * There is no right-click menu any more.
+     *
+     * It was the collage editor's: fonts, alignment, tracing to vector, sticker
+     * outlines, drop shadows, arranging. Real features, none of them anything to
+     * do with putting on a play — and every one of them a thing to read past
+     * while looking for the one you wanted.
+     *
+     * What a person genuinely does to a picture on a stage is move it, resize
+     * it, turn it, order it and delete it, and all of those are on the pointer
+     * or the keyboard already. See onKeyDown in CollageCanvas.
+     */
 
-    function openMenu(info: { x: number; y: number; layerId: string | null }) {
-        const layer = info.layerId ? collage.get(info.layerId) : null;
-        menuPoint = canvas?.canvasPoint(info.x, info.y) ?? null;
-        menu = {
-            x: info.x,
-            y: info.y,
-            items: layer ? layerMenu(layer.id) : canvasMenu(),
-        };
-    }
 
-
-    function canvasMenu(): MenuItem[] {
-        return [
-            { label: "Add images…", icon: "image", onSelect: () => { dropPoint = menuPoint; fileInput?.click(); } },
-            { label: "Add text", icon: "text", onSelect: () => addText(menuPoint) },
-            // One arrange, not a submenu of seven. The other layouts are still
-            // there for an agent through collage_arrange; a person wants the
-            // collage look and to try it again if they do not like it.
-            {
-                label: "Arrange",
-                icon: "collage",
-                disabled: !layers.length,
-                separator: true,
-                onSelect: () => applyLayout("collage"),
-            },
-            { label: "Fit the view", icon: "fit", onSelect: () => canvas?.fitAll() },
-            {
-                label: "Undo",
-                icon: "undo",
-                separator: true,
-                hint: "⌘Z",
-                disabled: !collage.canUndo,
-                onSelect: () => undo(),
-            },
-        ];
-    }
-
-    function layerMenu(id: string): MenuItem[] {
-        const layer = collage.get(id);
-        if (!layer) return canvasMenu();
-        const image = layer.kind === "image" ? (layer as ImageLayer) : null;
-        // Right-clicking inside a selection acts on all of it.
-        const ids = studio.selection.includes(id) && studio.selection.length > 1 ? studio.selection : [id];
-        const many = ids.length > 1;
-        const suffix = many ? ` (${ids.length})` : "";
-        const each = (change: (layerId: string) => void) => () => ids.forEach(change);
-
-        // Right-clicking text is the earliest moment we know a font menu is
-        // about to exist, and the specimens are only a preview if they arrive
-        // before the submenu opens. Deliberately not awaited: the menu shows
-        // now and the faces swap in as they land.
-        if (layer.kind === "text") void loadWebFonts();
-
-        return [
-            ...(layer.kind === "text"
-                ? [
-                    {
-                        label: "Edit text",
-                        icon: "text" as const,
-                        hint: "dbl",
-                        onSelect: () => canvas?.edit(id),
-                    },
-                    {
-                        label: "Font",
-                        icon: "font" as const,
-                        separator: true,
-                        items: FONTS.map(font => ({
-                            label: font.name,
-                            icon: "font" as const,
-                            font: { stack: font.stack, weight: font.weight },
-                            // Weight as well as stack: Display and Body share a
-                            // family, so comparing the stack alone ticked both.
-                            checked: (layer as TextLayer).fontFamily === font.stack
-                                && (layer as TextLayer).fontWeight === font.weight,
-                            onSelect: each(l => collage.update(l, { fontFamily: font.stack, fontWeight: font.weight })),
-                        })),
-                    },
-                    {
-                        label: "Align",
-                        icon: "align" as const,
-                        items: (["left", "center", "right"] as const).map(align => ({
-                            label: align,
-                            icon: "align" as const,
-                            checked: (layer as TextLayer).align === align,
-                            onSelect: each(l => collage.update(l, { align })),
-                        })),
-                    },
-                ]
-                : []),
-            ...(image
-                ? [
-                    {
-                        label: `Remove the background${suffix}`,
-                        icon: "wand" as const,
-                        separator: true,
-                        onSelect: () => void recut(ids),
-                    },
-                    {
-                        label: "Silhouette",
-                        icon: "silhouette" as const,
-                        checked: !!image.style.silhouette,
-                        separator: true,
-                        // The one under the pointer decides on or off, and the
-                        // rest follow — a mixed selection then converges rather
-                        // than each item flipping its own way.
-                        onSelect: each(layerId => collage.update(layerId, {
-                            style: { silhouette: image.style.silhouette ? null : "#222C20" },
-                        })),
-                    },
-                    {
-                        label: "Sticker outline",
-                        icon: "outline" as const,
-                        checked: !!image.style.outline,
-                        onSelect: each(layerId => collage.update(layerId, {
-                            style: { outline: image.style.outline ? null : { width: 8, color: "#FFFFFF" } },
-                        })),
-                    },
-                    {
-                        label: `Trace to shapes${suffix}`,
-                        icon: "outline" as const,
-                        separator: true,
-                        onSelect: () => void traceLayers(ids),
-                    },
-                    {
-                        label: "Drop shadow",
-                        icon: "shadow" as const,
-                        checked: !!image.style.shadow,
-                        onSelect: each(layerId => collage.update(layerId, {
-                            style: {
-                                shadow: image.style.shadow
-                                    ? null
-                                    : { x: 0, y: 10, blur: 22, color: "#222C20", opacity: 0.32 },
-                            },
-                        })),
-                    },
-                ]
-                : []),
-            {
-                label: `Straighten${suffix}`,
-                icon: "rotate",
-                separator: true,
-                disabled: !ids.some(l => (collage.get(l)?.rotation ?? 0) !== 0),
-                onSelect: each(l => collage.update(l, { rotation: 0 })),
-            },
-            { label: `Bring to front${suffix}`, icon: "front", onSelect: each(l => { collage.bringToFront(l); }) },
-            { label: `Send to back${suffix}`, icon: "back", onSelect: each(l => { collage.sendToBack(l); }) },
-            {
-                label: `Delete${suffix}`,
-                icon: "trash",
-                danger: true,
-                separator: true,
-                hint: "⌫",
-                onSelect: () => {
-                    ids.forEach(layerId => collage.remove(layerId));
-                    studio.setSelection([]);
-                },
-            },
-        ];
-    }
-
-    async function recut(ids: string[]) {
-        const toast = toasts.push(ids.length > 1 ? `Cutting out ${ids.length}…` : "Cutting it out…", "busy");
-        let done = 0;
-        let failed: string | null = null;
-        for (const id of ids) {
-            const result = await studio.removeBackgroundFor(id);
-            if (result.ok) done++;
-            else if (!failed) failed = result.reason ?? null;
-        }
-        toast.close();
-        if (done) toasts.push(done > 1 ? `Cut out ${done}.` : "Cut it out.");
-        else {
-            // A bubble is a sentence, not a stack trace. The reason names URLs
-            // and module errors — that belongs in the console.
-            if (failed) console.warn("[collage] background removal failed:", failed);
-            toasts.push(shortFailure(failed), "error");
-        }
-    }
-
-    function addText(near?: { x: number; y: number } | null) {
-        const layer = collage.addText({ text: "Text", fontSize: 64, near: near ?? undefined });
-        // Straight into editing with the word selected, so the first thing you
-        // type replaces it. Better than a placeholder telling you what to do.
-        canvas?.edit(layer.id);
-    }
 
     function message(error: unknown): string {
         return error instanceof Error ? error.message : String(error);
@@ -611,7 +450,7 @@
     class="page"
     class:page--dropping={dragging}
     role="region"
-    aria-label="Collage editor"
+    aria-label="Theater"
     ondragover={e => { e.preventDefault(); dragging = true; }}
     ondragleave={e => { if (e.currentTarget === e.target) dragging = false; }}
     ondrop={onDrop}
@@ -620,14 +459,26 @@
         bind:this={canvas}
         {studio}
         showPage={editOpen || studio.pagePreset !== FREE_PAGE}
-        onContextMenu={openMenu}
     />
 
+    <!-- The house lights, before anything is on. Kept mounted and faded rather
+         than added and removed, so the first picture dropped in does not make
+         the light behind it blink out. -->
+    <div class="houselights" class:houselights--off={!empty} aria-hidden="true"></div>
+
     {#if empty && restored}
+        <!-- The description is the instruction. There is nothing on this stage
+             until somebody directs it, so the honest thing to say about the
+             page is also the thing you hand an agent — printed large enough to
+             read and copy rather than hidden behind a button. -->
         <div class="empty">
-            <h1>Collage</h1>
-            <p>Drop photos anywhere — their backgrounds come off on the way in.</p>
-            <p class="quiet">Right-click for everything else.</p>
+            <h1>An empty stage</h1>
+            <p class="invite">{prompt}</p>
+            <div class="empty__actions">
+                <button class="empty__cta" onclick={copyInvitation}>
+                    {copiedInvite ? "Copied" : "Copy prompt"}
+                </button>
+            </div>
         </div>
     {/if}
 
@@ -635,7 +486,7 @@
         class="trigger"
         class:trigger--open={editOpen}
         data-edit-trigger
-        aria-label="Collage options"
+        aria-label="Theater options"
         aria-expanded={editOpen}
         onclick={() => (editOpen = !editOpen)}
     >
@@ -644,27 +495,31 @@
         </svg>
     </button>
 
+    <!-- The auditorium: vignette, title card, credits. Nothing while the
+         canvas is being worked on. -->
+    <ShowOverlay {studio} />
+
+    <!-- Only draws itself once there are scenes, so the canvas is a canvas
+         until somebody makes it a theatre. -->
+    <StageBar {studio} />
+
     <Toasts items={toasts.items} onDismiss={toasts.dismiss} />
 
     <EditPopover
         {studio}
         open={editOpen}
         {toolsRegistered}
-        onSetPage={setPage}
-        onSetBackground={background => {
-            studio.setPageBackground(background);
-            toasts.push(background === "transparent" ? "Background off." : "Background white.");
+        onSave={saveToFile}
+        onLoad={() => {
+            // The same input the canvas uses: a saved play and a photo arrive
+            // the same way, and addFiles already tells them apart by looking
+            // inside rather than by trusting the extension.
+            dropPoint = null;
+            fileInput?.click();
         }}
-        bind:fillBackground
-        onArrange={applyLayout}
-        onExport={exportAs}
         onClear={clearCanvas}
         onClose={() => (editOpen = false)}
     />
-
-    {#if menu}
-        <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => (menu = null)} />
-    {/if}
 
     <input
         class="file"
@@ -708,9 +563,62 @@
         pointer-events: none;
     }
 
+    /*
+     * A warm pool of light in the middle of an empty stage.
+     *
+     * The canvas is a wide flat sheet of paper until somebody puts something on
+     * it, and a wide flat sheet of paper does not look like a theatre. This is
+     * the cheapest thing that does: light falling from above onto the middle of
+     * the boards, with the edges going warm and dark the way the sides of a
+     * stage do.
+     *
+     * It goes when the play arrives. A show has its own vignette and its own
+     * darkening, and two of them stacked would just be murk.
+     */
+    .houselights {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background:
+            radial-gradient(
+                ellipse 62% 52% at 50% 38%,
+                color-mix(in srgb, #FFF6E2 85%, transparent) 0%,
+                transparent 68%),
+            radial-gradient(
+                ellipse 96% 90% at 50% 44%,
+                transparent 42%,
+                color-mix(in srgb, #6B5A44 12%, transparent) 88%,
+                color-mix(in srgb, #4A3D2E 20%, transparent) 100%);
+        opacity: 1;
+        transition: opacity 0.8s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .houselights--off {
+        opacity: 0;
+    }
+
+    :global(:root[data-theme="dark"]) .houselights {
+        background:
+            radial-gradient(
+                ellipse 62% 52% at 50% 38%,
+                color-mix(in srgb, #FFE3AE 12%, transparent) 0%,
+                transparent 66%),
+            radial-gradient(
+                ellipse 96% 90% at 50% 44%,
+                transparent 40%,
+                rgba(0, 0, 0, 0.34) 88%,
+                rgba(0, 0, 0, 0.52) 100%);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .houselights { transition-duration: 0s; }
+    }
+
     .empty {
         position: absolute;
         inset: 0;
+        z-index: 2;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -731,13 +639,64 @@
 
     .empty p {
         margin: 0;
-        color: var(--text-muted);
-        text-wrap: balance;
+        max-width: 30rem;
+        padding: 0 1.5rem;
+        color: var(--text-secondary);
+        text-wrap: pretty;
     }
 
-    .empty .quiet {
-        color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+    /* The sentence itself: the largest thing after the heading, because it is
+       what the page is for. Not selectable, deliberately — it sits in the
+       middle of the canvas, and a drag that started on it would highlight text
+       instead of panning. The Copy button is how you take it. */
+    .empty .invite {
+        max-width: 34rem;
+        margin-top: 4px;
+        color: var(--text-primary);
+        font-size: var(--type-body-size);
+        line-height: 1.5;
+    }
+
+    .empty__actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 16px;
+        /* The heading and paragraphs above are decoration; these two are not. */
+        pointer-events: auto;
+    }
+
+    .empty__cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: 0 0.9rem;
+        border-radius: 12px;
+        border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+        background: var(--surface-panel);
+        color: var(--text-primary);
+        font: inherit;
         font-size: var(--type-body-muted-size);
+        text-decoration: none;
+        cursor: pointer;
+        transition-property: background, border-color, color, scale;
+        transition-duration: 0.14s;
+    }
+
+    .empty__cta {
+        border-color: transparent;
+        background: var(--accent-brand);
+        color: #14200f;
+        font-weight: 600;
+    }
+
+    .empty__cta:hover {
+        background: var(--accent-brand-deep, var(--accent-brand));
+    }
+
+    .empty__cta:active {
+        scale: 0.96;
     }
 
     .trigger {

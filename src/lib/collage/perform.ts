@@ -37,20 +37,38 @@ export interface Pose {
 export const AT_REST: Pose = { dx: 0, dy: 0, rotate: 0, scaleX: 1, scaleY: 1, opacity: 1 };
 
 export const MOVES = [
-    "walk", "jump", "shake", "surprised", "scared", "nod", "enter", "exit",
+    "walk", "jump", "shake", "surprised", "scared", "nod", "bow", "enter", "exit",
 ] as const;
 export type MoveName = (typeof MOVES)[number];
 
+/**
+ * How long a camera move takes when nobody says.
+ *
+ * Slow enough to read as a camera rather than a cut. An agent that wants a
+ * snap or a long drift sets `duration` — that control is the whole point of
+ * making the camera a beat instead of something that happens automatically.
+ */
+export const DEFAULT_CAMERA_MS = 1800;
+
 /** How long each reads as, before anything overrides it. */
+/**
+ * How long each reads as, before anything overrides it.
+ *
+ * Unhurried. A play is watched, not scrubbed through, and every one of these
+ * was originally set by looking at the move on its own — where it looked right
+ * — rather than in a scene, where the whole thing went past like a slideshow on
+ * fast forward. An agent that wants a snap still sets `duration`.
+ */
 export const DEFAULT_DURATION: Record<MoveName, number> = {
-    walk: 1600,
-    jump: 700,
-    shake: 800,
-    surprised: 900,
-    scared: 1400,
-    nod: 600,
-    enter: 900,
-    exit: 900,
+    walk: 2400,
+    jump: 1000,
+    shake: 1100,
+    surprised: 1300,
+    scared: 1900,
+    nod: 900,
+    bow: 1600,
+    enter: 1300,
+    exit: 1300,
 };
 
 export interface MoveContext {
@@ -159,6 +177,22 @@ export function poseFor(move: MoveName, t: number, context: MoveContext): Pose {
         case "nod": {
             return { ...AT_REST, dy: -arc(time) * size * 0.05, rotate: arc(time) * 3 };
         }
+        case "bow": {
+            // Down from the waist and back up, held a moment at the bottom.
+            // A picture has no waist, so the bend is faked the way a puppet
+            // does it: pivot forward, squash a little, and drop by less than
+            // the rotation would imply — the feet stay on the floor.
+            const down = time < 0.35 ? smooth(time / 0.35)
+                : time < 0.65 ? 1
+                    : 1 - smooth((time - 0.65) / 0.35);
+            return {
+                ...AT_REST,
+                dy: down * size * 0.06,
+                rotate: down * 16,
+                scaleY: 1 - down * 0.1,
+                scaleX: 1 + down * 0.03,
+            };
+        }
         case "enter": {
             const in_ = smooth(time);
             return {
@@ -223,7 +257,12 @@ export interface Score {
 
 /** How long a bubble stays up: long enough to read, scaled to its length. */
 export function readingTime(text: string): number {
-    return Math.min(6000, Math.max(1400, 400 + text.length * 55));
+    // Much slower than reading speed, on purpose and after watching people try
+    // to read it. The line is revealed a character at a time while the scene
+    // moves under it, and it vanishes the moment the beat ends — so it needs
+    // long enough to arrive, THEN long enough to be read, and the first number
+    // that felt generous while writing it felt like a flashcard on screen.
+    return Math.min(14_000, Math.max(3200, 900 + text.length * 105));
 }
 
 /** The longest performance that will be accepted, so nothing runs away. */
@@ -458,12 +497,32 @@ export function keyframesFor(move: MoveName, context: MoveContext, samples = SAM
 }
 
 /** One thing that happens, in a scene where things happen one at a time. */
+/**
+ * Where the camera looks.
+ *
+ * Named pieces rather than coordinates, for the same reason arrange takes a
+ * word: an agent asked for a viewport rectangle is doing arithmetic it cannot
+ * check, and it cannot see the result until it asks for a picture. "Look at
+ * these two" is a thing it actually knows.
+ */
+export interface CameraMove {
+    /** Frame these pieces, or "all" for the whole scene. */
+    on: string[] | "all";
+    /**
+     * How much of the view they fill. 1 is snug; 0.6 leaves room around them.
+     * Below 1 pulls back, above 1 pushes in past the edges.
+     */
+    tight?: number;
+}
+
 export interface Beat {
-    id: string;
+    id?: string;
     do?: MoveName;
     say?: string;
     /** A noise, fired as the beat starts. Rides along with whatever else it does. */
     sound?: string;
+    /** Move the view rather than anybody in it. */
+    camera?: CameraMove;
     to?: { x?: number; y?: number };
     duration?: number;
 }
@@ -473,6 +532,7 @@ export interface PlannedBeat {
     move: MoveName | null;
     say: string | null;
     sound: string | null;
+    camera: CameraMove | null;
     /** Where this beat leaves the layer, relative to where it started. */
     travel: { dx: number; dy: number } | null;
     duration: number;
@@ -482,6 +542,15 @@ export interface Plan {
     beats: PlannedBeat[];
     /** End to end, since nothing overlaps. */
     duration: number;
+    /**
+     * Who is not on stage yet when the scene begins.
+     *
+     * Beats run one after another, so somebody whose entrance is the third beat
+     * would otherwise stand in full view through the first two and then fade
+     * in — which looks like a glitch, because it is one. Hidden here and
+     * revealed by their own entrance, which the player does as it starts.
+     */
+    hidden?: string[];
 }
 
 /**
@@ -498,8 +567,12 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
     const planned: PlannedBeat[] = [];
 
     for (const [index, beat] of beats.entries()) {
+        const camera = beat?.camera && (Array.isArray(beat.camera.on) || beat.camera.on === "all")
+            ? { on: beat.camera.on, ...(typeof beat.camera.tight === "number" ? { tight: beat.camera.tight } : {}) }
+            : null;
         const id = typeof beat?.id === "string" ? beat.id.trim() : "";
-        if (!id) {
+        // A camera beat is about the view, so it needs nobody to be about.
+        if (!id && !camera) {
             problems.push({ index, reason: `every beat needs an "id" naming who it is about` });
             continue;
         }
@@ -510,8 +583,8 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
         }
         const say = typeof beat?.say === "string" && beat.say.trim() ? beat.say.trim() : null;
         const sound = typeof beat?.sound === "string" && beat.sound.trim() ? beat.sound.trim() : null;
-        if (!move && !say && !sound) {
-            problems.push({ index, reason: `a beat must have a "do", a "say" or a "sound"` });
+        if (!move && !say && !sound && !camera) {
+            problems.push({ index, reason: `a beat must have a "do", a "say", a "sound" or a "camera"` });
             continue;
         }
 
@@ -520,16 +593,19 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
                 ? beat.duration
                 : move ? DEFAULT_DURATION[move]
                     : say ? readingTime(say)
-                        // A sound on its own takes no time: it fires and the
-                        // scene carries on over it, which is what a sting is.
-                        : 0));
+                        // A camera move takes real time and is the point of the
+                        // beat, so it gets a length worth watching.
+                        : camera ? DEFAULT_CAMERA_MS
+                            // A sound on its own takes no time: it fires and the
+                            // scene carries on over it, which is what a sting is.
+                            : 0));
 
         const travel = move && TRAVELS.has(move) && beat?.to
             ? { dx: typeof beat.to.x === "number" ? beat.to.x : 0,
                 dy: typeof beat.to.y === "number" ? beat.to.y : 0 }
             : null;
 
-        planned.push({ id, move, say, sound, travel, duration });
+        planned.push({ id, move, say, sound, camera, travel, duration });
     }
 
     const duration = planned.reduce((total, beat) => total + beat.duration, 0);

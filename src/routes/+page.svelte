@@ -13,24 +13,20 @@
      */
     import { onMount } from "svelte";
     import Collage from "$lib/collage/Collage.svelte";
+    import { chatgptWith, invitation } from "$lib/collage/invitation";
 
-    // One prompt, two exits: copy it for any AI, or open ChatGPT with it prefilled.
-    const promptFor = (origin: string) =>
-        `Open ${origin} — it exposes WebMCP tools for 3D web development, and the page ` +
-        `itself is a collage canvas you can build on. Add a few images with ` +
-        `collage_add_image (backgrounds come off automatically), arrange them, and look ` +
-        `at the result with collage_preview. Then call list_needle_webmcp_apps and ` +
-        `get_workflow to see what else we can do together across apps.`;
-
-    let prompt = $state(promptFor("https://webmcp.needle.tools"));
+    // The same sentence the empty stage shows. One string, defined once: it is
+    // both the description of this page and the thing you paste into an agent,
+    // and two copies of it would drift the moment either was reworded.
+    let prompt = $state(invitation("https://webmcp.needle.tools"));
     let chatgptUrl = $state("https://chatgpt.com/");
     let copied = $state(false);
     let helpOpen = $state(false);
     let helpPanel: HTMLDivElement | null = $state(null);
 
     onMount(() => {
-        prompt = promptFor(location.origin);
-        chatgptUrl = "https://chatgpt.com/?q=" + encodeURIComponent(prompt);
+        prompt = invitation(location.origin);
+        chatgptUrl = chatgptWith(prompt);
     });
 
     async function copyPrompt() {
@@ -41,9 +37,9 @@
 </script>
 
 <svelte:head>
-    <title>Needle × WebMCP — tools for 3D web development</title>
+    <title>Needle × WebMCP Theater — a stage your AI agent can put on a play in</title>
     <meta name="description"
-        content="An infinite canvas that hands typed tools to the AI agent in your browser. Drop photos, have their backgrounds removed, arrange them, and export a print page, an image, or code for your site." />
+        content="A theatre stage that hands typed tools to the AI agent in your browser. Drop photos, have their backgrounds removed and cut into characters, then let the agent cast them, write the scene, and play the show." />
 </svelte:head>
 
 <svelte:window
@@ -58,11 +54,11 @@
 <section class="canvas-shell">
     <Collage />
 
-    <!-- Pinned to the top edge, and deliberately not clickable: a drag that
-         starts on the wordmark should still pan the canvas. -->
-    <div class="wordmark">
-        <h1>Needle <span class="times">×</span> <span class="grad">WebMCP</span></h1>
-    </div>
+    <!-- No wordmark. It sat over the top left corner of the stage and was the
+         only thing on the page that was about the page rather than about the
+         play — and a theatre does not print its own name across the set. The
+         title of the piece appears on its own card when the show starts, which
+         is where a name belongs. -->
 
     <button
         class="help-trigger"
@@ -81,8 +77,10 @@
     {#if helpOpen}
         <div class="help" bind:this={helpPanel} role="dialog" aria-label="About this page">
             <p class="lede">
-                Needle web apps hand typed tools to the AI agent in your browser. This page is
-                one of them — an infinite canvas your agent can build on with you.
+                Needle web apps hand typed tools to the AI agent in your browser. This one is a
+                theatre. Your agent writes the prompt for the artwork, cuts the sheet that comes
+                back into a cast, puts them in scenes, and directs — moves, lines, music, camera.
+                You watch, rearrange anything you like, and press play yourself.
             </p>
 
             <div class="prompt-box">
@@ -119,41 +117,6 @@
         height: 100dvh;
         overflow: hidden;
         background: var(--surface-page);
-    }
-
-    .wordmark {
-        position: absolute;
-        top: 14px;
-        left: 20px;
-        z-index: 20;
-        display: flex;
-        align-items: baseline;
-        gap: 0.75rem;
-        /* The canvas underneath owns the pointer. */
-        pointer-events: none;
-    }
-
-    .wordmark h1 {
-        margin: 0;
-        font-family: var(--font-family-display);
-        font-size: clamp(1.1rem, 2.2vw, 1.6rem);
-        font-weight: var(--type-page-title-weight);
-        letter-spacing: var(--type-page-title-tracking);
-        line-height: 1.1;
-        white-space: nowrap;
-    }
-
-    .times {
-        margin: 0 0.1em;
-        color: var(--text-muted);
-        font-weight: 400;
-    }
-
-    .grad {
-        background: var(--gradient-brand, linear-gradient(90deg, #99CC33, #0BA398));
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
     }
 
     /* Sits immediately left of the layout's GitHub corner (42px wide at 16px). */
