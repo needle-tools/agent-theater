@@ -760,7 +760,7 @@ describe("the surface an agent actually sees", () => {
         expect(createCollageTools(studio).map(t => t.name).sort()).toEqual([
             "piece_add", "piece_list", "piece_move", "piece_remove", "piece_sheet", "piece_text",
             "show_look", "show_play", "show_sounds", "show_stop", "show_title", "show_watch",
-            "stage_cast", "stage_create", "stage_describe", "stage_script",
+            "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",
             "theater_art_prompt", "theater_batch", "theater_start",
         ]);
     });
@@ -994,7 +994,8 @@ describe("arriving at a page that already has a play on it", () => {
         // once-ness is module state, so the module is reloaded here rather than
         // reaching for a reset that exists only for this test.
         vi.resetModules();
-        const fresh = await import("../src/lib/collage/tools.js?fresh-page");
+        const fresh: typeof import("../src/lib/collage/tools.js") =
+            await import("../src/lib/collage/tools.js?fresh-page" as string);
         const { studio } = fakeStudio();
         const tool = fresh.createCollageTools(studio as never).find(t => t.name === "piece_list")!;
         const result = await tool.execute({});
@@ -1006,7 +1007,8 @@ describe("arriving at a page that already has a play on it", () => {
 
     it("says it once and then stops, because a nag is not information", async () => {
         vi.resetModules();
-        const fresh = await import("../src/lib/collage/tools.js?one-nudge");
+        const fresh: typeof import("../src/lib/collage/tools.js") =
+            await import("../src/lib/collage/tools.js?one-nudge" as string);
         const { studio } = fakeStudio();
         const tools = fresh.createCollageTools(studio as never);
         const list = tools.find(t => t.name === "piece_list")!;
@@ -1015,5 +1017,65 @@ describe("arriving at a page that already has a play on it", () => {
         const second = await list.execute({});
         expect(second.content.map((part: any) => part.text ?? "").join(" "))
             .not.toContain("theater_start");
+    });
+});
+
+describe("taking a scene out", () => {
+    /**
+     * There was no way to. An agent asked to remove two empty scenes left over
+     * from a reload had nothing between "leave them" and "clear the whole
+     * canvas", and correctly refused to do the second — so the tidying could
+     * not happen at all. The absence of a precise tool made the safe answer the
+     * useless one.
+     */
+    const withScenes = () => {
+        const { studio, collage } = fakeStudio();
+        const layer = collage.addImage({ src: "a", natural: { width: 100, height: 100 } });
+        const keep = collage.addStage({ name: "the wood" });
+        collage.updateStage(keep.id, { cast: [{ id: layer.id, x: 0, y: 0 }] });
+        const empty = collage.addStage({ name: "Scene 2" });
+        return { studio, collage, layer, keep, empty };
+    };
+
+    const remove = async (studio: any, stages: unknown) => {
+        const tool = createCollageTools(studio).find(t => t.name === "stage_remove")!;
+        const result = await tool.execute({ stages });
+        return { result, text: result.content.map((p: any) => p.text ?? "").join(" ") };
+    };
+
+    it("removes the scenes named and leaves the rest", async () => {
+        const { studio, collage, keep, empty } = withScenes();
+        const { text } = await remove(studio, [empty.id]);
+        expect(collage.listStages().map(s => s.id)).toEqual([keep.id]);
+        expect(text).toContain("the wood");
+    });
+
+    it("leaves every picture on the canvas", async () => {
+        // A scene records where things stand; it does not own them. Removing
+        // the scene an actor was in must not remove the actor.
+        const { studio, collage, layer, keep } = withScenes();
+        await remove(studio, [keep.id]);
+        expect(collage.get(layer.id)).toBeTruthy();
+    });
+
+    it("removes nothing at all when one of the ids is wrong", async () => {
+        // Half a deletion is worse than none: the caller cannot tell which half.
+        const { studio, collage, empty } = withScenes();
+        const { result } = await remove(studio, [empty.id, "stage-nope"]);
+        expect(result.isError).toBe(true);
+        expect(collage.listStages()).toHaveLength(2);
+    });
+
+    it("takes ids, not descriptions", async () => {
+        const { studio } = withScenes();
+        const { result } = await remove(studio, []);
+        expect(result.isError).toBe(true);
+    });
+
+    it("can be undone, like anything else", async () => {
+        const { studio, collage, empty } = withScenes();
+        await remove(studio, [empty.id]);
+        collage.undo();
+        expect(collage.listStages()).toHaveLength(2);
     });
 });

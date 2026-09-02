@@ -182,6 +182,58 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
 
     return [
         {
+            name: "stage_remove",
+            title: "Take a scene out of the show",
+            annotations: { readOnlyHint: false, destructiveHint: true },
+            description:
+                "Delete scenes by id. Only the scenes: every picture in them stays on the canvas, " +
+                "because a scene records where things stand rather than owning them — so removing the " +
+                "scene an actor was in does not remove the actor. Undoable, like anything else here. " +
+                "This is the tool for tidying up a false start: two empty scenes left over from a " +
+                "reload should be removed, not worked around, and NOT by clearing the whole canvas.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    stages: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Scene ids to delete. Call stage_describe for what there is.",
+                    },
+                },
+                required: ["stages"],
+            },
+            async execute(args: { stages?: string[] }) {
+                const wanted = (Array.isArray(args?.stages) ? args.stages : []).map(str).filter(Boolean);
+                if (!wanted.length) {
+                    return fail(`Pass "stages" — the ids of the scenes to delete.`);
+                }
+                // Named rather than described: "the empty ones" is a rule, and a
+                // rule applied to somebody else's document deletes the wrong
+                // thing eventually. Ids are checked before anything goes.
+                const missing = wanted.filter(id => !collage.getStage(id));
+                if (missing.length) {
+                    return fail(
+                        `No scene called ${missing.map(id => `"${id}"`).join(", ")}. Nothing was ` +
+                        `removed — call stage_describe for the ids.`);
+                }
+
+                const gone = collage.batch(() =>
+                    wanted.map(id => collage.removeStage(id)).filter(Boolean) as Stage[]);
+                studio.save();
+                studio.record("page-changed",
+                    `${gone.length} scene(s) removed.`, "agent");
+
+                const left = collage.listStages();
+                return ok(
+                    `Removed ${gone.map(stage => `"${stage.name}"`).join(", ")}. ` +
+                    `Their pieces are still on the canvas. ` +
+                    (left.length
+                        ? `${left.length} scene(s) left: ${left.map(s => `"${s.name}"`).join(", ")}.`
+                        : `No scenes left — the canvas shows everything at once again.`),
+                    { removed: gone.map(stage => stage.id), stages: left });
+            },
+        },
+        {
             name: "show_title",
             title: "Name the piece",
             annotations: { readOnlyHint: false },

@@ -323,6 +323,14 @@ no agent could use it. It typechecked, it had tests, and the tests exercised the
 layer below the one that was missing. Everything that reaches an agent goes
 through a tool schema, and nothing verifies that the schema mentions it.
 
+**A missing tool reads as a refusal.** Asked to remove two empty scenes left
+over from a reload, an agent had nothing between "leave them" and "clear the
+whole canvas" — and correctly declined the second. The absence of a precise
+tool made the safe answer the useless one, and from the outside it looked like
+caution rather than a gap. `stage_remove` exists now; the general lesson is that
+every edit a person can make by hand wants a tool of its own, or the agent ends
+up choosing between doing nothing and doing too much.
+
 **Nothing checks a show as a whole.** Every warning so far is about one scene,
 or one placement. Nobody looks at four scenes together and says the middle two
 are the same scene twice, or that nothing changes pace from beginning to end.
