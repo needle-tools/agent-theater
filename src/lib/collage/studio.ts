@@ -28,6 +28,7 @@ import {
     type StoredDoc, type StoredView,
 } from "./persistence.js";
 import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
+import { restingPlaces, type Score } from "./perform.js";
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
 
@@ -193,6 +194,17 @@ export interface CollageStudio {
     /** Announce such a move. Call before mutating, so the view can prepare. */
     settle(): void;
     /**
+     * Play a score. Resolves when the last beat finishes.
+     *
+     * The canvas registers itself as the performer; without one this is a no-op
+     * that still commits where things were meant to end up, so the tools behave
+     * the same in a test as in a browser.
+     */
+    performScore(score: Score): Promise<void>;
+    setPerformer(performer: ((score: Score) => Promise<void>) | null): void;
+    /** True while a score is playing, so a second one can be refused. */
+    readonly performing: boolean;
+    /**
      * What is picked out right now.
      *
      * Selection lives here rather than in the canvas component because both
@@ -321,6 +333,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
     let selection: string[] = [];
     const selectionWatchers = new Set<() => void>();
     const settleWatchers = new Set<() => void>();
+    let performer: ((score: Score) => Promise<void>) | null = null;
+    let acting = false;
     const announceSettle = () => { for (const watcher of [...settleWatchers]) watcher(); };
 
     const record = (
@@ -1109,6 +1123,39 @@ export function createStudio(collage = new Collage()): CollageStudio {
         },
 
         settle: announceSettle,
+
+        setPerformer(next) {
+            performer = next;
+        },
+
+        get performing() {
+            return acting;
+        },
+
+        async performScore(score) {
+            acting = true;
+            try {
+                if (performer) await performer(score);
+            } finally {
+                acting = false;
+            }
+            // Where the travelling beats left everyone, applied once. During the
+            // performance the layers only *appear* to move — writing each frame
+            // to the document would put a hundred and eighty entries through
+            // undo and IndexedDB for one walk.
+            const moved = restingPlaces(score);
+            if (!moved.size) return;
+            announceSettle();
+            collage.batch(() => {
+                for (const [id, offset] of moved) {
+                    const layer = collage.get(id);
+                    if (!layer) continue;
+                    collage.update(id, { x: layer.x + offset.dx, y: layer.y + offset.dy });
+                }
+            });
+            record("layer-moved", `${moved.size} layer(s) ended up somewhere new after performing.`, "agent");
+            scheduleSave();
+        },
 
         save(view) {
             if (view) lastView = view;

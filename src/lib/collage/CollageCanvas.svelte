@@ -102,6 +102,13 @@
     let cast = $state(new Map<string, Playing>());
     let playing: { score: Score; started: number; frame: number; done: () => void } | null = null;
 
+    // The studio holds the tools' end of this; the clock lives here, where
+    // there is a requestAnimationFrame to hang it on.
+    $effect(() => {
+        studio.setPerformer(perform);
+        return () => studio.setPerformer(null);
+    });
+
     export function perform(score: Score): Promise<void> {
         stopPerforming();
         if (!score.cues.length) return Promise.resolve();
@@ -136,6 +143,38 @@
     }
 
     const poseOf = (id: string) => cast.get(id)?.pose ?? AT_REST;
+
+    /**
+     * Who is speaking, and where the bubble goes.
+     *
+     * Above the layer and following whatever it is doing, because a bubble that
+     * stays put while its speaker jumps belongs to nobody. Sized against the
+     * layer so a bubble over a small sprite is a small bubble.
+     */
+    const speaking = $derived.by(() => {
+        void version;
+        const said: Array<{
+            id: string; text: string; shown: string; x: number; y: number; size: number;
+        }> = [];
+        for (const [id, state] of cast) {
+            if (!state.say || state.gone) continue;
+            const layer = studio.collage.get(id);
+            if (!layer) continue;
+            // Typed in over the first part of its life, then held: the reveal is
+            // the point, but reading time is what the rest of it is for.
+            const typed = Math.min(1, state.saying / 0.45);
+            const shown = state.say.slice(0, Math.max(1, Math.round(state.say.length * typed)));
+            said.push({
+                id,
+                text: state.say,
+                shown,
+                x: layer.x + layer.width / 2 + state.pose.dx,
+                y: layer.y + state.pose.dy,
+                size: Math.max(13, Math.min(34, layer.height * 0.075)),
+            });
+        }
+        return said;
+    });
 
     /** The performed transform, appended to whatever the layer already does. */
     function acting(layer: Layer): string {
@@ -994,6 +1033,22 @@
                     style:top="{-20 / view.zoom}px"></span>
             </div>
         {/if}
+
+        {#each speaking as line (line.id)}
+            <div
+                class="bubble"
+                style:left="{line.x}px"
+                style:top="{line.y}px"
+                style:font-size="{line.size}px"
+                style:max-width="{Math.max(220, line.size * 14)}px"
+            >
+                <!-- The full text is present but invisible, so the bubble is
+                     the size it will end at and does not grow a word at a time
+                     while it is being read. -->
+                <span class="bubble__grow" aria-hidden="true">{line.text}</span>
+                <span class="bubble__said">{line.shown}</span>
+            </div>
+        {/each}
     </div>
 
     <!-- Filter definitions only; nothing here is drawn. One dilate pass per
@@ -1162,6 +1217,71 @@
         width: 0;
         height: 0;
         pointer-events: none;
+    }
+
+    /**
+     * A speech bubble, sitting above whoever is speaking.
+     *
+     * Drawn with a real border and a rotated square for the tail rather than a
+     * filter or a triangle of shadows — the same lesson as the toasts: CSS
+     * filters chain, so a stack of them is a stack of full-size buffers, and a
+     * border is the one way to get a stroke that is the same width all the way
+     * round including under the tail.
+     */
+    .bubble {
+        position: absolute;
+        z-index: 2147483000;
+        translate: -50% calc(-100% - 0.7em);
+        display: grid;
+        padding: 0.55em 0.8em;
+        border: 0.09em solid var(--text-primary);
+        border-radius: 0.9em;
+        background: var(--surface-page-elevated, #fff);
+        color: var(--text-primary);
+        font-family: var(--font-family-body);
+        line-height: 1.25;
+        text-align: center;
+        text-wrap: balance;
+        pointer-events: none;
+        animation: bubble-in 0.22s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    @keyframes bubble-in {
+        from { opacity: 0; scale: 0.9; translate: -50% calc(-100% - 0.2em); }
+        to { opacity: 1; scale: 1; translate: -50% calc(-100% - 0.7em); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .bubble { animation: none; }
+    }
+
+    /* The tail: a square of the same border, rotated, with its inner two edges
+       hidden by the bubble's own background sitting on top of it. */
+    .bubble::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -0.31em;
+        width: 0.55em;
+        height: 0.55em;
+        translate: -50% 0;
+        rotate: 45deg;
+        border: 0.09em solid var(--text-primary);
+        border-top: 0;
+        border-left: 0;
+        background: var(--surface-page-elevated, #fff);
+    }
+
+    /* Both texts occupy the same cell, so the bubble is born the size it will
+       end at. A bubble that grows a word at a time drags the eye away from the
+       words themselves. */
+    .bubble__grow,
+    .bubble__said {
+        grid-area: 1 / 1;
+    }
+
+    .bubble__grow {
+        visibility: hidden;
     }
 
     /* The rubber band is the act of selecting, so it wears the selection's

@@ -95,10 +95,13 @@ export function poseFor(move: MoveName, t: number, context: MoveContext): Pose {
         }
         case "jump": {
             const height = arc(time) * size * 0.45;
-            // Squash before the launch and on the landing; stretch at the top.
-            const squash = time < 0.15
-                ? (0.15 - time) / 0.15
-                : time > 0.85 ? (time - 0.85) / 0.15 : 0;
+            // Crouch, spring, land, recover. Each squash rises and falls inside
+            // its own window rather than starting at full strength — a jump
+            // that begins already squashed pops on its first frame, which is
+            // the opposite of anticipation.
+            const crouch = time < 0.18 ? arc(time / 0.18) : 0;
+            const landing = time > 0.82 ? arc((time - 0.82) / 0.18) : 0;
+            const squash = Math.max(crouch, landing);
             const stretch = arc(time) * 0.08;
             return {
                 dx: dx * smooth(time),

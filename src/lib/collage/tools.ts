@@ -21,6 +21,7 @@ import { FONTS, FRAME_PRESETS, findFont, outputSize, type Frame, type ImageLayer
 import { LAYOUT_MODES, type LayoutMode } from "./layout.js";
 import { checkFrame } from "./quality.js";
 import { FREE_PAGE, type CollageStudio, type ExportFormat } from "./studio.js";
+import { MAX_CUES, MOVES, score, type Cue } from "./perform.js";
 
 export interface ToolResult {
     content: Array<
@@ -703,6 +704,85 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 if (args?.order === "front") layer = collage.bringToFront(found.layer.id);
                 if (args?.order === "back") layer = collage.sendToBack(found.layer.id);
                 return ok(`Updated ${describeLayer(layer!)}.`, { layer });
+            },
+        },
+        {
+            name: "collage_perform",
+            title: "Act out a scene",
+            description:
+                "Play a timed score: who moves, when, and what they say. Hand over the WHOLE sequence in one " +
+                "call — you cannot animate by calling a tool per frame, and you do not need to. The page " +
+                "plays it on its own clock and this returns immediately with the timings, so you are free to " +
+                "narrate over the top. " +
+                `Moves: ${MOVES.join(", ")}. "walk" and "jump" take a "to" and end up there; the rest return ` +
+                "to where they started. A cue with no \"at\" follows on from that layer's last move, so a " +
+                "scene reads as a list of things happening rather than as arithmetic. A layer can move and " +
+                "speak at once. Nothing is written to the document while it plays, so undo afterwards is one " +
+                "step.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    cues: {
+                        type: "array",
+                        description: "The score, in the order it should be read.",
+                        items: {
+                            type: "object",
+                            properties: {
+                                id: { type: "string", description: "Which layer acts." },
+                                do: { type: "string", enum: [...MOVES], description: "What it does." },
+                                say: { type: "string", description: "A line, in a bubble above it." },
+                                at: { type: "number", description: "Milliseconds from the start. Omit to follow on." },
+                                duration: { type: "number", description: "Override the beat's own length, in ms." },
+                                to: {
+                                    type: "object",
+                                    description: "Where a walk or jump ends up, relative to now, in canvas units.",
+                                    properties: { x: { type: "number" }, y: { type: "number" } },
+                                },
+                            },
+                            required: ["id"],
+                        },
+                    },
+                },
+                required: ["cues"],
+            },
+            async execute(args: { cues?: Cue[] }) {
+                const cues = Array.isArray(args?.cues) ? args.cues : [];
+                if (!cues.length) return fail(`Pass "cues" — the score to play.`);
+                if (cues.length > MAX_CUES) {
+                    return fail(`${cues.length} cues is more than the ${MAX_CUES} this plays at once. Send the scene in parts.`);
+                }
+                if (studio.performing) {
+                    return fail(`Something is already being performed. Wait for it to finish, or the two would play over each other.`);
+                }
+
+                const missing = [...new Set(cues.map(c => str(c?.id)).filter(Boolean))].filter(id => !collage.get(id));
+                if (missing.length) {
+                    return fail(
+                        `No layer called ${missing.map(id => `"${id}"`).join(", ")}. Call collage_describe for ` +
+                        `what is on the canvas.`);
+                }
+
+                const { score: plan, problems } = score(cues);
+                if (problems.length) {
+                    return fail(
+                        ["The score has problems:", ...problems.map(
+                            p => (p.index >= 0 ? `cue ${p.index + 1}: ${p.reason}` : p.reason))].join("\n"));
+                }
+
+                // Deliberately not awaited. A scene runs for seconds; blocking
+                // on it would burn the caller's whole timeout watching an
+                // animation it cannot see, when the point is to narrate over it.
+                void studio.performScore(plan).catch(error => {
+                    console.warn("[collage] the performance failed:", error);
+                });
+
+                const timeline = plan.cues.map(cue =>
+                    `${(cue.start / 1000).toFixed(1)}s ${cue.id} ${cue.move ?? `says "${truncate(cue.say ?? "", 40)}"`}`);
+                return ok(
+                    [`Playing — ${plan.cues.length} cues over ${(plan.duration / 1000).toFixed(1)}s. ` +
+                     `It is running now, so narrate along with it rather than waiting.`,
+                     ...timeline].join("\n"),
+                    { playing: true, duration: plan.duration, cues: plan.cues });
             },
         },
         {

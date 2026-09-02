@@ -7,6 +7,7 @@ import {
 } from "../src/lib/collage/studio.js";
 import { createCollageTools, type WebMcpToolDef } from "../src/lib/collage/tools.js";
 import type { LoadedImage } from "../src/lib/collage/imaging.js";
+import { restingPlaces, type Score } from "../src/lib/collage/perform.js";
 
 /**
  * The tools are the agent's whole surface onto the collage, so what is tested
@@ -41,7 +42,7 @@ function fakeStudio(options: FakeOptions = {}) {
     let pagePreset = FREE_PAGE;
     let selection: string[] = [];
 
-    const studio: CollageStudio = {
+    const studio: CollageStudio & { performed: Score[] } = {
         collage,
         images,
         async addImage(url, opts = {}) {
@@ -91,6 +92,19 @@ function fakeStudio(options: FakeOptions = {}) {
         async openFile() { return 0; },
         onSettle() { return () => { /* nothing to stop */ }; },
         settle() { /* the fake has no view to animate */ },
+        // No canvas to act on, so a score is accepted and finishes at once —
+        // which is what lets the tool be tested without a clock.
+        performed: [] as Score[],
+        setPerformer() { /* the fake is its own performer */ },
+        get performing() { return false; },
+        async performScore(score: Score) {
+            (studio as any).performed.push(score);
+            const moved = restingPlaces(score);
+            for (const [id, offset] of moved) {
+                const layer = collage.get(id);
+                if (layer) collage.update(id, { x: layer.x + offset.dx, y: layer.y + offset.dy });
+            }
+        },
         save() { /* nothing to persist in a fake */ },
         async clear() { collage.restore([], []); },
         get page() { return collage.listFrames()[0] ?? null; },
