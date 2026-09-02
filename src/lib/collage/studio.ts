@@ -13,10 +13,11 @@ import {
     outputSize, presetCanvasSize, findPreset, unionBounds,
 } from "./model.js";
 import { arrange as computeLayout, type LayoutMode, type LayoutOptions } from "./layout.js";
-import { loadImage, toDataUrl, type LoadedImage } from "./imaging.js";
+import { loadImage, readPixels, toDataUrl, type LoadedImage } from "./imaging.js";
 import { canvasToBlob, previewDataUrl, renderFrame, renderRegion } from "./render.js";
 import { fontsReady, loadWebFonts, webFontsUsed } from "./webfonts.js";
 import { shapeFromMask, type Shape } from "./silhouette.js";
+import { svgBlob, traceToSvg as traceToSvgPixels, type TraceOptions } from "./trace.js";
 import { exportHtml } from "./exportHtml.js";
 import {
     backgroundRemovalError, removeBackground as cutOut, type CutResult, type Progress,
@@ -73,6 +74,15 @@ export interface AddImageOptions {
     onProgress?: (p: Progress) => void;
     /** Who is doing this, for the event log a watching agent reads. */
     by?: "human" | "agent";
+}
+
+export interface TraceOutcome {
+    ok: boolean;
+    /** How many filled shapes it came out as. */
+    paths?: number;
+    bytes?: number;
+    /** Why nothing happened, phrased for a person or an agent to read. */
+    reason?: string;
 }
 
 export interface AddImageResult {
@@ -188,6 +198,11 @@ export interface CollageStudio {
     exportFrame(frameId: string, format: ExportFormat, options?: ExportOptions): Promise<ExportOutput>;
     /** Re-cut a layer that is already on the canvas. */
     removeBackgroundFor(id: string, onProgress?: (p: Progress) => void): Promise<CutResult>;
+    /**
+     * Replace a layer's pixels with traced vector shapes. Crisp at any size,
+     * and a flat-colour look a photograph cannot give.
+     */
+    traceToSvg(id: string, options?: TraceOptions): Promise<TraceOutcome>;
     /** Restore the saved collage. Resolves to how many layers came back. */
     restore(): Promise<number>;
     /** The whole collage as one openable picture. */
@@ -211,6 +226,13 @@ const FIT_MARGIN = 1.16;
 const SAVE_DEBOUNCE_MS = 600;
 /** A watcher only ever needs recent history; older events are not worth holding. */
 const MAX_EVENTS = 200;
+/**
+ * Longest edge handed to the tracer.
+ *
+ * Large enough that an edge is an edge rather than a staircase, small enough
+ * that fitting curves to it stays under a second or so.
+ */
+const TRACE_SIZE = 1100;
 /** The page id meaning "no fixed size — whatever is on the canvas". */
 export const FREE_PAGE = "free";
 /** Breathing room left around the contents when a free page is fitted. */
@@ -759,6 +781,39 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 loaded: images.get(primary.id)!,
                 background: cut,
             };
+        },
+
+        async traceToSvg(id, options = {}) {
+            const layer = collage.get(id);
+            if (!layer || layer.kind !== "image") return { ok: false, reason: `${id} is not an image layer.` };
+            const loaded = images.get(id);
+            if (!loaded) return { ok: false, reason: `"${layer.label}" has not finished loading.` };
+            if (loaded.tainted) {
+                return {
+                    ok: false,
+                    reason: `"${layer.label}" came from another site without permission to read its pixels, ` +
+                        `so it cannot be traced. Re-add it from a file.`,
+                };
+            }
+
+            // Enough resolution for the curve fitter to see edges, nowhere near
+            // full size: tracing a twelve-megapixel photo is slow and yields an
+            // SVG bigger than the photo.
+            const pixels = readPixels(loaded.image, loaded.width, loaded.height, TRACE_SIZE);
+            const traced = await traceToSvgPixels(pixels, options);
+            if (!traced) {
+                return { ok: false, reason: `"${layer.label}" could not be traced — it may be too soft or too plain.` };
+            }
+
+            const blob = svgBlob(traced.svg);
+            const storageKey = newImageKey();
+            await putImage(storageKey, blob);
+            const src = trackUrl(URL.createObjectURL(blob));
+            const next = await adopt(id, src);
+            collage.setSource(id, src, storageKey, { width: next.width, height: next.height }, next.crop);
+            record("layer-styled", `"${layer.label}" was traced into ${traced.paths} shapes.`, "human",
+                { id, paths: traced.paths });
+            return { ok: true, paths: traced.paths, bytes: blob.size };
         },
 
         async removeBackgroundFor(id, onProgress) {

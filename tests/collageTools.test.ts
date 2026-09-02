@@ -82,8 +82,9 @@ function fakeStudio(options: FakeOptions = {}) {
             return { ok: true };
         },
         async restore() { return 0; },
-        // Slicing needs decoded pixels; the tools only ever see the result.
+        // Slicing and tracing need decoded pixels; the tools only see results.
         async addPieces() { throw new Error("the fake studio does not slice"); },
+        async traceToSvg() { return { ok: false, reason: "the fake studio does not trace" }; },
         // Files are bytes and a canvas; the tools never touch either, so the
         // fake only has to satisfy the shape.
         async saveFile() { return { blob: new Blob(), filename: "fake.collage.png" }; },

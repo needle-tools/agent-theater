@@ -436,6 +436,39 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
+            name: "collage_trace",
+            title: "Trace a picture into vector shapes",
+            description:
+                "Replace an image layer's pixels with traced vector shapes. Two reasons to: it stays crisp at " +
+                "any size, in print and in the HTML export, and it looks different — flat colour with hard " +
+                "edges rather than a photograph. Not reversible except by undo, so say what it will do first.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    id: { type: "string", description: "The image layer to trace." },
+                    detail: {
+                        type: "string",
+                        enum: ["flat", "balanced", "fine"],
+                        description:
+                            "How much to keep. 'flat' is a poster of a few big shapes, 'fine' follows the " +
+                            "photograph closely and makes a much larger file. Default 'balanced'.",
+                    },
+                },
+                required: ["id"],
+            },
+            async execute(args: { id?: string; detail?: string }) {
+                const id = str(args?.id);
+                if (!id) return fail(`Pass the id of the layer to trace.`);
+                const detail = str(args?.detail) as "flat" | "balanced" | "fine" | "";
+                const result = await studio.traceToSvg(id, detail ? { detail } : {});
+                if (!result.ok) return fail(result.reason ?? `"${id}" could not be traced.`);
+                return ok(
+                    `Traced into ${result.paths} shapes (${Math.round((result.bytes ?? 0) / 1024)} kB of SVG). ` +
+                    `It is vector now — sharp at any size, and it exports as shapes rather than pixels.`,
+                    { id, paths: result.paths, bytes: result.bytes });
+            },
+        },
+        {
             name: "collage_style",
             title: "Style a cut-out",
             description:

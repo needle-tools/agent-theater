@@ -97,8 +97,20 @@ export interface Pixels {
     height: number;
 }
 
-function sampleImage(image: CanvasImageSource, width: number, height: number): Pixels {
-    const scale = Math.min(1, ANALYSIS_SIZE / Math.max(width, height));
+/**
+ * Read an image's pixels, down to at most `limit` on its longest edge.
+ *
+ * Exported for the tracer, which needs a good deal more than the 256 px the
+ * analysis passes want — but nothing like full resolution: fitting curves to a
+ * twelve-megapixel photograph is slow and produces an SVG larger than the
+ * photograph was.
+ */
+export function readPixels(image: CanvasImageSource, width: number, height: number, limit = ANALYSIS_SIZE): Pixels {
+    return sampleImage(image, width, height, limit);
+}
+
+function sampleImage(image: CanvasImageSource, width: number, height: number, limit = ANALYSIS_SIZE): Pixels {
+    const scale = Math.min(1, limit / Math.max(width, height));
     const w = Math.max(1, Math.round(width * scale));
     const h = Math.max(1, Math.round(height * scale));
     const canvas = document.createElement("canvas");

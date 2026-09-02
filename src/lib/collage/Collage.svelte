@@ -314,6 +314,31 @@
         return frames[0] ?? studio.setPage(studio.pagePreset);
     }
 
+    /**
+     * Turn pictures into vector shapes.
+     *
+     * Undoable like anything else, because it is not reversible by eye: a
+     * traced photo cannot be traced back, and someone who does not like the
+     * result needs a way out that is not "drop it in again".
+     */
+    async function traceLayers(ids: string[]) {
+        const toast = toasts.push(ids.length > 1 ? `Tracing ${ids.length}…` : "Tracing…", "busy");
+        let shapes = 0;
+        let failure: string | null = null;
+        for (const id of ids) {
+            const result = await studio.traceToSvg(id);
+            if (result.ok) shapes += result.paths ?? 0;
+            else failure ??= result.reason ?? null;
+        }
+        toast.close();
+        if (shapes) {
+            toasts.push(`Traced into ${shapes} shapes — crisp at any size now.`);
+            studio.save();
+        } else {
+            toasts.push(failure ?? "Nothing could be traced.", "error");
+        }
+    }
+
     function undo() {
         if (!collage.undo()) return;
         studio.setSelection(studio.selection);
@@ -491,6 +516,12 @@
                         onSelect: each(layerId => collage.update(layerId, {
                             style: { outline: image.style.outline ? null : { width: 8, color: "#FFFFFF" } },
                         })),
+                    },
+                    {
+                        label: `Trace to shapes${suffix}`,
+                        icon: "outline" as const,
+                        separator: true,
+                        onSelect: () => void traceLayers(ids),
                     },
                     {
                         label: "Drop shadow",
