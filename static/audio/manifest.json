@@ -1,6 +1,6 @@
 {
 	"version": 1,
-	"comment": "Cue names to files, for `sound` beats and per-stage music. Adding a track is an edit here, not a code change. Roles: bed = plays under a whole stage, cue = short musical sting, sfx = one-off effect. Ids ending -1/-2/-3 are alternate takes of the same prompt; `take` groups them.",
+	"comment": "Cue names to files, for `sound` beats and per-stage music. Adding a track is an edit here, not a code change. Roles: bed = plays under a whole stage, cue = short musical sting, seam = plays between stages (build-up, hand-off, curtain), sfx = one-off effect. `skill` names the show skill a cue accompanies. Ids ending -1/-2/-3 are alternate takes of the same prompt; `take` groups them.",
 	"sounds": {
 		"fairy-tale-ambience": {
 			"role": "bed",
@@ -71,6 +71,148 @@
 			"take": "mystery-underscore",
 			"mood": ["tense", "mysterious", "playful"],
 			"description": "Orchestral theater underscore: staccato strings, plucked harp, light woodwinds, timpani rolls, dry close mix."
+		},
+		"dialogue-strings": {
+			"role": "bed",
+			"file": "/audio/music/dialogue-strings.opus",
+			"seconds": 60.01,
+			"bpm": 70,
+			"mood": ["neutral", "unobtrusive", "warm"],
+			"description": "Soft sustained strings, gentle piano, warm pad, no melody to follow. Made to sit under talking without pulling focus."
+		},
+		"dialogue-guitar": {
+			"role": "bed",
+			"file": "/audio/music/dialogue-guitar.opus",
+			"seconds": 60.01,
+			"bpm": 70,
+			"mood": ["neutral", "unobtrusive", "acoustic"],
+			"description": "Sustained guitar harmonics, breathy flute textures, fingerpicked guitar, sparse piano chords. A drier neutral bed than `dialogue-strings`."
+		},
+		"villain-menacing-1": {
+			"role": "bed",
+			"file": "/audio/music/villain-menacing-1.opus",
+			"seconds": 60.01,
+			"bpm": 85,
+			"take": "villain-menacing",
+			"mood": ["villainous", "menacing", "creeping"],
+			"description": "Low brass growls, creeping double bass, sinister staccato strings, sparse timpani, muted cimbalom. Steady throughout with no ending."
+		},
+		"villain-menacing-2": {
+			"role": "bed",
+			"file": "/audio/music/villain-menacing-2.opus",
+			"seconds": 60.01,
+			"bpm": 85,
+			"take": "villain-menacing",
+			"mood": ["villainous", "menacing", "creeping"],
+			"description": "Low brass growls, creeping double bass, sinister staccato strings, sparse timpani, muted cimbalom. Steady throughout with no ending."
+		},
+		"villain-menacing-3": {
+			"role": "bed",
+			"file": "/audio/music/villain-menacing-3.opus",
+			"seconds": 60.01,
+			"bpm": 85,
+			"take": "villain-menacing",
+			"mood": ["villainous", "menacing", "creeping"],
+			"description": "Low brass growls, creeping double bass, sinister staccato strings, sparse timpani, muted cimbalom. Steady throughout with no ending."
+		},
+		"villain-menacing-4": {
+			"role": "bed",
+			"file": "/audio/music/villain-menacing-4.opus",
+			"seconds": 60.01,
+			"bpm": 85,
+			"take": "villain-menacing",
+			"mood": ["villainous", "menacing", "creeping"],
+			"description": "Low brass growls, creeping double bass, sinister staccato strings, sparse timpani, muted cimbalom. Steady throughout with no ending."
+		},
+		"dialogue-woodblock-1": {
+			"role": "bed",
+			"file": "/audio/music/dialogue-woodblock-1.opus",
+			"seconds": 60.01,
+			"bpm": 60,
+			"take": "dialogue-woodblock",
+			"mood": ["neutral", "unobtrusive", "textural"],
+			"description": "Sustained harmonics, breathy textures, fingerpicked flute, panned wood blocks over a warm upright bass drone. The most textural of the neutral beds."
+		},
+		"dialogue-woodblock-2": {
+			"role": "bed",
+			"file": "/audio/music/dialogue-woodblock-2.opus",
+			"seconds": 60.01,
+			"bpm": 60,
+			"take": "dialogue-woodblock",
+			"mood": ["neutral", "unobtrusive", "textural"],
+			"description": "Sustained harmonics, breathy textures, fingerpicked flute, panned wood blocks over a warm upright bass drone. The most textural of the neutral beds."
+		},
+		"comic-chase-1": {
+			"role": "bed",
+			"file": "/audio/music/comic-chase-1.opus",
+			"seconds": 60.01,
+			"bpm": 150,
+			"take": "comic-chase",
+			"mood": ["comic", "scurrying", "hurried"],
+			"description": "Hurried pizzicato strings, chattering woodwind runs, bustling xylophone, light snare gallop. Steady throughout with no ending. Half the length of the other beds."
+		},
+		"comic-chase-2": {
+			"role": "bed",
+			"file": "/audio/music/comic-chase-2.opus",
+			"seconds": 60.01,
+			"bpm": 150,
+			"take": "comic-chase",
+			"mood": ["comic", "scurrying", "hurried"],
+			"description": "Hurried pizzicato strings, chattering woodwind runs, bustling xylophone, light snare gallop. Steady throughout with no ending. Half the length of the other beds."
+		},
+		"sad-tender-1": {
+			"role": "bed",
+			"file": "/audio/music/sad-tender-1.opus",
+			"seconds": 120.01,
+			"bpm": 60,
+			"take": "sad-tender",
+			"mood": ["sad", "tender", "intimate"],
+			"description": "Lone cello melody, soft piano chords, sustained low strings, sparse harp. Steady throughout with no ending, so it cross-fades into itself cleanly."
+		},
+		"sad-tender-2": {
+			"role": "bed",
+			"file": "/audio/music/sad-tender-2.opus",
+			"seconds": 120.01,
+			"bpm": 60,
+			"take": "sad-tender",
+			"mood": ["sad", "tender", "intimate"],
+			"description": "Lone cello melody, soft piano chords, sustained low strings, sparse harp. Steady throughout with no ending, so it cross-fades into itself cleanly."
+		},
+		"sad-tender-3": {
+			"role": "bed",
+			"file": "/audio/music/sad-tender-3.opus",
+			"seconds": 120.01,
+			"bpm": 60,
+			"take": "sad-tender",
+			"mood": ["sad", "tender", "intimate"],
+			"description": "Lone cello melody, soft piano chords, sustained low strings, sparse harp. Steady throughout with no ending, so it cross-fades into itself cleanly."
+		},
+		"idle-ambient-1": {
+			"role": "bed",
+			"file": "/audio/music/idle-ambient-1.opus",
+			"seconds": 30.01,
+			"bpm": 40,
+			"take": "idle-ambient",
+			"mood": ["idle", "sparse", "calm"],
+			"description": "Acoustic ambient: fingerpicked guitar, gentle piano, bowed cimbalom, wind chimes. Sits under dialogue without pulling focus."
+		},
+		"idle-ambient-2": {
+			"role": "bed",
+			"file": "/audio/music/idle-ambient-2.opus",
+			"seconds": 30.01,
+			"bpm": 40,
+			"take": "idle-ambient",
+			"mood": ["idle", "sparse", "calm"],
+			"description": "Acoustic ambient: fingerpicked guitar, gentle piano, bowed cimbalom, wind chimes. Sits under dialogue without pulling focus."
+		},
+		"idle-ambient-3": {
+			"role": "bed",
+			"file": "/audio/music/idle-ambient-3.opus",
+			"seconds": 30.01,
+			"bpm": 40,
+			"take": "idle-ambient",
+			"mood": ["idle", "sparse", "calm"],
+			"description": "Acoustic ambient: fingerpicked guitar, gentle piano, bowed cimbalom, wind chimes. Sits under dialogue without pulling focus."
 		},
 		"light-and-airy-1": {
 			"role": "cue",
@@ -160,7 +302,8 @@
 			"bpm": 110,
 			"take": "surprise-ukulele",
 			"mood": ["surprised", "whimsical", "delicate"],
-			"description": "Whimsical folk miniature: plucked ukulele, gentle triangle, sparse toy piano. Pairs with the `surprised` skill."
+			"description": "Whimsical folk miniature: plucked ukulele, gentle triangle, sparse toy piano. Pairs with the `surprised` skill.",
+			"skill": "surprised"
 		},
 		"surprise-ukulele-2": {
 			"role": "cue",
@@ -169,7 +312,8 @@
 			"bpm": 110,
 			"take": "surprise-ukulele",
 			"mood": ["surprised", "whimsical", "delicate"],
-			"description": "Whimsical folk miniature: plucked ukulele, gentle triangle, sparse toy piano. Pairs with the `surprised` skill."
+			"description": "Whimsical folk miniature: plucked ukulele, gentle triangle, sparse toy piano. Pairs with the `surprised` skill.",
+			"skill": "surprised"
 		},
 		"surprise-ukulele-3": {
 			"role": "cue",
@@ -178,7 +322,8 @@
 			"bpm": 110,
 			"take": "surprise-ukulele",
 			"mood": ["surprised", "whimsical", "delicate"],
-			"description": "Whimsical folk miniature: plucked ukulele, gentle triangle, sparse toy piano. Pairs with the `surprised` skill."
+			"description": "Whimsical folk miniature: plucked ukulele, gentle triangle, sparse toy piano. Pairs with the `surprised` skill.",
+			"skill": "surprised"
 		},
 		"surprise-staccato-1": {
 			"role": "cue",
@@ -187,7 +332,8 @@
 			"bpm": 110,
 			"take": "surprise-staccato",
 			"mood": ["surprised", "playful", "sparse"],
-			"description": "Folk miniature, playful staccato, dry room tone. A barer surprise than `surprise-ukulele`."
+			"description": "Folk miniature, playful staccato, dry room tone. A barer surprise than `surprise-ukulele`.",
+			"skill": "surprised"
 		},
 		"surprise-staccato-2": {
 			"role": "cue",
@@ -196,7 +342,8 @@
 			"bpm": 110,
 			"take": "surprise-staccato",
 			"mood": ["surprised", "playful", "sparse"],
-			"description": "Folk miniature, playful staccato, dry room tone. A barer surprise than `surprise-ukulele`."
+			"description": "Folk miniature, playful staccato, dry room tone. A barer surprise than `surprise-ukulele`.",
+			"skill": "surprised"
 		},
 		"danger-glockenspiel": {
 			"role": "cue",
@@ -204,7 +351,8 @@
 			"seconds": 3.01,
 			"bpm": 110,
 			"mood": ["dangerous", "playful", "warning"],
-			"description": "Staccato acoustic guitar, woodwind trills, fingerpicked banjo with dangerous glockenspiel accents. Trouble, lightly. Pairs with `scared`."
+			"description": "Staccato acoustic guitar, woodwind trills, fingerpicked banjo with dangerous glockenspiel accents. Trouble, lightly. Pairs with `scared`.",
+			"skill": "scared"
 		},
 		"disappointed-banjo-1": {
 			"role": "cue",
@@ -260,12 +408,785 @@
 			"mood": ["anticipatory", "hushed", "tense"],
 			"description": "Theatrical underscore: creaking piano, lone cello, tense pizzicato, sparse timpani. Holds a beat before something happens."
 		},
+		"jump-springy-1": {
+			"role": "cue",
+			"file": "/audio/cues/jump-springy-1.opus",
+			"seconds": 4.01,
+			"bpm": 110,
+			"take": "jump-springy",
+			"mood": ["startled", "springy", "light"],
+			"description": "Rising pizzicato leap, plucked ukulele, triangle ping. Pairs with the `jump` skill.",
+			"skill": "jump"
+		},
+		"jump-springy-2": {
+			"role": "cue",
+			"file": "/audio/cues/jump-springy-2.opus",
+			"seconds": 4.01,
+			"bpm": 110,
+			"take": "jump-springy",
+			"mood": ["startled", "springy", "light"],
+			"description": "Rising pizzicato leap, plucked ukulele, triangle ping. Pairs with the `jump` skill.",
+			"skill": "jump"
+		},
+		"fall-clumsy-1": {
+			"role": "cue",
+			"file": "/audio/cues/fall-clumsy-1.opus",
+			"seconds": 4.01,
+			"bpm": 100,
+			"take": "fall-clumsy",
+			"mood": ["clumsy", "deflating", "comic"],
+			"description": "Descending bassoon slide, muted low tom thud, sparse toy piano. Pairs with the `fall` skill.",
+			"skill": "fall"
+		},
+		"fall-clumsy-2": {
+			"role": "cue",
+			"file": "/audio/cues/fall-clumsy-2.opus",
+			"seconds": 4.01,
+			"bpm": 100,
+			"take": "fall-clumsy",
+			"mood": ["clumsy", "deflating", "comic"],
+			"description": "Descending bassoon slide, muted low tom thud, sparse toy piano. Pairs with the `fall` skill.",
+			"skill": "fall"
+		},
+		"fall-clumsy-3": {
+			"role": "cue",
+			"file": "/audio/cues/fall-clumsy-3.opus",
+			"seconds": 4.01,
+			"bpm": 100,
+			"take": "fall-clumsy",
+			"mood": ["clumsy", "deflating", "comic"],
+			"description": "Descending bassoon slide, muted low tom thud, sparse toy piano. Pairs with the `fall` skill.",
+			"skill": "fall"
+		},
+		"angry-stomping-1": {
+			"role": "cue",
+			"file": "/audio/cues/angry-stomping-1.opus",
+			"seconds": 4.01,
+			"bpm": 90,
+			"take": "angry-stomping",
+			"mood": ["angry", "stomping", "blunt"],
+			"description": "Low brass stab, hard timpani hit, gruff cello scrape. Pairs with the `angry` skill.",
+			"skill": "angry"
+		},
+		"angry-stomping-2": {
+			"role": "cue",
+			"file": "/audio/cues/angry-stomping-2.opus",
+			"seconds": 4.01,
+			"bpm": 90,
+			"take": "angry-stomping",
+			"mood": ["angry", "stomping", "blunt"],
+			"description": "Low brass stab, hard timpani hit, gruff cello scrape. Pairs with the `angry` skill.",
+			"skill": "angry"
+		},
+		"angry-stomping-3": {
+			"role": "cue",
+			"file": "/audio/cues/angry-stomping-3.opus",
+			"seconds": 4.01,
+			"bpm": 90,
+			"take": "angry-stomping",
+			"mood": ["angry", "stomping", "blunt"],
+			"description": "Low brass stab, hard timpani hit, gruff cello scrape. Pairs with the `angry` skill.",
+			"skill": "angry"
+		},
+		"sleepy-lullaby-1": {
+			"role": "cue",
+			"file": "/audio/cues/sleepy-lullaby-1.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "sleepy-lullaby",
+			"mood": ["sleepy", "drowsy", "soft"],
+			"description": "Slow music box lullaby figure, soft clarinet yawn, brushed cymbal. Pairs with the `sleep` skill.",
+			"skill": "sleep"
+		},
+		"sleepy-lullaby-2": {
+			"role": "cue",
+			"file": "/audio/cues/sleepy-lullaby-2.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "sleepy-lullaby",
+			"mood": ["sleepy", "drowsy", "soft"],
+			"description": "Slow music box lullaby figure, soft clarinet yawn, brushed cymbal. Pairs with the `sleep` skill.",
+			"skill": "sleep"
+		},
+		"sleepy-waltz-1": {
+			"role": "cue",
+			"file": "/audio/cues/sleepy-waltz-1.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "sleepy-waltz",
+			"mood": ["sleepy", "drowsy", "lilting"],
+			"description": "Music box melody in a slow waltz, clarinet yawn, brushed cymbal sigh, guitar whisper. A rounder `sleep` than the lullaby.",
+			"skill": "sleep"
+		},
+		"sleepy-waltz-2": {
+			"role": "cue",
+			"file": "/audio/cues/sleepy-waltz-2.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "sleepy-waltz",
+			"mood": ["sleepy", "drowsy", "lilting"],
+			"description": "Music box melody in a slow waltz, clarinet yawn, brushed cymbal sigh, guitar whisper. A rounder `sleep` than the lullaby.",
+			"skill": "sleep"
+		},
+		"sleepy-waltz-3": {
+			"role": "cue",
+			"file": "/audio/cues/sleepy-waltz-3.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "sleepy-waltz",
+			"mood": ["sleepy", "drowsy", "lilting"],
+			"description": "Music box melody in a slow waltz, clarinet yawn, brushed cymbal sigh, guitar whisper. A rounder `sleep` than the lullaby.",
+			"skill": "sleep"
+		},
+		"think-pondering-1": {
+			"role": "cue",
+			"file": "/audio/cues/think-pondering-1.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "think-pondering",
+			"mood": ["curious", "pondering", "light"],
+			"description": "Questioning pizzicato phrase, single bassoon note, soft woodblock taps. Pairs with the `think` skill.",
+			"skill": "think"
+		},
+		"think-pondering-2": {
+			"role": "cue",
+			"file": "/audio/cues/think-pondering-2.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "think-pondering",
+			"mood": ["curious", "pondering", "light"],
+			"description": "Questioning pizzicato phrase, single bassoon note, soft woodblock taps. Pairs with the `think` skill.",
+			"skill": "think"
+		},
+		"think-pondering-3": {
+			"role": "cue",
+			"file": "/audio/cues/think-pondering-3.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "think-pondering",
+			"mood": ["curious", "pondering", "light"],
+			"description": "Questioning pizzicato phrase, single bassoon note, soft woodblock taps. Pairs with the `think` skill.",
+			"skill": "think"
+		},
+		"sorrowful-cello-1": {
+			"role": "cue",
+			"file": "/audio/cues/sorrowful-cello-1.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "sorrowful-cello",
+			"mood": ["tender", "sorrowful", "sparse"],
+			"description": "Lone cello lament, soft piano chords, sparse harp. Pairs with the `cry` skill.",
+			"skill": "cry"
+		},
+		"sorrowful-cello-2": {
+			"role": "cue",
+			"file": "/audio/cues/sorrowful-cello-2.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "sorrowful-cello",
+			"mood": ["tender", "sorrowful", "sparse"],
+			"description": "Lone cello lament, soft piano chords, sparse harp. Pairs with the `cry` skill.",
+			"skill": "cry"
+		},
+		"sorrowful-cello-3": {
+			"role": "cue",
+			"file": "/audio/cues/sorrowful-cello-3.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "sorrowful-cello",
+			"mood": ["tender", "sorrowful", "sparse"],
+			"description": "Lone cello lament, soft piano chords, sparse harp. Pairs with the `cry` skill.",
+			"skill": "cry"
+		},
+		"cry-vocal": {
+			"role": "cue",
+			"file": "/audio/cues/cry-vocal.opus",
+			"seconds": 4.01,
+			"bpm": 40,
+			"mood": ["melancholic", "dramatic", "vocal"],
+			"description": "Lone female vocal over sparse sustained piano, fades in and out. The only cue with a voice in it — use it deliberately.",
+			"skill": "cry"
+		},
+		"enter-bright-1": {
+			"role": "cue",
+			"file": "/audio/cues/enter-bright-1.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "enter-bright",
+			"mood": ["bright", "arriving", "welcoming"],
+			"description": "Rising harp glissando, soft string swell, shimmering chimes. Pairs with the `enter` skill.",
+			"skill": "enter"
+		},
+		"enter-bright-2": {
+			"role": "cue",
+			"file": "/audio/cues/enter-bright-2.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "enter-bright",
+			"mood": ["bright", "arriving", "welcoming"],
+			"description": "Rising harp glissando, soft string swell, shimmering chimes. Pairs with the `enter` skill.",
+			"skill": "enter"
+		},
+		"enter-bright-3": {
+			"role": "cue",
+			"file": "/audio/cues/enter-bright-3.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "enter-bright",
+			"mood": ["bright", "arriving", "welcoming"],
+			"description": "Rising harp glissando, soft string swell, shimmering chimes. Pairs with the `enter` skill.",
+			"skill": "enter"
+		},
+		"drop-in-1": {
+			"role": "cue",
+			"file": "/audio/cues/drop-in-1.opus",
+			"seconds": 0.64,
+			"bpm": 110,
+			"take": "drop-in",
+			"mood": ["sudden", "dropping", "blunt"],
+			"description": "Quick descending pizzicato, toy piano plonk, dry thud. The shortest cue in the library — lands on impact. Pairs with `dropIn`.",
+			"skill": "dropIn"
+		},
+		"drop-in-2": {
+			"role": "cue",
+			"file": "/audio/cues/drop-in-2.opus",
+			"seconds": 1.5,
+			"bpm": 110,
+			"take": "drop-in",
+			"mood": ["sudden", "dropping", "blunt"],
+			"description": "Quick descending pizzicato, toy piano plonk, dry thud. Pairs with `dropIn`.",
+			"skill": "dropIn"
+		},
+		"drop-in-3": {
+			"role": "cue",
+			"file": "/audio/cues/drop-in-3.opus",
+			"seconds": 2.02,
+			"bpm": 110,
+			"take": "drop-in",
+			"mood": ["sudden", "dropping", "blunt"],
+			"description": "Quick descending pizzicato, toy piano plonk, dry thud. The longest of the three drops. Pairs with `dropIn`.",
+			"skill": "dropIn"
+		},
+		"rise-up-1": {
+			"role": "cue",
+			"file": "/audio/cues/rise-up-1.opus",
+			"seconds": 3.01,
+			"bpm": 90,
+			"take": "rise-up",
+			"mood": ["hopeful", "rising", "open"],
+			"description": "Ascending string swell, upward harp arpeggio, gentle timpani roll. Pairs with the `riseUp` skill.",
+			"skill": "riseUp"
+		},
+		"rise-up-2": {
+			"role": "cue",
+			"file": "/audio/cues/rise-up-2.opus",
+			"seconds": 3.01,
+			"bpm": 90,
+			"take": "rise-up",
+			"mood": ["hopeful", "rising", "open"],
+			"description": "Ascending string swell, upward harp arpeggio, gentle timpani roll. Pairs with the `riseUp` skill.",
+			"skill": "riseUp"
+		},
+		"rise-up-3": {
+			"role": "cue",
+			"file": "/audio/cues/rise-up-3.opus",
+			"seconds": 3.01,
+			"bpm": 90,
+			"take": "rise-up",
+			"mood": ["hopeful", "rising", "open"],
+			"description": "Ascending string swell, upward harp arpeggio, gentle timpani roll. Pairs with the `riseUp` skill.",
+			"skill": "riseUp"
+		},
+		"grow-in-1": {
+			"role": "cue",
+			"file": "/audio/cues/grow-in-1.opus",
+			"seconds": 3.01,
+			"bpm": 110,
+			"take": "grow-in",
+			"mood": ["playful", "expanding", "bright"],
+			"description": "Blooming marimba roll, widening pizzicato strings, triangle. Pairs with the `growIn` skill.",
+			"skill": "growIn"
+		},
+		"grow-in-2": {
+			"role": "cue",
+			"file": "/audio/cues/grow-in-2.opus",
+			"seconds": 3.01,
+			"bpm": 110,
+			"take": "grow-in",
+			"mood": ["playful", "expanding", "bright"],
+			"description": "Blooming marimba roll, widening pizzicato strings, triangle. Pairs with the `growIn` skill.",
+			"skill": "growIn"
+		},
+		"grow-in-3": {
+			"role": "cue",
+			"file": "/audio/cues/grow-in-3.opus",
+			"seconds": 3.01,
+			"bpm": 110,
+			"take": "grow-in",
+			"mood": ["playful", "expanding", "bright"],
+			"description": "Blooming marimba roll, widening pizzicato strings, triangle. Pairs with the `growIn` skill.",
+			"skill": "growIn"
+		},
+		"spin-in-1": {
+			"role": "cue",
+			"file": "/audio/cues/spin-in-1.opus",
+			"seconds": 3.01,
+			"bpm": 120,
+			"take": "spin-in",
+			"mood": ["whirling", "comic", "tumbling"],
+			"description": "Spinning woodwind trill, tumbling xylophone run, light snare. Pairs with the `spinIn` skill.",
+			"skill": "spinIn"
+		},
+		"spin-in-2": {
+			"role": "cue",
+			"file": "/audio/cues/spin-in-2.opus",
+			"seconds": 3.01,
+			"bpm": 120,
+			"take": "spin-in",
+			"mood": ["whirling", "comic", "tumbling"],
+			"description": "Spinning woodwind trill, tumbling xylophone run, light snare. Pairs with the `spinIn` skill.",
+			"skill": "spinIn"
+		},
+		"spin-in-3": {
+			"role": "cue",
+			"file": "/audio/cues/spin-in-3.opus",
+			"seconds": 3.01,
+			"bpm": 120,
+			"take": "spin-in",
+			"mood": ["whirling", "comic", "tumbling"],
+			"description": "Spinning woodwind trill, tumbling xylophone run, light snare. Pairs with the `spinIn` skill.",
+			"skill": "spinIn"
+		},
+		"flash-bright-1": {
+			"role": "cue",
+			"file": "/audio/cues/flash-bright-1.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "flash-bright",
+			"mood": ["bright", "flashing", "sharp"],
+			"description": "Sharp glockenspiel strike, shimmering cymbal bloom, harp accent. Camera cue — pairs with `flash`.",
+			"skill": "flash"
+		},
+		"flash-bright-2": {
+			"role": "cue",
+			"file": "/audio/cues/flash-bright-2.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "flash-bright",
+			"mood": ["bright", "flashing", "sharp"],
+			"description": "Sharp glockenspiel strike, shimmering cymbal bloom, harp accent. Camera cue — pairs with `flash`.",
+			"skill": "flash"
+		},
+		"flash-bright-3": {
+			"role": "cue",
+			"file": "/audio/cues/flash-bright-3.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "flash-bright",
+			"mood": ["bright", "flashing", "sharp"],
+			"description": "Sharp glockenspiel strike, shimmering cymbal bloom, harp accent. Camera cue — pairs with `flash`.",
+			"skill": "flash"
+		},
+		"flash-bright-4": {
+			"role": "cue",
+			"file": "/audio/cues/flash-bright-4.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "flash-bright",
+			"mood": ["bright", "flashing", "sharp"],
+			"description": "Sharp glockenspiel strike, shimmering cymbal bloom, harp accent. Camera cue — pairs with `flash`.",
+			"skill": "flash"
+		},
+		"flash-bright-5": {
+			"role": "cue",
+			"file": "/audio/cues/flash-bright-5.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "flash-bright",
+			"mood": ["bright", "flashing", "sharp"],
+			"description": "Sharp glockenspiel strike, shimmering cymbal bloom, harp accent. Camera cue — pairs with `flash`.",
+			"skill": "flash"
+		},
+		"flash-bright-6": {
+			"role": "cue",
+			"file": "/audio/cues/flash-bright-6.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "flash-bright",
+			"mood": ["bright", "flashing", "sharp"],
+			"description": "Sharp glockenspiel strike, shimmering cymbal bloom, harp accent. Camera cue — pairs with `flash`.",
+			"skill": "flash"
+		},
+		"spotlight-hushed-1": {
+			"role": "cue",
+			"file": "/audio/cues/spotlight-hushed-1.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "spotlight-hushed",
+			"mood": ["hushed", "revealing", "still"],
+			"description": "Single sustained string note swelling, soft celesta, distant chime, wide stage reverb. Camera cue — pairs with `spotlight`.",
+			"skill": "spotlight"
+		},
+		"spotlight-hushed-2": {
+			"role": "cue",
+			"file": "/audio/cues/spotlight-hushed-2.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "spotlight-hushed",
+			"mood": ["hushed", "revealing", "still"],
+			"description": "Single sustained string note swelling, soft celesta, distant chime, wide stage reverb. Camera cue — pairs with `spotlight`.",
+			"skill": "spotlight"
+		},
+		"spotlight-hushed-3": {
+			"role": "cue",
+			"file": "/audio/cues/spotlight-hushed-3.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "spotlight-hushed",
+			"mood": ["hushed", "revealing", "still"],
+			"description": "Single sustained string note swelling, soft celesta, distant chime, wide stage reverb. Camera cue — pairs with `spotlight`.",
+			"skill": "spotlight"
+		},
+		"stage-shake-1": {
+			"role": "cue",
+			"file": "/audio/cues/stage-shake-1.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "stage-shake",
+			"mood": ["ominous", "shuddering", "heavy"],
+			"description": "Low timpani rumble, bass drum swell, groaning double bass, wide stage reverb. Camera cue — pairs with `stageShake`.",
+			"skill": "stageShake"
+		},
+		"stage-shake-2": {
+			"role": "cue",
+			"file": "/audio/cues/stage-shake-2.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "stage-shake",
+			"mood": ["ominous", "shuddering", "heavy"],
+			"description": "Low timpani rumble, bass drum swell, groaning double bass, wide stage reverb. Camera cue — pairs with `stageShake`.",
+			"skill": "stageShake"
+		},
+		"stage-shake-3": {
+			"role": "cue",
+			"file": "/audio/cues/stage-shake-3.opus",
+			"seconds": 3.01,
+			"bpm": 60,
+			"take": "stage-shake",
+			"mood": ["ominous", "shuddering", "heavy"],
+			"description": "Low timpani rumble, bass drum swell, groaning double bass, wide stage reverb. Camera cue — pairs with `stageShake`.",
+			"skill": "stageShake"
+		},
+		"curtain-up-1": {
+			"role": "seam",
+			"file": "/audio/seams/curtain-up-1.opus",
+			"seconds": 3.01,
+			"bpm": 110,
+			"take": "curtain-up",
+			"mood": ["grand", "opening", "ceremonial"],
+			"description": "Curtain-up brass fanfare, rolling timpani, cymbal crash. Opens the show, before the first stage builds up.",
+			"seam": "showStart"
+		},
+		"curtain-up-2": {
+			"role": "seam",
+			"file": "/audio/seams/curtain-up-2.opus",
+			"seconds": 3.01,
+			"bpm": 110,
+			"take": "curtain-up",
+			"mood": ["grand", "opening", "ceremonial"],
+			"description": "Curtain-up brass fanfare, rolling timpani, cymbal crash. Opens the show, before the first stage builds up.",
+			"seam": "showStart"
+		},
+		"curtain-up-3": {
+			"role": "seam",
+			"file": "/audio/seams/curtain-up-3.opus",
+			"seconds": 3.01,
+			"bpm": 110,
+			"take": "curtain-up",
+			"mood": ["grand", "opening", "ceremonial"],
+			"description": "Curtain-up brass fanfare, rolling timpani, cymbal crash. Opens the show, before the first stage builds up.",
+			"seam": "showStart"
+		},
+		"curtain-down-1": {
+			"role": "seam",
+			"file": "/audio/seams/curtain-down-1.opus",
+			"seconds": 3.01,
+			"bpm": 90,
+			"take": "curtain-down",
+			"mood": ["warm", "closing", "resolving"],
+			"description": "Curtain-down string resolve, soft brass cadence, gentle timpani. Closes the show after the last stage.",
+			"seam": "showEnd"
+		},
+		"curtain-down-2": {
+			"role": "seam",
+			"file": "/audio/seams/curtain-down-2.opus",
+			"seconds": 3.01,
+			"bpm": 90,
+			"take": "curtain-down",
+			"mood": ["warm", "closing", "resolving"],
+			"description": "Curtain-down string resolve, soft brass cadence, gentle timpani. Closes the show after the last stage.",
+			"seam": "showEnd"
+		},
+		"curtain-down-3": {
+			"role": "seam",
+			"file": "/audio/seams/curtain-down-3.opus",
+			"seconds": 3.01,
+			"bpm": 90,
+			"take": "curtain-down",
+			"mood": ["warm", "closing", "resolving"],
+			"description": "Curtain-down string resolve, soft brass cadence, gentle timpani. Closes the show after the last stage.",
+			"seam": "showEnd"
+		},
+		"transition-1": {
+			"role": "seam",
+			"file": "/audio/seams/transition-1.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "transition",
+			"mood": ["brief", "turning", "light"],
+			"description": "Quick harp sweep, soft string transition chord, light chimes. Covers the hand-off from one stage to the next.",
+			"seam": "stageChange"
+		},
+		"transition-2": {
+			"role": "seam",
+			"file": "/audio/seams/transition-2.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "transition",
+			"mood": ["brief", "turning", "light"],
+			"description": "Quick harp sweep, soft string transition chord, light chimes. Covers the hand-off from one stage to the next.",
+			"seam": "stageChange"
+		},
+		"transition-3": {
+			"role": "seam",
+			"file": "/audio/seams/transition-3.opus",
+			"seconds": 3.01,
+			"bpm": 100,
+			"take": "transition",
+			"mood": ["brief", "turning", "light"],
+			"description": "Quick harp sweep, soft string transition chord, light chimes. Covers the hand-off from one stage to the next.",
+			"seam": "stageChange"
+		},
+		"drumroll-1": {
+			"role": "seam",
+			"file": "/audio/seams/drumroll-1.opus",
+			"seconds": 3.01,
+			"bpm": 120,
+			"take": "drumroll",
+			"mood": ["expectant", "building", "tight"],
+			"description": "Tight snare drumroll into a cymbal, low brass swell, dry stage acoustics. Builds anticipation before a reveal.",
+			"seam": "buildUp"
+		},
+		"drumroll-2": {
+			"role": "seam",
+			"file": "/audio/seams/drumroll-2.opus",
+			"seconds": 3.01,
+			"bpm": 120,
+			"take": "drumroll",
+			"mood": ["expectant", "building", "tight"],
+			"description": "Tight snare drumroll into a cymbal, low brass swell, dry stage acoustics. Builds anticipation before a reveal.",
+			"seam": "buildUp"
+		},
+		"drumroll-3": {
+			"role": "seam",
+			"file": "/audio/seams/drumroll-3.opus",
+			"seconds": 3.01,
+			"bpm": 120,
+			"take": "drumroll",
+			"mood": ["expectant", "building", "tight"],
+			"description": "Tight snare drumroll into a cymbal, low brass swell, dry stage acoustics. Builds anticipation before a reveal.",
+			"seam": "buildUp"
+		},
+		"finale-1": {
+			"role": "seam",
+			"file": "/audio/seams/finale-1.opus",
+			"seconds": 3.01,
+			"bpm": 120,
+			"take": "finale",
+			"mood": ["triumphant", "final", "emphatic"],
+			"description": "Short brass fanfare button, crash cymbal, timpani accent. Punctuates the end of a stage rather than the whole show.",
+			"seam": "stageEnd"
+		},
+		"finale-2": {
+			"role": "seam",
+			"file": "/audio/seams/finale-2.opus",
+			"seconds": 3.01,
+			"bpm": 120,
+			"take": "finale",
+			"mood": ["triumphant", "final", "emphatic"],
+			"description": "Short brass fanfare button, crash cymbal, timpani accent. Punctuates the end of a stage rather than the whole show.",
+			"seam": "stageEnd"
+		},
+		"finale-3": {
+			"role": "seam",
+			"file": "/audio/seams/finale-3.opus",
+			"seconds": 3.01,
+			"bpm": 120,
+			"take": "finale",
+			"mood": ["triumphant", "final", "emphatic"],
+			"description": "Short brass fanfare button, crash cymbal, timpani accent. Punctuates the end of a stage rather than the whole show.",
+			"seam": "stageEnd"
+		},
+		"whoosh": {
+			"role": "sfx",
+			"file": "/audio/sfx/whoosh.opus",
+			"seconds": 3.01,
+			"mood": ["quick", "airy", "neutral"],
+			"description": "Air passing quickly with a soft tail. Covers `exit`, and works for `slideIn` and `swap` too.",
+			"skill": "exit"
+		},
+		"thud": {
+			"role": "sfx",
+			"file": "/audio/sfx/thud.opus",
+			"seconds": 3.01,
+			"mood": ["blunt", "heavy", "dry"],
+			"description": "A body landing on wooden floorboards, dry interior. The impact at the end of a `fall`.",
+			"skill": "fall"
+		},
+		"footsteps-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/footsteps-1.opus",
+			"seconds": 3.01,
+			"take": "footsteps",
+			"mood": ["light", "walking", "dry"],
+			"description": "Light footsteps on a wooden stage, walking pace, dry interior. Pairs with the `walk` skill.",
+			"skill": "walk"
+		},
+		"footsteps-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/footsteps-2.opus",
+			"seconds": 3.01,
+			"take": "footsteps",
+			"mood": ["light", "walking", "dry"],
+			"description": "Light footsteps on a wooden stage, walking pace, dry interior. Pairs with the `walk` skill.",
+			"skill": "walk"
+		},
+		"footsteps-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/footsteps-3.opus",
+			"seconds": 1.1,
+			"take": "footsteps",
+			"mood": ["light", "walking", "dry"],
+			"description": "Light footsteps on a wooden stage, dry interior. Much shorter than the other takes — one or two steps rather than four.",
+			"skill": "walk"
+		},
+		"footsteps-4": {
+			"role": "sfx",
+			"file": "/audio/sfx/footsteps-4.opus",
+			"seconds": 3.01,
+			"take": "footsteps",
+			"mood": ["light", "walking", "dry"],
+			"description": "Light footsteps on a wooden stage, walking pace, dry interior. Pairs with the `walk` skill.",
+			"skill": "walk"
+		},
+		"door-creak-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/door-creak-1.opus",
+			"seconds": 3.01,
+			"take": "door-creak",
+			"mood": ["creaking", "slow", "dry"],
+			"description": "A wooden door creaking slowly open, dry interior, close mic."
+		},
+		"door-creak-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/door-creak-2.opus",
+			"seconds": 3.01,
+			"take": "door-creak",
+			"mood": ["creaking", "slow", "dry"],
+			"description": "A wooden door creaking slowly open, dry interior, close mic."
+		},
+		"curtain-sweep-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/curtain-sweep-1.opus",
+			"seconds": 3.01,
+			"take": "curtain-sweep",
+			"mood": ["sweeping", "soft", "cloth"],
+			"description": "Heavy cloth curtain sweeping open in one smooth motion. The physical sound under a curtain-up seam.",
+			"seam": "showStart"
+		},
+		"curtain-sweep-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/curtain-sweep-2.opus",
+			"seconds": 3.01,
+			"take": "curtain-sweep",
+			"mood": ["sweeping", "soft", "cloth"],
+			"description": "Heavy cloth curtain sweeping open in one smooth motion. The physical sound under a curtain-up seam.",
+			"seam": "showStart"
+		},
+		"bell": {
+			"role": "sfx",
+			"file": "/audio/sfx/bell.opus",
+			"seconds": 3.01,
+			"mood": ["bright", "metallic", "ringing"],
+			"description": "A small handbell rung once, bright metallic ring with natural decay. Calls attention, or opens a scene."
+		},
+		"gasp-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/gasp-1.opus",
+			"seconds": 3.01,
+			"take": "gasp",
+			"mood": ["sudden", "audience", "reactive"],
+			"description": "A short collective gasp from a small audience, dry room. An audience reaction, not a character's."
+		},
+		"gasp-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/gasp-2.opus",
+			"seconds": 3.01,
+			"take": "gasp",
+			"mood": ["sudden", "audience", "reactive"],
+			"description": "A short collective gasp from a small audience, dry room. An audience reaction, not a character's."
+		},
+		"gasp-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/gasp-3.opus",
+			"seconds": 3.01,
+			"take": "gasp",
+			"mood": ["sudden", "audience", "reactive"],
+			"description": "A short collective gasp from a small audience, dry room. An audience reaction, not a character's."
+		},
+		"applause-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/applause-1.opus",
+			"seconds": 3.01,
+			"take": "applause",
+			"mood": ["warm", "audience", "approving"],
+			"description": "Warm applause from a small theatre audience. Came out at 3s rather than the 5s asked for, so it wants a fade rather than a hard stop.",
+			"seam": "showEnd"
+		},
+		"applause-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/applause-2.opus",
+			"seconds": 3.01,
+			"take": "applause",
+			"mood": ["warm", "audience", "approving"],
+			"description": "Warm applause from a small theatre audience. Came out at 3s rather than the 5s asked for, so it wants a fade rather than a hard stop.",
+			"seam": "showEnd"
+		},
+		"applause-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/applause-3.opus",
+			"seconds": 3.01,
+			"take": "applause",
+			"mood": ["warm", "audience", "approving"],
+			"description": "Warm applause from a small theatre audience. Came out at 3s rather than the 5s asked for, so it wants a fade rather than a hard stop.",
+			"seam": "showEnd"
+		},
+		"applause-4": {
+			"role": "sfx",
+			"file": "/audio/sfx/applause-4.opus",
+			"seconds": 3.01,
+			"take": "applause",
+			"mood": ["warm", "audience", "approving"],
+			"description": "Warm applause from a small theatre audience. Came out at 3s rather than the 5s asked for, so it wants a fade rather than a hard stop.",
+			"seam": "showEnd"
+		},
 		"laugh-cute": {
 			"role": "sfx",
 			"file": "/audio/sfx/laugh-cute.opus",
 			"seconds": 2.01,
 			"mood": ["cute", "bright", "playful"],
-			"description": "Short bright giggle, close mic, dry interior. Pairs with the `laugh` skill."
+			"description": "Short bright giggle, close mic, dry interior. Pairs with the `laugh` skill.",
+			"skill": "laugh"
 		}
 	}
 }

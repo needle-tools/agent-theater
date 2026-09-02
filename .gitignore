@@ -11,3 +11,6 @@ dist
 custom-elements.json
 .svelte-kit/
 build/
+# original WAVs behind static/audio/*.opus, same names. Kept out of git and out
+# of static/ so they are neither committed nor copied into the build.
+audio-source/
