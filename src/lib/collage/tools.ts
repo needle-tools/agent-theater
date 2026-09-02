@@ -608,16 +608,20 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         type: "number",
                         description:
                             "Cells across, 1–5. Leave it alone: the defaults are 5 × 5 for actors and " +
-                            "scenery — 25 pieces from one generation — and 2 × 2 for backdrops, which " +
-                            "need the resolution because each one fills the whole stage.",
+                            "scenery — 25 pieces from one generation — and a single column of 3 for " +
+                            "backdrops, so each one is a full-width strip and comes back the panorama " +
+                            "shape a stage needs rather than a square.",
                     },
                     rows: { type: "number", description: "Cells down, 1–5." },
                     shape: {
                         type: "string",
                         enum: ["wide", "square", "tall"],
                         description:
-                            "The shape of one cell. Backgrounds default to wide (16:9) so the camera has " +
-                            "room to move; actors default to square.",
+                            "The shape of one cell. For backdrops this is a real decision: 'wide' is a " +
+                            "21:9 panorama for a scene people cross — a road, a forest, a hall — and is " +
+                            "the default; 'tall' is for a scene with height in it, a tower, a cliff, a " +
+                            "well. The camera pans across the one and up the other. Actors and scenery " +
+                            "are square and should stay that way.",
                     },
                     subjects: {
                         type: "array",

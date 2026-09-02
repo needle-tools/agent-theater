@@ -50,6 +50,20 @@ export type MoveName = (typeof MOVES)[number];
  */
 export const DEFAULT_CAMERA_MS = 1800;
 
+/**
+ * A breath between one person finishing and the next one starting.
+ *
+ * Added automatically, because nobody writing a scene remembers to write it and
+ * every scene needs it: lines run back to back sound like a list being read
+ * out, where the gap is what makes it an exchange. Only between DIFFERENT
+ * speakers — somebody carrying on after their own line is one person talking,
+ * and a pause there is a hesitation, which is a thing to write on purpose.
+ *
+ * Short. It is a breath, not a silence, and an agent that wants a real pause
+ * has `wait` for it.
+ */
+export const BREATH_MS = 700;
+
 /** How long each reads as, before anything overrides it. */
 /**
  * How long each reads as, before anything overrides it.
@@ -67,8 +81,13 @@ export const DEFAULT_DURATION: Record<MoveName, number> = {
     scared: 1900,
     nod: 900,
     bow: 1600,
-    enter: 1300,
-    exit: 1300,
+    // Brisk, unlike the rest. An entrance is not the scene, it is the moment
+    // before it — and the build-up plays them one after another, so four
+    // characters arriving at a considered pace is five seconds of nothing
+    // happening before the first line. The slow numbers below are for acting;
+    // these two are stagecraft.
+    enter: 650,
+    exit: 650,
 };
 
 export interface MoveContext {
@@ -517,6 +536,15 @@ export interface CameraMove {
 
 export interface Beat {
     id?: string;
+    /**
+     * Do nothing, for this long. Seconds.
+     *
+     * A scene made only of lines runs them back to back, and back to back is
+     * not how anybody talks: the pause after a line is where it lands, and the
+     * pause before an answer is where the answer is being thought of. There was
+     * no way to write one — every beat had to be somebody doing something.
+     */
+    wait?: number;
     do?: MoveName;
     say?: string;
     /** A noise, fired as the beat starts. Rides along with whatever else it does. */
@@ -565,14 +593,22 @@ export interface Plan {
 export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
     const problems: ScoreProblem[] = [];
     const planned: PlannedBeat[] = [];
+    /** Who spoke last, so a change of speaker can be given room. */
+    let lastSpeaker: string | null = null;
 
     for (const [index, beat] of beats.entries()) {
         const camera = beat?.camera && (Array.isArray(beat.camera.on) || beat.camera.on === "all")
             ? { on: beat.camera.on, ...(typeof beat.camera.tight === "number" ? { tight: beat.camera.tight } : {}) }
             : null;
+        // A pause is a beat about nobody, like a camera move. It needs no id
+        // and it is the one beat whose whole content is its length.
+        const wait = typeof beat?.wait === "number" && beat.wait > 0
+            ? Math.min(10_000, beat.wait * 1000)
+            : null;
         const id = typeof beat?.id === "string" ? beat.id.trim() : "";
-        // A camera beat is about the view, so it needs nobody to be about.
-        if (!id && !camera) {
+        // A camera beat is about the view, and a pause is about nothing at all,
+        // so neither needs somebody to be about.
+        if (!id && !camera && !wait) {
             problems.push({ index, reason: `every beat needs an "id" naming who it is about` });
             continue;
         }
@@ -583,15 +619,19 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
         }
         const say = typeof beat?.say === "string" && beat.say.trim() ? beat.say.trim() : null;
         const sound = typeof beat?.sound === "string" && beat.sound.trim() ? beat.sound.trim() : null;
-        if (!move && !say && !sound && !camera) {
-            problems.push({ index, reason: `a beat must have a "do", a "say", a "sound" or a "camera"` });
+        if (!move && !say && !sound && !camera && !wait) {
+            problems.push({
+                index,
+                reason: `a beat must have a "do", a "say", a "sound", a "camera" or a "wait"`,
+            });
             continue;
         }
 
         const duration = Math.min(30_000, Math.max(0,
             typeof beat?.duration === "number" && beat.duration > 0
                 ? beat.duration
-                : move ? DEFAULT_DURATION[move]
+                : wait ? wait
+                    : move ? DEFAULT_DURATION[move]
                     : say ? readingTime(say)
                         // A camera move takes real time and is the point of the
                         // beat, so it gets a length worth watching.
@@ -604,6 +644,17 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
             ? { dx: typeof beat.to.x === "number" ? beat.to.x : 0,
                 dy: typeof beat.to.y === "number" ? beat.to.y : 0 }
             : null;
+
+        // The breath goes in as a beat of its own rather than as padding on the
+        // one that follows, so the timeline an agent narrates against says
+        // where the silence is instead of hiding it inside somebody's line.
+        if (say && lastSpeaker && lastSpeaker !== id) {
+            planned.push({
+                id: "", move: null, say: null, sound: null, camera: null,
+                travel: null, duration: BREATH_MS,
+            });
+        }
+        if (say) lastSpeaker = id;
 
         planned.push({ id, move, say, sound, camera, travel, duration });
     }

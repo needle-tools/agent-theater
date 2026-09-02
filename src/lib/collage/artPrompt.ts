@@ -189,10 +189,18 @@ export function scrubBrands(topic: string): { topic: string; removed: string[] }
     return { topic: out.replace(/\s{2,}/g, " ").replace(/\s+([,.])/g, "$1").trim(), removed };
 }
 
+/**
+ * How wide a cell is, said in more than one way.
+ *
+ * A ratio on its own gets rounded toward square — ask for 16:9 and a good deal
+ * of the time a 4:3 comes back — so each of these says the number, then says it
+ * again in words. The panorama is the important one: a backdrop is something
+ * the camera pans across, and a stage you cannot pan across is a picture.
+ */
 const ASPECT: Record<ArtShape, string> = {
-    wide: "16:9 landscape",
-    square: "1:1 square",
-    tall: "9:16 portrait",
+    wide: "21:9 — an ultra-wide panorama, MUCH wider than it is tall, about two and a half times",
+    square: "1:1 — square",
+    tall: "9:16 — an upright panel, much taller than it is wide",
 };
 
 /**
@@ -212,7 +220,15 @@ const ASPECT: Record<ArtShape, string> = {
  * across the stage. Four is what fits, and four scenes is a play.
  */
 const DEFAULTS: Record<ArtKind, { columns: number; rows: number; shape: ArtShape }> = {
-    backgrounds: { columns: 2, rows: 2, shape: "wide" },
+    /*
+     * One per row, not a 2 × 2.
+     *
+     * A grid of four invites four squarish cells however loudly the ratio is
+     * stated, and squarish cells came back every time. A single column cannot:
+     * each cell spans the whole width of the sheet, so a wide cell is the only
+     * cell there is. The shape is enforced by the layout rather than asked for.
+     */
+    backgrounds: { columns: 1, rows: 3, shape: "wide" },
     actors: { columns: 5, rows: 5, shape: "square" },
     scenery: { columns: 5, rows: 5, shape: "square" },
 };
@@ -311,7 +327,10 @@ export function artPrompt(request: ArtRequest): ArtPrompt {
     // because an image model treats a preference as a suggestion, and a sheet
     // with its subjects touching cannot be cut into separate pieces at all.
     const sheet = [
-        `Draw ONE sheet: a ${columns} × ${rows} grid of ${cells} separate pictures.`,
+        columns === 1
+            ? `Draw ONE sheet: ${cells} separate pictures stacked in a single column, each one a full-width`
+              + ` strip across the whole sheet, one above the other.`
+            : `Draw ONE sheet: a ${columns} × ${rows} grid of ${cells} separate pictures.`,
         `Each cell is ${ASPECT[shape]}.`,
         `The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge,`,
         `in reading order (left to right, then down).`,

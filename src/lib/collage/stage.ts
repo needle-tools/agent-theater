@@ -103,6 +103,15 @@ export interface Stage {
      * default), "fade", or the name of another piece to blend into.
      */
     musicEnd?: string;
+    /**
+     * The colour the room around the stage takes while this scene plays.
+     *
+     * Optional, and usually left alone: the backdrop already knows what colour
+     * it is, and the page reads it off the picture. This is for when the mood
+     * wants something the picture does not say — a cold blue surround on a warm
+     * scene, because the scene is meant to feel exposed.
+     */
+    tint?: string;
     /** Seconds to hold after the scene before moving on. */
     hold?: number;
 }
@@ -115,6 +124,7 @@ export interface StageSpec {
     script?: Beat[];
     music?: string | null;
     musicEnd?: string;
+    tint?: string;
     hold?: number;
 }
 

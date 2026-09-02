@@ -367,6 +367,15 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                     },
                                     required: ["on"],
                                 },
+                                wait: {
+                                    type: "number",
+                                    description:
+                                        "Seconds of nothing. A beat with only this in it is a pause — " +
+                                        "before an answer that is being thought about, after a line that " +
+                                        "needs to land, while somebody looks at something. Needs no " +
+                                        "\"id\". A short breath between two different speakers is added " +
+                                        "for you; this is for the ones that mean something.",
+                                },
                                 duration: { type: "number", description: "Override the beat's length, in ms." },
                             },
                         },
@@ -393,7 +402,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 const cast = new Set(stage.cast.map(member => member.id));
                 // Camera beats name nobody, so they are not checked against
                 // the cast — there is nobody in them to be absent.
-                const absent = [...new Set(beats.filter(b => !b?.camera).map(b => str(b?.id)).filter(Boolean))]
+                const absent = [...new Set(beats.filter(b => !b?.camera && !b?.wait)
+                    .map(b => str(b?.id)).filter(Boolean))]
                     .filter(id => !cast.has(id));
                 if (absent.length) {
                     return fail(
@@ -522,13 +532,21 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             "What happens if the music runs out before the scene does: 'loop' (default), " +
                             "'fade' to let it die away, or the name of another bed to blend into.",
                     },
+                    tint: {
+                        type: "string",
+                        description:
+                            "A hex colour for the room around the stage while this scene plays, e.g. " +
+                            "'#2A1F3D'. You do not normally need this: the page reads the backdrop's own " +
+                            "colour and dims it. Set it when the mood wants something the picture does " +
+                            "not say — a cold surround on a warm scene. Pass 'auto' to go back.",
+                    },
                     hold: { type: "number", description: "Seconds to wait at the end before moving on." },
                     show: { type: "boolean", description: "Show this scene on the canvas. Default true for a new one." },
                 },
             },
             async execute(args: {
                 id?: string; name?: string; backdrop?: string; music?: string; musicEnd?: string;
-                hold?: number; show?: boolean;
+                tint?: string; hold?: number; show?: boolean;
             }) {
                 const id = str(args?.id);
                 if (id && !collage.getStage(id)) {
@@ -549,8 +567,13 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     return fail(
                         `"${musicEnd}" is not 'loop', 'fade', or a sound to blend into. Call show_sounds.`);
                 }
+                const tint = str(args?.tint);
+                if (tint && tint !== "auto" && !/^#[0-9a-f]{3,8}$/i.test(tint)) {
+                    return fail(`"${tint}" is not a hex colour like "#2A1F3D", and not 'auto'.`);
+                }
                 const patch = {
                     ...(str(args?.name) ? { name: str(args.name) } : {}),
+                    ...(tint ? { tint: tint === "auto" ? "" : tint } : {}),
                     ...(backdrop ? { backdrop: backdrop === "none" ? null : backdrop } : {}),
                     ...(music ? { music: music === "none" ? null : music } : {}),
                     ...(musicEnd ? { musicEnd } : {}),

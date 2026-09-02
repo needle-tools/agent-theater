@@ -723,6 +723,7 @@ export class Collage {
             script: [...(spec.script ?? [])],
             ...(spec.music !== undefined ? { music: spec.music } : {}),
             ...(spec.musicEnd ? { musicEnd: spec.musicEnd } : {}),
+            ...(spec.tint ? { tint: spec.tint } : {}),
             ...(typeof spec.hold === "number" ? { hold: spec.hold } : {}),
         };
         this.stages.set(stage.id, stage);
@@ -742,6 +743,7 @@ export class Collage {
             ...(patch.script ? { script: [...patch.script] } : {}),
             ...(patch.music !== undefined ? { music: patch.music } : {}),
             ...(patch.musicEnd ? { musicEnd: patch.musicEnd } : {}),
+            ...(patch.tint !== undefined ? { tint: patch.tint } : {}),
             ...(typeof patch.hold === "number" ? { hold: patch.hold } : {}),
         };
         this.stages.set(id, next);

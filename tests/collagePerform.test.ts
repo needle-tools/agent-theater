@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-    AT_REST, DEFAULT_CAMERA_MS, DEFAULT_DURATION, MOVES, compose, plan as planScene, poseFor,
+    AT_REST, BREATH_MS, DEFAULT_CAMERA_MS, DEFAULT_DURATION, MOVES, compose, plan as planScene, poseFor,
     readingTime, restingPlaces, score, stateAt, type MoveName,
 } from "../src/lib/collage/perform.js";
 
@@ -323,5 +323,41 @@ describe("the camera", () => {
     it("still refuses a beat that does nothing at all", () => {
         const { problems } = planScene([{ id: "a" }]);
         expect(problems).toHaveLength(1);
+    });
+});
+
+describe("pauses", () => {
+    it("is a beat about nobody, needing only its length", () => {
+        const { plan, problems } = planScene([{ wait: 2 }]);
+        expect(problems).toEqual([]);
+        expect(plan.beats).toHaveLength(1);
+        expect(plan.beats[0].duration).toBe(2000);
+        expect(plan.beats[0].say).toBeNull();
+    });
+
+    it("puts a breath between two different people speaking", () => {
+        // Lines run back to back sound like a list being read out. The gap is
+        // what makes it an exchange, and nobody writing a scene remembers it.
+        const { plan } = planScene([
+            { id: "a", say: "Where are you going?" },
+            { id: "b", say: "To my grandmother's." },
+        ]);
+        expect(plan.beats).toHaveLength(3);
+        expect(plan.beats[1].say).toBeNull();
+        expect(plan.beats[1].duration).toBe(BREATH_MS);
+    });
+
+    it("does not break up one person carrying on", () => {
+        // A pause in the middle of somebody's own speech is a hesitation, which
+        // is a thing to write on purpose rather than to be given.
+        const { plan } = planScene([
+            { id: "a", say: "I was going to say something." },
+            { id: "a", say: "But I have forgotten it." },
+        ]);
+        expect(plan.beats).toHaveLength(2);
+    });
+
+    it("caps a pause, so one cannot hold the show", () => {
+        expect(planScene([{ wait: 600 }]).plan.beats[0].duration).toBe(10_000);
     });
 });

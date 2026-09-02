@@ -67,6 +67,28 @@
         return studio.onShowChanged(() => (showing = !!studio.showing));
     });
 
+    /**
+     * What colour the room is, while this scene is on.
+     *
+     * Read off the backdrop rather than asked for. The picture already knows
+     * what colour it is — its dominant colour was measured when it loaded, for
+     * the quality check — and a scene that had to be told its own colour would
+     * be one more thing to get wrong, and one more thing to forget. The agent
+     * can still override it when the mood wants something the picture does not
+     * say.
+     *
+     * Mixed well down toward black either way. This is the room, not a second
+     * stage: at full strength a pink sky would make the whole window pink and
+     * there would be nothing to look at.
+     */
+    const surround = $derived.by(() => {
+        void version;
+        const stage = studio.collage.activeStage;
+        if (stage?.tint) return stage.tint;
+        const backdrop = stage?.backdrop ? studio.images.get(stage.backdrop) : null;
+        return backdrop?.colors[0] ?? null;
+    });
+
     /** The stage rectangle while a show runs, for masking off the wings. */
     const wings = $derived.by(() => (version, showing ? stageRect() : null));
 
@@ -1360,6 +1382,9 @@
     class="viewport"
     class:viewport--over={!!hoverId && !drag}
     class:viewport--showing={showing}
+    style:--surround={surround
+        ? `color-mix(in srgb, ${surround} 22%, #0E1013)`
+        : "#14161a"}
     bind:this={viewport}
     role="application"
     aria-label="Theater stage"
@@ -1565,7 +1590,7 @@
      * edges of the window.
      */
     .viewport--showing {
-        background-color: #14161a;
+        background-color: var(--surround, #14161a);
         background-image: none;
         /* Not a grab cursor: there is nothing to grab. */
         cursor: default;
@@ -1799,8 +1824,17 @@
         z-index: 6;
         pointer-events: none;
         /* The same colour the viewport goes during a show, so the mask and the
-           surround are one continuous darkness rather than two greys. */
-        box-shadow: 0 0 0 100000px #14161a;
+           surround are one continuous darkness rather than two greys — and a
+           soft inset of it along the inside edge, which beds the stage into the
+           room instead of leaving it cut out of it with scissors. */
+        box-shadow:
+            0 0 0 100000px var(--surround, #14161a),
+            inset 0 0 60px 10px color-mix(in srgb, var(--surround, #14161a) 55%, transparent);
+        transition: box-shadow 0.8s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .wings { transition-duration: 0s; }
     }
 
     /* The rubber band is the act of selecting, so it wears the selection's

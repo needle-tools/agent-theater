@@ -63,7 +63,7 @@ describe("the prompt", () => {
         // of. The backdrop has to be the far plane and nothing else.
         const written = artPrompt({ kind: "backgrounds" });
         expect(written.prompt).toContain("FAR BACKDROP");
-        expect(written.prompt).toContain("16:9");
+        expect(written.prompt).toContain("21:9");
         expect(written.prompt.toLowerCase()).toContain("no characters");
         expect(written.prompt).toMatch(/drawn separately|layered on top/);
     });
@@ -202,12 +202,16 @@ describe("how much comes back per generation", () => {
         }
     });
 
-    it("keeps backdrops to four, because each one fills the whole stage", () => {
-        // Not a preference. Twenty-five backdrops on one sheet is twenty-five
-        // postage stamps, and a backdrop is the one picture whose pixels are
-        // actually looked at.
+    it("stacks backdrops one per row, so the shape cannot come back square", () => {
+        // Two reasons, and the second is the interesting one. A backdrop is the
+        // picture whose pixels are actually looked at, so it cannot be one of
+        // twenty-five stamps. And a grid of four invites four squarish cells
+        // however loudly the ratio is stated — where a single column cannot,
+        // because each cell spans the whole sheet.
         const written = artPrompt({ kind: "backgrounds" });
-        expect([written.columns, written.rows]).toEqual([2, 2]);
+        expect(written.columns).toBe(1);
+        expect(written.prompt).toContain("full-width");
+        expect(written.prompt).toContain("single column");
     });
 
     it("never asks for the same thing twice on one sheet", () => {
