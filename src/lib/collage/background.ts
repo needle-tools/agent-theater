@@ -24,11 +24,25 @@
  */
 
 /**
- * A directory, not a `.html` file. The deploy does not route bare top-level
- * HTML files — they 404, and the path then falls through to FastCut's app,
- * which would boot the whole editor in the frame and never answer.
+ * The deployment that tracks FastCut's builds, not the vanity domain.
+ *
+ * `fastcut.needle.tools` resolves to the project's *promoted* deployment, which
+ * only moves when somebody promotes it — so a capability added to the handoff
+ * this morning may not be there for weeks, and the page would quietly fall back
+ * as though FastCut simply could not do it. The `-latest` address follows CI, so
+ * this and the handoff it talks to are always the same generation.
+ *
+ * The cost is a cold cache: the ~40 MB of model weights are cached per origin,
+ * so a visitor who has used fastcut.needle.tools does not arrive warm here. That
+ * is the right trade while the two are still moving — a slow first cut-out beats
+ * a missing feature — and it stops mattering the day the vanity domain gains the
+ * `-latest` label too.
+ *
+ * A directory, not a `.html` file. The deploy does not route bare top-level HTML
+ * files — they 404, and the path then falls through to FastCut's app, which
+ * would boot the whole editor in the frame and never answer.
  */
-const DEFAULT_HANDOFF_URL = "https://fastcut.needle.tools/handoff/";
+const DEFAULT_HANDOFF_URL = "https://remove-background-zubckszla3jp-latest.needle.run/handoff/";
 
 /**
  * Where the handoff lives.
