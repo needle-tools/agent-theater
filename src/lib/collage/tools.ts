@@ -179,9 +179,11 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
                     ...(guide ? [{
                         type: "text" as const,
                         text:
-                            `This page is a theatre and you are directing it. Call theater_start for ` +
-                            `what it can do and the order to do it in — it is one call and it will ` +
-                            `save you several.`,
+                            `This page is a theatre and you are directing it. Call theater_start before ` +
+                            `you build anything: it says what the page can do, and — more importantly — ` +
+                            `what is already on it. This canvas is saved in the browser and comes back ` +
+                            `by itself, so there may be a play here from another conversation that you ` +
+                            `should be continuing rather than starting a second one beside.`,
                     }] : []),
                     ...(theirs.length ? [{
                         type: "text" as const,
@@ -522,6 +524,16 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  change x, not y: someone crossing the stage goes sideways, and someone walking`,
                     `  "into" the scene has nowhere to go. To make somebody arrive from far away, put`,
                     `  them on the back plane and move them forward a plane instead.`,
+                    ``,
+                    `IT REMEMBERS`,
+                    `  Everything on this page is saved in this browser and comes back on its own — the`,
+                    `  pieces, the scenes, the script, the title. The tools you are reading did not exist`,
+                    `  until the saved play had finished loading, so what is listed under RIGHT NOW is`,
+                    `  everything there is, and it is already here.`,
+                    `  So when you arrive at this page, CHECK BEFORE YOU BUILD. If there is a play, carry`,
+                    `  it on — add the scene it is missing, fix the thing that is wrong — rather than`,
+                    `  starting another one beside it. Nothing is cleared between conversations, and two`,
+                    `  half-finished plays on one canvas is the usual way this goes wrong.`,
                     ``,
                     `THE ORDER OF WORK`,
                     `  1. theater_art_prompt writes the prompt — once per kind: backgrounds, scenery,`,

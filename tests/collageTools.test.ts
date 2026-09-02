@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Collage, type AddFrameSpec, type Frame, type ImageLayer } from "../src/lib/collage/model.js";
 import { arrange as computeLayout, type LayoutMode } from "../src/lib/collage/layout.js";
 import {
@@ -944,7 +944,8 @@ describe("wearing another picture", () => {
             beats: [{ id: bird.id, becomes: "bird-flying" }],
         });
         expect(result.isError).toBe(true);
-        expect(result.content[0].text).toContain("bird-flying");
+        expect(result.content.map(part => ("text" in part ? part.text : "")).join(" "))
+            .toContain("bird-flying");
     });
 
     it("takes one that does, without it having to be in the cast", async () => {
@@ -964,5 +965,55 @@ describe("wearing another picture", () => {
         });
         expect(result.isError).toBeUndefined();
         expect(collage.getStage(stage.id)!.script[0].becomes).toBe(flying.id);
+    });
+});
+
+describe("arriving at a page that already has a play on it", () => {
+    /**
+     * The canvas restores itself from the browser, and the tools do not exist
+     * until it has — so anything an agent is told about the page is the whole
+     * truth by the time it can ask. What it did not know was that this is the
+     * case, so a new conversation would start a second play beside the first.
+     */
+    const first = async (studio: any, tool: string) => {
+        const found = createCollageTools(studio).find(t => t.name === tool)!;
+        const result = await found.execute({});
+        return result.content.map((part: any) => part.text ?? "").join("\n");
+    };
+
+    it("says the page remembers, in the guide", async () => {
+        const { studio } = fakeStudio();
+        const text = await first(studio, "theater_start");
+        expect(text).toContain("IT REMEMBERS");
+        expect(text).toContain("CHECK BEFORE YOU BUILD");
+    });
+
+    it("says it again on the way past, for an agent that never asked", async () => {
+        // The nudge is appended to the FIRST reply of a page load, whatever was
+        // called — the only thing a page can be sure an agent reads. That
+        // once-ness is module state, so the module is reloaded here rather than
+        // reaching for a reset that exists only for this test.
+        vi.resetModules();
+        const fresh = await import("../src/lib/collage/tools.js?fresh-page");
+        const { studio } = fakeStudio();
+        const tool = fresh.createCollageTools(studio as never).find(t => t.name === "piece_list")!;
+        const result = await tool.execute({});
+        const text = result.content.map((part: any) => part.text ?? "").join(" ");
+
+        expect(text).toContain("theater_start");
+        expect(text).toMatch(/saved in the browser|comes back by itself/);
+    });
+
+    it("says it once and then stops, because a nag is not information", async () => {
+        vi.resetModules();
+        const fresh = await import("../src/lib/collage/tools.js?one-nudge");
+        const { studio } = fakeStudio();
+        const tools = fresh.createCollageTools(studio as never);
+        const list = tools.find(t => t.name === "piece_list")!;
+
+        await list.execute({});
+        const second = await list.execute({});
+        expect(second.content.map((part: any) => part.text ?? "").join(" "))
+            .not.toContain("theater_start");
     });
 });
