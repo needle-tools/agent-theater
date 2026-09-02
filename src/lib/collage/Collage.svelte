@@ -177,12 +177,13 @@
         const many = images.length > 1;
         const toast = toasts.push(many ? `Cutting out ${images.length} images…` : "Cutting it out…", "busy");
         let cut = 0;
+        let separated = 0;
         let failed: string | null = null;
         try {
             for (const [index, file] of images.entries()) {
                 if (many) toast.update(`Cutting out ${index + 1} of ${images.length}…`, "busy");
                 const url = await readAsDataUrl(file);
-                const { background } = await studio.addImage(url, {
+                const { background, pieces } = await studio.addImage(url, {
                     label: file.name.replace(/\.[^.]+$/, ""),
                     // Land where they were dropped; several fan out from there.
                     near: near ?? undefined,
@@ -199,15 +200,21 @@
                 });
                 if (background.ok) cut++;
                 else if (!background.skipped && !failed) failed = background.reason ?? null;
+                // A photo that held several things becomes several layers, and
+                // saying "added 1" for six stickers is the kind of small lie
+                // that makes people distrust the rest of the message.
+                if (pieces && pieces.length > 1) separated += pieces.length;
             }
             toast.close();
             if (failed) {
                 console.warn("[collage] background removal unavailable:", failed);
                 toasts.push(`Added ${images.length}. ${shortFailure(failed)}`, "error");
             } else {
-                toasts.push(cut
-                    ? `${cut === 1 ? "Cut it out" : `Cut out ${cut}`} and added.`
-                    : `Added ${images.length}.`);
+                toasts.push(separated
+                    ? `Cut out ${separated} separate pieces.`
+                    : cut
+                        ? `${cut === 1 ? "Cut it out" : `Cut out ${cut}`} and added.`
+                        : `Added ${images.length}.`);
             }
             if (!collage.list().length || !frames.length) canvas?.fitAll();
         } catch (error) {

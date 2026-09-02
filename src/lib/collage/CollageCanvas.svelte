@@ -263,14 +263,14 @@
     }
 
     /** Fit the view to everything, or centre on nothing when the canvas is empty. */
-    export function fitAll() {
+    export function fitAll(options: { animate?: boolean } = {}) {
         if (!viewport) return;
         const rects = [
             ...frames.map(f => ({ x: f.x, y: f.y, width: f.width, height: f.height })),
             ...layers.map(layerBounds),
         ];
         if (!rects.length) {
-            view = { x: viewport.clientWidth / 2, y: viewport.clientHeight / 2, zoom: 0.55 };
+            moveTo({ x: viewport.clientWidth / 2, y: viewport.clientHeight / 2, zoom: 0.55 }, options.animate);
             return;
         }
         const minX = Math.min(...rects.map(r => r.x));
@@ -282,12 +282,60 @@
             (viewport.clientWidth - margin * 2) / Math.max(1, maxX - minX),
             (viewport.clientHeight - margin * 2) / Math.max(1, maxY - minY),
             1.5);
-        view = {
+        moveTo({
             zoom,
             x: viewport.clientWidth / 2 - ((minX + maxX) / 2) * zoom,
             y: viewport.clientHeight / 2 - ((minY + maxY) / 2) * zoom,
-        };
+        }, options.animate);
         fitted = true;
+    }
+
+    let flight: number | null = null;
+
+    /**
+     * Move the camera, optionally over time.
+     *
+     * Zoom is interpolated in log space, because zoom is a ratio: stepping
+     * linearly from 0.2 to 2 spends most of the flight already zoomed in and
+     * lurches at the start. Halving and doubling should take equal time.
+     *
+     * Any pointer interaction cancels it — a camera that keeps flying while you
+     * try to grab something is a camera fighting you.
+     */
+    function moveTo(target: { x: number; y: number; zoom: number }, animate = false) {
+        stopFlight();
+        if (!animate || reducedMotion()) {
+            view = target;
+            return;
+        }
+        const from = { ...view };
+        const start = performance.now();
+        const duration = 420;
+        const step = (now: number) => {
+            const t = Math.min(1, (now - start) / duration);
+            // The same easing the arrange transition uses, so the canvas has
+            // one sense of how things move.
+            const eased = 1 - Math.pow(1 - t, 3);
+            const zoom = Math.exp(Math.log(from.zoom) + (Math.log(target.zoom) - Math.log(from.zoom)) * eased);
+            view = {
+                zoom,
+                x: from.x + (target.x - from.x) * eased,
+                y: from.y + (target.y - from.y) * eased,
+            };
+            flight = t < 1 ? requestAnimationFrame(step) : null;
+            if (t >= 1) view = target;
+        };
+        flight = requestAnimationFrame(step);
+    }
+
+    function stopFlight() {
+        if (flight === null) return;
+        cancelAnimationFrame(flight);
+        flight = null;
+    }
+
+    function reducedMotion(): boolean {
+        return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     }
 
     $effect(() => {
@@ -356,6 +404,7 @@
 
     function onWheel(event: WheelEvent) {
         event.preventDefault();
+        stopFlight();
         const rect = viewport!.getBoundingClientRect();
         const pointerX = event.clientX - rect.left;
         const pointerY = event.clientY - rect.top;
@@ -371,6 +420,7 @@
     }
 
     function onPointerDown(event: PointerEvent) {
+        stopFlight();
         if (event.button === 2) return; // The context menu handler deals with it.
         if (event.button !== 0 && event.button !== 1) return;
 
@@ -451,6 +501,9 @@
 
     function onPointerMove(event: PointerEvent) {
         pointer = { x: event.clientX, y: event.clientY };
+        // A camera still flying while you reach for something is a camera
+        // fighting you.
+        if (drag) stopFlight();
         if (!drag) {
             // Which layer, not just whether one — it gets outlined.
             hoverId = layerAt(event.clientX, event.clientY)?.id ?? null;
@@ -582,6 +635,13 @@
             if (!selectedIds.length) return;
             event.preventDefault();
             pasteLayers(selectedIds.map(id => studio.collage.get(id)).filter((l): l is Layer => !!l));
+            return;
+        }
+        // F for frame, as in every 3D tool. No modifier: it is a view command,
+        // it changes nothing, and it is the one people reach for blind.
+        if (!accel && key === "f") {
+            event.preventDefault();
+            fitAll({ animate: true });
             return;
         }
         if (event.key === "Escape") {

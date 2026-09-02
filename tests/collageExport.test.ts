@@ -137,7 +137,9 @@ describe("html export", () => {
 
     it("strokes the alpha edge with one dilate pass, not a chain of shadows", () => {
         const { collage, frame, image } = scene();
-        collage.update(image.id, { style: { outline: { width: 12, color: "#FFFFFF" } } });
+        // Shadow off explicitly: a dropped photo gets the sticker look by
+        // default, and this test is about the outline alone.
+        collage.update(image.id, { style: { outline: { width: 12, color: "#FFFFFF" }, shadow: null } });
         const html = exportHtml(collage.layersIn(frame.id), frame);
 
         // CSS filters chain — each applies to the output of the last — so a
@@ -164,7 +166,8 @@ describe("html export", () => {
     });
 
     it("emits no filter markup when nothing is outlined", () => {
-        const { collage, frame } = scene();
+        const { collage, frame, image } = scene();
+        collage.update(image.id, { style: { outline: null } });
         const html = exportHtml(collage.layersIn(frame.id), frame);
         expect(html).not.toContain("<svg");
         expect(html).not.toContain("dilate");

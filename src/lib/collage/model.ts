@@ -206,6 +206,36 @@ export const DEFAULT_STYLE: LayerStyle = {
     opacity: 1,
 };
 
+/**
+ * The sticker look, sized to the layer it is going on.
+ *
+ * On by default for a dropped photo, because it is the thing that makes a
+ * cut-out read as a cut-out: without a rim the shape's edge is wherever the
+ * model happened to stop, and against a busy neighbour that edge disappears
+ * entirely. The shadow does the same job in depth.
+ *
+ * Proportional, not fixed. These are canvas units, so an eight-unit rim is a
+ * fat white border on a small sticker and a hairline on a large one — the same
+ * number cannot be right for both, and a collage is made of both.
+ */
+export function stickerStyle(width: number, height: number): Partial<LayerStyle> {
+    const size = Math.max(1, Math.min(width, height));
+    return {
+        outline: { width: clampSize(size * 0.035, 3, 18), color: "#FFFFFF" },
+        shadow: {
+            x: 0,
+            y: clampSize(size * 0.035, 2, 14),
+            blur: clampSize(size * 0.08, 6, 30),
+            color: "#222C20",
+            opacity: 0.3,
+        },
+    };
+}
+
+function clampSize(value: number, min: number, max: number): number {
+    return Math.round(Math.min(max, Math.max(min, value)) * 10) / 10;
+}
+
 export const PALETTE = ["#99CC33", "#0BA398", "#826AED", "#D7DB0A", "#74AF52", "#62D399"];
 
 /**
@@ -497,12 +527,34 @@ export class Collage {
             height,
             rotation: spec.rotation ?? 0,
             z: spec.z ?? ++this.topZ,
-            style: { ...DEFAULT_STYLE, ...spec.style },
+            // Sized against the layer, so the rim is a rim at any scale. An
+            // explicit style still wins outright — a paste carries the original
+            // layer's, and restoring one must not restyle it.
+            style: { ...DEFAULT_STYLE, ...stickerStyle(width, height), ...spec.style },
         };
         if (layer.z > this.topZ) this.topZ = layer.z;
         this.layers.set(layer.id, layer);
         this.emit();
         return layer;
+    }
+
+    /**
+     * The box a picture of this size would occupy, without adding it.
+     *
+     * For placing a *group* where one picture would have gone: a photo that
+     * turns out to hold five objects should land where the photo would have,
+     * with the five arranged inside it as they were. Taking the spot once and
+     * laying the pieces out within it is what keeps that arrangement, and what
+     * stops the placement spiral advancing five times for one drop.
+     */
+    spotFor(spec: { x?: number; y?: number; near?: { x: number; y: number }; width: number; height: number }): Rect {
+        const spot = spec.x === undefined || spec.y === undefined ? this.nextSpot(spec.near) : null;
+        return {
+            x: spec.x ?? spot!.x - spec.width / 2,
+            y: spec.y ?? spot!.y - spec.height / 2,
+            width: spec.width,
+            height: spec.height,
+        };
     }
 
     addText(spec: AddTextSpec): TextLayer {

@@ -70,11 +70,47 @@ const REQUEST_TIMEOUT_MS = 180_000;
 /** Images already this transparent are cut-outs; running a model would be waste. */
 const ALREADY_CUT_OUT = 0.95;
 
+/**
+ * The smallest thing worth calling an object, as a fraction of the shorter edge.
+ *
+ * FastCut's own floor is an absolute 100 pixels, which cannot be right for both
+ * a 400px thumbnail and a 12-megapixel photo: on the photo it keeps every fleck
+ * of model noise as its own "object", and the caller gets forty layers of dust.
+ * A fraction of the image is the scale-free version of the same idea — anything
+ * narrower than about a fiftieth of the frame is debris, whatever the camera.
+ */
+const SMALLEST_PIECE = 0.02;
+
+/** Area in pixels below which a detected island is speckle rather than a thing. */
+export function smallestPiece(width: number, height: number): number {
+    const side = SMALLEST_PIECE * Math.min(width, height);
+    // An 8×8 floor, so a genuinely tiny source still slices instead of
+    // collapsing to a threshold that excludes everything in it.
+    return Math.max(64, Math.round(side * side));
+}
+
 export type Progress = { status?: string; loaded?: number; total?: number };
+
+/** One object found in a photo, with where it was found. */
+export interface CutPiece {
+    blob: Blob;
+    /** Its box in the source image's own pixels, so it can go back where it was. */
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
 
 export interface CutResult {
     ok: boolean;
     blob?: Blob;
+    /**
+     * The separate objects, when the photo turned out to hold more than one.
+     * Absent for a single cut-out, which is the ordinary case.
+     */
+    pieces?: CutPiece[];
+    /** The size the pieces' boxes are measured against. */
+    source?: { width: number; height: number };
     /** Why nothing happened, phrased for a person or an agent to read. */
     reason?: string;
     /** True when the image was already transparent and was left alone. */
@@ -169,7 +205,19 @@ function listen() {
         }
         if (data.type !== "result") return;
         pending.delete(data.id);
-        if (data.ok && data.png) {
+        if (data.ok && Array.isArray(data.pieces) && data.pieces.length > 1) {
+            waiting.resolve({
+                ok: true,
+                pieces: data.pieces.map((piece: any) => ({
+                    blob: new Blob([piece.png], { type: "image/png" }),
+                    x: piece.x ?? 0,
+                    y: piece.y ?? 0,
+                    width: piece.boxWidth ?? piece.width ?? 1,
+                    height: piece.boxHeight ?? piece.height ?? 1,
+                })),
+                source: { width: data.width, height: data.height },
+            });
+        } else if (data.ok && data.png) {
             waiting.resolve({ ok: true, blob: new Blob([data.png], { type: "image/png" }) });
         } else {
             waiting.resolve({ ok: false, reason: data.error ?? "The background remover returned nothing." });
@@ -196,7 +244,18 @@ export async function prewarm(): Promise<boolean> {
  */
 export async function removeBackground(
     blob: Blob,
-    options: { coverage?: number; onProgress?: (p: Progress) => void } = {},
+    options: {
+        coverage?: number;
+        onProgress?: (p: Progress) => void;
+        /**
+         * Ask for the separate objects when the photo holds more than one.
+         *
+         * Needs `size`, because the threshold for "an object rather than a
+         * fleck" is a fraction of the image and cannot be guessed from bytes.
+         */
+        slice?: boolean;
+        size?: { width: number; height: number };
+    } = {},
 ): Promise<CutResult> {
     if (options.coverage !== undefined && options.coverage < ALREADY_CUT_OUT) {
         return { ok: false, skipped: true, reason: "It is already a cut-out — left as it is." };
@@ -228,8 +287,24 @@ export async function removeBackground(
 
         pending.set(id, { resolve: finish, onProgress: options.onProgress });
         try {
+            // `slice` and `minPixels` are ignored by a handoff that predates
+            // them, which then answers with the single cut-out it always did —
+            // so asking costs nothing against an older deployment.
+            const slice = options.slice === true && !!options.size;
             frame.contentWindow!.postMessage(
-                { channel: CHANNEL, type: "remove-background", id, image, trim: true },
+                {
+                    channel: CHANNEL,
+                    type: "remove-background",
+                    id,
+                    image,
+                    trim: true,
+                    ...(slice
+                        ? {
+                            slice: true,
+                            minPixels: smallestPiece(options.size!.width, options.size!.height),
+                        }
+                        : {}),
+                },
                 handoffOrigin(),
                 [image]);
         } catch (error) {

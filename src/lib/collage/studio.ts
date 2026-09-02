@@ -55,6 +55,12 @@ export interface AddImageOptions {
      * never what was wanted.
      */
     removeBackground?: boolean;
+    /**
+     * Split a photo that holds several objects into one layer each. On by
+     * default, for the same reason background removal is: a picture of five
+     * stickers on a desk was dropped in to get five stickers.
+     */
+    slice?: boolean;
     onProgress?: (p: Progress) => void;
     /** Who is doing this, for the event log a watching agent reads. */
     by?: "human" | "agent";
@@ -63,6 +69,11 @@ export interface AddImageOptions {
 export interface AddImageResult {
     layer: ImageLayer;
     loaded: LoadedImage;
+    /**
+     * Every layer that was added. One for an ordinary photo; several when it
+     * turned out to hold several objects, in which case `layer` is the first.
+     */
+    pieces?: ImageLayer[];
     /** What the background remover did, or why it did nothing. */
     background: CutResult;
 }
@@ -119,6 +130,11 @@ export interface CollageEvent {
 export interface CollageStudio {
     readonly collage: Collage;
     addImage(url: string, options?: AddImageOptions): Promise<AddImageResult>;
+    /**
+     * Place the separate objects a photo turned out to contain. Called by
+     * addImage; exposed because it is the whole of the multi-piece path.
+     */
+    addPieces(cut: CutResult, original: LoadedImage, options: AddImageOptions): Promise<AddImageResult>;
     addFrame(spec: AddFrameSpec, fitContents: boolean): Frame;
     /**
      * The single output page. Frames are an export setting here, not objects on
@@ -584,8 +600,21 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
             if (wantsCut) {
                 background = blob
-                    ? await cutOut(blob, { coverage: original.coverage, onProgress: options.onProgress })
+                    ? await cutOut(blob, {
+                        coverage: original.coverage,
+                        onProgress: options.onProgress,
+                        // A photo of five stickers on a desk is five things, and
+                        // one image of all five is not what anyone dropped it in
+                        // for. The size goes along because "big enough to be an
+                        // object" is a fraction of the image, not a fixed count.
+                        slice: options.slice !== false,
+                        size: { width: original.width, height: original.height },
+                    })
                     : { ok: false, reason: "The image's pixels could not be read, so its background was left alone." };
+            }
+
+            if (background.pieces?.length && background.source) {
+                return this.addPieces(background, original, options);
             }
 
             const keep = background.ok && background.blob ? background.blob : blob;
@@ -625,6 +654,67 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 options.by ?? "human",
                 { id: layer.id, label: layer.label, backgroundRemoved: background.ok });
             return { layer: collage.get(layer.id) as ImageLayer, loaded, background };
+        },
+
+        /**
+         * Add each object a photo turned out to contain, as its own layer.
+         *
+         * Laid out as they were in the photo rather than piled on one spot.
+         * Composition is information — five stickers arranged on a desk were
+         * arranged by someone — and it costs nothing to keep, where throwing it
+         * away leaves a heap that has to be untangled by hand before the
+         * collage can start.
+         */
+        async addPieces(cut, original, options) {
+            const pieces = cut.pieces ?? [];
+            const source = cut.source!;
+            // The photo's own footprint on the canvas: every piece is placed as
+            // a fraction of it, so the group arrives at the size and spot the
+            // whole picture would have.
+            const width = options.width ?? Math.min(source.width, 420);
+            const spot = collage.spotFor({
+                x: options.x,
+                y: options.y,
+                near: options.near,
+                width,
+                height: width * (source.height / Math.max(1, source.width)),
+            });
+
+            const added: ImageLayer[] = [];
+            for (const [index, piece] of pieces.entries()) {
+                const storageKey = newImageKey();
+                await putImage(storageKey, piece.blob);
+                const src = trackUrl(URL.createObjectURL(piece.blob));
+                const loaded = await loadImage(src);
+                const layer = collage.addImage({
+                    src,
+                    storageKey,
+                    label: pieces.length > 1 && options.label
+                        ? `${options.label} ${index + 1}`
+                        : options.label,
+                    natural: { width: loaded.width, height: loaded.height },
+                    crop: loaded.crop,
+                    x: spot.x + (piece.x / source.width) * spot.width,
+                    y: spot.y + (piece.y / source.height) * spot.height,
+                    width: (piece.width / source.width) * spot.width,
+                });
+                images.set(layer.id, loaded);
+                added.push(collage.get(layer.id) as ImageLayer);
+            }
+
+            record(
+                "image-added",
+                `${added.length} separate pieces were cut out of "${options.label ?? "an image"}".`,
+                options.by ?? "human",
+                { ids: added.map(l => l.id), pieces: added.length });
+
+            void original;
+            return {
+                layer: added[0],
+                pieces: added,
+                loaded: images.get(added[0].id)!,
+                background: cut,
+            };
         },
 
         async removeBackgroundFor(id, onProgress) {
