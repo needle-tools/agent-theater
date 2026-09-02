@@ -7,10 +7,10 @@
  * different — flat colour with hard edges, the screen-print end of collage
  * rather than the photographic one.
  *
- * Loaded on demand. The tracer is about 130 kB of WebAssembly and most sessions
+ * Loaded on demand. The tracer is about 650 kB of WebAssembly and most sessions
  * never trace anything, so it is not in the bundle that draws the first frame;
  * it arrives the first time somebody asks for it and stays for the rest of the
- * session.
+ * session. See vendor/vtracer/README.md for why it is vendored.
  *
  * Everything here is one call into wasm and back. The interesting decisions are
  * in the settings below, not in the plumbing.
@@ -27,60 +27,59 @@ export interface TraceOptions {
 }
 
 /**
- * The tracer's own field names, which are camelCase and not documented
- * anywhere the package ships — they are the serde field list inside the wasm.
- * Getting one wrong panics rather than falling back to a default, so the whole
- * struct is always sent.
- */
-interface VtracerConfig {
-    binary: boolean;
-    mode: "spline" | "polygon" | "pixel";
-    hierarchical: "stacked" | "cutout";
-    cornerThreshold: number;
-    lengthThreshold: number;
-    maxIterations: number;
-    spliceThreshold: number;
-    filterSpeckle: number;
-    colorPrecision: number;
-    layerDifference: number;
-    pathPrecision: number;
-}
-
-/**
- * Three settings rather than eleven knobs.
+ * What each named choice actually asks for.
  *
- * `filterSpeckle` and `colorPrecision` are the two that actually change the
- * result for a photograph; the rest are curve-fitting details that are fine at
- * their defaults. Naming the choice after what it looks like — flat, balanced,
- * fine — is more use than exposing a speckle radius nobody can predict.
+ * Two things were learned the hard way here, and both are worth keeping.
+ *
+ * The `poster` preset is the whole game. Driving the raw knobs — colour
+ * precision, layer difference — collapses a photograph to a single flat region
+ * no matter how they are set: measured on a gradient, raw knobs at every
+ * setting gave 1 path, `poster` gave 439.
+ *
+ * And `filterSpeckle` is the only one that governs how *many* shapes come out.
+ * `maxColors` barely moves it — at a fixed speckle, asking for 6 colours or 24
+ * changed the count by 14 paths. Speckle changed it by a factor of thirty.
+ * Measured on an illustration at the size these are traced at:
+ *
+ *     speckle   6 →  2762 paths, 1040 kB   (this was the default, and it
+ *     speckle  16 →  1223 paths,  703 kB    made the canvas crawl)
+ *     speckle  64 →    85 paths,  256 kB
+ *     speckle 128 →    30 paths,  145 kB
+ *
+ * Every one of those is a legible picture. The high end is not a degraded
+ * version of the low end — it is the same illustration with the noise left out.
  */
-const PRESETS: Record<Required<TraceOptions>["detail"], Pick<VtracerConfig, "filterSpeckle" | "colorPrecision" | "layerDifference">> = {
-    flat: { filterSpeckle: 16, colorPrecision: 4, layerDifference: 32 },
-    balanced: { filterSpeckle: 6, colorPrecision: 6, layerDifference: 20 },
-    fine: { filterSpeckle: 2, colorPrecision: 8, layerDifference: 10 },
+const PRESETS: Record<Required<TraceOptions>["detail"], { speckle: number; maxColors: number; simplify: number }> = {
+    // Few, large, flat shapes — the screen-print end of it.
+    flat: { speckle: 128, maxColors: 8, simplify: 2.5 },
+    balanced: { speckle: 64, maxColors: 16, simplify: 2 },
+    // Follows the picture closely, and costs a much heavier layer for it.
+    fine: { speckle: 28, maxColors: 32, simplify: 1.2 },
 };
 
-function configFor(options: TraceOptions): VtracerConfig {
+function configFor(options: TraceOptions, longestEdge: number): Record<string, unknown> {
+    const preset = PRESETS[options.detail ?? "balanced"];
     return {
-        binary: false,
+        preset: "poster",
+        maxColors: preset.maxColors,
+        simplify: preset.simplify,
+        // Speckle is a pixel count, so it has to follow the size actually
+        // traced or a small picture loses everything and a large one keeps
+        // every fleck. Tuned at TRACE_EDGE; scaled from there.
+        filterSpeckle: Math.max(4, Math.round(preset.speckle * (longestEdge / TRACE_EDGE))),
         // Splines, not polygons: a traced photo made of straight segments looks
         // like a mistake, where curves look like a decision.
         mode: "spline",
-        // Stacked, so a region drawn over another keeps the one beneath whole.
-        // Cutout leaves hairline seams between neighbours at some zooms.
-        hierarchical: "stacked",
-        cornerThreshold: 60,
-        lengthThreshold: 4,
-        maxIterations: 10,
-        spliceThreshold: 45,
         // Two decimal places. Three doubles the file for a difference nobody
         // can see at any size a collage is printed at.
         pathPrecision: 2,
-        ...PRESETS[options.detail ?? "balanced"],
     };
 }
 
-type Tracer = (pixels: Uint8Array, width: number, height: number, config: unknown) => string;
+/** The longest edge the presets above were measured at. */
+export const TRACE_EDGE = 1100;
+
+type Tracer = (rgba: Uint8Array, width: number, height: number, options: unknown) => string;
 
 let loading: Promise<Tracer | null> | null = null;
 
@@ -90,11 +89,11 @@ function loadTracer(): Promise<Tracer | null> {
     loading = (async () => {
         try {
             const [module, wasmUrl] = await Promise.all([
-                import("vtracer-wasm"),
-                import("vtracer-wasm/vtracer.wasm?url").then(m => m.default),
+                import("$lib/vendor/vtracer/vtracer.js"),
+                import("$lib/vendor/vtracer/vtracer.wasm?url").then(m => m.default),
             ]);
-            await module.default({ module_or_path: wasmUrl });
-            return module.to_svg as Tracer;
+            await module.init(fetch(wasmUrl));
+            return module.vectorize_rgba as Tracer;
         } catch (error) {
             // A tracer that will not load costs a menu item, not the canvas.
             console.warn("[collage] the tracer could not be loaded:", error);
@@ -124,7 +123,7 @@ export async function traceToSvg(pixels: Pixels, options: TraceOptions = {}): Pr
             new Uint8Array(pixels.data.buffer, pixels.data.byteOffset, pixels.data.byteLength),
             pixels.width,
             pixels.height,
-            configFor(options));
+            configFor(options, Math.max(pixels.width, pixels.height)));
         const paths = (svg.match(/<path/g) ?? []).length;
         // No paths means every region was filtered away — a blank SVG is worse
         // than the photograph it would have replaced.

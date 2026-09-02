@@ -48,7 +48,150 @@ const ok = (text: string, structured?: object): ToolResult => ({
 
 const fail = (text: string, structured?: object): ToolResult => ({ ...ok(text), ...(structured ? { structuredContent: structured } : {}), isError: true });
 
+/**
+ * How long a tool will block before answering "still going".
+ *
+ * An agent driving a browser has its own timeout on the call, and it is
+ * shorter than the work can be: the first cut-out on a cold cache pulls tens
+ * of megabytes of model before it does any cutting. When the caller gives up,
+ * the page carries on regardless — so the outcome is not lost, but the agent
+ * is left believing nothing happened, which is worse than being told to wait.
+ *
+ * So: answer inside the window, say the work is running, and point at
+ * collage_watch. Twenty seconds is under every browser-automation timeout seen
+ * so far and long enough that a warm cut still answers in one call.
+ */
+const PATIENCE_MS = 20_000;
+
+/** Whichever comes first: the work, or the promise that it is still running. */
+async function within<T>(work: Promise<T>, waiting: () => ToolResult): Promise<ToolResult | { value: T }> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const patience = new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), PATIENCE_MS); });
+    const winner = await Promise.race([work.then(value => ({ value })), patience]);
+    clearTimeout(timer);
+    return winner ?? waiting();
+}
+
 export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
+    const tools = buildTools(studio);
+    return [...tools, batchTool(studio, tools)];
+}
+
+/**
+ * Run several tools in one call.
+ *
+ * Not a scripting tool, deliberately. "Let the agent write code" is the obvious
+ * reading of the same wish, and it means handing an arbitrary string to eval on
+ * the person's own origin — with their canvas, their IndexedDB and their
+ * session sitting right there. A list of calls buys nearly all of the same
+ * power and none of that: every step is a tool that already exists, with its
+ * arguments already validated, and nothing new is reachable that was not
+ * reachable before.
+ *
+ * What it does buy:
+ *
+ *  - **One round trip.** An agent driving a browser pays a timeout and a slow
+ *    hop per call, so twenty moves as twenty calls is the difference between
+ *    a second and a minute.
+ *  - **One undo.** "Spread the heroes out" is one intention; it should come
+ *    back in one step rather than being unpicked move by move.
+ *  - **One animation.** The canvas eases a change it is told about, so a batch
+ *    settles as a single motion instead of twenty overlapping ones.
+ */
+function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef {
+    const byName = new Map(tools.map(tool => [tool.name, tool]));
+    return {
+        name: "collage_batch",
+        title: "Run several collage tools at once",
+        description:
+            "Run a list of collage tools in order, in one call. Use it whenever you know more than one step " +
+            "in advance — moving six layers, styling a set, building a layout — because it is one round trip " +
+            "instead of six, it undoes as a single step, and the canvas animates it as one motion. Each step " +
+            "is { tool, args } exactly as you would have called it. Steps see what earlier steps did, so ids " +
+            "from a collage_add_image step are usable later in the same batch.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                steps: {
+                    type: "array",
+                    description: "The calls, in order.",
+                    items: {
+                        type: "object",
+                        properties: {
+                            tool: { type: "string", description: `A collage tool name, e.g. "collage_transform".` },
+                            args: { type: "object", description: "That tool's own arguments." },
+                        },
+                        required: ["tool"],
+                    },
+                },
+                stopOnError: {
+                    type: "boolean",
+                    description:
+                        "Stop at the first failure rather than carrying on. Default true — a later step " +
+                        "usually assumes the earlier ones worked.",
+                },
+            },
+            required: ["steps"],
+        },
+        async execute(args: { steps?: Array<{ tool?: string; args?: unknown }>; stopOnError?: boolean }) {
+            const steps = Array.isArray(args?.steps) ? args.steps : [];
+            if (!steps.length) return fail(`Pass "steps" — a list of { tool, args } to run in order.`);
+            if (steps.length > MAX_BATCH) {
+                return fail(
+                    `${steps.length} steps is more than the ${MAX_BATCH} this runs at once. Send them in ` +
+                    `smaller batches, looking with collage_preview between them.`);
+            }
+
+            // Named before anything runs, so a typo does not leave half a batch
+            // applied and the other half unexplained.
+            const unknown = steps.filter(step => !byName.has(str(step?.tool)) || str(step?.tool) === "collage_batch");
+            if (unknown.length) {
+                return fail(
+                    `${unknown.map(s => `"${str(s?.tool) || "(missing)"}"`).join(", ")} — not a tool that can ` +
+                    `run in a batch. Available: ${[...byName.keys()].join(", ")}.`);
+            }
+
+            const stopOnError = args?.stopOnError !== false;
+            // One motion and one undo entry for the whole list.
+            studio.settle();
+            const outcomes: Array<{ tool: string; ok: boolean; text: string }> = [];
+            await studio.collage.batch(async () => {
+                for (const step of steps) {
+                    const tool = byName.get(str(step.tool))!;
+                    let result: ToolResult;
+                    try {
+                        result = await tool.execute(step.args ?? {});
+                    } catch (error) {
+                        result = fail(`threw: ${message(error)}`);
+                    }
+                    const text = result.content
+                        .map(part => (part.type === "text" ? part.text : "[image]"))
+                        .join(" ");
+                    outcomes.push({ tool: tool.name, ok: !result.isError, text });
+                    if (result.isError && stopOnError) break;
+                }
+            });
+
+            const failed = outcomes.filter(o => !o.ok).length;
+            const ran = outcomes.length;
+            const lines = outcomes.map((o, i) => `${i + 1}. ${o.tool} — ${o.ok ? "" : "FAILED: "}${o.text}`);
+            const summary = failed
+                ? `${ran - failed} of ${steps.length} steps worked${ran < steps.length ? `, then it stopped` : ""}.`
+                : `All ${ran} steps ran.`;
+            return {
+                ...ok(
+                    `${summary}\n${lines.join("\n")}\n\nLook at the result with collage_preview.`,
+                    { ran, failed, outcomes }),
+                ...(failed && stopOnError ? { isError: true } : {}),
+            };
+        },
+    };
+}
+
+/** How many steps one batch will run. Enough for a layout, short of a program. */
+const MAX_BATCH = 40;
+
+function buildTools(studio: CollageStudio): WebMcpToolDef[] {
     const { collage } = studio;
 
     const describeLayer = (layer: Layer) => {
@@ -156,7 +299,11 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "A picture holding several distinct objects — a poster, a sheet of stickers, things laid out " +
                 "on a table — comes apart into one layer per object, each where it was, so what arrives is " +
                 "editable rather than flat. That is usually the point of handing one over: generate the " +
-                "picture, pass it here, and every part of it can then be moved, restyled or replaced.",
+                "picture, pass it here, and every part of it can then be moved, restyled or replaced. " +
+                "Objects are found by transparency, which only separates things that do not touch. When they " +
+                "DO touch — three figures standing together, anything posed as a group — pass \"regions\": " +
+                "you can see the picture and the page cannot, so say where each subject is and it will be cut " +
+                "out and cleaned up inside that box.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -174,9 +321,29 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                     heal: {
                         type: "boolean",
                         description:
-                            "Default false. When the picture comes apart, also keep the scene behind the " +
-                            "objects as a backdrop layer. Costs a second model download and a slow pass, so " +
-                            "ask for it when the background is worth having, not by habit.",
+                            "Default false. Also keep the scene behind the objects as a backdrop layer. " +
+                            "Costs a second model download and a slow pass, so ask for it when the " +
+                            "background is worth having, not by habit.",
+                    },
+                    regions: {
+                        type: "array",
+                        description:
+                            "Where each subject is, for a picture whose subjects touch. Fractions of the " +
+                            "image, 0–1, from the top left — not pixels, because you are looking at a " +
+                            "resized copy. One box per thing you want as its own layer. Draw them generously: " +
+                            "a box that clips a subject loses whatever it clipped, while a box that catches " +
+                            "some of the neighbour is cleaned up.",
+                        items: {
+                            type: "object",
+                            properties: {
+                                x: { type: "number", description: "Left edge, 0–1." },
+                                y: { type: "number", description: "Top edge, 0–1." },
+                                width: { type: "number", description: "Width, 0–1." },
+                                height: { type: "number", description: "Height, 0–1." },
+                                label: { type: "string", description: "What it is, e.g. 'woman with the star cape'." },
+                            },
+                            required: ["x", "y", "width", "height"],
+                        },
                     },
                 },
                 required: ["url"],
@@ -184,21 +351,54 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
             async execute(args: {
                 url?: string; label?: string; removeBackground?: boolean;
                 x?: number; y?: number; width?: number; slice?: boolean; heal?: boolean;
+                regions?: Array<{ x?: number; y?: number; width?: number; height?: number; label?: string }>;
             }) {
                 const url = str(args?.url);
                 if (!url) return fail(`Pass a "url" — http(s) or data:.`);
                 if (!/^(https?:|data:image\/)/i.test(url))
                     return fail(`"${truncate(url, 60)}" is not an image URL. Use http(s), or a data:image/… URL.`);
+
+                // Boxes are fractions, and one given in pixels would silently
+                // land off the edge of the image rather than failing, so it is
+                // worth saying which mistake was made.
+                const regions = Array.isArray(args?.regions) ? args.regions : [];
+                const outOfRange = regions.find(r =>
+                    ![r?.x, r?.y, r?.width, r?.height].every(v => typeof v === "number" && v >= 0 && v <= 1));
+                if (outOfRange) {
+                    return fail(
+                        `Regions are fractions of the image between 0 and 1, not pixels — ` +
+                        `${JSON.stringify(outOfRange)} is outside that. A box covering the left third of a ` +
+                        `picture is { x: 0, y: 0, width: 0.33, height: 1 }, whatever the image's real size.`);
+                }
                 try {
-                    const { layer, loaded, background, pieces } = await studio.addImage(url, {
+                    // Kept running even if the caller stops waiting, so a slow
+                    // first cut still lands on the canvas.
+                    const work = studio.addImage(url, {
                         label: args?.label,
                         removeBackground: args?.removeBackground,
                         slice: args?.slice,
                         heal: args?.heal,
+                        regions: regions.length
+                            ? regions.map(r => ({
+                                x: r.x as number, y: r.y as number,
+                                width: r.width as number, height: r.height as number,
+                                ...(str(r.label) ? { label: str(r.label) } : {}),
+                            }))
+                            : undefined,
                         x: args?.x,
                         y: args?.y,
                         width: args?.width,
+                        by: "agent",
                     });
+
+                    const raced = await within(work, () => ok(
+                        `Working on "${args?.label ?? "the image"}" — this is taking a while, which on a first ` +
+                        `call means the background remover is still downloading (tens of megabytes, once per ` +
+                        `browser). It is still running and will land on the canvas. Do NOT call this again ` +
+                        `with the same image: follow it with collage_watch, then collage_describe.`,
+                        { pending: true }));
+                    if (!("value" in raced)) return raced;
+                    const { layer, loaded, background, pieces } = raced.value;
                     const cutout = loaded.coverage < 0.95;
                     const notes = [
                         `${loaded.width}×${loaded.height}px`,
@@ -218,6 +418,30 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                     // A picture that came apart is a different answer, and
                     // reporting it as one layer would send the agent looking for
                     // a layer that is only a sixth of what arrived.
+                    // Regions were given but nothing came back in parts. Which
+                    // reason gets reported matters: blaming the boxes when the
+                    // cut-out itself failed sends the agent off redrawing boxes
+                    // that were never the problem. The tell is whether the
+                    // background came off at all.
+                    if (regions.length && (!pieces || pieces.length <= 1)) {
+                        return ok(
+                            background.ok
+                                ? `Added "${layer.label}" as ${layer.id}, but the ${regions.length} regions did ` +
+                                  `not separate it. The background came off, so the boxes are the suspect — ` +
+                                  `they are fractions of the image from the top left, 0–1. Look with ` +
+                                  `collage_preview and try again, or leave it as one layer.`
+                                : `Added "${layer.label}" as ${layer.id} with its background still on, so the ` +
+                                  `regions never got a chance — ${background.reason ?? "the cut-out failed"}. ` +
+                                  `This is not about where the boxes are.`,
+                            {
+                                layer,
+                                regions: regions.length,
+                                separated: false,
+                                backgroundRemoved: background.ok,
+                                reason: background.reason ?? null,
+                            });
+                    }
+
                     if (pieces && pieces.length > 1) {
                         const backdrop = !!background.backplate;
                         const objects = backdrop ? pieces.slice(1) : pieces;
@@ -470,6 +694,11 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
                 }
                 if (!Object.keys(patch).length && !args?.order)
                     return fail(`Nothing to change — pass x, y, width, scale, rotation or order.`);
+                // Announced before the change, so the canvas eases it. A layer
+                // that jumps gives no clue what moved; one that slides says so,
+                // which is the difference between watching an agent work and
+                // finding the picture already different.
+                studio.settle();
                 let layer = Object.keys(patch).length ? collage.update(found.layer.id, patch) : found.layer;
                 if (args?.order === "front") layer = collage.bringToFront(found.layer.id);
                 if (args?.order === "back") layer = collage.sendToBack(found.layer.id);

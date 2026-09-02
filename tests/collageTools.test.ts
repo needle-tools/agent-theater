@@ -89,7 +89,8 @@ function fakeStudio(options: FakeOptions = {}) {
         // fake only has to satisfy the shape.
         async saveFile() { return { blob: new Blob(), filename: "fake.collage.png" }; },
         async openFile() { return 0; },
-        onArranged() { return () => { /* nothing to stop */ }; },
+        onSettle() { return () => { /* nothing to stop */ }; },
+        settle() { /* the fake has no view to animate */ },
         save() { /* nothing to persist in a fake */ },
         async clear() { collage.restore([], []); },
         get page() { return collage.listFrames()[0] ?? null; },
@@ -594,5 +595,117 @@ describe("describing", () => {
         expect(text).toContain("A4 portrait");
         expect(text).toContain("sneaker");
         expect(text).toContain("Resolution:");
+    });
+});
+
+describe("running several tools at once", () => {
+    /**
+     * A batch is the safe reading of "let the agent write code". Every step is
+     * a tool that already exists with its arguments already validated, so
+     * nothing becomes reachable that was not reachable one call at a time —
+     * unlike handing a string to eval on the person's own origin.
+     */
+    async function withText() {
+        const fake = fakeStudio();
+        await fake.tool("collage_add_text").execute({ text: "Hello" });
+        return { ...fake, id: fake.collage.list()[0].id, batch: fake.tool("collage_batch") };
+    }
+
+    it("runs the steps in order", async () => {
+        const { batch, collage, id } = await withText();
+        const result = await batch.execute({
+            steps: [
+                { tool: "collage_transform", args: { id, x: 100, y: 50 } },
+                { tool: "collage_transform", args: { id, rotation: 15 } },
+                { tool: "collage_set_text", args: { id, text: "Goodbye" } },
+            ],
+        });
+
+        expect(result.isError).toBeFalsy();
+        const layer = collage.get(id) as any;
+        expect([layer.x, layer.y, layer.rotation, layer.text]).toEqual([100, 50, 15, "Goodbye"]);
+    });
+
+    it("undoes the whole batch as one step", async () => {
+        const { batch, collage, id } = await withText();
+        const before = collage.get(id)!;
+        const origin = [before.x, before.y, before.rotation];
+
+        await batch.execute({
+            steps: [
+                { tool: "collage_transform", args: { id, x: 300 } },
+                { tool: "collage_transform", args: { id, y: 400 } },
+                { tool: "collage_transform", args: { id, rotation: 30 } },
+            ],
+        });
+        collage.undo();
+
+        const after = collage.get(id)!;
+        expect([after.x, after.y, after.rotation]).toEqual(origin);
+    });
+
+    it("stops at the first failure by default, and says which", async () => {
+        const { batch, collage, id } = await withText();
+        const y = collage.get(id)!.y;
+        const result = await batch.execute({
+            steps: [
+                { tool: "collage_transform", args: { id, x: 100 } },
+                { tool: "collage_transform", args: { id: "img-nope", x: 5 } },
+                { tool: "collage_transform", args: { id, y: 999 } },
+            ],
+        });
+
+        expect(result.isError).toBe(true);
+        expect(textOf(result)).toMatch(/FAILED/);
+        // The third never ran, so the second's failure is not hidden by it.
+        expect(collage.get(id)!.y).toBe(y);
+        expect((result.structuredContent as any).ran).toBe(2);
+    });
+
+    it("carries on through failures when told to", async () => {
+        const { batch, collage, id } = await withText();
+        const result = await batch.execute({
+            stopOnError: false,
+            steps: [
+                { tool: "collage_transform", args: { id: "img-nope", x: 5 } },
+                { tool: "collage_transform", args: { id, y: 250 } },
+            ],
+        });
+
+        expect((result.structuredContent as any).ran).toBe(2);
+        expect(collage.get(id)!.y).toBe(250);
+    });
+
+    it("refuses an unknown tool before running anything", async () => {
+        // Named up front, so a typo does not leave half a batch applied and the
+        // rest unexplained.
+        const { batch, collage, id } = await withText();
+        const x = collage.get(id)!.x;
+        const result = await batch.execute({
+            steps: [
+                { tool: "collage_transform", args: { id, x: 700 } },
+                { tool: "collage_teleport", args: {} },
+            ],
+        });
+
+        expect(result.isError).toBe(true);
+        expect(textOf(result)).toContain("collage_teleport");
+        expect(collage.get(id)!.x).toBe(x);
+    });
+
+    it("refuses to nest itself", async () => {
+        const { batch } = await withText();
+        const result = await batch.execute({ steps: [{ tool: "collage_batch", args: { steps: [] } }] });
+        expect(result.isError).toBe(true);
+    });
+
+    it("refuses an empty or oversized list rather than half-doing it", async () => {
+        const { batch } = await withText();
+        expect((await batch.execute({ steps: [] })).isError).toBe(true);
+
+        const many = Array.from({ length: 41 }, () => ({ tool: "collage_describe", args: {} }));
+        const tooMany = await batch.execute({ steps: many });
+        expect(tooMany.isError).toBe(true);
+        expect(textOf(tooMany)).toMatch(/smaller batches/);
     });
 });

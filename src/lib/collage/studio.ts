@@ -17,10 +17,11 @@ import { loadImage, readPixels, toDataUrl, type LoadedImage } from "./imaging.js
 import { canvasToBlob, previewDataUrl, renderFrame, renderRegion } from "./render.js";
 import { fontsReady, loadWebFonts, webFontsUsed } from "./webfonts.js";
 import { shapeFromMask, type Shape } from "./silhouette.js";
-import { svgBlob, traceToSvg as traceToSvgPixels, type TraceOptions } from "./trace.js";
+import { svgBlob, traceToSvg as traceToSvgPixels, TRACE_EDGE, type TraceOptions } from "./trace.js";
 import { exportHtml } from "./exportHtml.js";
 import {
-    backgroundRemovalError, removeBackground as cutOut, type CutResult, type Progress,
+    backgroundRemovalError, removeBackground as cutOut,
+    type CutRegion, type CutResult, type Progress,
 } from "./background.js";
 import {
     collectGarbage, clearDoc, clearImages, getImage, loadDoc, newImageKey, putImage, saveDoc,
@@ -71,6 +72,12 @@ export interface AddImageOptions {
      * things that can be moved around on it.
      */
     heal?: boolean;
+    /**
+     * Where the subjects are, as fractions of the image, for a picture whose
+     * parts touch. Without these, only things separated by transparency can be
+     * told apart — which in a generated poster is usually none of them.
+     */
+    regions?: CutRegion[];
     onProgress?: (p: Progress) => void;
     /** Who is doing this, for the event log a watching agent reads. */
     by?: "human" | "agent";
@@ -138,7 +145,13 @@ export interface CollageEvent {
     at: number;
     kind:
         | "image-added" | "text-added" | "layer-moved" | "layer-styled" | "layer-removed" | "opened"
-        | "arranged" | "page-changed" | "exported" | "cleared";
+        | "arranged" | "page-changed" | "exported" | "cleared"
+        /**
+         * Something slow is still going. Its own kind because a watcher wants
+         * to tell "nothing has happened" apart from "something is happening and
+         * has not finished" — the first means try again, the second means wait.
+         */
+        | "working";
     /** One line, already phrased for an agent to read. */
     summary: string;
     /** Whether a person did it or an agent did. */
@@ -168,11 +181,17 @@ export interface CollageStudio {
     /** Re-fit a free-form page around whatever is on the canvas now. */
     refitPage(): void;
     /**
-     * Told when a layout runs, so the view can animate layers to their new
-     * places. Every other change is immediate — a drag that eased into
-     * position would feel broken — so this is a signal, not a general one.
+     * Told when something is about to move that nobody is dragging.
+     *
+     * The view eases those, and only those. A person dragging a layer must have
+     * it follow the pointer exactly — easing a drag is the classic way a canvas
+     * starts feeling broken — but a layer that jumps because an agent moved it
+     * has no such excuse, and a jump gives no clue as to what changed. So: hand
+     * moves are instant, everything else settles.
      */
-    onArranged(callback: () => void): () => void;
+    onSettle(callback: () => void): () => void;
+    /** Announce such a move. Call before mutating, so the view can prepare. */
+    settle(): void;
     /**
      * What is picked out right now.
      *
@@ -226,13 +245,6 @@ const FIT_MARGIN = 1.16;
 const SAVE_DEBOUNCE_MS = 600;
 /** A watcher only ever needs recent history; older events are not worth holding. */
 const MAX_EVENTS = 200;
-/**
- * Longest edge handed to the tracer.
- *
- * Large enough that an edge is an edge rather than a staircase, small enough
- * that fitting curves to it stays under a second or so.
- */
-const TRACE_SIZE = 1100;
 /** The page id meaning "no fixed size — whatever is on the canvas". */
 export const FREE_PAGE = "free";
 /** Breathing room left around the contents when a free page is fitted. */
@@ -308,7 +320,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
     let selection: string[] = [];
     const selectionWatchers = new Set<() => void>();
-    const arrangeWatchers = new Set<() => void>();
+    const settleWatchers = new Set<() => void>();
+    const announceSettle = () => { for (const watcher of [...settleWatchers]) watcher(); };
 
     const record = (
         kind: CollageEvent["kind"],
@@ -630,21 +643,41 @@ export function createStudio(collage = new Collage()): CollageStudio {
             const blob = isLocal || wantsCut ? await fetchBlob(url) : null;
 
             if (wantsCut) {
+                // Said out loud, because the first cut on a cold cache pulls
+                // tens of megabytes of model and anything watching needs to
+                // know the difference between slow and stuck.
+                record("working", `Cutting out "${options.label ?? "an image"}"…`, options.by ?? "human");
+                let announced = 0;
                 background = blob
                     ? await cutOut(blob, {
                         coverage: original.coverage,
-                        onProgress: options.onProgress,
+                        onProgress: (progress: Progress) => {
+                            options.onProgress?.(progress);
+                            // Every quarter, not every tick: the loader reports
+                            // thousands of times and the log holds 200 events.
+                            if (!progress.total) return;
+                            const done = Math.floor(((progress.loaded ?? 0) / progress.total) * 4);
+                            if (done <= announced) return;
+                            announced = done;
+                            record("working",
+                                `Fetching the background remover — ${done * 25}%. ` +
+                                `First use downloads the model; later ones are quick.`,
+                                options.by ?? "human");
+                        },
                         // A photo of five stickers on a desk is five things, and
                         // one image of all five is not what anyone dropped it in
                         // for. The size goes along because "big enough to be an
                         // object" is a fraction of the image, not a fixed count.
                         slice: options.slice !== false,
                         heal: options.heal === true,
+                        regions: options.regions,
                         size: { width: original.width, height: original.height },
                     })
                     : { ok: false, reason: "The image's pixels could not be read, so its background was left alone." };
             }
 
+            // Several objects, or one object plus the scene behind it: both
+            // arrive as pieces, and both are placed the same way.
             if (background.pieces?.length && background.source) {
                 return this.addPieces(background, original, options);
             }
@@ -747,14 +780,25 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 const layer = collage.addImage({
                     src,
                     storageKey,
-                    label: pieces.length > 1 && options.label
-                        ? `${options.label} ${index + 1}`
-                        : options.label,
+                    // The caller's own name for it wins: "cape woman" is worth
+                    // more later than "poster 2".
+                    label: piece.label
+                        ?? (pieces.length > 1 && options.label ? `${options.label} ${index + 1}` : options.label),
                     natural: { width: loaded.width, height: loaded.height },
                     crop: loaded.crop,
                     x: spot.x + (piece.x / source.width) * spot.width,
                     y: spot.y + (piece.y / source.height) * spot.height,
                     width: (piece.width / source.width) * spot.width,
+                    // Plain, unlike a photo dropped in on its own.
+                    //
+                    // The sticker look is what makes a lone cut-out read as a
+                    // cut-out on an empty canvas. These are not lone cut-outs:
+                    // they came out of one picture and are still standing in
+                    // its arrangement, so a white rim round each of them draws
+                    // a border through the middle of a scene that is supposed
+                    // to look like a scene. Anyone who wants the stickers can
+                    // ask for them once the pieces are apart.
+                    style: { silhouette: null, outline: null, shadow: null, opacity: 1 },
                 });
                 images.set(layer.id, loaded);
                 added.push(collage.get(layer.id) as ImageLayer);
@@ -799,7 +843,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // Enough resolution for the curve fitter to see edges, nowhere near
             // full size: tracing a twelve-megapixel photo is slow and yields an
             // SVG bigger than the photo.
-            const pixels = readPixels(loaded.image, loaded.width, loaded.height, TRACE_SIZE);
+            const pixels = readPixels(loaded.image, loaded.width, loaded.height, TRACE_EDGE);
             const traced = await traceToSvgPixels(pixels, options);
             if (!traced) {
                 return { ok: false, reason: `"${layer.label}" could not be traced — it may be too soft or too plain.` };
@@ -853,14 +897,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
             return collage.updateFrame(frame.id, fitAround(contents, frame.width / frame.height))!;
         },
 
-        onArranged(callback) {
-            arrangeWatchers.add(callback);
-            return () => { arrangeWatchers.delete(callback); };
+        onSettle(callback) {
+            settleWatchers.add(callback);
+            return () => { settleWatchers.delete(callback); };
         },
 
         arrange(frameId, mode, options = {}) {
             // Before the moves, so the view can turn transitions on for them.
-            for (const watcher of [...arrangeWatchers]) watcher();
+            announceSettle();
             // A free page has no size of its own; catch it up before asking
             // what it contains, or it answers with a rect from before the
             // pictures arrived.
@@ -1063,6 +1107,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
             record("opened", `Opened a saved collage — ${arriving.length} layer(s).`);
             return arriving.length;
         },
+
+        settle: announceSettle,
 
         save(view) {
             if (view) lastView = view;

@@ -21,6 +21,7 @@
     import { maskHit } from "./imaging.js";
     import { overlaps, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
     import { FREE_PAGE, type CollageStudio } from "./studio.js";
+    import { AT_REST, stateAt, type Playing, type Score } from "./perform.js";
 
     interface Props {
         studio: CollageStudio;
@@ -71,21 +72,83 @@
     let editingId = $state<string | null>(null);
 
     /**
-     * On only for the moment after a layout runs.
+     * On only for the moment after something moves on its own.
      *
      * A permanent transition would put the same easing on a drag, so a layer
      * would trail behind the pointer — the classic way a canvas starts feeling
-     * broken. This turns it on for one arrange and off again.
+     * broken. This turns it on for one such move and off again, which is what
+     * makes an agent's edits legible: you can see what it changed, instead of
+     * finding the picture already different.
      */
     let settling = $state(false);
     let settleTimer: ReturnType<typeof setTimeout> | null = null;
     const SETTLE_MS = 420;
 
-    $effect(() => studio.onArranged(() => {
+    $effect(() => studio.onSettle(() => {
         settling = true;
         if (settleTimer) clearTimeout(settleTimer);
         settleTimer = setTimeout(() => (settling = false), SETTLE_MS + 60);
     }));
+
+    /**
+     * The performance, if one is running.
+     *
+     * An agent hands over a whole score and this plays it, because a tool call
+     * is a round trip and a walk cycle is sixty frames a second. Poses are held
+     * here rather than written to the document: a three-second walk would
+     * otherwise be a hundred and eighty edits through undo and IndexedDB, and
+     * undoing it would step back through the animation.
+     */
+    let cast = $state(new Map<string, Playing>());
+    let playing: { score: Score; started: number; frame: number; done: () => void } | null = null;
+
+    export function perform(score: Score): Promise<void> {
+        stopPerforming();
+        if (!score.cues.length) return Promise.resolve();
+        return new Promise(resolve => {
+            const tick = (now: number) => {
+                if (!playing) return;
+                const elapsed = now - playing.started;
+                cast = stateAt(playing.score, elapsed, id => studio.collage.get(id)?.height ?? 100);
+                if (elapsed < playing.score.duration) {
+                    playing.frame = requestAnimationFrame(tick);
+                    return;
+                }
+                // Held on the final frame rather than cleared, so a layer that
+                // exited stays gone until something puts it back.
+                playing.frame = 0;
+                const finish = playing.done;
+                playing = null;
+                finish();
+            };
+            playing = { score, started: performance.now(), frame: 0, done: resolve };
+            playing.frame = requestAnimationFrame(tick);
+        });
+    }
+
+    export function stopPerforming() {
+        if (!playing) return;
+        if (playing.frame) cancelAnimationFrame(playing.frame);
+        const finish = playing.done;
+        playing = null;
+        cast = new Map();
+        finish();
+    }
+
+    const poseOf = (id: string) => cast.get(id)?.pose ?? AT_REST;
+
+    /** The performed transform, appended to whatever the layer already does. */
+    function acting(layer: Layer): string {
+        const pose = poseOf(layer.id);
+        if (pose === AT_REST) return "";
+        const parts: string[] = [];
+        if (pose.dx || pose.dy) parts.push(`translate(${pose.dx.toFixed(2)}px, ${pose.dy.toFixed(2)}px)`);
+        if (pose.rotate) parts.push(`rotate(${pose.rotate.toFixed(2)}deg)`);
+        if (pose.scaleX !== 1 || pose.scaleY !== 1) {
+            parts.push(`scale(${pose.scaleX.toFixed(3)}, ${pose.scaleY.toFixed(3)})`);
+        }
+        return parts.join(" ");
+    }
 
     /** Layers cut or copied, waiting to be pasted. */
     let clipboard: Layer[] = [];
@@ -730,11 +793,20 @@
             `top: ${layer.y}px`,
             `width: ${layer.width}px`,
             `height: ${layer.height}px`,
-            `transform: rotate(${layer.rotation}deg)`,
+            // The performed transform goes first, so it moves the layer as a
+            // whole rather than being applied inside its own rotation.
+            `transform: ${[acting(layer), `rotate(${layer.rotation}deg)`].filter(Boolean).join(" ")}`,
             `z-index: ${layer.z}`,
             filters ? `filter: ${filters}` : "",
-            layer.style.opacity !== 1 ? `opacity: ${layer.style.opacity}` : "",
+            performedOpacity(layer, layer.style.opacity),
         ].filter(Boolean).join("; ");
+    }
+
+    /** A layer's own opacity, dimmed by whatever it is doing. */
+    function performedOpacity(layer: Layer, own: number): string {
+        const state = cast.get(layer.id);
+        const opacity = (state?.gone ? 0 : state?.pose.opacity ?? 1) * own;
+        return opacity !== 1 ? `opacity: ${opacity.toFixed(3)}` : "";
     }
 
     /**
@@ -775,9 +847,10 @@
             `top: ${layer.y}px`,
             `width: ${layer.width}px`,
             `font-size: ${layer.fontSize}px`,
-            `transform: rotate(${layer.rotation}deg)`,
+            `transform: ${[acting(layer), `rotate(${layer.rotation}deg)`].filter(Boolean).join(" ")}`,
             `z-index: ${layer.z}`,
             indicator ? `filter: ${indicator}` : "",
+            performedOpacity(layer, 1),
             ...textCss(layer),
         ].filter(Boolean).join("; ");
     }

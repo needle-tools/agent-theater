@@ -113,6 +113,22 @@ export interface CutPiece {
     y: number;
     width: number;
     height: number;
+    /** What the caller called it, when the caller said where to look. */
+    label?: string;
+}
+
+/**
+ * Where a subject is, as fractions of the image.
+ *
+ * Fractions rather than pixels because whoever draws these is looking at a
+ * resized copy and has no idea what size this end received.
+ */
+export interface CutRegion {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    label?: string;
 }
 
 export interface CutResult {
@@ -235,11 +251,26 @@ function listen() {
                     y: piece.y ?? 0,
                     width: piece.boxWidth ?? piece.width ?? 1,
                     height: piece.boxHeight ?? piece.height ?? 1,
+                    ...(piece.label ? { label: String(piece.label) } : {}),
                 })),
                 source: { width: data.width, height: data.height },
                 ...(data.backplate
                     ? { backplate: new Blob([data.backplate], { type: "image/png" }) }
                     : {}),
+            });
+        } else if (data.ok && data.png && data.backplate) {
+            // A cut-out with the scene behind it. Delivered as a one-piece
+            // slice so the placement path is shared: the backplate covers the
+            // frame, the cut-out sits on it exactly where it was lifted from.
+            const box = data.box ?? { x: 0, y: 0, width: data.width, height: data.height };
+            waiting.resolve({
+                ok: true,
+                pieces: [{ blob: new Blob([data.png], { type: "image/png" }), ...box }],
+                source: {
+                    width: data.sourceWidth ?? data.width,
+                    height: data.sourceHeight ?? data.height,
+                },
+                backplate: new Blob([data.backplate], { type: "image/png" }),
             });
         } else if (data.ok && data.png) {
             waiting.resolve({ ok: true, blob: new Blob([data.png], { type: "image/png" }) });
@@ -279,6 +310,15 @@ export async function removeBackground(
          */
         slice?: boolean;
         size?: { width: number; height: number };
+        /**
+         * Where the subjects are, when something that can see the picture knows.
+         *
+         * Connected-component detection can only separate things that are
+         * already separate, and in a generated picture the subjects usually
+         * touch. Being told where they are is the difference between three
+         * characters and one merged blob.
+         */
+        regions?: CutRegion[];
         /**
          * Also ask for the scene with its objects painted out.
          *
@@ -333,6 +373,7 @@ export async function removeBackground(
                         ? {
                             slice: true,
                             minPixels: smallestPiece(options.size!.width, options.size!.height),
+                            ...(options.regions?.length ? { regions: options.regions } : {}),
                             ...(options.heal ? { heal: true } : {}),
                         }
                         : {}),

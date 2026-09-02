@@ -130,6 +130,24 @@ describe("the sticker look", () => {
         expect(layer.style.shadow).toBeNull();
     });
 
+    it("is off for a piece cut out of a larger picture", () => {
+        // The rule: a lone cut-out is a sticker, a piece of a scene is not.
+        // Three heroes lifted out of one poster are still standing in the
+        // poster's arrangement, and a white rim round each draws a border
+        // through the middle of something meant to look continuous.
+        const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
+        const piece = collage.addImage({
+            src: "hero", natural: { width: 400, height: 900 }, width: 200,
+            style: { silhouette: null, outline: null, shadow: null, opacity: 1 },
+        });
+        expect(piece.style.outline).toBeNull();
+        expect(piece.style.shadow).toBeNull();
+
+        // ...while a photo added on its own still gets it.
+        const alone = collage.addImage({ src: "sticker", natural: { width: 400, height: 400 }, width: 200 });
+        expect(alone.style.outline).toBeTruthy();
+    });
+
     it("leaves text alone", () => {
         // Text has no style block at all, so it cannot pick the sticker look up
         // by accident — worth stating, because a white rim round a headline is

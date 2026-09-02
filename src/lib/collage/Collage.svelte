@@ -231,7 +231,9 @@
                 toasts.push(`Added ${images.length}. ${shortFailure(failed)}`, "error");
             } else {
                 toasts.push(separated
-                    ? `Cut out ${separated} separate pieces${healed ? ", and painted in the scene behind them" : ""}.`
+                    ? separated === 1
+                        ? `Cut it out${healed ? ", and kept the scene behind it" : ""}.`
+                        : `Cut out ${separated} separate pieces${healed ? ", and painted in the scene behind them" : ""}.`
                     : cut
                         ? `${cut === 1 ? "Cut it out" : `Cut out ${cut}`} and added.`
                         : `Added ${images.length}.`);

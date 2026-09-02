@@ -429,8 +429,63 @@ export class Collage {
      * where it started. Repeats of the same key in quick succession keep the
      * first snapshot, which is the one that holds the original state.
      */
+    /**
+     * Run several edits as one thing.
+     *
+     * Undo works on edits, and an agent's batch is one intention made of twenty
+     * of them: "spread the heroes out" should come back in one step, not be
+     * unpicked move by move. So the first edit inside takes its snapshot as
+     * usual and the rest are folded into it.
+     *
+     * Nested calls join the outer one rather than starting a second, and a
+     * throw still closes the group — half a batch is exactly the case that must
+     * stay undoable.
+     */
+    batch<T>(run: () => T): T {
+        if (this.grouping) return run();
+        this.grouping = true;
+        const close = () => {
+            this.grouping = false;
+            this.groupOpen = false;
+        };
+
+        let result: T;
+        try {
+            result = run();
+        } catch (error) {
+            close();
+            throw error;
+        }
+        // An async body returns its promise the moment it first awaits, so a
+        // plain try/finally would close the group before any of the awaited
+        // edits had happened — grouping the synchronous prefix and nothing
+        // else. The work is not over until the promise is.
+        if (result && typeof (result as { then?: unknown }).then === "function") {
+            return (result as unknown as Promise<unknown>).then(
+                value => { close(); return value; },
+                error => { close(); throw error; },
+            ) as unknown as T;
+        }
+        close();
+        return result;
+    }
+
+    private grouping = false;
+    private groupOpen = false;
+
     private remember(key: string) {
         if (this.replaying) return;
+        if (this.grouping) {
+            // One snapshot for the whole group, taken before the first change.
+            if (this.groupOpen) return;
+            this.groupOpen = true;
+            this.past.push({ layers: [...this.layers.values()], frames: [...this.frames.values()] });
+            if (this.past.length > MAX_HISTORY) this.past.shift();
+            this.future.length = 0;
+            // Cleared so the next edit after the group cannot coalesce into it.
+            this.lastEdit = null;
+            return;
+        }
         const now = this.now();
         if (this.lastEdit && this.lastEdit.key === key && now - this.lastEdit.at < COALESCE_MS) {
             this.lastEdit.at = now;

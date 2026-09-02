@@ -1,0 +1,391 @@
+/**
+ * Acting: a score the canvas performs, rather than frames an agent sends.
+ *
+ * The constraint that shapes all of this is that an agent cannot animate. A
+ * tool call is a round trip of hundreds of milliseconds and a walk cycle is
+ * sixty frames a second, so anything driven call-by-call is a slideshow. What
+ * an agent CAN do is say what happens and when — and that is a score. It hands
+ * over the whole sequence, the page plays it on its own clock, and the agent is
+ * free to narrate over the top instead of babysitting a tween.
+ *
+ * The second decision is that a performance is **presentational**. Every beat
+ * here produces an offset applied on top of a layer's real position; none of it
+ * touches the document. A three-second walk would otherwise write a hundred and
+ * eighty mutations through undo and into IndexedDB, and undoing it afterwards
+ * would step back through the animation frame by frame. A move that is meant to
+ * stick commits once, at the end, as a single edit.
+ *
+ * Everything in this file is arithmetic on a normalised time, so the whole
+ * vocabulary can be asserted on in a test — what a jump does at its apex, that
+ * a shake is centred, that every beat ends where it started.
+ */
+
+/** What a beat does to a layer at one instant, on top of where the layer is. */
+export interface Pose {
+    /** Canvas units, added to the layer's position. */
+    dx: number;
+    dy: number;
+    /** Degrees, added to the layer's own rotation. */
+    rotate: number;
+    /** Multipliers about the layer's centre. */
+    scaleX: number;
+    scaleY: number;
+    /** Multiplier on the layer's own opacity. */
+    opacity: number;
+}
+
+export const AT_REST: Pose = { dx: 0, dy: 0, rotate: 0, scaleX: 1, scaleY: 1, opacity: 1 };
+
+export const MOVES = [
+    "walk", "jump", "shake", "surprised", "scared", "nod", "enter", "exit",
+] as const;
+export type MoveName = (typeof MOVES)[number];
+
+/** How long each reads as, before anything overrides it. */
+export const DEFAULT_DURATION: Record<MoveName, number> = {
+    walk: 1600,
+    jump: 700,
+    shake: 800,
+    surprised: 900,
+    scared: 1400,
+    nod: 600,
+    enter: 900,
+    exit: 900,
+};
+
+export interface MoveContext {
+    /** The layer's height, so motion is proportional rather than absolute. */
+    size: number;
+    /** Distance still to travel, for the moves that go somewhere. */
+    dx: number;
+    dy: number;
+}
+
+const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
+/** Ease that starts and stops gently — the default shape of a deliberate move. */
+const smooth = (t: number) => t * t * (3 - 2 * t);
+/** One rise and fall, peaking in the middle. Used wherever a beat must return. */
+const arc = (t: number) => Math.sin(Math.PI * clamp01(t));
+
+/**
+ * The vocabulary.
+ *
+ * Every one of these returns to rest at t = 1 except `walk`, which arrives, and
+ * `exit`, which leaves. That rule is what lets beats be layered and interrupted
+ * without a layer slowly drifting away from where the document says it is.
+ */
+export function poseFor(move: MoveName, t: number, context: MoveContext): Pose {
+    const time = clamp01(t);
+    const { size, dx, dy } = context;
+    switch (move) {
+        case "walk": {
+            const travelled = smooth(time);
+            // Bobbing and a slight lean, at a rate independent of the distance,
+            // so a long walk is more steps rather than bigger ones.
+            const steps = 4;
+            const bob = Math.abs(Math.sin(Math.PI * steps * time));
+            return {
+                dx: dx * travelled,
+                dy: dy * travelled - bob * size * 0.035,
+                rotate: Math.sin(Math.PI * 2 * steps * time) * 2.2,
+                scaleX: 1,
+                scaleY: 1 + bob * 0.02,
+                opacity: 1,
+            };
+        }
+        case "jump": {
+            const height = arc(time) * size * 0.45;
+            // Squash before the launch and on the landing; stretch at the top.
+            const squash = time < 0.15
+                ? (0.15 - time) / 0.15
+                : time > 0.85 ? (time - 0.85) / 0.15 : 0;
+            const stretch = arc(time) * 0.08;
+            return {
+                dx: dx * smooth(time),
+                dy: dy * smooth(time) - height,
+                rotate: 0,
+                scaleX: 1 + squash * 0.12 - stretch * 0.5,
+                scaleY: 1 - squash * 0.14 + stretch,
+                opacity: 1,
+            };
+        }
+        case "shake": {
+            // Fast, and dying away — a shake that ends at full strength reads as
+            // a cut rather than as a shake.
+            const decay = 1 - time;
+            return {
+                ...AT_REST,
+                dx: Math.sin(time * Math.PI * 14) * size * 0.045 * decay,
+                rotate: Math.sin(time * Math.PI * 14) * 2.5 * decay,
+            };
+        }
+        case "surprised": {
+            // A jolt up and a snap back: fast out, slow settle.
+            const jolt = time < 0.25 ? time / 0.25 : Math.pow(1 - (time - 0.25) / 0.75, 2);
+            return {
+                ...AT_REST,
+                dy: -jolt * size * 0.12,
+                scaleX: 1 + jolt * 0.06,
+                scaleY: 1 + jolt * 0.14,
+                rotate: Math.sin(time * Math.PI * 6) * 1.5 * (1 - time),
+            };
+        }
+        case "scared": {
+            // Shrinking away, leaning back, trembling — small and fast, where
+            // surprise is big and slow.
+            const cower = arc(time);
+            return {
+                dx: -cower * size * 0.05 + Math.sin(time * Math.PI * 22) * size * 0.012 * cower,
+                dy: cower * size * 0.02,
+                rotate: -cower * 7,
+                scaleX: 1 - cower * 0.06,
+                scaleY: 1 - cower * 0.08,
+                opacity: 1,
+            };
+        }
+        case "nod": {
+            return { ...AT_REST, dy: -arc(time) * size * 0.05, rotate: arc(time) * 3 };
+        }
+        case "enter": {
+            const in_ = smooth(time);
+            return {
+                ...AT_REST,
+                dy: (1 - in_) * size * 0.4,
+                scaleX: 0.9 + in_ * 0.1,
+                scaleY: 0.9 + in_ * 0.1,
+                opacity: in_,
+            };
+        }
+        case "exit": {
+            const out = smooth(time);
+            return {
+                ...AT_REST,
+                dy: out * size * 0.35,
+                scaleX: 1 - out * 0.12,
+                scaleY: 1 - out * 0.12,
+                opacity: 1 - out,
+            };
+        }
+    }
+}
+
+/** Beats that leave the layer somewhere new, so the move is committed at the end. */
+export const TRAVELS: ReadonlySet<MoveName> = new Set<MoveName>(["walk", "jump"]);
+/** Beats after which the layer should be hidden rather than snapped back. */
+export const LEAVES: ReadonlySet<MoveName> = new Set<MoveName>(["exit"]);
+
+// ── The score ───────────────────────────────────────────────────────────────
+
+/** One instruction, as an agent writes it. */
+export interface Cue {
+    /** Milliseconds from the start of the performance. Defaults to following on. */
+    at?: number;
+    /** Which layer. */
+    id: string;
+    /** What it does. */
+    do?: MoveName;
+    /** Where it ends up, for the moves that go somewhere. Canvas units. */
+    to?: { x?: number; y?: number };
+    /** What it says, in a bubble above it. */
+    say?: string;
+    /** Override the beat's own length, in milliseconds. */
+    duration?: number;
+}
+
+/** A cue with its timing resolved, ready to be played. */
+export interface ScoredCue {
+    id: string;
+    move: MoveName | null;
+    say: string | null;
+    start: number;
+    end: number;
+    to: { x?: number; y?: number } | null;
+}
+
+export interface Score {
+    cues: ScoredCue[];
+    /** When the last thing finishes. */
+    duration: number;
+}
+
+/** How long a bubble stays up: long enough to read, scaled to its length. */
+export function readingTime(text: string): number {
+    return Math.min(6000, Math.max(1400, 400 + text.length * 55));
+}
+
+/** The longest performance that will be accepted, so nothing runs away. */
+export const MAX_PERFORMANCE_MS = 120_000;
+export const MAX_CUES = 80;
+
+export interface ScoreProblem {
+    index: number;
+    reason: string;
+}
+
+/**
+ * Turn cues into a timed score.
+ *
+ * `at` is optional and defaults to "after whatever this layer was last doing",
+ * which is how a scene is usually written: this one walks in, *then* speaks,
+ * *then* the other one reacts. Making every cue carry an absolute time turns
+ * writing a scene into doing arithmetic, and arithmetic an agent cannot check
+ * is exactly what this API tries to avoid everywhere else.
+ */
+export function score(cues: Cue[]): { score: Score; problems: ScoreProblem[] } {
+    const problems: ScoreProblem[] = [];
+    const scored: ScoredCue[] = [];
+    /** When each layer is next free, for cues that do not name a time. */
+    const freeAt = new Map<string, number>();
+
+    for (const [index, cue] of cues.entries()) {
+        const id = typeof cue?.id === "string" ? cue.id.trim() : "";
+        if (!id) {
+            problems.push({ index, reason: `every cue needs an "id" naming the layer it acts on` });
+            continue;
+        }
+        const move = cue?.do ?? null;
+        if (move && !MOVES.includes(move)) {
+            problems.push({ index, reason: `"${move}" is not a move. Use one of: ${MOVES.join(", ")}` });
+            continue;
+        }
+        const say = typeof cue?.say === "string" && cue.say.trim() ? cue.say.trim() : null;
+        if (!move && !say) {
+            problems.push({ index, reason: `a cue must have a "do" or a "say"` });
+            continue;
+        }
+
+        const length = Math.min(30_000, Math.max(120,
+            typeof cue?.duration === "number" && cue.duration > 0
+                ? cue.duration
+                : move
+                    ? DEFAULT_DURATION[move]
+                    : readingTime(say!)));
+
+        const start = Math.max(0, typeof cue?.at === "number" ? cue.at : freeAt.get(id) ?? 0);
+        const end = start + length;
+        // A layer can move and speak at once, so speech does not hold up the
+        // next move — it is the moves that queue.
+        if (move) freeAt.set(id, end);
+        else freeAt.set(id, Math.max(freeAt.get(id) ?? 0, start));
+
+        scored.push({
+            id,
+            move,
+            say,
+            start,
+            end,
+            to: cue?.to && (typeof cue.to.x === "number" || typeof cue.to.y === "number")
+                ? { ...(typeof cue.to.x === "number" ? { x: cue.to.x } : {}),
+                    ...(typeof cue.to.y === "number" ? { y: cue.to.y } : {}) }
+                : null,
+        });
+    }
+
+    const duration = scored.reduce((longest, cue) => Math.max(longest, cue.end), 0);
+    if (duration > MAX_PERFORMANCE_MS) {
+        problems.push({
+            index: -1,
+            reason: `the whole thing runs ${Math.round(duration / 1000)}s, longer than the ` +
+                `${MAX_PERFORMANCE_MS / 1000}s limit. Split it and play the next part when this one ends.`,
+        });
+    }
+    return { score: { cues: scored, duration }, problems };
+}
+
+/** What is on screen for one layer at one moment. */
+export interface Playing {
+    pose: Pose;
+    say: string | null;
+    /** 0–1 through the bubble's life, for typing the words in. */
+    saying: number;
+    /** True once an `exit` has finished, so the layer stays gone. */
+    gone: boolean;
+}
+
+/**
+ * The state of the whole cast at a moment.
+ *
+ * Poses compose rather than replace: a layer that is walking and surprised at
+ * the same time does both, because the alternative is deciding which one wins
+ * and being wrong. Offsets add, scales multiply.
+ */
+export function stateAt(
+    score: Score,
+    time: number,
+    sizeOf: (id: string) => number,
+): Map<string, Playing> {
+    const state = new Map<string, Playing>();
+    const at = (id: string): Playing => {
+        let playing = state.get(id);
+        if (!playing) {
+            playing = { pose: { ...AT_REST }, say: null, saying: 0, gone: false };
+            state.set(id, playing);
+        }
+        return playing;
+    };
+
+    for (const cue of score.cues) {
+        if (time < cue.start) continue;
+        const done = time >= cue.end;
+        const t = done ? 1 : (time - cue.start) / Math.max(1, cue.end - cue.start);
+
+        if (cue.say) {
+            if (!done) {
+                const playing = at(cue.id);
+                playing.say = cue.say;
+                playing.saying = t;
+            }
+            continue;
+        }
+        if (!cue.move) continue;
+
+        const playing = at(cue.id);
+        if (done) {
+            // A finished beat leaves nothing behind, except a departure.
+            if (LEAVES.has(cue.move)) playing.gone = true;
+            continue;
+        }
+        const size = Math.max(1, sizeOf(cue.id));
+        const travel = cue.to ?? {};
+        const pose = poseFor(cue.move, t, {
+            size,
+            dx: typeof travel.x === "number" ? travel.x : 0,
+            dy: typeof travel.y === "number" ? travel.y : 0,
+        });
+        playing.pose = compose(playing.pose, pose);
+        playing.gone = false;
+    }
+    return state;
+}
+
+/** Two poses at once. Offsets add, scales multiply — neither one wins. */
+export function compose(a: Pose, b: Pose): Pose {
+    return {
+        dx: a.dx + b.dx,
+        dy: a.dy + b.dy,
+        rotate: a.rotate + b.rotate,
+        scaleX: a.scaleX * b.scaleX,
+        scaleY: a.scaleY * b.scaleY,
+        opacity: a.opacity * b.opacity,
+    };
+}
+
+/**
+ * Where each travelling beat leaves its layer.
+ *
+ * Applied to the document once, when the performance ends, so a walk that
+ * crossed the stage is still across the stage afterwards — and undoing it is
+ * one step rather than a hundred and eighty.
+ */
+export function restingPlaces(score: Score): Map<string, { dx: number; dy: number }> {
+    const moved = new Map<string, { dx: number; dy: number }>();
+    for (const cue of score.cues) {
+        if (!cue.move || !cue.to || !TRAVELS.has(cue.move)) continue;
+        const so_far = moved.get(cue.id) ?? { dx: 0, dy: 0 };
+        moved.set(cue.id, {
+            dx: so_far.dx + (cue.to.x ?? 0),
+            dy: so_far.dy + (cue.to.y ?? 0),
+        });
+    }
+    return moved;
+}

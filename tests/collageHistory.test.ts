@@ -211,12 +211,97 @@ describe("arranging does not shrink things", () => {
         const page = studio.setPage(FREE_PAGE);
 
         let announced = 0;
-        const stop = studio.onArranged(() => announced++);
+        const stop = studio.onSettle(() => announced++);
         studio.arrange(page.id, "grid");
         expect(announced).toBe(1);
 
         stop();
         studio.arrange(page.id, "grid");
         expect(announced).toBe(1);
+    });
+});
+
+describe("a batch is one thing", () => {
+    /**
+     * Undo works on edits; an agent's batch is one intention made of many.
+     * "Spread the heroes out" should come back in one step rather than being
+     * unpicked move by move.
+     */
+    it("undoes twenty moves in one step", () => {
+        const { collage } = clocked();
+        const layers = [withImage(collage), withImage(collage), withImage(collage)];
+        const before = layers.map(l => collage.get(l.id)!.x);
+
+        collage.batch(() => {
+            for (const [i, layer] of layers.entries()) {
+                collage.update(layer.id, { x: 500 + i * 10 });
+                collage.update(layer.id, { rotation: 12 });
+                collage.update(layer.id, { width: 250 });
+            }
+        });
+
+        collage.undo();
+        expect(layers.map(l => collage.get(l.id)!.x)).toEqual(before);
+        expect(layers.every(l => collage.get(l.id)!.rotation === 0)).toBe(true);
+    });
+
+    it("waits for an async batch to finish before closing it", async () => {
+        // An async body returns its promise at the first await, so a plain
+        // try/finally would group the synchronous prefix and nothing else.
+        const { collage } = clocked();
+        const layer = withImage(collage);
+
+        await collage.batch(async () => {
+            collage.update(layer.id, { x: 100 });
+            await Promise.resolve();
+            collage.update(layer.id, { y: 200 });
+            await Promise.resolve();
+            collage.update(layer.id, { rotation: 45 });
+        });
+
+        collage.undo();
+        const back = collage.get(layer.id)!;
+        expect([back.x, back.y, back.rotation]).toEqual([0, 0, 0]);
+    });
+
+    it("closes the group when a batch throws, so half of one is still undoable", () => {
+        const { collage } = clocked();
+        const layer = withImage(collage);
+        expect(() => collage.batch(() => {
+            collage.update(layer.id, { x: 300 });
+            throw new Error("step three failed");
+        })).toThrow();
+
+        collage.undo();
+        expect(collage.get(layer.id)!.x).toBe(0);
+        // And the next edit starts its own step rather than joining the dead one.
+        collage.update(layer.id, { x: 42 });
+        collage.undo();
+        expect(collage.get(layer.id)!.x).toBe(0);
+    });
+
+    it("keeps a nested batch inside the outer one", () => {
+        const { collage } = clocked();
+        const layer = withImage(collage);
+        collage.batch(() => {
+            collage.update(layer.id, { x: 10 });
+            collage.batch(() => collage.update(layer.id, { y: 20 }));
+            collage.update(layer.id, { rotation: 5 });
+        });
+        collage.undo();
+        const back = collage.get(layer.id)!;
+        expect([back.x, back.y, back.rotation]).toEqual([0, 0, 0]);
+    });
+
+    it("does not swallow an edit made after the batch", () => {
+        const { collage } = clocked();
+        const layer = withImage(collage);
+        collage.batch(() => collage.update(layer.id, { x: 100 }));
+        collage.update(layer.id, { x: 200 });
+
+        collage.undo();
+        expect(collage.get(layer.id)!.x).toBe(100);
+        collage.undo();
+        expect(collage.get(layer.id)!.x).toBe(0);
     });
 });
