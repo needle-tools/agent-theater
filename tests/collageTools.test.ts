@@ -860,3 +860,68 @@ describe("the guide", () => {
         expect(text).toContain("show_title");
     });
 });
+
+describe("reading a scene back", () => {
+    /**
+     * The bug this exists to catch looked like the agent being careless and was
+     * not. It placed everybody in fractions of the backdrop — the units
+     * stage_cast asks for — and then read the scene back in raw canvas
+     * coordinates, which are the units nothing accepts. Unable to check its own
+     * work, it stopped trusting the fractions and went back to guessing
+     * absolute numbers, which is precisely what the fractions replaced.
+     */
+    const sceneWith = (placement: Record<string, unknown>) => {
+        const { studio, collage } = fakeStudio();
+        // A 1000 x 500 backdrop at the origin, so the arithmetic is readable.
+        const floor = collage.addImage({
+            src: "sky", natural: { width: 1000, height: 500 }, width: 1000, x: 0, y: 0,
+        });
+        const tree = collage.addImage({
+            src: "tree", natural: { width: 100, height: 200 }, width: 100, x: 0, y: 0,
+        });
+        const stage = collage.addStage({ name: "the wood", backdrop: floor.id });
+        collage.updateStage(stage.id, {
+            cast: [{ id: tree.id, x: 0, y: 0, ...placement }],
+        });
+        return { studio, ids: { floor: floor.id, tree: tree.id } };
+    };
+
+    const describe = async (studio: any) => {
+        const tool = createCollageTools(studio).find(t => t.name === "stage_describe")!;
+        const result = await tool.execute({});
+        return result.content.map((c: any) => c.text).join("\n");
+    };
+
+    it("answers in the units the placement was made in", async () => {
+        // Half across, feet on the ground, a fifth of the height of the set:
+        // width 100 and height 200 on a 500-tall backdrop is size 0.40.
+        const { studio } = sceneWith({ x: 450, y: 250, width: 100 });
+        const text = await describe(studio);
+        expect(text).toContain("x 0.50");
+        expect(text).toContain("feet 0.90");
+        expect(text).toContain("size 0.40");
+        // And not in the units nothing accepts.
+        expect(text).not.toContain("at 450, 250");
+    });
+
+    it("measures the feet rather than the top, which is the whole of a tall thing", async () => {
+        const { studio } = sceneWith({ x: 450, y: 0, width: 100 });
+        // Top at 0, height 200, so the feet are at 200 of 500.
+        expect(await describe(studio)).toContain("feet 0.40");
+    });
+
+    it("says plainly when somebody is standing in mid-air", async () => {
+        const { studio } = sceneWith({ x: 450, y: 0, width: 100 });
+        const text = await describe(studio);
+        expect(text).toContain("mid-air");
+        expect(text).toContain("0.9");
+    });
+
+    it("does not pretend raw numbers mean something without a backdrop", async () => {
+        const { studio, collage } = fakeStudio();
+        const tree = collage.addImage({ src: "t", natural: { width: 100, height: 200 } });
+        const stage = collage.addStage({ name: "nowhere" });
+        collage.updateStage(stage.id, { cast: [{ id: tree.id, x: 12, y: 34 }] });
+        expect(await describe(studio)).toContain("no backdrop to measure against");
+    });
+});

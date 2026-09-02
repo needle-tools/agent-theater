@@ -126,6 +126,50 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
         return (wanted / layer.height) * layer.width;
     };
 
+    /**
+     * Where a cast member stands, in the units it was placed with.
+     *
+     * The reason this exists is a bug that looked like the agent being stupid
+     * and was not. It placed everybody in fractions of the backdrop — the units
+     * stage_cast asks for — and then read the scene back in raw canvas
+     * coordinates, which are the units nothing accepts. It could not check its
+     * own work, so it stopped trusting the fractions and went back to guessing
+     * absolute numbers, which is exactly what those fractions were introduced
+     * to replace.
+     *
+     * Say it back in the language it was said in.
+     */
+    const relativeTo = (
+        placement: Placement,
+        floor: Layer | null,
+    ): { x: number; feet: number; size: number } | null => {
+        if (!floor || floor.width <= 0 || floor.height <= 0) return null;
+        const layer = collage.get(placement.id);
+        if (!layer) return null;
+        const width = placement.width ?? layer.width;
+        const height = layer.width > 0 ? (width / layer.width) * layer.height : layer.height;
+        return {
+            x: (placement.x + width / 2 - floor.x) / floor.width,
+            // Feet, not the top: it is what "at" means, and the difference is
+            // the whole of a tall thing.
+            feet: (placement.y + height - floor.y) / floor.height,
+            size: height / floor.height,
+        };
+    };
+
+    const describeMember = (placement: Placement, floor: Layer | null): string => {
+        const where = relativeTo(placement, floor);
+        const name = `${placement.id}${placement.as ? ` as ${placement.as}` : ""}`;
+        const at = where
+            ? `at x ${where.x.toFixed(2)}, feet ${where.feet.toFixed(2)}, size ${where.size.toFixed(2)}`
+            // No backdrop, nothing to be a fraction of. Raw units are all there
+            // is, and saying so is better than implying they mean something.
+            : `at ${Math.round(placement.x)}, ${Math.round(placement.y)} (no backdrop to measure against)`;
+        return `${name} ${at}` +
+            `${placement.plane && placement.plane !== "mid" ? ` [${placement.plane}]` : ""}` +
+            `${placement.entrance ? ` (enters ${placement.entrance})` : ""}`;
+    };
+
     /** Does any of this placement land on the backdrop at all? */
     const overlapsFloor = (
         placement: Placement,
@@ -784,8 +828,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 studio.record("page-changed",
                     `"${next.name}" now has ${next.cast.length} in it.`, "agent", { stage: next.id });
 
+                const floorNow = next.backdrop ? collage.get(next.backdrop) : null;
                 return ok(
-                    `"${next.name}" has ${next.cast.length} in it` +
+                    `"${next.name}": ` +
+                    `${next.cast.map(m => describeMember(m, floorNow)).join("; ")}\n` +
                     `${dropped.size ? `, ${dropped.size} taken out` : ""}. ` +
                     (offStage.length
                         ? `WARNING: ${offStage.map(id => `"${id}"`).join(", ")} ` +
@@ -835,16 +881,23 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 const showing = collage.activeStageId;
                 const lines = stages.map(stage => {
+                    const floor = stage.backdrop ? collage.get(stage.backdrop) : null;
                     const who = stage.cast.length
-                        ? stage.cast
-                            .map(m => `${m.id}${m.as ? ` as ${m.as}` : ""} ` +
-                                `at ${Math.round(m.x)}, ${Math.round(m.y)}` +
-                                `${m.plane && m.plane !== "mid" ? ` [${m.plane}]` : ""}` +
-                                `${m.entrance ? ` (enters ${m.entrance})` : ""}`)
-                            .join("; ")
+                        ? stage.cast.map(m => describeMember(m, floor)).join("; ")
                         : "nobody yet";
                     return `${stage.id} — "${stage.name}"${stage.id === showing ? "  [on screen]" : ""}` +
                         `${stage.backdrop ? `, backdrop ${stage.backdrop}` : ""}\n    ${who}`;
+                });
+                const floating = stages.flatMap(stage => {
+                    const floor = stage.backdrop ? collage.get(stage.backdrop) : null;
+                    if (!floor) return [];
+                    return stage.cast
+                        .filter(m => m.id !== stage.backdrop)
+                        .filter(m => {
+                            const where = relativeTo(m, floor);
+                            return where && where.feet < 0.6;
+                        })
+                        .map(m => `${m.as || m.id} in "${stage.name}"`);
                 });
                 const billing = collage.billing;
                 return ok(
@@ -855,6 +908,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             : `${stages.length} scene(s). The show has no title yet — show_title gives it ` +
                               `an opening card and heads the credits.`,
                         ...lines,
+                        ...(floating.length
+                            ? [`Standing in mid-air: ${floating.join(", ")} — their feet are in the top ` +
+                               `half of the backdrop. Unless they are meant to be flying or perched, ` +
+                               `give them an "at" with y around 0.9.`]
+                            : []),
                         showing
                             ? `The canvas is showing "${collage.activeStage?.name}", so piece_list and ` +
                               `show_look answer about that scene alone.`
