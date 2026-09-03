@@ -635,6 +635,24 @@ export interface Plan {
 }
 
 /**
+ * Where a line's real length comes from, when somebody is going to speak it.
+ *
+ * Reading time is a guess — a good one, but a guess about an eye rather than a
+ * measurement of a mouth. Once a line has been synthesised its length is a
+ * fact, and the timetable an agent narrates against is only worth having if it
+ * is built from facts. So the planner asks, and falls back to the guess for
+ * every line nobody has a voice for.
+ *
+ * Synchronous, and it has to be: planning happens in the middle of building a
+ * show and cannot wait for anything. Whoever supplies this is responsible for
+ * having the lines ready first.
+ */
+export interface Timings {
+    /** Milliseconds this line takes aloud, or null if it will not be spoken. */
+    saying(text: string, id: string): number | null;
+}
+
+/**
  * Turn a script into a plan.
  *
  * Sequential, with no timing arithmetic anywhere: a beat starts when the last
@@ -643,7 +661,7 @@ export interface Plan {
  * where. One thing at a time is also how a play reads: the eye is meant to know
  * where to look.
  */
-export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
+export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: ScoreProblem[] } {
     const problems: ScoreProblem[] = [];
     const planned: PlannedBeat[] = [];
     /** Who spoke last, so a change of speaker can be given room. */
@@ -693,7 +711,9 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
                 ? beat.duration
                 : wait ? wait
                     : move ? DEFAULT_DURATION[move]
-                    : say ? readingTime(say)
+                    // A spoken line is as long as the speaking takes; an unspoken
+                    // one is as long as it takes to read.
+                    : say ? timings?.saying(say, id) ?? readingTime(say)
                         // A camera move takes real time and is the point of the
                         // beat, so it gets a length worth watching.
                         : camera ? DEFAULT_CAMERA_MS

@@ -107,6 +107,16 @@ export interface Speaker {
     /** Fire and forget. Overlapping cues are allowed and expected. */
     cue(id: string): void;
     /**
+     * Push the bed down for this long, for something being listened to.
+     *
+     * The same duck a long cue gets, offered to whoever else needs it — which
+     * in practice means dialogue. The prompter plays voices itself, through its
+     * own queue, and has no way to reach in here otherwise; without this the
+     * music sits at full level under every spoken line and the play is somebody
+     * talking through a band.
+     */
+    duckFor(ms: number): void;
+    /**
      * Let the music go, over as long as it takes.
      *
      * Distinct from `music(null)`, which is a scene ending and fades at a
@@ -153,6 +163,7 @@ export const SILENT: Speaker = {
     fadeMusic() {},
     unlock() {},
     cue() {},
+    duckFor() {},
     stop() {},
     allowed: true,
     ready: true,
@@ -373,6 +384,13 @@ export function createSpeaker(): Speaker {
              */
             if (sound.seconds * 1000 < DUCK_OVER_MS) return;
             duck(sound.seconds * 1000);
+        },
+
+        duckFor(ms) {
+            // No floor here, unlike `cue`. A cue is guessing whether a noise is
+            // worth ducking for; a caller naming its own length has already
+            // decided, and dialogue is worth ducking for at any length.
+            if (ms > 0) duck(ms);
         },
 
         stop() {

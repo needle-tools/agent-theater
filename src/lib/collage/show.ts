@@ -16,7 +16,9 @@
  * All of it comes out as beats, so the whole show speaks one vocabulary and the
  * player learns nothing new.
  */
-import type { Beat } from "./perform.js";
+import type { Beat, Timings } from "./perform.js";
+import { spokenLength } from "./speech.js";
+import type { Voices } from "./voice.js";
 import type { EntranceName, Stage } from "./stage.js";
 
 /**
@@ -168,6 +170,63 @@ export function entering(stage: Stage): string[] {
         .filter(member => member.id !== stage.backdrop)
         .filter(member => member.entrance && member.entrance !== "none")
         .map(member => member.id);
+}
+
+/**
+ * Which voice each part in this scene is cast with.
+ *
+ * Only the parts that HAVE one. A missing entry means a silent part, and the
+ * distinction matters everywhere downstream: a silent part's line still appears
+ * in a bubble and is still timed by reading time, so it must not be looked up
+ * as though a voice might turn up for it later.
+ */
+export function voicesOf(stage: Stage): Map<string, string> {
+    return new Map(stage.cast
+        .filter(member => member.voice)
+        .map(member => [member.id, member.voice!]));
+}
+
+/** A line this scene will say aloud, and who says it. */
+export interface SpokenLine {
+    text: string;
+    voice: string;
+}
+
+/**
+ * Every line in the scene that somebody has a voice for.
+ *
+ * The list a scene hands over to be synthesised before it plays. Built from the
+ * script rather than from the built-up beats because the build-up is entrances
+ * and camera moves — nobody says anything while walking on.
+ */
+export function linesOf(stage: Stage): SpokenLine[] {
+    const cast = voicesOf(stage);
+    const lines: SpokenLine[] = [];
+    for (const beat of stage.script) {
+        const text = typeof beat.say === "string" ? beat.say.trim() : "";
+        if (!text || !beat.id) continue;
+        const voice = cast.get(beat.id);
+        if (voice) lines.push({ text, voice });
+    }
+    return lines;
+}
+
+/**
+ * What this scene's lines really take, for the planner.
+ *
+ * Answers only for parts cast with a voice AND whose line has already been
+ * synthesised. Everything else comes back null and falls to reading time, which
+ * covers the two cases that matter: a deliberately silent part, and a scene
+ * planned before the model finished arriving.
+ */
+export function spokenBy(stage: Stage, voices: Voices): Timings {
+    const cast = voicesOf(stage);
+    return {
+        saying(text, id) {
+            const voice = cast.get(id);
+            return voice ? spokenLength(voices, { text, voice }) : null;
+        },
+    };
 }
 
 /** Seconds a scene waits at the end before the next one begins. */

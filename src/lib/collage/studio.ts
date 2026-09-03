@@ -35,7 +35,10 @@ import {
     WAIT_FOR_AUDIENCE_MS, type Billboard,
 } from "./billboard.js";
 import { plan as planScene, type Plan } from "./perform.js";
-import { DEFAULT_HOLD, MIN_SCENE_MS, sceneBeats, type ShowTiming } from "./show.js";
+import {
+    DEFAULT_HOLD, linesOf, MIN_SCENE_MS, sceneBeats, spokenBy, type ShowTiming,
+} from "./show.js";
+import { prompter } from "./speech.js";
 import { ENDING_FADE_MS, SILENT, type Speaker } from "./audio.js";
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
@@ -254,14 +257,20 @@ export interface CollageStudio {
     /**
      * Run the scenes one after another: build-up, script, hand-off, next.
      *
-     * Returns the timings straight away and keeps playing, because the point of
-     * a show is that somebody narrates over it — a call that blocked for the
-     * length of the play would be the one thing the agent could not talk during.
+     * Returns the timings and keeps playing, because the point of a show is
+     * that somebody narrates over it — a call that blocked for the length of
+     * the play would be the one thing the agent could not talk during.
+     *
+     * Not instant, though. Every line anybody has a voice for is synthesised
+     * before the first scene runs, because a spoken line is exactly as long as
+     * it is and the timetable has to be built from the real lengths. The wait
+     * is the price of the timetable being true, and it is paid once — the
+     * lines are cached, so continuing a held show does not pay it again.
      */
     playShow(
         stageIds?: string[],
         options?: { hold?: boolean },
-    ): { timings: ShowTiming[]; duration: number };
+    ): Promise<{ timings: ShowTiming[]; duration: number }>;
     stopShow(): void;
     /**
      * Whether the show is paused between scenes, waiting to be continued.
@@ -515,6 +524,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
     let wanted = false;
     let speaker: Speaker = SILENT;
 
+    /** How long this scene's lines take, given what has been synthesised. */
+    const timingsFor = (stage: Stage) => spokenBy(stage, prompter.voices);
+
     /**
      * The show itself.
      *
@@ -611,7 +623,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             }
             opening = false;
 
-            const { plan } = planScene(beats);
+            const { plan } = planScene(beats, timingsFor(stage));
             const began = Date.now();
             if (plan.beats.length) await studio.playScene({ ...plan, hidden });
             if (!wanted) break;
@@ -1734,10 +1746,25 @@ export function createStudio(collage = new Collage()): CollageStudio {
             return () => showWatchers.delete(callback);
         },
 
-        playShow(stageIds, options) {
+        async playShow(stageIds, options) {
             const wanted = stageIds?.length
                 ? stageIds.map(id => collage.getStage(id)).filter((s): s is Stage => !!s)
                 : collage.listStages();
+
+            /*
+             * Learn the lines before working out when anything happens.
+             *
+             * Order matters and is the whole reason this is async. A spoken
+             * line's length is not knowable until it has been spoken, so a
+             * timetable built first would be a timetable of reading times that
+             * the show then failed to keep — and the agent narrating from it
+             * would drift further behind with every line.
+             *
+             * All the scenes at once rather than scene by scene, because the
+             * model is loaded once and the marginal cost of the fortieth line
+             * is nothing next to the first.
+             */
+            await prompter.expect(wanted.flatMap(linesOf));
 
             // The plan is worked out for every scene before the first one runs,
             // so the agent gets the whole timetable in the reply rather than
@@ -1746,7 +1773,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             let at = 0;
             for (const stage of wanted) {
                 const { beats } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
-                const { plan } = planScene(beats);
+                const { plan } = planScene(beats, timingsFor(stage));
                 const hold = (stage.hold ?? DEFAULT_HOLD) * 1000;
                 // Same floor the run uses, so the timetable an agent narrates
                 // to matches what it will actually see.
@@ -1766,6 +1793,11 @@ export function createStudio(collage = new Collage()): CollageStudio {
             billboard = null;
             announceShow();
             stopPerformance?.();
+            // A voice mid-sentence is the most obviously "still running" thing
+            // on the page, so it goes first and it goes instantly. Everything
+            // queued behind it goes with it — the lines of a show that is no
+            // longer happening are not lines anybody wants to hear.
+            prompter.hush();
             // Stopping is a person pressing stop, and they want it to stop —
             // but a bed cut dead mid-bar is a jolt, so the music is let down
             // quickly rather than instantly. Cues still stop at once: a sting

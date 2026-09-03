@@ -26,6 +26,7 @@
     import { parallaxOf } from "./stage.js";
     import { play, type Playing, type Stagehand } from "./player.js";
     import { createSpeaker } from "./audio.js";
+    import { prompter } from "./speech.js";
 
     interface Props {
         studio: CollageStudio;
@@ -372,6 +373,32 @@
     const speaker = createSpeaker();
 
     /*
+     * Let dialogue push the music down.
+     *
+     * The prompter plays voices through its own queue and knows nothing about
+     * beds, so without this the bed sits at full level under every line. The
+     * duck is the speaker's, unchanged — the same one a long cue gets.
+     */
+    $effect(() => {
+        prompter.duckWith(ms => speaker.duckFor(ms));
+        return () => prompter.duckWith(null);
+    });
+
+    /**
+     * The voice cast to whoever is speaking, in the scene being played.
+     *
+     * Read at the moment the line is queued rather than baked into the plan,
+     * so re-casting a part between two runs of the same show is heard on the
+     * second run. Undefined for anybody not cast with a voice, which the
+     * prompter takes as "sequence this bubble but say nothing".
+     */
+    function voiceFor(id: string): string | undefined {
+        const active = studio.collage.activeStageId;
+        const stage = active ? studio.collage.getStage(active) : null;
+        return stage?.cast.find(member => member.id === id)?.voice;
+    }
+
+    /*
      * Buy permission to make a noise, at the first opportunity.
      *
      * A browser refuses audio until the person has interacted with the page,
@@ -422,6 +449,25 @@
             if (line) next.set(id, { line, progress });
             else next.delete(id);
             spoken = next;
+        },
+        /*
+         * The bubble does not open until the prompter reaches this line.
+         *
+         * Which is the whole difference: `say` above is drawing, and this is
+         * waiting for a turn. Two characters written to speak at the same
+         * instant — a `with` beat, a reaction landing on a shout — now take
+         * their turns rather than talking over each other, and the bubble
+         * follows the voice instead of the beat.
+         */
+        voice(id, line, ms) {
+            return prompter.speak(
+                { text: line, voice: voiceFor(id) },
+                {
+                    fallback: ms,
+                    begin: () => stagehand.say(id, line, 0),
+                    show: progress => stagehand.say(id, line, progress),
+                    end: () => stagehand.say(id, null, 0),
+                });
         },
         setGone(id, away) {
             const next = new Set(gone);
@@ -582,6 +628,11 @@
     export function stopScene() {
         scene?.stop();
         scene = null;
+        // The player cancels animations; the prompter is the page's, not the
+        // scene's, so it has to be told separately. Without this the lines of
+        // an abandoned scene carry on being spoken over an empty stage — and
+        // the bubbles cleared on the next line would come back.
+        prompter.hush();
         spoken = new Map();
         // Costumes are part of the performance, not of the document: a scene
         // played again starts in the one it opened in.

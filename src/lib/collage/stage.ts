@@ -74,6 +74,19 @@ export interface Placement {
      * photograph of a thing.
      */
     as?: string;
+    /**
+     * Which voice says this part's lines.
+     *
+     * On the placement for the same reason `as` is: it belongs to the casting,
+     * not to the picture. The same drawing of a bird can be a frightened child
+     * in one scene and the thing in the woods in the next, and a voice stored
+     * on the layer would follow the drawing instead of the part.
+     *
+     * Absent means silent — not "the default voice". A play where every unnamed
+     * part quietly acquired a narrator's voice would be a play nobody chose the
+     * sound of.
+     */
+    voice?: string;
     /** Which depth plane it stands on. Defaults to the middle. */
     plane?: PlaneName;
     /** Mirrored, so the same drawing can face either way per scene. */

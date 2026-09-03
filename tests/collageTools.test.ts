@@ -114,7 +114,7 @@ function fakeStudio(options: FakeOptions = {}) {
         // The fake plays a whole show instantly, so the tools can be tested for
         // what they say rather than for how long they take.
         holds: [] as boolean[],
-        playShow(ids?: string[], opts?: { hold?: boolean }) {
+        async playShow(ids?: string[], opts?: { hold?: boolean }) {
             const stages = ids?.length
                 ? ids.map(id => collage.getStage(id)).filter(Boolean)
                 : collage.listStages();

@@ -22,7 +22,8 @@
     import { createCollageTools } from "$lib/collage/tools";
     import { registerTools } from "$lib/webmcp";
     import { briefing, invitation } from "$lib/collage/invitation";
-    import { typed } from "$lib/collage/typed";
+    import { said } from "$lib/collage/typed";
+    import { prompter } from "$lib/collage/speech";
     import { boilFilterSvg, loadPainterly, PAINTERLY_CSS } from "$lib/collage/painted";
     import { TROUPE } from "$lib/collage/troupe";
 
@@ -143,6 +144,65 @@
      * it. The feedback appears where the hand is, in the same bubble language
      * everything else on this stage speaks.
      */
+    /**
+     * The note itself, named rather than written into the markup.
+     *
+     * It has to be synthesised BEFORE anybody clicks — a voice that started
+     * arriving at the moment of the click would miss it entirely — and
+     * preloading a string means having the string.
+     */
+    const COPIED_NOTE =
+        "Copied! Now paste it into ChatGPT — or any AI agent in your browser — and the show begins.";
+    const COPIED_VOICE = "af_heart";
+
+    /**
+     * Three lines, three voices, and they wait for each other.
+     *
+     * The page is the first thing anybody hears this app do, so it is also
+     * where the promise is made: the props talk, one at a time, in voices that
+     * are not the same voice. A different one each — the title in a
+     * storyteller, the instruction in the warmest of them, the invitation in
+     * something light enough to be a prop enjoying itself — because three
+     * bubbles in one voice would demonstrate the opposite of what the whole
+     * page is claiming.
+     *
+     * Out here rather than inside the scatter, so they can be handed to the
+     * prompter to synthesise before the props have even been placed.
+     */
+    const PAGE_LINES: Array<{
+        say: string; voice: string; titleCard?: boolean; band: number; aside: boolean;
+    }> = [
+        { say: "Agent Theater", voice: "bm_fable", titleCard: true, band: 25, aside: true },
+        {
+            say: "Hand your browser's AI agent the line below — click it to copy. " +
+                "It will ask what your play should be about, then build the set and " +
+                "put the show on.",
+            voice: "af_heart", band: 47, aside: true,
+        },
+        {
+            say: "We come already cut out. Drag me somewhere.",
+            voice: "am_puck", band: 78, aside: false,
+        },
+    ];
+
+    /*
+     * Start fetching the voices the moment the page opens.
+     *
+     * Everything here is a line somebody is going to hear in the next few
+     * seconds — three props introducing themselves, and the note that answers
+     * the click they are asking for. Not awaited and nothing waits on it: on a
+     * first visit the model is still arriving when the first bubble is due, and
+     * the bubble goes ahead silently on reading time. On every later visit the
+     * model is in the browser's cache and this is quick enough that the props
+     * actually speak.
+     */
+    $effect(() => {
+        void prompter.expect([
+            ...PAGE_LINES.map(line => ({ text: line.say, voice: line.voice })),
+            { text: COPIED_NOTE, voice: COPIED_VOICE },
+        ]);
+    });
+
     let copied = $state<Array<{ id: number; x: number; y: number; tilt: number }>>([]);
     let copiedSeq = 0;
     let pressedAt: { x: number; y: number } | null = null;
@@ -171,6 +231,16 @@
         // the short line is for the person glancing, the long one is for the
         // agent it gets pasted into.
         void navigator.clipboard.writeText(briefing(location.origin));
+        /*
+         * Cut whatever the props were saying.
+         *
+         * The one place the queue is allowed to be jumped, and it should be:
+         * this is an answer to something the person just did, and an answer
+         * that waits for a prop to finish its sentence is not an answer. It
+         * also removes the only way two of these could overlap — clicking
+         * twice — because the second hush kills the first note's line.
+         */
+        prompter.hush();
         // One stamp per click, each with its own lean and its own clock —
         // clicking three times leaves three notes fading on the paper, which
         // reads as the page enjoying the attention rather than correcting it.
@@ -215,6 +285,8 @@
         paintAt?: number;
         /** A line this prop speaks. The page's copy, worn by the scenery. */
         say?: string;
+        /** Which voice actually says it out loud. */
+        sayVoice?: string;
         sayTilt?: number;
         /** Position in the entrance queue: bubbles appear one after another. */
         sayOrder?: number;
@@ -223,8 +295,8 @@
         swingAt?: number;
         /** The bubble that is the page title rather than an explanation. */
         titleCard?: boolean;
-        /** The image's rendered height, measured on load, to anchor a bubble. */
-        h?: number;
+        /** height / width, measured on load — the bubble anchor scales with it. */
+        aspect?: number;
         /** ms before this prop makes its entrance. */
         enterAt?: number;
     }>>([]);
@@ -244,9 +316,15 @@
      * for phones.
      */
     function propSize(): number {
-        const stage = typeof window === "undefined" ? 900 : Math.min(window.innerWidth, window.innerHeight);
-        const base = Math.max(72, stage * 0.09);
-        return base + Math.random() * base * 0.8;
+        /*
+         * In vmin, not pixels. A pixel size is frozen at spawn: resize the
+         * window and the props stay whatever they were — tiny in fullscreen,
+         * crowding a shrunken window. A vmin width is re-resolved by CSS on
+         * every layout, so the stickers scale with the page and no resize
+         * listener has to exist. The 72px floor lives in the CSS max(),
+         * where it belongs.
+         */
+        return 9 + Math.random() * 7.2;
     }
 
     /**
@@ -274,6 +352,9 @@
         if (typeof window === "undefined") return props;
         const w = window.innerWidth;
         const h = window.innerHeight;
+        // The same resolution CSS will perform: vmin against the current
+        // window, with the same floor.
+        const px = (vmin: number) => Math.max(72, (vmin / 100) * Math.min(w, h));
         const out = props.map(prop => ({ ...prop }));
         for (let pass = 0; pass < 40; pass++) {
             let crowded = false;
@@ -284,7 +365,7 @@
                     const dx = ((two.x - one.x) / 100) * w;
                     const dy = ((two.y - one.y) / 100) * h;
                     const gap = Math.hypot(dx, dy) || 1;
-                    const room = ((one.size + two.size) / 2) * 0.92;
+                    const room = ((px(one.size) + px(two.size)) / 2) * 0.92;
                     if (gap >= room) continue;
                     crowded = true;
                     const push = (room - gap) / 2;
@@ -340,7 +421,7 @@
                 file: piece.file,
                 size: propSize(),
                 tilt: (Math.random() - 0.5) * 22,
-                h: undefined,
+                aspect: undefined,
             }
             : prop);
     }
@@ -481,18 +562,8 @@
          * (nudged off the centre so the prompt stays clear) but is pulled to
          * a fixed height, jittered just enough to stay looking strewn.
          */
-        const lines: Array<{ say: string; titleCard?: boolean; band: number; aside: boolean }> = [
-            { say: "Agent Theater", titleCard: true, band: 25, aside: true },
-            {
-                say: "Hand your browser's AI agent the line below — click it to copy. " +
-                    "It will ask what your play should be about, then build the set and " +
-                    "put the show on.",
-                band: 47, aside: true,
-            },
-            { say: "We come already cut out. Drag me somewhere.", band: 78, aside: false },
-        ];
         const speakers = [0, Math.floor(strewn.length / 2), strewn.length - 1];
-        for (const [which, line] of lines.entries()) {
+        for (const [which, line] of PAGE_LINES.entries()) {
             const prop = strewn[speakers[which]];
             if (!prop) break;
             prop.y = clamp(line.band + (Math.random() - 0.5) * 6, 12, 88);
@@ -505,6 +576,7 @@
                 : clamp(prop.x, 28, 72);
             Object.assign(prop, {
                 say: line.say,
+                sayVoice: line.voice,
                 sayOrder: which,
                 ...(line.titleCard ? { titleCard: true } : {}),
                 sayTilt: (Math.random() - 0.5) * (line.titleCard ? 6 : 8),
@@ -926,13 +998,18 @@
                         src={prop.file}
                         alt=""
                         draggable="false"
-                        style:width="{prop.size}px"
+                        style:width="max(72px, {prop.size}vmin)"
                         style:--paint-seed={prop.paintSeed ?? 0}
                         style:--paint-at="-{prop.paintAt ?? 0}s"
                         onload={event => {
-                            const height = (event.currentTarget as HTMLImageElement).clientHeight;
+                            // The RATIO, not the rendered height: a ratio
+                            // survives every resize, where a measured pixel
+                            // height is stale the moment the window changes.
+                            const image = event.currentTarget as HTMLImageElement;
+                            if (!image.naturalWidth) return;
+                            const aspect = image.naturalHeight / image.naturalWidth;
                             scatter = scatter.map(other =>
-                                other.id === prop.id ? { ...other, h: height } : other);
+                                other.id === prop.id ? { ...other, aspect } : other);
                         }}
                     />
                 </div>
@@ -943,7 +1020,14 @@
              prop they were trapped in its stacking context — translate and
              rotate create one — so whichever prop came later in the DOM could
              sit on the title's face, and did. They follow their prop's
-             position from the same state, so dragging carries them along. -->
+             position from the same state, so dragging carries them along.
+
+             Each one is mounted from the start and invisible until `said`
+             marks it spoken. The old version staggered them on a fixed 700ms
+             ladder, which was a guess at how long a line takes to say; they
+             now wait for each other to actually finish saying it. Mounted
+             early rather than late on purpose — a bubble that laid itself out
+             in the same frame it popped would pop at the wrong size. -->
         <div class="strewn-bubbles" class:strewn--away={!empty}>
             {#each scatter.filter(prop => prop.say) as prop (prop.key)}
                 <div
@@ -951,11 +1035,11 @@
                     class:strewn__bubble--title={prop.titleCard}
                     style:left="{prop.x}%"
                     style:top="{prop.y}%"
-                    style:--rise="{(prop.h ?? prop.size) / 2 + 14}px"
+                    style:--rise="calc(max(72px, {prop.size}vmin) * {(prop.aspect ?? 1) / 2} + 14px)"
                     style:--lean="{prop.sayTilt ?? 0}deg"
-                    style:--pop-at="{(prop.enterAt ?? 0) + 500 + (prop.sayOrder ?? 0) * 700}ms"
                     style:--swing-cycle="{prop.swingCycle ?? 8}s"
                     style:--swing-at="-{prop.swingAt ?? 0}s"
+                    use:said={{ voice: prop.sayVoice, after: (prop.enterAt ?? 0) + 500 }}
                 >{prop.say}</div>
             {/each}
         </div>
@@ -986,14 +1070,18 @@
         </svg>
     </button>
 
+    <!-- Said out loud, in the same voice that gave the instruction in the first
+         place: this note is the next sentence of that one, and hearing it in a
+         different voice would read as a different speaker interrupting. The
+         click already hushed the props, so it has the room to itself. -->
     {#each copied as note (note.id)}
         <div
             class="copied"
             style:left="{note.x}px"
             style:top="{note.y}px"
             style:--lean="{note.tilt}deg"
-            use:typed={{ strong: "Copied!" }}
-        >Copied! Now paste it into ChatGPT — or any AI agent in your browser — and the show begins.</div>
+            use:said={{ strong: "Copied!", voice: COPIED_VOICE }}
+        >{COPIED_NOTE}</div>
     {/each}
 
     <!-- The auditorium: vignette, title card, credits. Nothing while the
@@ -1239,16 +1327,15 @@
            side to side like a windscreen wiper. */
         transform-origin: 50% calc(100% + 0.4em);
         /*
-         * Two motions on separate clocks. The pop is the entrance, once, in
-         * queue order. The swing is idle life: rest tilted one way, cross to
-         * the other side in under a second, rest again — mostly stillness,
-         * because a bubble that never stops moving reads as a loading
-         * indicator. Cycle length and phase are per bubble, so no two agree.
+         * Nothing until it is spoken.
+         *
+         * The bubble is in the document from the first frame — it has to be,
+         * or it would lay itself out and pop in the same frame and pop at the
+         * wrong size — but it is not visible and it is not animating. The
+         * `said` action flips the attribute when the prompter reaches this
+         * line, which is what starts both motions below.
          */
-        animation:
-            bubble-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
-            bubble-swing var(--swing-cycle, 8s) ease-in-out infinite;
-        animation-delay: var(--pop-at, 0ms), var(--swing-at, 0s);
+        opacity: 0;
         width: max-content;
         max-width: min(260px, 56vw);
         padding: 0.5em 0.8em;
@@ -1260,6 +1347,21 @@
         line-height: 1.45;
         text-align: center;
         text-wrap: pretty;
+    }
+
+    /*
+     * Two motions on separate clocks, both started by being spoken. The pop is
+     * the entrance, once. The swing is idle life: rest tilted one way, cross to
+     * the other side in under a second, rest again — mostly stillness, because
+     * a bubble that never stops moving reads as a loading indicator. Cycle
+     * length and phase are per bubble, so no two ever agree.
+     */
+    .strewn__bubble[data-said="said"] {
+        opacity: 1;
+        animation:
+            bubble-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+            bubble-swing var(--swing-cycle, 8s) ease-in-out infinite;
+        animation-delay: 0ms, var(--swing-at, 0s);
     }
 
     .strewn__bubble::after {

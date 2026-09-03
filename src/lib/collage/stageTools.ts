@@ -12,7 +12,10 @@
  */
 import { MOVES, plan as planScene, type Beat } from "./perform.js";
 import { creditsFor } from "./billboard.js";
+import { linesOf, spokenBy } from "./show.js";
 import { findSound, soundCatalogue, soundNames } from "./audio.js";
+import { findVoice, voiceCatalogue, voiceNames } from "./voice.js";
+import { prompter } from "./speech.js";
 import { ENTRANCES, PLANES, type Placement, type Stage } from "./stage.js";
 import type { Layer } from "./model.js";
 import type { CollageStudio } from "./studio.js";
@@ -172,7 +175,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
         return `${name} ${at}` +
             `${placement.flip ? " (flipped)" : ""}` +
             `${placement.plane && placement.plane !== "mid" ? ` [${placement.plane}]` : ""}` +
-            `${placement.entrance ? ` (enters ${placement.entrance})` : ""}`;
+            `${placement.entrance ? ` (enters ${placement.entrance})` : ""}` +
+            // Said either way. "Silent" is the more useful half: a part whose
+            // lines only ever appear in a bubble is the thing an agent needs
+            // told, and it is invisible in every other reply.
+            `${placement.voice ? ` (voice ${placement.voice})` : " (silent)"}`;
     };
 
     /** Does any of this placement land on the backdrop at all? */
@@ -358,7 +365,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 }
 
                 const hold = bool(args?.hold, false);
-                const { timings, duration } = studio.playShow(
+                // Awaited: the lines are synthesised before the timetable is
+                // worked out, because a spoken line's length is not knowable
+                // until it has been spoken. Usually instant — stage_script
+                // learned them when it was written.
+                const { timings, duration } = await studio.playShow(
                     wanted.length ? wanted : undefined, { hold });
                 if (!timings.length) return fail(`Nothing to play.`);
 
@@ -572,7 +583,22 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         `what there is.`);
                 }
 
-                const { plan, problems } = planScene(beats);
+                /*
+                 * Learn the lines before timing them.
+                 *
+                 * The scene about to be written is the scene most likely to be
+                 * heard next — rehearsed on this very call, or played moments
+                 * later — so this is the earliest honest moment to synthesise
+                 * it, and doing it here means show_play finds everything ready.
+                 *
+                 * Awaited, because the timeline in the reply is the thing the
+                 * agent narrates from and a timeline of reading times for lines
+                 * that will be spoken is a timeline that will not be kept.
+                 */
+                const scripted: Stage = { ...stage, script: beats };
+                await prompter.expect(linesOf(scripted));
+
+                const { plan, problems } = planScene(beats, spokenBy(scripted, prompter.voices));
                 if (problems.length) {
                     return fail(["The scene has problems:", ...problems.map(
                         p => (p.index >= 0 ? `beat ${p.index + 1}: ${p.reason}` : p.reason))].join("\n"));
@@ -849,6 +875,17 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "goes in the credits at the end as \"grandmother — played by …\", " +
                                         "so cast everybody who should be thanked.",
                                 },
+                                voice: {
+                                    type: "string",
+                                    enum: voiceNames(),
+                                    description:
+                                        "Which voice speaks this part's lines aloud, in the page itself. " +
+                                        "Leave it out and the part is silent — its lines still appear in " +
+                                        "a bubble. GIVE DIFFERENT PARTS DIFFERENT VOICES: a whole cast on " +
+                                        "one voice is a table read, not a play. Pick by what the part is, " +
+                                        "not by what is first in the list:\n" +
+                                        voiceCatalogue().map(line => `  ${line}`).join("\n"),
+                                },
                             },
                             required: ["id"],
                         },
@@ -952,6 +989,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             : previous?.entrance ? { entrance: previous.entrance } : {}),
                         ...(str(member.as) ? { as: str(member.as) }
                             : previous?.as ? { as: previous.as } : {}),
+                        // An unknown voice name is dropped rather than stored.
+                        // Keeping it would mean a part that looks cast and is
+                        // silent, which is the hardest kind of wrong to notice.
+                        ...(findVoice(str(member.voice)) ? { voice: str(member.voice) }
+                            : previous?.voice ? { voice: previous.voice } : {}),
                         ...(member.plane && (PLANES as readonly string[]).includes(member.plane)
                             ? { plane: member.plane }
                             : previous?.plane ? { plane: previous.plane } : {}),
@@ -971,6 +1013,17 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 studio.save();
                 studio.record("page-changed",
                     `"${next.name}" now has ${next.cast.length} in it.`, "agent", { stage: next.id });
+
+                /*
+                 * Casting a voice is the first moment anybody says this play
+                 * intends to be heard, and it is minutes before the show — the
+                 * set still has to be built and the scene still has to be
+                 * written. So the model starts downloading now, on the one
+                 * signal that is both honest and early. Not awaited: nothing
+                 * here needs it, and eighty megabytes is not something a
+                 * casting call should block on.
+                 */
+                if (next.cast.some(member => member.voice)) prompter.voices.warm();
 
                 const floorNow = next.backdrop ? collage.get(next.backdrop) : null;
                 return ok(

@@ -34,6 +34,18 @@ export interface Stagehand {
     turn(id: string): void;
     /** Put a line above somebody, or take it away. */
     say(id: string, line: string | null, progress: number): void;
+    /**
+     * Say a line aloud and hold its bubble for as long as the saying takes.
+     *
+     * The player hands the whole line over rather than driving the bubble
+     * itself, because the clock a spoken line runs on is not the scene's — it
+     * belongs to the one queue that every bubble on the page shares, and only
+     * that queue knows whether somebody else is still talking. `ms` is the
+     * planned length, used when there is no voice for the line.
+     *
+     * Resolves when the line is finished or has been cut off.
+     */
+    voice(id: string, line: string, ms: number): Promise<void>;
     /** True once a layer has left, so it stays gone rather than snapping back. */
     setGone(id: string, gone: boolean): void;
     /** Make a noise. Fired as a beat begins, and not waited for. */
@@ -64,18 +76,6 @@ export interface Playing {
 }
 
 /**
- * Bubbles are typed in over the first part of their life, then held to be read.
- *
- * Most of it, so the words appear at something close to the speed they would
- * be spoken, with a beat at the end to finish reading. Typing faster than that
- * is a line that has arrived before the eye has got to it and then sits there
- * fully formed — which reads as a caption rather than as somebody talking.
- */
-const TYPING_SHARE = 0.72;
-/** How often a bubble redraws while typing. Smooth enough; not a frame loop. */
-const TYPING_TICK_MS = 40;
-
-/**
  * Play a plan.
  *
  * Stopping is honoured between beats and mid-beat: a scene that could only be
@@ -84,16 +84,10 @@ const TYPING_TICK_MS = 40;
  */
 export function play(plan: Plan, hand: Stagehand): Playing {
     let stopped = false;
-    // Sets, not single slots. One animation and one typing timer was enough
-    // when strictly one thing happened at a time; a `with` group runs several
-    // at once, and a single slot meant stop() could only cancel the last.
+    // A set, not a single slot. One animation was enough when strictly one
+    // thing happened at a time; a `with` group runs several at once, and a
+    // single slot meant stop() could only cancel the last.
     const animations = new Set<Animation>();
-    const typings = new Set<ReturnType<typeof setInterval>>();
-
-    const clear = () => {
-        for (const timer of typings) clearInterval(timer);
-        typings.clear();
-    };
 
     // Taken off stage before the first beat, and put back by their own
     // entrance. Done synchronously, before anything is awaited, so there is not
@@ -111,7 +105,6 @@ export function play(plan: Plan, hand: Stagehand): Playing {
             }
             await Promise.all(group.map(beat => playBeat(beat)));
         }
-        clear();
     })();
 
     async function playBeat(beat: PlannedBeat): Promise<void> {
@@ -188,26 +181,16 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         if (!stopped && beat.move === "exit") hand.setGone(beat.id, true);
     }
 
+    /**
+     * Hand the line to the prompter and wait for it to be finished with.
+     *
+     * Nothing here about typing or timing any more. A line that took its length
+     * from the beat could be revealed while the previous character's voice was
+     * still going — the plan sequences beats, but only the prompter sequences
+     * *sound*, and two `with` beats are simultaneous by design.
+     */
     async function speak(beat: PlannedBeat): Promise<void> {
-        const line = beat.say!;
-        const started = performance.now();
-        hand.say(beat.id, line, 0);
-        // A timer rather than an animation: the bubble is text being revealed,
-        // not a transform, so there is nothing for the compositor to do.
-        await new Promise<void>(resolve => {
-            const timer = setInterval(() => {
-                const elapsed = performance.now() - started;
-                if (stopped || elapsed >= beat.duration) {
-                    clearInterval(timer);
-                    typings.delete(timer);
-                    resolve();
-                    return;
-                }
-                hand.say(beat.id, line, Math.min(1, elapsed / beat.duration / TYPING_SHARE));
-            }, TYPING_TICK_MS);
-            typings.add(timer);
-        });
-        hand.say(beat.id, null, 0);
+        await hand.voice(beat.id, beat.say!, beat.duration);
     }
 
     function wait(ms: number): Promise<void> {
@@ -229,9 +212,11 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         finished,
         stop() {
             stopped = true;
-            clear();
             for (const animation of [...animations]) animation.cancel();
             animations.clear();
+            // Anything still being said is NOT cancelled here, because the
+            // prompter is not the scene's to cancel — the page shares it.
+            // Whoever stops the scene hushes it, in the same breath.
         },
     };
 }
