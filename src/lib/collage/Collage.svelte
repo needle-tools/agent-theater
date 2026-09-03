@@ -31,6 +31,7 @@
     import { MENU_MUSIC_LEVEL, takeNames } from "$lib/collage/audio";
     import { beginAgentActivity, completeAgentActivity } from "$lib/room/activity";
     import { canEditPlay, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
+    import { briefing } from "$lib/collage/invitation";
     import SubtitleVoiceMenu from "$lib/subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "$lib/subtitleVoice";
 
@@ -363,6 +364,8 @@
      */
     const PAGE_LINES: Array<{
         say: string; voice: SubtitleVoice; titleCard?: boolean; band: number; aside: boolean;
+        /** Clicking this one copies the briefing. See `copyBriefing`. */
+        copies?: boolean;
     }> = [
         { say: "Agent Theater", voice: { speed: 0.8, age: 0.72, tone: 0.32 }, titleCard: true, band: 25, aside: true },
         {
@@ -370,13 +373,32 @@
             // both breathe after . — ! ? — so short sentences pace themselves.
             say: "Arrange us however you like, then ask ChatGPT for a play — " +
                 "it reads the stage. Have fun!",
-            voice: { speed: 1, age: 0.5, tone: 0.58 }, band: 47, aside: true,
+            voice: { speed: 1, age: 0.5, tone: 0.58 }, band: 47, aside: true, copies: true,
         },
         {
             say: "Drag me somewhere! The piles down there deal more of us.",
             voice: { speed: 1.15, age: 0.18, tone: 0.7 }, band: 78, aside: false,
         },
     ];
+
+    /**
+     * The bubble that mentions ChatGPT hands the prompt over when it is clicked.
+     *
+     * It is the one place on the page that names the next step, so it should
+     * be able to take it. The bubble then says what happened — remounted with
+     * the new line, since `said` types what it finds at mount, and keyed on
+     * the text so only this bubble comes back rather than the prop under it.
+     */
+    async function copyBriefing(key: string) {
+        let line = "Copied! Paste it into the ChatGPT app and we'll take it from there.";
+        try {
+            await navigator.clipboard.writeText(briefing(location.origin));
+        } catch {
+            line = "The clipboard said no — the ? in the corner has the prompt too.";
+        }
+        scatter = scatter.map(prop =>
+            (prop.key === key ? { ...prop, say: line, copied: true } : prop));
+    }
 
     let pageEl: HTMLDivElement | null = $state(null);
 
@@ -416,6 +438,10 @@
         swingAt?: number;
         /** The bubble that is the page title rather than an explanation. */
         titleCard?: boolean;
+        /** This bubble is a button: clicking it copies the starting prompt. */
+        copies?: boolean;
+        /** It has been clicked, and is now saying so. */
+        copied?: boolean;
         /** height / width, measured on load — the bubble anchor scales with it. */
         aspect?: number;
         /** ms before this prop makes its entrance. */
@@ -827,6 +853,7 @@
                 sayVoice: line.voice,
                 sayOrder: which,
                 ...(line.titleCard ? { titleCard: true } : {}),
+                ...(line.copies ? { copies: true } : {}),
                 sayTilt: (Math.random() - 0.5) * (line.titleCard ? 6 : 8),
                 // Each bubble swings on its own slow clock: the cycle length
                 // sets both how long it rests on a side (~40% of it) and how
@@ -1187,10 +1214,24 @@
              the queue decides the rest — one line at a time, because two of
              them at once is a noise rather than a page. -->
         <div class="strewn-bubbles" class:strewn--away={!empty}>
-            {#each scatter.filter(prop => prop.say) as prop (prop.key)}
-                <div
+            <!-- Keyed on the line as well as the prop: the copy bubble swaps
+                 its text for a confirmation, and `said` types whatever it finds
+                 at mount — so the bubble has to come back, while the prop
+                 underneath it stays exactly where it is. -->
+            {#each scatter.filter(prop => prop.say) as prop (`${prop.key}|${prop.say}`)}
+                <svelte:element
+                    this={prop.copies ? "button" : "div"}
+                    {...prop.copies ? { type: "button" } : {}}
                     class="strewn__bubble"
                     class:strewn__bubble--title={prop.titleCard}
+                    class:strewn__bubble--copy={prop.copies}
+                    onclick={prop.copies ? () => copyBriefing(prop.key) : undefined}
+                    {...prop.copies ? { "data-hint-click-feedback": "" } : {}}
+                    use:hint={prop.copies
+                        ? (prop.copied
+                            ? "Copied. Paste it into the ChatGPT app."
+                            : "Click to copy the starting prompt, then paste it into the ChatGPT app.")
+                        : ""}
                     style:left="{prop.x}%"
                     style:top="{prop.y}%"
                     style:--rise="calc(max(72px, {prop.size}vmin) * {(prop.aspect ?? 1) / 2} + 14px)"
@@ -1199,13 +1240,15 @@
                     style:--swing-at="-{prop.swingAt ?? 0}s"
                     use:said={{
                         voice: prop.sayVoice,
-                        after: (prop.enterAt ?? 0) + 500 + (prop.sayOrder ?? 0) * 700,
+                        // An answer to a click waits for nothing; the page's
+                        // own lines still arrive one after another.
+                        after: prop.copied ? 0 : (prop.enterAt ?? 0) + 500 + (prop.sayOrder ?? 0) * 700,
                         replay: true,
                     }}
                 >
                     {prop.say}
                     <SubtitleVoiceMenu text={prop.say ?? ""} voiceKey={prop.id} />
-                </div>
+                </svelte:element>
             {/each}
         </div>
     {/if}
@@ -1403,6 +1446,9 @@
 
     .strewn--away {
         opacity: 0;
+        /* Gone means gone: the copy bubble is the one thing here that takes a
+           click, and an invisible button is still a button. */
+        pointer-events: none;
     }
 
     .strewn__prop {
@@ -1568,6 +1614,39 @@
         0%, 100% { --paint-frame: 0; }
         33.333% { --paint-frame: 1; }
         66.666% { --paint-frame: 2; }
+    }
+
+    /*
+     * The one bubble you can press. A button, so it is reachable by keyboard
+     * and says what it does; everything a button brings with it is turned off,
+     * because it has to stay a speech bubble.
+     */
+    .strewn__bubble--copy {
+        pointer-events: auto;
+        font: inherit;
+        cursor: var(--cursor-pointer, pointer);
+        appearance: none;
+        -webkit-appearance: none;
+        transition: scale 0.16s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .strewn__bubble--copy:hover {
+        scale: 1.03;
+    }
+
+    .strewn__bubble--copy:active {
+        scale: 0.98;
+    }
+
+    .strewn__bubble--copy:focus-visible {
+        outline: 2px solid var(--text-primary);
+        outline-offset: 3px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .strewn__bubble--copy {
+            transition-duration: 0.01ms;
+        }
     }
 
     .strewn__bubble::after {
