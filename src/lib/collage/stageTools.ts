@@ -21,6 +21,7 @@ import { isSubtitleVoice, normalizeSubtitleVoice, type SubtitleVoice } from "../
 import { ENTRANCES, PLANES, type Placement, type Stage } from "./stage.js";
 import type { Layer } from "./model.js";
 import { actorForLayer, autoVoiceFor, voiceForActor } from "./characterVoice.js";
+import { clearSpot } from "./placement.js";
 import type { CollageStudio } from "./studio.js";
 import type { ToolResult, WebMcpToolDef } from "./tools.js";
 
@@ -898,7 +899,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "move anybody: the canvas is one continuous world, every piece stands exactly where it " +
                 "stands, and the arrangement on the paper IS the blocking. Pass x/y/width only to also " +
                 "move or resize the piece in the world (same units piece_list reports); leave them out to " +
-                "cast things right where they are. Give each an \"as\" — who they are playing — and they " +
+                "cast things right where they are. When you do place, leave AIR between pieces — at " +
+                "least a piece's own width apart; a piece set on top of another is nudged aside to " +
+                "clear paper. Give each an \"as\" — who they are playing — and they " +
                 "are credited by name at the end. Someone left out of a chapter is not deleted, only " +
                 "absent from its story.",
             inputSchema: {
@@ -1053,6 +1056,40 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     else cast.push(placement);
                 }
 
+                /*
+                 * Agents place by coordinates they cannot feel the size of,
+                 * and the result — often — is a scene stacked like a plate of
+                 * leftovers: the bench on the tent, the gong on the crow.
+                 * Any piece whose x/y THIS call set and whose centre landed
+                 * in another piece's lap is walked to the nearest clear
+                 * paper. Light overlaps are left alone: a lantern by a hand
+                 * or a hat near a head is composition, not a pile.
+                 */
+                const placed = wanted.filter(m => num(m?.x) || num(m?.y)).map(m => str(m.id));
+                const nudged: string[] = [];
+                for (const id of placed) {
+                    const layer = collage.own(id);
+                    if (!layer || layer.held) continue;
+                    const girth = Math.min(layer.width, layer.height);
+                    const cx = layer.x + layer.width / 2;
+                    const cy = layer.y + layer.height / 2;
+                    const others = collage.listAll().filter(other =>
+                        other.id !== id && !(other.held?.by === id) && !(layer.held?.by === other.id));
+                    const crowded = others.some(other => {
+                        const otherGirth = Math.min(other.width, other.height);
+                        return Math.hypot(other.x + other.width / 2 - cx, other.y + other.height / 2 - cy)
+                            < (girth + otherGirth) / 2 * 0.55;
+                    });
+                    if (!crowded) continue;
+                    const spot = clearSpot(others, { x: cx, y: cy }, girth);
+                    if (spot.x === cx && spot.y === cy) continue;
+                    collage.update(id, {
+                        x: spot.x - layer.width / 2,
+                        y: spot.y - layer.height / 2,
+                    });
+                    nudged.push(layer.label);
+                }
+
                 const next = collage.updateStage(stage.id, { cast })!;
                 studio.save();
                 studio.record("page-changed",
@@ -1062,6 +1099,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     `"${next.name}": ` +
                     `${next.cast.map(m => describeMember(m)).join("; ")}` +
                     `${dropped.size ? `, ${dropped.size} taken out` : ""}. ` +
+                    (nudged.length
+                        ? `NOTE: ${nudged.map(label => `"${label}"`).join(", ")} landed on top of ` +
+                          `other pieces and ${nudged.length === 1 ? "was" : "were"} nudged to clear ` +
+                          `paper — leave more room between placements; a scene needs air. `
+                        : "") +
                     (collage.activeStageId === next.id
                         ? `It is the chapter on screen — look with show_look.`
                         : `Show it with stage_describe show:"${next.id}".`),

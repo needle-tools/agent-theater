@@ -550,8 +550,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     !layers.length
                         ? `NEXT: there is nothing to stage. Look at theater_troupe, then PITCH the ` +
                           `person 1–3 stories you could stage with what is in the drawer — one line ` +
-                          `each, naming the pack. If you can generate images, one pitch may go beyond ` +
-                          `the packs. Build only after they have picked.`
+                          `each, naming the pack. Classics are welcome pitches too: a Grimm or ` +
+                          `Andersen fairy tale or a folk tale retold with the pieces at hand. If you ` +
+                          `can generate images, one pitch may go beyond the packs. Build only after ` +
+                          `they have picked.`
                     : !stages.length
                         ? `NEXT: there are pieces but no scenes — and the pieces may BE the brief. The ` +
                           `person can arrange stickers on the canvas themselves, and an arrangement is a ` +

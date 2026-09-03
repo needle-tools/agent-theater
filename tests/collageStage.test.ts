@@ -340,13 +340,22 @@ describe("sound", () => {
         // the library is being replaced.
         expect(soundNames("bed").length).toBeGreaterThan(0);
         expect(soundNames("cue", "sfx").length).toBeGreaterThan(3);
-        // The number is a proxy for the split, not a rule about length, and it
-        // has moved twice as the library grew: a chase bed is deliberately
-        // short so it comes round often, and a music box winding down runs
-        // twenty seconds without ever being something to play a scene under.
-        // Twenty-five sits in the gap between the longest cue and the shortest
-        // bed. What matters is that a bed loops and a cue finishes.
-        for (const id of soundNames("bed")) expect(findSound(id)!.seconds).toBeGreaterThan(25);
+        /*
+         * Length does NOT tell them apart, and this used to pretend it did.
+         *
+         * The threshold moved three times as the library grew, which is what a
+         * wrong proxy does. A music box winding down runs twenty seconds and
+         * is a cue: it fires once and finishes. A hurdy-gurdy drone runs
+         * sixteen and is a bed: it plays under a scene for as long as the
+         * scene lasts. The same twenty seconds, opposite roles — because the
+         * difference is what the sound DOES, which is what `role` records and
+         * what the speaker branches on.
+         *
+         * So the bounds are only wide sanity rails: a two-second bed or a
+         * minute-long sting would be a mistake in the manifest, and anything
+         * between is a judgement the manifest is entitled to make.
+         */
+        for (const id of soundNames("bed")) expect(findSound(id)!.seconds).toBeGreaterThan(10);
         for (const id of soundNames("cue", "sfx")) expect(findSound(id)!.seconds).toBeLessThan(25);
     });
 

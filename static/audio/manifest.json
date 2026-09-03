@@ -108,6 +108,40 @@
 			"mood": ["dark", "tense", "hovering"],
 			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The only one that came back at the full length asked for, and the quietest through the middle. Fades to silence at the end, so it wants `fade` rather than `loop`."
 		},
+		"skeleton-steps": {
+			"role": "bed",
+			"file": "/audio/music/skeleton-steps.opus",
+			"seconds": 30.01,
+			"mood": ["bony", "sparse", "dry"],
+			"description": "Strings struck with the wood of the bow — sharp dry taps with silence between them. Bones walking, a clock in an empty house, something approaching one step at a time. Its average level is the lowest of any bed by ten decibels, but that is the silence between the taps: the taps themselves peak as loud as anything here, so it does not want turning up. One of the few beds that does not fade at the end."
+		},
+		"hurdy-drone-1": {
+			"role": "bed",
+			"file": "/audio/music/hurdy-drone-1.opus",
+			"seconds": 20.01,
+			"bpm": 60,
+			"take": "hurdy-drone",
+			"mood": ["medieval", "hypnotic", "rustic"],
+			"description": "A solo hurdy-gurdy droning open fifths over a slow rotary groove. Older and stranger than anything else here — for a village fair, a road, a tale told before the others were written. Fades at the end, so it wants `fade` rather than `loop`."
+		},
+		"hurdy-drone-2": {
+			"role": "bed",
+			"file": "/audio/music/hurdy-drone-2.opus",
+			"seconds": 20.01,
+			"bpm": 60,
+			"take": "hurdy-drone",
+			"mood": ["medieval", "hypnotic", "rustic"],
+			"description": "A solo hurdy-gurdy droning open fifths over a slow rotary groove. Starts very quietly and grows, so it opens a scene better than it joins one. Fades at the end."
+		},
+		"hurdy-drone-3": {
+			"role": "bed",
+			"file": "/audio/music/hurdy-drone-3.opus",
+			"seconds": 15.97,
+			"bpm": 60,
+			"take": "hurdy-drone",
+			"mood": ["medieval", "hypnotic", "rustic"],
+			"description": "A solo hurdy-gurdy droning open fifths over a slow rotary groove. The shortest and steadiest of the three, and the one that came in already at level."
+		},
 		"chase-comic-1": {
 			"role": "bed",
 			"file": "/audio/music/chase-comic-1.opus",
