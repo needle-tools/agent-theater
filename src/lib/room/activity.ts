@@ -11,14 +11,34 @@ export interface AgentActivity {
     tool: string;
     args?: unknown;
     at: number;
+    phase: "thinking" | "working";
+    id: number;
 }
 
 const callbacks = new Set<(activity: AgentActivity) => void>();
 let last: AgentActivity | null = null;
+let sequence = 0;
+
+function send(activity: AgentActivity): void {
+    last = activity;
+    for (const callback of [...callbacks]) callback(last);
+}
 
 export function notifyAgentActivity(tool: string, args?: unknown) {
-    last = { tool, args, at: Date.now() };
-    for (const callback of [...callbacks]) callback(last);
+    send({ tool, args, at: Date.now(), phase: "working", id: ++sequence });
+}
+
+/** Mark the time between an agent choosing a tool and its result arriving. */
+export function beginAgentActivity(tool: string, args?: unknown): number {
+    const id = ++sequence;
+    send({ tool, args, at: Date.now(), phase: "thinking", id });
+    return id;
+}
+
+export function completeAgentActivity(id: number, tool: string, args?: unknown): void {
+    // A newer overlapping call owns the avatar now.
+    if (last && last.id !== id) return;
+    send({ tool, args, at: Date.now(), phase: "working", id });
 }
 
 /** Fires immediately with the most recent activity, if an agent already acted. */

@@ -9,6 +9,7 @@ import { createAllCollageTools, createCollageTools, type WebMcpToolDef } from ".
 import type { LoadedImage } from "../src/lib/collage/imaging.js";
 import type { Plan } from "../src/lib/collage/perform.js";
 import { SILENT } from "../src/lib/collage/audio.js";
+import { onAgentAvatarSheet, setAgentAvatarSheet } from "../src/lib/collage/agentAvatar.js";
 
 /**
  * The tools are the agent's whole surface onto the collage, so what is tested
@@ -774,7 +775,7 @@ describe("the surface an agent actually sees", () => {
             "show_list", "show_load", "show_look", "show_play", "show_publish", "show_save",
             "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",
-            "theater_art_prompt", "theater_batch", "theater_clear", "theater_start",
+            "theater_art_prompt", "theater_avatar", "theater_batch", "theater_clear", "theater_start",
         ]);
     });
 
@@ -798,6 +799,30 @@ describe("the surface an agent actually sees", () => {
     });
 });
 
+describe("the floating agent's selected pet", () => {
+    it("accepts exact local bytes and refuses URLs the page would fetch remotely", async () => {
+        const { studio } = fakeStudio();
+        const avatar = createCollageTools(studio).find(t => t.name === "theater_avatar")!;
+        const seen: Array<string | null> = [];
+        const off = onAgentAvatarSheet(sheet => seen.push(sheet?.name ?? null));
+
+        const remote = await avatar.execute({ url: "https://example.test/seedy.webp", name: "Seedy" });
+        expect(remote.isError).toBe(true);
+        expect(textOf(remote)).toContain("local pet sheet");
+
+        const local = await avatar.execute({
+            url: "data:image/webp;base64,UklGRg==",
+            name: "Seedy",
+        });
+        expect(local.isError).toBeFalsy();
+        expect(local.structuredContent).toMatchObject({ name: "Seedy", columns: 8, rows: 11 });
+        expect(seen.at(-1)).toBe("Seedy");
+
+        off();
+        setAgentAvatarSheet(null);
+    });
+});
+
 describe("the guide", () => {
     /**
      * The failure this exists to catch is not a crash. It is an agent reading
@@ -814,6 +839,15 @@ describe("the guide", () => {
             data: result.structuredContent as any,
         };
     };
+
+    it("offers the actual selected Codex pet only when its local sheet is readable", async () => {
+        const { studio } = fakeStudio();
+        const { text } = await guideOf(studio);
+        expect(text).toContain("ACTUAL selected Codex pet");
+        expect(text).toContain("selected-avatar-id");
+        expect(text).toContain("data:image/webp;base64");
+        expect(text).toMatch(/leave the\s+fallback avatar alone/);
+    });
 
     it("sends an empty canvas to the artwork, not to the scenes", async () => {
         const { studio } = fakeStudio();

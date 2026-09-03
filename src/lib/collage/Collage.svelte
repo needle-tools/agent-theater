@@ -30,7 +30,7 @@
     import { TROUPE } from "$lib/collage/troupe";
     import { idleSet } from "$lib/collage/idleSet";
     import { takeNames } from "$lib/collage/audio";
-    import { notifyAgentActivity } from "$lib/room/activity";
+    import { beginAgentActivity, completeAgentActivity } from "$lib/room/activity";
     import { canEditPlay, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
     import SubtitleVoiceMenu from "$lib/subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "$lib/subtitleVoice";
@@ -226,9 +226,13 @@
         // visible, and that should not be fourteen call sites.
         await registerTools(createCollageTools(studio).map(tool => ({
             ...tool,
-            execute: (args: unknown, options?: { signal?: AbortSignal }) => {
-                notifyAgentActivity(tool.name, args);
-                return tool.execute(args, options);
+            execute: async (args: unknown, options?: { signal?: AbortSignal }) => {
+                const activity = beginAgentActivity(tool.name, args);
+                try {
+                    return await tool.execute(args, options);
+                } finally {
+                    completeAgentActivity(activity, tool.name, args);
+                }
             },
         })));
     });
