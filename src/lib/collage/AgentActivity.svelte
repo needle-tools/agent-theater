@@ -138,6 +138,7 @@
         if (!sheet) return;
         frameRow = Math.max(0, sheet.rows - 5);
         frameColumn = 0;
+        if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
         const count = Math.min(6, sheet.columns);
         frameTimer = setInterval(() => {
             frameColumn = (frameColumn + 1) % count;
@@ -150,6 +151,13 @@
         const step = Math.max(0, Math.min(15, index));
         frameRow = sheet.rows - (step < 8 ? 2 : 1);
         frameColumn = step < 8 ? step : 15 - step;
+    }
+
+    function lookAtPointer(event: PointerEvent) {
+        if (!visible || phase === "thinking" || !sheet) return;
+        if (event.pointerType && event.pointerType !== "mouse") return;
+        const angle = Math.atan2(event.clientY - y, event.clientX - x);
+        lookingFrame(Math.round(((angle + Math.PI) / (Math.PI * 2)) * 15) % 16);
     }
 
     function show(activity: AgentActivity) {
@@ -207,6 +215,8 @@
         };
     });
 </script>
+
+<svelte:window onpointermove={lookAtPointer} />
 
 <div
     class="agent"

@@ -13,11 +13,18 @@ export interface AgentAvatarSheet {
     rows: number;
 }
 
+export const DEFAULT_AGENT_AVATAR_SHEET: Readonly<AgentAvatarSheet> = Object.freeze({
+    src: "/pets/codex-spritesheet.webp",
+    name: "Codey",
+    columns: 8,
+    rows: 11,
+});
+
 const listeners = new Set<(sheet: AgentAvatarSheet | null) => void>();
-let selected: AgentAvatarSheet | null = null;
+let selected: AgentAvatarSheet = DEFAULT_AGENT_AVATAR_SHEET;
 
 export function setAgentAvatarSheet(sheet: AgentAvatarSheet | null): void {
-    selected = sheet;
+    selected = sheet ?? DEFAULT_AGENT_AVATAR_SHEET;
     for (const listener of [...listeners]) listener(selected);
 }
 

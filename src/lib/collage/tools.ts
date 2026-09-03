@@ -556,8 +556,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  bytes, base64-encode them as a data:image/webp;base64 URL, and pass the whole`,
                     `  spritesheet unchanged. A local path or HTTPS URL will not work here.`,
                     `  For example, selected-avatar-id = "seedy" means use Seedy's spritesheet, even if`,
-                    `  Clippy or another pet is also installed. If you cannot read those paths, leave the`,
-                    `  fallback avatar alone; this is optional and must not hold up the play.`,
+                    `  Clippy or another pet is also installed. If you cannot read those paths, leave`,
+                    `  Codey, the bundled default, alone; this is optional and must not hold up the play.`,
                     ``,
                     `THE ONE THING TO GET RIGHT`,
                     `  A set is BUILT, not painted. Do not ask an image model for "a forest" and use what`,
@@ -677,22 +677,30 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             description:
                 "Set the floating agent to the user's actual selected Codex pet spritesheet. Call only " +
                 "when local permissions let you discover and read that selected pet; pass the unchanged " +
-                "local bytes as a data:image URL. The standard Codex pet grid is 8 columns by 11 rows.",
+                "local bytes as a data:image URL. Pass url 'default' to use bundled Codey. The standard " +
+                "Codex pet grid is 8 columns by 11 rows.",
             inputSchema: {
                 type: "object",
                 properties: {
-                    url: { type: "string", description: "The complete local pet spritesheet as a base64 data:image URL." },
-                    name: { type: "string", description: "The selected pet's display name." },
+                    url: { type: "string", description: "The complete local pet sheet as a base64 data:image URL, or 'default'." },
+                    name: { type: "string", description: "The selected pet's display name. Omit when url is 'default'." },
                     columns: { type: "number", description: "Sheet columns; standard Codex pets use 8." },
                     rows: { type: "number", description: "Sheet rows; standard Codex pets use 11." },
                 },
-                required: ["url", "name"],
+                required: ["url"],
             },
             async execute(args: { url?: string; name?: string; columns?: number; rows?: number }) {
                 const url = str(args?.url);
                 const name = str(args?.name);
+                if (url.toLowerCase() === "default") {
+                    setAgentAvatarSheet(null);
+                    return ok(
+                        `Codey is now the floating agent. The bundled default spritesheet is active.`,
+                        { name: "Codey", columns: 8, rows: 11, default: true },
+                    );
+                }
                 if (!/^data:image\/[a-z0-9.+-]+;base64,/i.test(url)) {
-                    return fail(`Read the selected local pet sheet and pass its bytes as a base64 data:image URL.`);
+                    return fail(`Pass "default", or read the selected local pet sheet and pass its bytes as a base64 data:image URL.`);
                 }
                 if (!name) return fail(`Pass the selected pet's name.`);
                 const columns = num(args?.columns) ? Math.round(args.columns) : 8;

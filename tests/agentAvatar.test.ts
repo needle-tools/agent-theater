@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
     avatarFrame,
+    DEFAULT_AGENT_AVATAR_SHEET,
     onAgentAvatarSheet,
     setAgentAvatarSheet,
     type AgentAvatarSheet,
@@ -27,6 +28,15 @@ describe("agent pet spritesheets", () => {
         };
         setAgentAvatarSheet(seedy);
         off();
-        expect(seen).toEqual([null, seedy]);
+        expect(seen).toEqual([DEFAULT_AGENT_AVATAR_SHEET, seedy]);
+    });
+
+    it("restores bundled Codey when the outside provides no pet", () => {
+        setAgentAvatarSheet({ src: "data:image/webp;base64,eA==", name: "Other", columns: 8, rows: 11 });
+        const seen: Array<AgentAvatarSheet | null> = [];
+        const off = onAgentAvatarSheet(sheet => seen.push(sheet));
+        setAgentAvatarSheet(null);
+        off();
+        expect(seen.at(-1)).toEqual(DEFAULT_AGENT_AVATAR_SHEET);
     });
 });

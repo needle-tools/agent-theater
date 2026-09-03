@@ -818,6 +818,11 @@ describe("the floating agent's selected pet", () => {
         expect(local.structuredContent).toMatchObject({ name: "Seedy", columns: 8, rows: 11 });
         expect(seen.at(-1)).toBe("Seedy");
 
+        const fallback = await avatar.execute({ url: "default" });
+        expect(fallback.isError).toBeFalsy();
+        expect(fallback.structuredContent).toMatchObject({ name: "Codey", default: true });
+        expect(seen.at(-1)).toBe("Codey");
+
         off();
         setAgentAvatarSheet(null);
     });
@@ -846,7 +851,7 @@ describe("the guide", () => {
         expect(text).toContain("ACTUAL selected Codex pet");
         expect(text).toContain("selected-avatar-id");
         expect(text).toContain("data:image/webp;base64");
-        expect(text).toMatch(/leave the\s+fallback avatar alone/);
+        expect(text).toContain("Codey, the bundled default");
     });
 
     it("sends an empty canvas to the artwork, not to the scenes", async () => {
