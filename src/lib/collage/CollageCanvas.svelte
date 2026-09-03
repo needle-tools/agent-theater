@@ -1986,7 +1986,11 @@
 
     .wings {
         position: absolute;
-        z-index: 6;
+        /* Above anything that can stand on a stage. Front-plane pieces sit at
+           z ≈ +100000, and at its old z of 6 the mask covered only the lowest
+           layers — a clock overhanging the stage stayed fully lit outside it.
+           Bubbles and the overlay still paint above this. */
+        z-index: 1000000;
         pointer-events: none;
         /* The same colour the viewport goes during a show, so the mask and the
            surround are one continuous darkness rather than two greys — and a

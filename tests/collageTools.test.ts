@@ -1165,3 +1165,53 @@ describe("the troupe drawer", () => {
         expect(studio.collage.listAll()).toHaveLength(0);
     });
 });
+
+describe("how big a cast member ends up", () => {
+    /**
+     * The bug this pins: stage_cast COMPUTED a stage-relative width for pieces
+     * cast without a size — and never stored it. Used for the feet math, then
+     * thrown away. Every piece cast from the troupe without an explicit size
+     * stood at its drawer arrival width, which is how a play got a floor lamp
+     * the size of a monument, with nobody having made an error anywhere.
+     */
+    const staged = () => {
+        const { studio, collage } = fakeStudio();
+        const floor = collage.addImage({
+            src: "sky", natural: { width: 1000, height: 500 }, width: 1000, x: 0, y: 0,
+        });
+        const stage = collage.addStage({ name: "the wood", backdrop: floor.id });
+        collage.setActiveStage(stage.id);
+        const cast = createCollageTools(studio).find(t => t.name === "stage_cast")!;
+        return { studio, collage, stage, cast };
+    };
+
+    it("stores the stage-relative default, not just the caller's number", async () => {
+        const { collage, stage, cast } = staged();
+        // 100 × 200 at drawer size; half the 500-tall stage is 250 tall → 125 wide.
+        const tree = collage.addImage({
+            src: "tree", natural: { width: 100, height: 200 }, width: 100, x: 0, y: 0,
+        });
+        await cast.execute({ stage: stage.id, cast: [{ id: tree.id, at: { x: 0.5, y: 0.9 } }] });
+        expect(collage.getStage(stage.id)!.cast[0].width).toBeCloseTo(125);
+    });
+
+    it("leaves a scene layer at stage width instead of shrinking it to a person", async () => {
+        // A midground slice is as wide as the stage by construction. Sized
+        // "like a person" it would become half a room floating in the room.
+        const { collage, stage, cast } = staged();
+        const slice = collage.addImage({
+            src: "mid", natural: { width: 1000, height: 500 }, width: 1000, x: 0, y: 0,
+        });
+        await cast.execute({ stage: stage.id, cast: [{ id: slice.id, plane: "front" }] });
+        expect(collage.getStage(stage.id)!.cast[0].width).toBeUndefined();
+    });
+
+    it("still honours an explicit size over the default", async () => {
+        const { collage, stage, cast } = staged();
+        const bug = collage.addImage({
+            src: "bug", natural: { width: 100, height: 100 }, width: 100, x: 0, y: 0,
+        });
+        await cast.execute({ stage: stage.id, cast: [{ id: bug.id, size: 0.1 }] });
+        expect(collage.getStage(stage.id)!.cast[0].width).toBeCloseTo(50);
+    });
+});

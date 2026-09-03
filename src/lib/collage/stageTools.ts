@@ -122,6 +122,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
         share: number | undefined,
     ): number | null => {
         if (!floor || layer.height <= 0) return null;
+        // A piece as wide as the stage is a scene layer — a midground or
+        // foreground slice — and slices keep the stage's width unless told
+        // otherwise: sized "like a person" they would shrink to half a room.
+        if (!num(share) && Math.abs(layer.width - floor.width) < 2) return null;
         const wanted = floor.height * (num(share) ? Math.max(0.02, Math.min(3, share!)) : 0.5);
         return (wanted / layer.height) * layer.width;
     };
@@ -926,9 +930,17 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         id,
                         x: num(member.x) ? member.x : spot?.x ?? previous?.x ?? layer.x,
                         y: num(member.y) ? member.y : spot?.y ?? previous?.y ?? layer.y,
-                        ...(num(member.width)
-                            ? { width: member.width }
-                            : previous?.width ? { width: previous.width } : {}),
+                        /*
+                         * The width that was actually computed — which may be
+                         * the stage-relative default. The first version stored
+                         * only what the CALLER passed, so the sizedToStage
+                         * default was computed, used to place the feet, and
+                         * then thrown away: every piece cast without an
+                         * explicit size stood at whatever width it arrived at.
+                         * A play staged entirely from the troupe had lamps the
+                         * size of monuments, and nobody had made an error.
+                         */
+                        ...(width !== layer.width ? { width } : {}),
                         ...(num(member.rotation)
                             ? { rotation: member.rotation }
                             : previous?.rotation !== undefined ? { rotation: previous.rotation } : {}),
@@ -1024,7 +1036,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         .filter(m => m.id !== stage.backdrop)
                         .filter(m => {
                             const where = relativeTo(m, floor);
-                            return where && where.feet < 0.6;
+                            return where && (where.feet < 0.6 || where.feet > 1.15);
                         })
                         .map(m => `${m.as || m.id} in "${stage.name}"`);
                 });
@@ -1038,9 +1050,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                               `an opening card and heads the credits.`,
                         ...lines,
                         ...(floating.length
-                            ? [`Standing in mid-air: ${floating.join(", ")} — their feet are in the top ` +
-                               `half of the backdrop. Unless they are meant to be flying or perched, ` +
-                               `give them an "at" with y around 0.9.`]
+                            ? [`Standing in mid-air or through the floor: ${floating.join(", ")} — ` +
+                               `their feet are in the top half of the backdrop, or below its bottom ` +
+                               `edge. Unless that is deliberate, give them an "at" with y around 0.9.`]
                             : []),
                         showing
                             ? `The canvas is showing "${collage.activeStage?.name}", so piece_list and ` +
