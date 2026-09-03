@@ -108,6 +108,78 @@
 			"mood": ["dark", "tense", "hovering"],
 			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The only one that came back at the full length asked for, and the quietest through the middle. Fades to silence at the end, so it wants `fade` rather than `loop`."
 		},
+		"shanty-sea-1": {
+			"role": "bed",
+			"file": "/audio/music/shanty-sea-1.opus",
+			"seconds": 30.01,
+			"bpm": 100,
+			"take": "shanty-sea",
+			"mood": ["salty", "rolling", "cheerful"],
+			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass. A crew, a deck, a voyage under way. Came in already at level."
+		},
+		"shanty-sea-2": {
+			"role": "bed",
+			"file": "/audio/music/shanty-sea-2.opus",
+			"seconds": 30.01,
+			"bpm": 100,
+			"take": "shanty-sea",
+			"mood": ["salty", "rolling", "cheerful"],
+			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass. A crew, a deck, a voyage under way."
+		},
+		"shanty-sea-3": {
+			"role": "bed",
+			"file": "/audio/music/shanty-sea-3.opus",
+			"seconds": 30.01,
+			"bpm": 100,
+			"take": "shanty-sea",
+			"mood": ["salty", "rolling", "cheerful"],
+			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass."
+		},
+		"shanty-sea-4": {
+			"role": "bed",
+			"file": "/audio/music/shanty-sea-4.opus",
+			"seconds": 30.01,
+			"bpm": 100,
+			"take": "shanty-sea",
+			"mood": ["salty", "rolling", "cheerful"],
+			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass."
+		},
+		"shanty-sea-5": {
+			"role": "bed",
+			"file": "/audio/music/shanty-sea-5.opus",
+			"seconds": 30.01,
+			"bpm": 100,
+			"take": "shanty-sea",
+			"mood": ["salty", "rolling", "cheerful"],
+			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass. The loudest take as generated, and turned down the most."
+		},
+		"western-wide-1": {
+			"role": "bed",
+			"file": "/audio/music/western-wide-1.opus",
+			"seconds": 26.36,
+			"bpm": 90,
+			"take": "western-wide",
+			"mood": ["sunbaked", "wide", "dusty"],
+			"description": "Twangy tremolo electric guitar, a lone whistled melody, sparse jaw harp and a distant trumpet. Open country and heat. The only electric instrument and only the second voice in the library, so it sits some way from the paper folk of everything else."
+		},
+		"western-wide-2": {
+			"role": "bed",
+			"file": "/audio/music/western-wide-2.opus",
+			"seconds": 26.36,
+			"bpm": 90,
+			"take": "western-wide",
+			"mood": ["sunbaked", "wide", "dusty"],
+			"description": "Twangy tremolo electric guitar, a lone whistled melody, sparse jaw harp and a distant trumpet. Open country and heat."
+		},
+		"western-wide-3": {
+			"role": "bed",
+			"file": "/audio/music/western-wide-3.opus",
+			"seconds": 26.58,
+			"bpm": 90,
+			"take": "western-wide",
+			"mood": ["sunbaked", "wide", "dusty"],
+			"description": "Twangy tremolo electric guitar, a lone whistled melody, sparse jaw harp and a distant trumpet. The quietest of the three and the easiest to narrate over."
+		},
 		"skeleton-steps": {
 			"role": "bed",
 			"file": "/audio/music/skeleton-steps.opus",
