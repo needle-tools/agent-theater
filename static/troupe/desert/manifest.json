@@ -1,6 +1,6 @@
 {
     "name": "desert",
-    "description": "What grows where there is no water: cacti, succulents and dry scrub. Drawn finely, closer to botanical illustration than to the flat torn-paper packs, so it sits with `stones-and-plants` rather than with `forest`. Two names appear in both packs — `agave` and `yucca` — and the descriptions say which drawing is which.",
+    "description": "What grows where there is no water: cacti, succulents and dry scrub. TWO HANDS IN ONE PACK, from two sheets, and they do not mix well in a single scene. The 25 with plant names — `saguaro`, `ocotillo`, `prickly-pear` and so on — are finely drawn, closer to botanical illustration. The 25 with shape names — `round-barrel`, `twin-column`, `paddle-cactus` — are flat torn paper, and those are the ones that sit with the rest of the troupe. Pick from one set or the other.",
     "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: desert plants — cacti, succulents, and the scrub that grows where there is no water. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
     "pieces": {
         "saguaro": {
@@ -214,6 +214,214 @@
             ],
             "description": "a mustard fountain of thin blades, radiating from the ground",
             "file": "desert-grass.webp"
+        },
+        "broad-agave": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a few broad blades in two greens, flat and simple",
+            "file": "broad-agave.webp"
+        },
+        "pointed-rosette": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a spray of narrow pointed blades",
+            "file": "pointed-rosette.webp"
+        },
+        "simple-yucca": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "blades around a cream flower spike",
+            "file": "simple-yucca.webp"
+        },
+        "three-leaf-aloe": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "three upright leaves, pale down the middle",
+            "file": "three-leaf-aloe.webp"
+        },
+        "star-cactus": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "five rounded arms from a centre, seen from above",
+            "file": "star-cactus.webp"
+        },
+        "round-barrel": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "bright"
+            ],
+            "description": "a mustard globe with pale ribs — the brightest piece here",
+            "file": "round-barrel.webp"
+        },
+        "one-arm-cactus": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a column with a single arm, the plainest cactus shape there is",
+            "file": "one-arm-cactus.webp"
+        },
+        "forked-cactus": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a column forking into two arms",
+            "file": "forked-cactus.webp"
+        },
+        "twin-column": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "two columns side by side, one taller",
+            "file": "twin-column.webp"
+        },
+        "leaning-column": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a single column leaning off vertical",
+            "file": "leaning-column.webp"
+        },
+        "paddle-cactus": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "four overlapping pads, no spines",
+            "file": "paddle-cactus.webp"
+        },
+        "three-pad-cactus": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "three round pads stacked",
+            "file": "three-pad-cactus.webp"
+        },
+        "fan-crest": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "odd"
+            ],
+            "description": "a scalloped fan, wider than it is tall",
+            "file": "fan-crest.webp"
+        },
+        "five-stem-ocotillo": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "five stems tipped with pink buds",
+            "file": "five-stem-ocotillo.webp"
+        },
+        "simple-joshua": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a forked brown trunk with two spiked crowns",
+            "file": "simple-joshua.webp"
+        },
+        "simple-jade": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "friendly"
+            ],
+            "description": "round leaves on a rust-coloured stem",
+            "file": "simple-jade.webp"
+        },
+        "bottle-succulent": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "storybook"
+            ],
+            "description": "a fat pale trunk under one pink flower",
+            "file": "bottle-succulent.webp"
+        },
+        "pink-rosette": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "gentle"
+            ],
+            "description": "a rosette of green and pink petals",
+            "file": "pink-rosette.webp"
+        },
+        "trailing-succulent": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a stem of small leaves, hanging rather than standing",
+            "file": "trailing-succulent.webp"
+        },
+        "four-leaf-sage": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "paired round leaves on an upright stem",
+            "file": "four-leaf-sage.webp"
+        },
+        "round-shrub": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "three overlapping circles, mustard and green — barely a plant, mostly a shape",
+            "file": "round-shrub.webp"
+        },
+        "flowering-mound": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "gentle"
+            ],
+            "description": "a low mound with three pink blooms",
+            "file": "flowering-mound.webp"
+        },
+        "flower-clump": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "gentle"
+            ],
+            "description": "three pink flowers over broad leaves",
+            "file": "flower-clump.webp"
+        },
+        "yellow-flower-bush": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "bright"
+            ],
+            "description": "a leafy clump with one mustard flower",
+            "file": "yellow-flower-bush.webp"
+        },
+        "grass-tuft": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a mustard fan of blades, the only grass in the soft set",
+            "file": "grass-tuft.webp"
         }
     }
 }

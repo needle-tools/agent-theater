@@ -102,8 +102,9 @@ The website is a [SvelteKit](https://svelte.dev/docs/kit) project on Vite 8, usi
 
 ```bash
 npm install
-npm run dev      # dev server on http://localhost:6277
-npm run build    # production Node server build into ./build
+npm run dev           # dev server on http://localhost:6277
+npm run build         # production Node server build into ./build
+npm run build:static  # flat, server-less build into ./dist
 ```
 
 ### Docker / Coolify
@@ -114,7 +115,11 @@ Copy the names from [`.env.example`](.env.example) into Coolify's environment se
 
 The server creates the `plays` table on first use; the equivalent SQL is kept in [`migrations/001_plays.sql`](migrations/001_plays.sql) for managed migration workflows. The WebMCP tools `show_save`, `show_publish`, `show_list`, and `show_load` provide unlisted saves, public publishing, discovery, and loading. Share URLs use `/p/<id>`. Configure the B2 application key with read/write access restricted to the selected bucket and the `plays/assets/` prefix.
 
+### Needle Cloud
+
 Pushes to `main` deploy automatically to Needle Cloud via [`deploy-to-needle-cloud-action`](https://github.com/needle-tools/deploy-to-needle-cloud-action) — see [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The deploy token lives in the repository's GitHub secrets (`NEEDLE_CLOUD_TOKEN`), never in the repo.
+
+Needle Cloud serves files rather than running a server, so that deployment is the **static** build (`npm run build:static`, into `./dist`) and not the Node build Coolify runs. The theatre, the recorder, `/painted` and `/talk` are all client-side once loaded and work there unchanged. What is absent by design is everything that needs a server: `/api/*` and the `/p/<id>` share page, which already declare `prerender = false`. Saving and publishing a play therefore works on the Coolify deployment and not on the Needle Cloud one.
 
 Chrome ships WebMCP behind an origin trial. The build bakes a `<meta http-equiv="origin-trial">` token into the page — by default Needle's subdomain-matched token for `needle.tools` (expires 2026-11-17), so the tools work in plain Chrome whenever the site is served from a `*.needle.tools` origin. For a different origin, [register it for the WebMCP trial](https://developer.chrome.com/origintrials) and set the repository **variable** `WEBMCP_ORIGIN_TRIAL_TOKEN`. Without a matching token, the tools still work in ChatGPT's browser and Edge, and in Chrome with `chrome://flags/#enable-webmcp-testing`.
 

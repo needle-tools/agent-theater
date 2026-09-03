@@ -1,21 +1,130 @@
 {
   "shelf": {
     "assorted": [
-      { "id": "animal-actors", "label": "Animal actors", "packs": ["animals"], "kinds": ["actor"] },
-      { "id": "story-actors", "label": "Story actors", "packs": ["fairy-tale", "people"], "kinds": ["actor"] },
-      { "id": "food-props", "label": "Food props", "packs": ["food"], "kinds": ["scenery"] },
-      { "id": "forest-pieces", "label": "Forest", "packs": ["forest"], "kinds": ["scenery"] },
-      { "id": "home-props", "label": "Home props", "packs": ["home"], "kinds": ["scenery"] },
-      { "id": "landscape-pieces", "label": "Landscape", "packs": ["landscape"], "kinds": ["scenery"] },
-      { "id": "ocean-props", "label": "Ocean props", "packs": ["ocean"], "kinds": ["scenery"] },
-      { "id": "office-props", "label": "Office props", "packs": ["office"], "kinds": ["scenery"] }
+      {
+        "id": "animal-actors",
+        "label": "Animal actors",
+        "packs": [
+          "animals"
+        ],
+        "kinds": [
+          "actor"
+        ]
+      },
+      {
+        "id": "story-actors",
+        "label": "Story actors",
+        "packs": [
+          "fairy-tale",
+          "people"
+        ],
+        "kinds": [
+          "actor"
+        ]
+      },
+      {
+        "id": "desert-pieces",
+        "label": "Desert",
+        "packs": [
+          "desert"
+        ],
+        "kinds": [
+          "scenery"
+        ]
+      },
+      {
+        "id": "food-props",
+        "label": "Food props",
+        "packs": [
+          "food"
+        ],
+        "kinds": [
+          "scenery"
+        ]
+      },
+      {
+        "id": "forest-pieces",
+        "label": "Forest",
+        "packs": [
+          "forest"
+        ],
+        "kinds": [
+          "scenery"
+        ]
+      },
+      {
+        "id": "home-props",
+        "label": "Home props",
+        "packs": [
+          "home"
+        ],
+        "kinds": [
+          "scenery"
+        ]
+      },
+      {
+        "id": "landscape-pieces",
+        "label": "Landscape",
+        "packs": [
+          "landscape"
+        ],
+        "kinds": [
+          "scenery"
+        ]
+      },
+      {
+        "id": "night-pieces",
+        "label": "Night",
+        "packs": [
+          "night"
+        ],
+        "kinds": [
+          "actor",
+          "scenery"
+        ]
+      },
+      {
+        "id": "ocean-props",
+        "label": "Ocean props",
+        "packs": [
+          "ocean"
+        ],
+        "kinds": [
+          "scenery"
+        ]
+      },
+      {
+        "id": "office-props",
+        "label": "Office props",
+        "packs": [
+          "office"
+        ],
+        "kinds": [
+          "scenery"
+        ]
+      }
     ],
     "themes": [
-      { "pack": "birthday-party", "label": "Birthday party" },
-      { "pack": "lost-and-found", "label": "Lost & found" },
-      { "pack": "moon-magic", "label": "Moon magic" },
-      { "pack": "pirate-cove", "label": "Pirate cove" },
-      { "pack": "whimsical-kingdom", "label": "Whimsical kingdom" }
+      {
+        "pack": "birthday-party",
+        "label": "Birthday party"
+      },
+      {
+        "pack": "lost-and-found",
+        "label": "Lost & found"
+      },
+      {
+        "pack": "moon-magic",
+        "label": "Moon magic"
+      },
+      {
+        "pack": "pirate-cove",
+        "label": "Pirate cove"
+      },
+      {
+        "pack": "whimsical-kingdom",
+        "label": "Whimsical kingdom"
+      }
     ]
   }
 }

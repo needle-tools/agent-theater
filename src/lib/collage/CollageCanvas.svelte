@@ -32,6 +32,7 @@
     import { play, type Playing, type Stagehand } from "./player.js";
     import { createSpeaker } from "./audio.js";
     import { playInteractionSound } from "./interactionSounds.js";
+    import { sayName } from "./sayName.js";
     import { actorForLayer, greetingForActor } from "./characterVoice.js";
     import { clipKeyframes, clipPreviewKeyframes, findClip, recorder, TALK_CLIP } from "./clips.js";
     import { prompter } from "./speech.js";

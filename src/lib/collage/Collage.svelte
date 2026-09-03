@@ -1224,9 +1224,27 @@
     {/if}
 
     <div class="file-tools" aria-label="Play tools">
-        <a class="file-tool" href="/record" aria-label="Open motion recorder" use:hint={"Record movements for characters."}>
-            <img src="/toolbar/record-button.webp" alt="" draggable="false" />
-        </a>
+        <button
+            class="eraser"
+            class:eraser--armed={erasing}
+            aria-label={erasing ? "Put the eraser down" : "Pick up the eraser"}
+            aria-pressed={erasing}
+            use:hint={erasing
+                ? "Rubbing out. Drop me back on my spot // or press Escape"
+                : "Drag me onto the paper %wait0.6% and I will rub out whatever I touch"}
+            onpointerdown={armDown}
+            onpointermove={armMove}
+            onpointerup={armUp}
+            onpointercancel={() => (armFrom = null)}
+            onclick={() => {
+                if (armHandled) { armHandled = false; return; }
+                erasing = !erasing;
+            }}
+        >
+            {#if !erasing}
+                <img class="eraser__art painted" src="/cursors/eraser-64.png" alt="" draggable="false" />
+            {/if}
+        </button>
         <button class="file-tool" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Save online and share a link."} onclick={sharePlay}>
             <img src="/toolbar/share.webp" alt="" draggable="false" />
         </button>
@@ -1246,44 +1264,6 @@
             ><span class="file-tool-error__copy"><span class="file-tool-error__measure">{fileToolError.text}</span><span class="file-tool-error__text">{fileToolError.revealed}</span></span></button>
         {/if}
     </div>
-
-    <!--
-        The eraser, lying beside the menu as a sticker rather than sitting in a
-        button. You pick it up off the shelf and it becomes the pointer; put it
-        back and it stops. A mode either way, but one you can see in your hand.
-
-        Still a <button> underneath, for all that it does not look like one: a
-        div would take the keyboard away from anyone who cannot drag, and the
-        drag is a nicer way to do it rather than the only way. Enter arms it,
-        as does a plain click.
-
-        While it is armed the sticker is gone from the shelf — it is under the
-        pointer, drawn by PaperCursor — and its empty spot is what you drop it
-        back onto.
-    -->
-    <button
-        class="eraser"
-        class:eraser--armed={erasing}
-        aria-label={erasing ? "Put the eraser down" : "Pick up the eraser"}
-        aria-pressed={erasing}
-        use:hint={erasing
-            ? "Rubbing out. Drop me back on my spot // or press Escape"
-            : "Drag me onto the paper %wait0.6% and I will rub out whatever I touch"}
-        onpointerdown={armDown}
-        onpointermove={armMove}
-        onpointerup={armUp}
-        onpointercancel={() => (armFrom = null)}
-        onclick={event => {
-            // A drag has already decided; only a real click gets here to
-            // toggle. `armUp` clears armFrom when it handled the gesture.
-            if (armHandled) { armHandled = false; return; }
-            erasing = !erasing;
-        }}
-    >
-        {#if !erasing}
-            <img class="eraser__art painted" src="/cursors/eraser-64.png" alt="" draggable="false" />
-        {/if}
-    </button>
 
     <!-- Said out loud, in the same voice that gave the instruction in the first
          place: this note is the next sentence of that one, and hearing it in a
@@ -1794,7 +1774,8 @@
         position: absolute;
         top: calc(100% + 10px);
         z-index: 1;
-        max-width: min(280px, calc(100vw - 32px));
+        width: min(360px, calc(100vw - 32px));
+        max-width: none;
         padding: 0.55em 0.85em;
         border: 1.5px solid var(--accent-error, #D93A62);
         border-radius: 0.9em;
@@ -1862,10 +1843,8 @@
      * just left of the two file cut-outs.
      */
     .eraser {
-        position: absolute;
-        top: 16px;
-        right: 128px;
-        z-index: 22;
+        position: relative;
+        flex: none;
         display: grid;
         place-items: center;
         width: 46px;

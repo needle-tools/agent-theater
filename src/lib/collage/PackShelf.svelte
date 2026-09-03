@@ -23,6 +23,7 @@
     import { tamedWidth } from "./placement.js";
     import { hint } from "./hint.js";
     import { playInteractionSound } from "./interactionSounds.js";
+    import { sayName } from "./sayName.js";
     import { greetingForActor, voiceForActor } from "./characterVoice.js";
     import type { SubtitleVoice } from "../subtitleVoice/index.js";
 

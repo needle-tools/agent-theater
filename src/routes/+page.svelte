@@ -13,13 +13,13 @@
      */
     import Collage from "$lib/collage/Collage.svelte";
     import { hint } from "$lib/collage/hint";
-    import { invitation } from "$lib/collage/invitation";
+    import { briefing } from "$lib/collage/invitation";
 
     let promptCopyState = $state<"idle" | "copied" | "failed">("idle");
 
     async function copyPrompt() {
         try {
-            await navigator.clipboard.writeText(invitation(location.origin));
+            await navigator.clipboard.writeText(briefing(location.origin));
             promptCopyState = "copied";
         } catch {
             promptCopyState = "failed";
@@ -57,6 +57,14 @@
     >
         <img src="/toolbar/questionmark.webp" alt="" draggable="false" />
     </button>
+    <a
+        class="record-trigger"
+        href="/record"
+        aria-label="Open motion recorder"
+        use:hint={"Record movements for characters."}
+    >
+        <img src="/toolbar/record-button.webp" alt="" draggable="false" />
+    </a>
 </section>
 
 <style>
@@ -74,11 +82,11 @@
         background: var(--surface-page);
     }
 
-    /* Sits immediately left of the GitHub cut-out. The button stays large for
-       touch, but has no visible chrome of its own. */
-    .help-trigger {
+    /* Question mark, recorder, then GitHub: three loose paper cut-outs with
+       generous touch targets and no toolbar chrome. */
+    .help-trigger,
+    .record-trigger {
         position: fixed;
-        right: 76px;
         bottom: 12px;
         z-index: 30;
         display: flex;
@@ -93,17 +101,24 @@
         cursor: var(--cursor-pointer, pointer);
         transition-property: scale;
         transition-duration: 0.16s;
+        text-decoration: none;
     }
 
-    .help-trigger:hover {
+    .help-trigger { right: 140px; }
+    .record-trigger { right: 76px; }
+
+    .help-trigger:hover,
+    .record-trigger:hover {
         scale: 1.05;
     }
 
-    .help-trigger:active {
+    .help-trigger:active,
+    .record-trigger:active {
         scale: 0.96;
     }
 
-    .help-trigger img {
+    .help-trigger img,
+    .record-trigger img {
         width: 48px;
         height: 48px;
         object-fit: contain;

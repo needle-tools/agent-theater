@@ -1,0 +1,235 @@
+{
+    "name": "night",
+    "description": "After dark: what hangs in the sky, who is awake under it, and the small lights people carry. Five of the pieces are actors — the cat, the owl, the bat, the moth and the firefly — because a night scene needs somebody out in it, not just lamps.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: night — what is in the sky after dark, what is awake in it, and the small lights people carry.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "moon": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "cosy"
+            ],
+            "description": "a cream crescent with craters — larger and more detailed than sky/moon",
+            "file": "moon.webp"
+        },
+        "star": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "storybook"
+            ],
+            "description": "a four-pointed mustard star with a pink heart",
+            "file": "star.webp"
+        },
+        "shooting-star": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "storybook"
+            ],
+            "description": "a cream star trailing a red tail — moves across rather than hangs",
+            "file": "shooting-star.webp"
+        },
+        "cloud-night": {
+            "kind": "scenery",
+            "mood": [
+                "night"
+            ],
+            "description": "a navy and olive cloud, dark enough to sit against a night sky",
+            "file": "cloud-night.webp"
+        },
+        "planet": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "storybook"
+            ],
+            "description": "a pink ringed planet — the sky pack has one too, this is the warmer drawing",
+            "file": "planet.webp"
+        },
+        "cat-black": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "night",
+                "sneaky"
+            ],
+            "description": "a navy cat sitting with its tail curled, eyes wide open — the one who is awake",
+            "file": "cat-black.webp"
+        },
+        "owl": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "night",
+                "wise"
+            ],
+            "description": "a round olive owl, front-on. Darker than animals/owl, and made for after dark",
+            "file": "owl.webp"
+        },
+        "bat": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "night",
+                "spooky"
+            ],
+            "description": "a small red bat with navy wings spread — flies, so it needs no ground",
+            "file": "bat.webp"
+        },
+        "moth": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "night",
+                "gentle"
+            ],
+            "description": "a cream moth with patterned wings, drawn to the lights in this pack",
+            "file": "moth.webp"
+        },
+        "firefly": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "night",
+                "gentle",
+                "bright"
+            ],
+            "description": "a beetle with a glowing mustard abdomen — the smallest light there is",
+            "file": "firefly.webp"
+        },
+        "lamp-post": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "evening"
+            ],
+            "description": "a street lamp with a lit pane, tall and narrow",
+            "file": "lamp-post.webp"
+        },
+        "lantern-storm": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "evening"
+            ],
+            "description": "a red storm lantern with a wire guard, carried rather than fixed",
+            "file": "lantern-storm.webp"
+        },
+        "candle": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "cosy"
+            ],
+            "description": "a lit candle in a dish holder with a finger loop",
+            "file": "candle.webp"
+        },
+        "lamp-table": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "cosy"
+            ],
+            "description": "a table lamp with a pink shade and a pull cord",
+            "file": "lamp-table.webp"
+        },
+        "torch": {
+            "kind": "scenery",
+            "mood": [
+                "night"
+            ],
+            "description": "an olive electric torch, the only modern light here",
+            "file": "torch.webp"
+        },
+        "campfire": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "cosy"
+            ],
+            "description": "logs stacked under a red and mustard flame — the biggest light in the pack",
+            "file": "campfire.webp"
+        },
+        "tent": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "friendly"
+            ],
+            "description": "a mustard ridge tent, pegged and open",
+            "file": "tent.webp"
+        },
+        "sleeping-bag": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "cosy"
+            ],
+            "description": "a rolled-open sleeping bag with a pink lining",
+            "file": "sleeping-bag.webp"
+        },
+        "window-night": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "cosy"
+            ],
+            "description": "a lit window with curtains and stars beyond it — a room seen from outside",
+            "file": "window-night.webp"
+        },
+        "chimney": {
+            "kind": "scenery",
+            "mood": [
+                "night"
+            ],
+            "description": "a brick chimney on a navy tiled roof, low and wide",
+            "file": "chimney.webp"
+        },
+        "telescope": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "wise"
+            ],
+            "description": "a navy telescope on a tripod, pointed up",
+            "file": "telescope.webp"
+        },
+        "dreamcatcher": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "gentle"
+            ],
+            "description": "a hooped web with three feathers, hangs rather than stands",
+            "file": "dreamcatcher.webp"
+        },
+        "alarm-clock": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "comic"
+            ],
+            "description": "a twin-bell clock reading midnight — home/alarm-clock is the daytime one",
+            "file": "alarm-clock.webp"
+        },
+        "nightcap": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "comic"
+            ],
+            "description": "a floppy green nightcap with a bobble",
+            "file": "nightcap.webp"
+        },
+        "sleep-mask": {
+            "kind": "scenery",
+            "mood": [
+                "night",
+                "comic"
+            ],
+            "description": "a pink sleep mask with closed eyes stitched on",
+            "file": "sleep-mask.webp"
+        }
+    }
+}
