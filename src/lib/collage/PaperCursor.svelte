@@ -104,7 +104,7 @@
         position: fixed;
         left: 0;
         top: 0;
-        z-index: 90;
+        z-index: 2147483647;
         /* Never a hit target: it sits under the pointer, so anything else
            would mean the tool could only ever click itself. */
         pointer-events: none;

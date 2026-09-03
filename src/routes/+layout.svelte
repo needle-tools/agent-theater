@@ -1,4 +1,6 @@
 <script lang="ts">
+    import AnimatedCursor from "$lib/collage/AnimatedCursor.svelte";
+
     let { children } = $props();
 
     // Chrome ships WebMCP behind an origin trial. This is the needle.tools
@@ -23,6 +25,8 @@
 <svelte:head>
     <meta http-equiv="origin-trial" content={originTrialToken} />
 </svelte:head>
+
+<AnimatedCursor />
 
 <main>
     {@render children()}
