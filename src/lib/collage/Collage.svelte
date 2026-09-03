@@ -31,6 +31,7 @@
     import { idleSet } from "$lib/collage/idleSet";
     import { takeNames } from "$lib/collage/audio";
     import { notifyAgentActivity } from "$lib/room/activity";
+    import { canEditPlay, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
     import SubtitleVoiceMenu from "$lib/subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "$lib/subtitleVoice";
 
@@ -87,6 +88,49 @@
     let canvas = $state<CollageCanvas | null>(null);
     let fileInput: HTMLInputElement | null = $state(null);
     let restored = $state(false);
+    let sharing = $state(false);
+
+    const CURRENT_PLAY = "needle-play/current";
+
+    function rememberedPlay(): PublishedPlay | null {
+        try {
+            const value = localStorage.getItem(CURRENT_PLAY);
+            return value ? JSON.parse(value) as PublishedPlay : null;
+        } catch {
+            return null;
+        }
+    }
+
+    async function sharePlay() {
+        if (!collage.listAll().length || sharing) return;
+        sharing = true;
+        const toast = toasts.push("Making a share link…", "busy");
+        try {
+            const remembered = rememberedPlay();
+            const owned = remembered && canEditPlay(remembered.id) ? remembered.id : undefined;
+            const play = await savePlayOnline(studio, { published: false, id: owned });
+            try { localStorage.setItem(CURRENT_PLAY, JSON.stringify(play)); } catch { /* optional */ }
+            toast.close();
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: play.title, url: play.url });
+                    announce("Share link ready.", { voiced: false });
+                    return;
+                } catch (error) {
+                    if (error instanceof DOMException && error.name === "AbortError") return;
+                }
+            }
+
+            await navigator.clipboard.writeText(play.url);
+            announce("Share link copied.", { voiced: false });
+        } catch (error) {
+            toast.close();
+            toasts.push(error instanceof Error ? error.message : "Could not share this play.", "error");
+        } finally {
+            sharing = false;
+        }
+    }
 
     $effect(() => collage.onChanged(() => version++));
 
@@ -1124,6 +1168,9 @@
 
     <div class="file-tools" aria-label="Play files">
         <button class="file-tool" disabled={!layers.length} aria-label="Save play" use:hint={"Save this play as a file."} onclick={saveToFile}>
+        <button class="file-tool" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Save online and share a link."} onclick={sharePlay}>
+            <img src="/toolbar/share.webp" alt="" draggable="false" />
+        </button>
             <img src="/toolbar/save.webp" alt="" draggable="false" />
         </button>
         <button class="file-tool" aria-label="Load play" use:hint={"Load a saved play."} onclick={() => fileInput?.click()}>
