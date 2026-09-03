@@ -358,14 +358,14 @@ class PainterlyGrain {
         const frame = num(props, "--grain-frame", 0);
         const seed = num(props, "--grain-seed", 4);
         const speck = clamp(num(props, "--grain-size", 1.4), 0.25, 6);
-        const density = clamp(num(props, "--grain-density", 3), 0, 6);
-        const contrast = clamp(num(props, "--grain-contrast", 1.1), 0, 4);
+        const density = clamp(num(props, "--grain-density", 2.3), 0, 6);
+        const contrast = clamp(num(props, "--grain-contrast", 0.3), 0, 4);
 
         const rand = makeRng(seedFor(frame, seed, 0xa3));
         // The cap is a runaway guard, not a setting. At the default density it
-        // is out of reach until the tile passes about 270px; past that the
-        // grain quietly thins instead of getting denser, so if a tile that big
-        // ever looks wrong, this is why.
+        // is out of reach until the tile passes about 310px — four times the
+        // default tile — and past that the grain quietly thins instead of
+        // getting denser, so if a tile that big ever looks wrong, this is why.
         const count = Math.min(20000, Math.round((width * height) / 11 * density));
 
         // Every speck is drawn wholly inside the tile. A speck clipped at the

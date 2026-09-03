@@ -18,24 +18,36 @@ export const PAINTERLY_CSS = "/worklets/painterly.css";
 const PAINTERLY_WORKLET = "/worklets/painterly.js";
 
 /**
- * Three takes of the same wander, one per hold.
+ * How far the outline is allowed to wander, per strength, in pixels.
  *
- * `scale` is in pixels and deliberately not relative to the object: a hand
- * wobbles by about the same amount whatever size the thing is, so five pixels
- * is right on an acorn and right on an oak. The region is generous because a
- * displacement that reaches past its own subregion comes back with a straight
- * edge sliced through the artwork — the one artifact that reads as a bug
- * rather than as a brush.
+ * Pixels and deliberately not a fraction of the object: a hand wobbles by
+ * about the same amount whatever size the thing is, so five pixels is right on
+ * an acorn and right on an oak.
+ *
+ * There are two sets rather than one knob because this is the only part of the
+ * effect that is an SVG attribute instead of a CSS property — it cannot be a
+ * custom property, so it cannot be set by a preset the way every other
+ * parameter is. A preset that wants a rougher wander has to point at different
+ * filters, which is what `--boil-0/1/2` in the stylesheet are for.
+ */
+const BOIL_STRENGTHS = { "": 5, "-rough": 11.5 };
+
+/**
+ * Three takes of the same wander, one per hold, at each strength.
+ *
+ * The region is generous because a displacement that reaches past its own
+ * subregion comes back with a straight edge sliced through the artwork — the
+ * one artifact that reads as a bug rather than as a brush.
  */
 export function boilFilterSvg(): string {
-    const filters = [11, 12, 13].map((seed, index) =>
-        `<filter id="paint-boil-${index}" x="-30%" y="-30%" width="160%" height="160%" ` +
-        `color-interpolation-filters="sRGB">` +
-        `<feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="${seed}" result="n"/>` +
-        `<feDisplacementMap in="SourceGraphic" in2="n" scale="5" ` +
-        `xChannelSelector="R" yChannelSelector="G"/>` +
-        `</filter>`).join("");
-    return filters;
+    return Object.entries(BOIL_STRENGTHS).flatMap(([suffix, scale]) =>
+        [11, 12, 13].map((seed, index) =>
+            `<filter id="paint-boil${suffix}-${index}" x="-30%" y="-30%" width="160%" height="160%" ` +
+            `color-interpolation-filters="sRGB">` +
+            `<feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="${seed}" result="n"/>` +
+            `<feDisplacementMap in="SourceGraphic" in2="n" scale="${scale}" ` +
+            `xChannelSelector="R" yChannelSelector="G"/>` +
+            `</filter>`)).join("");
 }
 
 let loading: Promise<boolean> | null = null;

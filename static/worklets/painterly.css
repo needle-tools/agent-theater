@@ -120,28 +120,28 @@
 @keyframes paint-boil {
     0% {
         --paint-frame: 0;
-        --paint-warp: url("#paint-boil-0");
+        --paint-warp: var(--boil-0, url("#paint-boil-0"));
         translate: 0 0;
         rotate: 0deg;
     }
 
     33.333% {
         --paint-frame: 1;
-        --paint-warp: url("#paint-boil-1");
+        --paint-warp: var(--boil-1, url("#paint-boil-1"));
         translate: calc(var(--paint-shift, 0.3%) * 0.8) calc(var(--paint-shift, 0.3%) * -1);
         rotate: calc(var(--paint-turn, 0.3deg) * 1);
     }
 
     66.666% {
         --paint-frame: 2;
-        --paint-warp: url("#paint-boil-2");
+        --paint-warp: var(--boil-2, url("#paint-boil-2"));
         translate: calc(var(--paint-shift, 0.3%) * -0.7) calc(var(--paint-shift, 0.3%) * 0.75);
         rotate: calc(var(--paint-turn, 0.3deg) * -0.85);
     }
 
     100% {
         --paint-frame: 0;
-        --paint-warp: url("#paint-boil-0");
+        --paint-warp: var(--boil-0, url("#paint-boil-0"));
         translate: 0 0;
         rotate: 0deg;
     }
@@ -282,19 +282,19 @@ img.painted--boil,
 @property --grain-density {
     syntax: "<number>";
     inherits: true;
-    initial-value: 3;
+    initial-value: 2.3;
 }
 
 @property --grain-contrast {
     syntax: "<number>";
     inherits: true;
-    initial-value: 1.1;
+    initial-value: 0.3;
 }
 
 @property --grain-amount {
     syntax: "<number>";
     inherits: true;
-    initial-value: 1.1;
+    initial-value: 0.65;
 }
 
 /**
@@ -338,12 +338,38 @@ img.painted--boil,
     inset: 0;
     pointer-events: none;
     background-image: paint(painterly-grain);
-    background-size: var(--grain-tile, 160px) var(--grain-tile, 160px);
+    background-size: var(--grain-tile, 80px) var(--grain-tile, 80px);
     /* `overlay` keeps the specks in the artwork's own tonality — dark ones
        darken shadows, light ones lift highlights — where a flat multiply would
        just fog the whole thing grey. */
     mix-blend-mode: overlay;
-    opacity: var(--grain-amount, 1.1);
+    opacity: var(--grain-amount, 0.65);
+}
+
+/**
+ * A bigger brush, held differently, and a drawing that visibly moves.
+ *
+ * Where `lively` is the same hand working faster, this is a different hand: a
+ * mark twice the size, the paper showing through much more, the brush turned
+ * the other way, and an outline that wanders more than twice as far. It is
+ * loud on purpose — for the one thing in a scene that is meant to be alarming,
+ * not for a set dressed entirely in it.
+ *
+ * The wander is the part that cannot be set here. `scale` on a displacement
+ * map is an SVG attribute, not a property, so instead of a number this points
+ * the three holds at a second set of filters — see `boilFilterSvg`.
+ */
+.painted--rough {
+    --paint-hold: 0.48s;
+    --paint-bite: 1.05;
+    --paint-tooth: 1.4;
+    --paint-scale: 2.1;
+    --paint-angle: 22;
+    --paint-shift: 0.45%;
+    --paint-turn: 0.7deg;
+    --boil-0: url("#paint-boil-rough-0");
+    --boil-1: url("#paint-boil-rough-1");
+    --boil-2: url("#paint-boil-rough-2");
 }
 
 /* Scenery at the back of a stage should breathe, not twitch. */

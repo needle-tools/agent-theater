@@ -32,15 +32,17 @@
     let shift = $state(0.3);
     let turn = $state(0.3);
     let boil = $state(5);
+    let roughBoil = $state(11.5);
 
     let push = $state(4.5);
-    let grainAmount = $state(1.1);
+    let grainAmount = $state(0.65);
     let grainSize = $state(1.4);
-    let grainDensity = $state(3);
-    let grainContrast = $state(1.1);
-    let grainTile = $state(160);
+    let grainDensity = $state(2.3);
+    let grainContrast = $state(0.3);
+    let grainTile = $state(80);
     let grainHold = $state(720);
     let grainMoves = $state(true);
+    let grainOn = $state(true);
 
     let animate = $state(true);
 
@@ -54,8 +56,11 @@
      * exactly the drift this page exists to avoid.
      */
     $effect(() => {
-        for (const map of document.querySelectorAll("feDisplacementMap")) {
-            map.setAttribute("scale", String(boil));
+        for (const i of [0, 1, 2]) {
+            document.querySelector(`#paint-boil-${i} feDisplacementMap`)
+                ?.setAttribute("scale", String(boil));
+            document.querySelector(`#paint-boil-rough-${i} feDisplacementMap`)
+                ?.setAttribute("scale", String(roughBoil));
         }
     });
 
@@ -73,17 +78,25 @@
             // Every third is calm and every third lively, and three are left
             // alone — the argument for a class rather than a global filter is
             // only visible if some of them are not wearing it.
-            mode: index % 5 === 4 ? "still" : (["calm", "", "lively"][index % 3] as string),
+            mode: index % 6 === 5 ? "still" : (["calm", "", "lively", "rough"][index % 4] as string),
         }));
 
-    /** The three-plane sets, which are the biggest surfaces the grain has to hold. */
-    const sets = [...new Set(TROUPE
-        .filter(piece => piece.kind === "midground")
-        .map(piece => piece.pack))];
-    let set = $state("bedroom");
+    /** Every backdrop there is — one setting has to hold across all of them. */
+    const backdrops = TROUPE.filter(piece => piece.kind === "backdrop");
 
     const fileOf = (pack: string, kind: string) =>
         TROUPE.find(piece => piece.pack === pack && piece.kind === kind)?.file ?? "";
+
+    /**
+     * The three-plane sets, which are the biggest surfaces the grain has to
+     * hold. Only the packs that have all three: a pack with a midground and no
+     * backdrop — forest-band is one — would otherwise render an <img> with an
+     * empty src, which is a broken picture pretending to be a set.
+     */
+    const sets = [...new Set(TROUPE
+        .filter(piece => piece.kind === "midground")
+        .map(piece => piece.pack))]
+        .filter(pack => ["backdrop", "midground", "foreground"].every(kind => fileOf(pack, kind)));
 </script>
 
 <svelte:head>
@@ -123,6 +136,7 @@
         </span>
         <label><span>animate</span><input type="checkbox" bind:checked={animate} /></label>
         <label><span>boil {boil}px</span><input type="range" min="0" max="16" step="0.5" bind:value={boil} /></label>
+        <label><span>rough boil {roughBoil}px</span><input type="range" min="0" max="24" step="0.5" bind:value={roughBoil} /></label>
         <label><span>hold {hold}ms</span><input type="range" min="120" max="900" step="20" bind:value={hold} /></label>
         <label><span>bite {bite}</span><input type="range" min="0" max="1.5" step="0.05" bind:value={bite} /></label>
         <label><span>tooth {tooth}</span><input type="range" min="0" max="1.5" step="0.05" bind:value={tooth} /></label>
@@ -147,6 +161,31 @@
             </figure>
             <div class="caption">painted</div>
         </div>
+    </div>
+
+    <h2>The four temperaments</h2>
+    <p class="note">
+        Same drawing, same worklet, four presets. A preset sets its own hold,
+        bite, tooth, mark size and brush angle, so the sliders above do not
+        reach these — that is what a preset is for. <em>Rough</em> also points
+        its three holds at a second set of displacement filters, because the
+        wander is an SVG attribute and cannot be a custom property.
+    </p>
+    <div class="pair four">
+        {#each ["calm", "", "lively", "rough"] as mode, i}
+            <div class="cell">
+                <figure style="--paint-seed: {17 + i * 5}">
+                    <img
+                        class="painted painted--boil"
+                        class:painted--calm={mode === "calm"}
+                        class:painted--lively={mode === "lively"}
+                        class:painted--rough={mode === "rough"}
+                        class:paused={!animate}
+                        src="/troupe/people/elder-woman.webp" alt="" />
+                </figure>
+                <div class="caption">{mode || "default"}</div>
+            </div>
+        {/each}
     </div>
 
     <h2>At size</h2>
@@ -193,16 +232,13 @@
         pushed into. Grain does not put detail back — nothing can — it puts back
         high-frequency variation at the scale of the screen, which is what the
         eye was using to judge sharpness. These are full width, which is the
-        size that matters: at thumbnail size any grain looks fine.
+        size that matters: at thumbnail size any grain looks fine. All of them
+        at once, because a setting that flatters a dark cave wall can bleach a
+        pale sky, and you cannot see that one backdrop at a time.
     </p>
 
     <div class="panel">
-        <label>
-            <span>set</span>
-            <select bind:value={set}>
-                {#each sets as name}<option value={name}>{name}</option>{/each}
-            </select>
-        </label>
+        <label><span>grain on</span><input type="checkbox" bind:checked={grainOn} /></label>
         <label><span>grain moves</span><input type="checkbox" bind:checked={grainMoves} /></label>
         <label><span>re-grain {grainHold}ms</span><input type="range" min="200" max="2000" step="40" bind:value={grainHold} /></label>
         <label><span>grain {grainAmount}</span><input type="range" min="0" max="2" step="0.05" bind:value={grainAmount} /></label>
@@ -212,36 +248,53 @@
         <label><span>tile {grainTile}px</span><input type="range" min="60" max="400" step="20" bind:value={grainTile} /></label>
     </div>
 
-    <div class="wide">
-        <figure class="backdrop"><img src={fileOf(set, "backdrop")} alt="" /></figure>
-        <div class="caption">plain, full width</div>
-    </div>
-    <div class="wide">
-        <figure class="backdrop grained" class:grained--still={!grainMoves}>
-            <img src={fileOf(set, "backdrop")} alt="" />
-        </figure>
-        <div class="caption">grained, full width</div>
-    </div>
+    <!-- Every backdrop, not one behind a picker. One setting has to hold
+         across a cave, a meadow and a living room — a dark rocky wall and a
+         pale flat sky want very different amounts of grain, and a demo that
+         shows them one at a time lets you tune happily for the one on screen
+         and never notice you have ruined the others. -->
+    {#each backdrops as piece}
+        <div class="wide">
+            <figure
+                class="backdrop"
+                class:grained={grainOn}
+                class:grained--still={!grainMoves}
+                style="--grain-seed: {piece.pack.length * 37}"
+            >
+                <img src={piece.file} alt={piece.id} loading="lazy" />
+            </figure>
+            <div class="caption">{piece.pack}</div>
+        </div>
+    {/each}
 
     <h2>A whole set, three planes deep</h2>
     <p class="note">
         Backdrop, midground and foreground stacked as a stage builds them — the
         largest grained surface the effect has to hold, and the one that decides
-        whether the cost is worth it. The camera push below magnifies all three
-        together.
+        whether the cost is worth it. The camera magnifies all three together.
     </p>
     <div class="panel">
         <label><span>push in {push}×</span><input type="range" min="1" max="6" step="0.25" bind:value={push} /></label>
     </div>
-    <div class="viewport">
-        <div class="dolly">
-            <figure class="backdrop grained" class:grained--still={!grainMoves}>
-                <img src={fileOf(set, "backdrop")} alt="" />
-            </figure>
-            <figure class="plane"><img src={fileOf(set, "midground")} alt="" /></figure>
-            <figure class="plane"><img src={fileOf(set, "foreground")} alt="" /></figure>
+    {#each sets as pack}
+        <div class="wide">
+            <div class="viewport">
+                <div class="dolly">
+                    <figure
+                        class="backdrop"
+                        class:grained={grainOn}
+                        class:grained--still={!grainMoves}
+                        style="--grain-seed: {pack.length * 37}"
+                    >
+                        <img src={fileOf(pack, "backdrop")} alt="" loading="lazy" />
+                    </figure>
+                    <figure class="plane"><img src={fileOf(pack, "midground")} alt="" loading="lazy" /></figure>
+                    <figure class="plane"><img src={fileOf(pack, "foreground")} alt="" loading="lazy" /></figure>
+                </div>
+            </div>
+            <div class="caption">{pack}</div>
         </div>
-    </div>
+    {/each}
 
     <h2>Some of them, not all of them</h2>
     <p class="note">
@@ -261,6 +314,7 @@
                         class:painted--boil={piece.mode !== "still"}
                         class:painted--calm={piece.mode === "calm"}
                         class:painted--lively={piece.mode === "lively"}
+                        class:painted--rough={piece.mode === "rough"}
                         class:paused={!animate}
                         src={piece.file} alt={piece.id} loading="lazy" />
                 </figure>
@@ -395,6 +449,14 @@
     .pair .cell { min-height: 240px; }
     .pair img { max-height: 240px; }
     .pair .caption { font-weight: 600; opacity: 0.75; }
+
+    .four {
+        grid-template-columns: repeat(4, 1fr);
+        max-width: 820px;
+    }
+
+    .four .cell { min-height: 260px; }
+    .four img { max-height: 260px; }
 
     .big .cell { min-height: 360px; }
     .big img { max-height: 360px; }
