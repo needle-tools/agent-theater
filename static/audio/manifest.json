@@ -1576,6 +1576,78 @@
 			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals. Turned down 4 dB on the way in.",
 			"skill": "flash"
 		},
+		"potion-bubble-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/potion-bubble-1.opus",
+			"seconds": 3.01,
+			"take": "potion-bubble",
+			"mood": ["wet", "small", "glassy"],
+			"description": "A small glass bottle bubbling, fine wet pops. A cauldron, a potion, something brewing."
+		},
+		"potion-bubble-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/potion-bubble-2.opus",
+			"seconds": 1.99,
+			"take": "potion-bubble",
+			"mood": ["wet", "small", "glassy"],
+			"description": "A small glass bottle bubbling, fine wet pops. The shortest of the three takes, for a single bloop rather than a brew."
+		},
+		"potion-bubble-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/potion-bubble-3.opus",
+			"seconds": 2.21,
+			"take": "potion-bubble",
+			"mood": ["wet", "small", "glassy"],
+			"description": "A small glass bottle bubbling, fine wet pops."
+		},
+		"hinge-creak-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/hinge-creak-1.opus",
+			"seconds": 3.01,
+			"take": "hinge-creak",
+			"mood": ["wooden", "airy", "intimate"],
+			"description": "A wooden hinge creaking over a soft swell of air. Airier and more spacious than `door-creak`, which is the drier, closer take on the same idea."
+		},
+		"hinge-creak-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/hinge-creak-2.opus",
+			"seconds": 3.01,
+			"take": "hinge-creak",
+			"mood": ["wooden", "airy", "intimate"],
+			"description": "A wooden hinge creaking over a soft swell of air. The louder of the two takes by about 4 dB."
+		},
+		"vanish-poof-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/vanish-poof-1.opus",
+			"seconds": 3.01,
+			"take": "vanish-poof",
+			"mood": ["magical", "soft", "delicate"],
+			"description": "A single puff of air with a miniature chime tail. Something disappearing. Pairs with `magic-transformation` for the other direction."
+		},
+		"vanish-poof-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/vanish-poof-2.opus",
+			"seconds": 3.01,
+			"take": "vanish-poof",
+			"mood": ["magical", "soft", "delicate"],
+			"description": "A single puff of air with a miniature chime tail. Something disappearing."
+		},
+		"vanish-poof-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/vanish-poof-3.opus",
+			"seconds": 3.01,
+			"take": "vanish-poof",
+			"mood": ["magical", "soft", "delicate"],
+			"description": "A single puff of air with a miniature chime tail. The gentlest of the first three takes."
+		},
+		"vanish-poof-4": {
+			"role": "sfx",
+			"file": "/audio/sfx/vanish-poof-4.opus",
+			"seconds": 3.01,
+			"take": "vanish-poof",
+			"mood": ["magical", "soft", "delicate"],
+			"description": "A single puff of air with a chime tail, from a differently worded prompt than the other three. Very quiet — about 14 dB under its siblings and the faintest sound in the library, so it will disappear under a bed unless the moment is already still."
+		},
 		"wind-gust-1": {
 			"role": "sfx",
 			"file": "/audio/sfx/wind-gust-1.opus",
