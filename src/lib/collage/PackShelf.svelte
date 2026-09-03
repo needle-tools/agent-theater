@@ -3,8 +3,8 @@
      * The sticker drawers, sitting where you can reach them.
      *
      * Each configured shelf group is a little pile of stickers at the bottom
-     * edge. Drag a pile onto the canvas and it deals one random sticker from
-     * that group. The root troupe manifest owns the order and the theme list.
+     * edge. Each pile shows the exact sticker a drag will deal; clicking it
+     * shuffles that preview. The root manifest owns the order and theme list.
      * The pieces arrive as real layers — the same ones theater_troupe deals —
      * so an agent looking at the canvas sees exactly what was arranged.
      *
@@ -53,6 +53,7 @@
                 group.packs.includes(piece.pack) && group.kinds.includes(piece.kind)),
         }))
         .filter(group => group.pieces.length));
+    let nextByPack = $state<Record<string, string>>({});
 
     const PACK_THOUGHTS: Record<string, string> = {
         animals: "What if a creature wandered in? %wait5% Maybe it knows the way home... // Or perhaps it has something to say.",
@@ -169,11 +170,34 @@
         studio.save();
     }
 
-    /** The sticker riding the pointer from its category pile to the canvas. */
-    let ghost = $state<{ piece: TroupePiece; x: number; y: number; from: { x: number; y: number }; clickAdds: boolean } | null>(null);
+    type ShelfPack = { id: string; pieces: TroupePiece[] };
+
+    function nextSticker(pack: ShelfPack): TroupePiece {
+        const stickers = stickersOf(pack.pieces);
+        const selected = stickers.find(piece => piece.id === nextByPack[pack.id]);
+        if (selected) return selected;
+        const hash = [...pack.id].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+        return stickers[hash % stickers.length];
+    }
+
+    function randomizeNext(pack: ShelfPack): void {
+        const current = nextSticker(pack);
+        const alternatives = stickersOf(pack.pieces).filter(piece => piece.id !== current.id);
+        const next = alternatives[Math.floor(Math.random() * alternatives.length)] ?? current;
+        nextByPack[pack.id] = next.id;
+    }
+
+    /** The exact preview sticker riding from its category pile to the canvas. */
+    let ghost = $state<{
+        piece: TroupePiece;
+        packId: string;
+        x: number;
+        y: number;
+        from: { x: number; y: number };
+    } | null>(null);
     let shelf: HTMLElement | null = $state(null);
 
-    function startDrag(event: PointerEvent, piece: TroupePiece, clickAdds = true) {
+    function startPackDrag(event: PointerEvent, pack: ShelfPack) {
         if (event.button !== 0) return;
         event.preventDefault();
         // Throws when the pointer is not genuinely down — synthetic events,
@@ -183,23 +207,13 @@
             (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
         } catch { /* carry on without capture */ }
         ghost = {
-            piece,
+            piece: nextSticker(pack),
+            packId: pack.id,
             x: event.clientX,
             y: event.clientY,
             from: { x: event.clientX, y: event.clientY },
-            clickAdds,
         };
         playInteractionSound("pickup");
-    }
-
-    function randomSticker(pieces: TroupePiece[]): TroupePiece {
-        const stickers = stickersOf(pieces);
-        return stickers[Math.floor(Math.random() * stickers.length)];
-    }
-
-    function startPackDrag(event: PointerEvent, pieces: TroupePiece[]) {
-        // Only a real drag deals; keyboard activation is handled separately.
-        startDrag(event, randomSticker(pieces), false);
     }
 
     function moveDrag(event: PointerEvent) {
@@ -209,19 +223,19 @@
 
     function endDrag(event: PointerEvent) {
         if (!ghost) return;
-        const { piece, from, clickAdds } = ghost;
+        const { piece, packId, from } = ghost;
         const wandered = Math.hypot(event.clientX - from.x, event.clientY - from.y) > 8;
         const overShelf = shelf?.contains(document.elementFromPoint(event.clientX, event.clientY) as Node | null);
         ghost = null;
         if (wandered && !overShelf) {
-            // Dropped on the canvas: the sticker lands under the pointer.
+            // Dropped on the canvas: consume this preview and deal the next.
             void addPiece(piece, toCanvas(event.clientX, event.clientY));
-        } else if (!wandered && clickAdds) {
-            // A plain click still means "I want this one" — it lands mid-view,
-            // where the eye already is, rather than demanding the drag.
-            void addPiece(piece, toCanvas(
-                window.innerWidth * (0.42 + Math.random() * 0.16),
-                window.innerHeight * (0.4 + Math.random() * 0.2)));
+            const pack = packs.find(candidate => candidate.id === packId);
+            if (pack) randomizeNext(pack);
+        } else if (!wandered) {
+            // Clicking is a shuffle, not an add: show another exact preview.
+            const pack = packs.find(candidate => candidate.id === packId);
+            if (pack) randomizeNext(pack);
         }
         playInteractionSound("putdown");
     }
@@ -256,29 +270,25 @@
         {/if}
         <div class="piles">
             {#each packs as pack (pack.id)}
+                {@const piece = nextSticker(pack)}
                 <button
                     class="pile"
-                    aria-label="Drag for a random {pack.label} sticker"
+                    aria-label="Drag this {pack.label} sticker, or click to see another"
                     use:hint={PACK_THOUGHTS[pack.id] ?? "What story could this begin?"}
-                    onpointerdown={event => startPackDrag(event, pack.pieces)}
+                    onpointerdown={event => startPackDrag(event, pack)}
                     onpointermove={moveDrag}
                     onpointerup={endDrag}
-                    onpointercancel={() => (ghost = null)}
+                    onpointercancel={cancelDrag}
                     onkeydown={event => {
                         if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            void addPiece(randomSticker(pack.pieces), toCanvas(
-                                window.innerWidth * 0.5, window.innerHeight * 0.5));
+                            randomizeNext(pack);
                         }
                     }}
                 >
                     <span class="pile__stack" aria-hidden="true">
-                        {#each stickersOf(pack.pieces).slice(0, 3) as piece, at (piece.id)}
-                            <img src={piece.file} alt="" draggable="false" loading="lazy"
-                                style:--lean="{(at - 1) * 9}deg" style:z-index={3 - at} />
-                        {/each}
+                        <img src={piece.file} alt="" draggable="false" loading="lazy" />
                     </span>
-                    <span class="pile__label">{pack.label}</span>
                 </button>
             {/each}
         </div>
@@ -402,20 +412,8 @@
         margin: auto;
         max-width: 54px;
         max-height: 50px;
-        rotate: var(--lean, 0deg);
         filter: drop-shadow(0 1px 1.5px rgba(20, 24, 18, 0.35));
         transition: filter 0.16s;
-    }
-
-    .pile__label {
-        max-width: 84px;
-        overflow: hidden;
-        color: var(--text-secondary);
-        font-size: 10px;
-        line-height: 1.1;
-        text-align: center;
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
 
     /*
