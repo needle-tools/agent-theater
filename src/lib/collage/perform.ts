@@ -19,9 +19,12 @@
  * vocabulary can be asserted on in a test — what a jump does at its apex, that
  * a shake is centred, that every beat ends where it started.
  */
-// The one import, and it is as pure as this file: the effect catalogue is
-// data and arithmetic, needed only for how long a solo effect beat lasts.
+// Two imports, both as pure as this file: the effect catalogue is data and
+// arithmetic, needed only for how long a solo effect beat lasts; findClip is
+// the same question for a recorded gesture (it guards localStorage itself, so
+// under node it simply answers from the shipped library).
 import { findEffect } from "./effects.js";
+import { findClip } from "./clips.js";
 
 /** What a beat does to a layer at one instant, on top of where the layer is. */
 export interface Pose {
@@ -832,7 +835,10 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
             typeof beat?.duration === "number" && beat.duration > 0
                 ? beat.duration
                 : wait ? wait
-                    : isClip ? 1200
+                    // A recorded gesture takes the time it was performed in;
+                    // a clip this browser has never heard of gets the old
+                    // flat guess so the timetable still holds together.
+                    : isClip ? Math.round((findClip((move as string).slice(5))?.seconds ?? 1.2) * 1000)
                     : move ? DEFAULT_DURATION[move as MoveName]
                     : take ? TAKE_MS
                     : drop ? DROP_MS

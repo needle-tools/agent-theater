@@ -97,6 +97,16 @@ describe("clips in a scene", () => {
         expect(plan.beats[0].move).toBe("clip:limp");
     });
 
+    it("takes the time it was performed in", () => {
+        // A shipped clip's beat defaults to the recording's own length; a
+        // clip nobody has heard of gets the old flat guess so the timetable
+        // still holds together.
+        const { plan } = planScene([{ id: "a", do: "clip:run-down" }]);
+        expect(plan.beats[0].duration).toBe(1980);
+        const { plan: unknown } = planScene([{ id: "a", do: "clip:limp" }]);
+        expect(unknown.beats[0].duration).toBe(1200);
+    });
+
     it("still refuses a move that is neither built-in nor a clip", () => {
         const { problems } = planScene([{ id: "a", do: "moonwalk" }]);
         expect(problems).toHaveLength(1);

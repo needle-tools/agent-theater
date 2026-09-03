@@ -46,8 +46,20 @@
      * spinners stay chips — a spinner cannot be a sentence, and an error
      * read aloud by a cheerful mushroom is the wrong messenger.
      */
-    function announce(text: string) {
-        if (!canvas?.announce(text)) toasts.push(text);
+    function announce(text: string, { voiced = true } = {}) {
+        const show = () => { if (!canvas?.announce(text)) toasts.push(text); };
+        /*
+         * A bubble that types itself out in silence is not the same message.
+         * The browser withholds audio until the first gesture, and restore
+         * happens before it — so the one line said at load was the one line
+         * nobody heard, typed by a character with a voice it never used.
+         * Holding it back until the gesture costs seconds and buys the voice.
+         *
+         * `voiced: false` is for the line that exists to ASK for that gesture:
+         * waiting for a touch before saying "click anywhere" is a deadlock.
+         */
+        if (!voiced || prompter.touched) show();
+        else prompter.onTouch(show);
     }
 
     let version = $state(0);
@@ -89,6 +101,31 @@
     let fileInput: HTMLInputElement | null = $state(null);
     let restored = $state(false);
     let sharing = $state(false);
+    let fileToolError = $state<{ tool: "share" | "save"; text: string; revealed: string } | null>(null);
+    let fileToolErrorTimer: ReturnType<typeof setTimeout> | undefined;
+    let fileToolTypingTimer: ReturnType<typeof setInterval> | undefined;
+
+    function showFileToolError(tool: "share" | "save", text: string) {
+        clearTimeout(fileToolErrorTimer);
+        clearInterval(fileToolTypingTimer);
+        const showImmediately = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        fileToolError = { tool, text, revealed: showImmediately ? text : "" };
+        if (!showImmediately) {
+            let at = 0;
+            fileToolTypingTimer = setInterval(() => {
+                at = Math.min(text.length, at + 2);
+                if (fileToolError?.text === text) fileToolError = { ...fileToolError, revealed: text.slice(0, at) };
+                if (at >= text.length) clearInterval(fileToolTypingTimer);
+            }, 14);
+        }
+        fileToolErrorTimer = setTimeout(() => (fileToolError = null), 7000);
+    }
+
+    function dismissFileToolError() {
+        clearTimeout(fileToolErrorTimer);
+        clearInterval(fileToolTypingTimer);
+        fileToolError = null;
+    }
 
     const CURRENT_PLAY = "needle-play/current";
 
@@ -126,7 +163,7 @@
             announce("Share link copied.", { voiced: false });
         } catch (error) {
             toast.close();
-            toasts.push(error instanceof Error ? error.message : "Could not share this play.", "error");
+            showFileToolError("share", "We couldn’t save the play just now. Maybe try again in a little while.");
         } finally {
             sharing = false;
         }
@@ -147,7 +184,8 @@
     $effect(() => studio.onShowChanged(() => {
         if (!studio.showing || warnedSilent || studio.speaker.ready) return;
         warnedSilent = true;
-        announce("Click anywhere to turn the sound on — the browser keeps it off until you do.");
+        announce("Click anywhere to turn the sound on — the browser keeps it off until you do.",
+            { voiced: false });
     }));
 
     const layers = $derived.by(() => (version, collage.list()));
@@ -155,26 +193,39 @@
     const empty = $derived(!layers.length && !frames.length);
 
     /**
-     * House music for the idle menu: one of the menu-theatre beds, dealt
-     * once per visit so returning does not always open on the same bars.
-     * It waits for the first gesture (the browser refuses audio before one),
-     * plays only while the stage is idle, and lets itself down the moment
-     * real work appears — a show brings its own bed, and somebody arranging
-     * stickers deserves the room, not a loop.
+     * House music for the page: one of the menu-theatre beds, dealt once per
+     * visit so returning does not always open on the same bars. It waits for
+     * the first gesture, because the browser refuses audio before one.
+     *
+     * It plays while the stage is idle AND while somebody is working on it.
+     * It used to stop the moment a first piece landed, on the reasoning that
+     * an editor deserves the room — but that made the bed a menu jingle
+     * nobody heard for more than a few seconds, and the tracks are written to
+     * be furniture rather than something to listen to.
+     *
+     * A show is the one thing it steps aside for, because a show brings its
+     * own bed and two of them at once is neither.
      */
     const MENU_BEDS = takeNames("menu-theatre");
     const MENU_BED = MENU_BEDS[Math.floor(Math.random() * MENU_BEDS.length)] ?? null;
     let menuMusic = false;
+    /*
+     * `studio.showing` is a getter over plain state, so reading it inside an
+     * effect would not re-run the effect. Mirror it into reactive state from
+     * the watcher the studio already offers.
+     */
+    let showing = $state(false);
+    $effect(() => studio.onShowChanged(() => { showing = !!studio.showing; }));
     $effect(() => {
-        if (!restored) return;
-        if (empty && !menuMusic && MENU_BED) {
+        if (!restored || !MENU_BED) return;
+        if (!showing && !menuMusic) {
             const start = () => {
                 menuMusic = true;
                 studio.speaker.music(MENU_BED, "loop");
             };
             if (prompter.touched) start();
             else return prompter.onTouch(start);
-        } else if (!empty && menuMusic) {
+        } else if (showing && menuMusic) {
             menuMusic = false;
             studio.speaker.fadeMusic();
         }
@@ -572,6 +623,8 @@
 
     onDestroy(() => {
         if (restock) clearTimeout(restock);
+        clearTimeout(fileToolErrorTimer);
+        clearInterval(fileToolTypingTimer);
     });
 
     function grabProp(event: PointerEvent, id: string) {
@@ -805,7 +858,7 @@
             announce(`Saved ${filename} — open it from Theater options to keep working.`);
         } catch (error) {
             toast.close();
-            toasts.push(`Could not save that — ${message(error)}`, "error");
+            showFileToolError("save", "We couldn’t save the play to your device. Please try again.");
         }
     }
 
@@ -1170,16 +1223,28 @@
         </div>
     {/if}
 
-    <div class="file-tools" aria-label="Play files">
-        <button class="file-tool" disabled={!layers.length} aria-label="Save play" use:hint={"Save this play as a file."} onclick={saveToFile}>
-            <img src="/toolbar/save.webp" alt="" draggable="false" />
-        </button>
+    <div class="file-tools" aria-label="Play tools">
+        <a class="file-tool" href="/record" aria-label="Open motion recorder" use:hint={"Record movements for characters."}>
+            <img src="/toolbar/record-button.webp" alt="" draggable="false" />
+        </a>
         <button class="file-tool" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Save online and share a link."} onclick={sharePlay}>
             <img src="/toolbar/share.webp" alt="" draggable="false" />
+        </button>
+        <button class="file-tool" disabled={!layers.length} aria-label="Save play" use:hint={"Save this play on disc."} onclick={saveToFile}>
+            <img src={layers.length ? "/toolbar/save.webp" : "/toolbar/save-disabled.webp"} alt="" draggable="false" />
         </button>
         <button class="file-tool" aria-label="Load play" use:hint={"Load a saved play."} onclick={() => fileInput?.click()}>
             <img src="/toolbar/load.webp" alt="" draggable="false" />
         </button>
+        {#if fileToolError}
+            <button
+                class="file-tool-error file-tool-error--{fileToolError.tool}"
+                type="button"
+                aria-live="assertive"
+                aria-label="Dismiss error"
+                onclick={dismissFileToolError}
+            ><span class="file-tool-error__copy"><span class="file-tool-error__measure">{fileToolError.text}</span><span class="file-tool-error__text">{fileToolError.revealed}</span></span></button>
+        {/if}
     </div>
 
     <!--
@@ -1701,6 +1766,7 @@
         cursor: var(--cursor-pointer, pointer);
         transition-property: translate, scale, opacity;
         transition-duration: 0.16s;
+        text-decoration: none;
     }
 
     .file-tool:hover:not(:disabled) {
@@ -1722,6 +1788,70 @@
         height: 46px;
         object-fit: contain;
         pointer-events: none;
+    }
+
+    .file-tool-error {
+        position: absolute;
+        top: calc(100% + 10px);
+        z-index: 1;
+        max-width: min(280px, calc(100vw - 32px));
+        padding: 0.55em 0.85em;
+        border: 1.5px solid var(--accent-error, #D93A62);
+        border-radius: 0.9em;
+        background: var(--surface-page-elevated, #fff);
+        color: var(--accent-error, #D93A62);
+        font: inherit;
+        line-height: 1.4;
+        text-align: left;
+        text-wrap: pretty;
+        cursor: var(--cursor-pointer, pointer);
+        filter: drop-shadow(0 4px 10px rgba(34, 44, 32, 0.12));
+        animation: file-error-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
+    :global(html.painterly) .file-tool-error {
+        background-image:
+            paint(painterly-wash),
+            linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
+    }
+
+    .file-tool-error--share { right: 112px; }
+    .file-tool-error--save { right: 56px; }
+
+    .file-tool-error::before {
+        content: "";
+        position: absolute;
+        top: -6px;
+        right: 18px;
+        width: 11px;
+        height: 11px;
+        rotate: 45deg;
+        background: inherit;
+        border-top: 1.5px solid var(--accent-error, #D93A62);
+        border-left: 1.5px solid var(--accent-error, #D93A62);
+        border-top-left-radius: 3px;
+    }
+
+    .file-tool-error:active { scale: 0.96; }
+
+    .file-tool-error__copy {
+        position: relative;
+        display: block;
+    }
+
+    .file-tool-error__measure { visibility: hidden; }
+
+    .file-tool-error__text {
+        position: absolute;
+        inset: 0;
+    }
+
+    @keyframes file-error-in {
+        from { opacity: 0; translate: 0 -6px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .file-tool-error { animation: none; }
     }
 
     /*

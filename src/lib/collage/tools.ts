@@ -27,6 +27,7 @@ import { artPrompt } from "./artPrompt.js";
 import { createTroupeTool } from "./troupeTool.js";
 import { TROUPE } from "./troupe.js";
 import { noteCall } from "./toolLog.js";
+import { listClips } from "./clips.js";
 import { idleSet } from "./idleSet.js";
 import { publishingTools } from "./publishing.js";
 import { DEFAULT_AGENT_AVATAR_SHEET, getAgentAvatarSheet, setAgentAvatarSheet } from "./agentAvatar.js";
@@ -177,9 +178,17 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
             const guide = !greeted && tool.name !== "theater_start";
             greeted = true;
 
+            // The clip drawer is the person's other stage door: /record in a
+            // second tab writes to the same localStorage, so a fresh read here
+            // catches a move recorded seconds ago. First call baselines.
+            const drawer = listClips();
+            const before = knownClips ?? new Set(drawer.map(clip => clip.name));
+            const recorded = knownClips ? drawer.filter(clip => !before.has(clip.name)) : [];
+            knownClips = new Set(drawer.map(clip => clip.name));
+
             // Its own doing is not news; the person's is.
             const theirs = events.filter(event => event.by === "human");
-            if (!theirs.length && !guide) return result;
+            if (!theirs.length && !guide && !recorded.length) return result;
             const what = !theirs.length ? "" : theirs.length === 1
                 ? theirs[0].summary
                 : `${theirs.length} things happened, the last: ${theirs[theirs.length - 1].summary}`;
@@ -213,6 +222,14 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
                                   `Look with piece_list or show_look, and work what they added into the ` +
                                   `story: cast it in a chapter, give it a line, let the plot notice it.`
                                 : ""),
+                    }] : []),
+                    ...(recorded.length ? [{
+                        type: "text" as const,
+                        text: `The person just RECORDED NEW MOVES by hand: ${recorded
+                            .map(clip => `"clip:${clip.name}"${clip.travel ? " (travels)" : ""}`)
+                            .join(", ")}. They are usable right now as a beat's do — a recorded ` +
+                            `move is a performance, so prefer it over a built-in where it fits, ` +
+                            `and one marked (travels) really carries its performer across the paper.`,
                     }] : []),
                 ],
             };
@@ -267,6 +284,14 @@ function whichPage(): { id: string; hidden: boolean; others: boolean } {
 let seen = 0;
 /** Whether the agent has been pointed at theater_start yet, this page load. */
 let greeted = false;
+/**
+ * The clip names the agent has been told exist. The tool description lists
+ * the drawer as it stood at registration and cannot be re-sent — but the
+ * person can record a new move on /record mid-conversation, and it works
+ * the moment it is saved. So new names are news, delivered the same way the
+ * person's stage edits are: in the reply to whatever the agent calls next.
+ */
+let knownClips: Set<string> | null = null;
 
 /**
  * Run several tools in one call.

@@ -421,10 +421,13 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                     // every clip recorded since.
                                     description:
                                         `What they do: ${MOVES.join(", ")} — or a hand-recorded move ` +
-                                        `as "clip:<name>"` +
+                                        `as "clip:<name>". A clip marked "(travels)" was recorded as ` +
+                                        `a journey: it really moves them across the paper and leaves ` +
+                                        `them there, no "to" needed. The rest gesture in place` +
                                         (listClips().length
-                                            ? `; recorded so far: ${listClips()
-                                                .map(clip => `clip:${clip.name}`).join(", ")}.`
+                                            ? `. Recorded so far: ${listClips()
+                                                .map(clip => `clip:${clip.name}${clip.travel ? " (travels)" : ""}`)
+                                                .join(", ")}.`
                                             : `.`),
                                 },
                                 say: {

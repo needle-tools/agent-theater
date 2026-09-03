@@ -21,6 +21,8 @@
         type Clip, type ClipSample,
     } from "$lib/collage/clips";
     import { TROUPE } from "$lib/collage/troupe";
+    import { createSpeaker, takeNames } from "$lib/collage/audio";
+    import { prompter } from "$lib/collage/speech";
 
     /** A handful of troupe actors to perform the previews. */
     const performers = TROUPE.filter(piece => piece.kind === "actor");
@@ -36,6 +38,29 @@
 
     onMount(() => {
         clips = listClips();
+    });
+
+    /**
+     * The same house music the theatre plays, in this room too.
+     *
+     * A workbench is a place somebody sits for a while, so it gets the bed
+     * rather than the silence. One speaker, owned by this page and stopped
+     * when the page goes — the theatre does the same, and between them that
+     * is what keeps a single bed playing across a navigation instead of two.
+     */
+    const HOUSE_BEDS = takeNames("menu-theatre");
+    const HOUSE_BED = HOUSE_BEDS[Math.floor(Math.random() * HOUSE_BEDS.length)] ?? null;
+    const speaker = createSpeaker();
+    $effect(() => {
+        if (!HOUSE_BED) return;
+        const start = () => speaker.music(HOUSE_BED, "loop");
+        // The browser refuses audio before the first gesture, exactly as on
+        // the theatre page; wait for it rather than being refused.
+        const stopWaiting = prompter.touched ? (start(), null) : prompter.onTouch(start);
+        return () => {
+            stopWaiting?.();
+            speaker.stop();
+        };
     });
 
     /** The demo character being dragged around the paddock. */
@@ -195,8 +220,10 @@
             <h1>Motion recorder</h1>
             <p class="lede">
                 Press record, then drag the character — the drag is the performance.
-                Clips are stored relative to the performer's size, land in this browser's
-                drawer, and every play can use them: <code>do: "clip:&lt;name&gt;"</code>.
+                Clips are stored relative to the performer's size and land in this browser's
+                drawer, where every play can use them the moment they are saved:
+                <code>do: "clip:&lt;name&gt;"</code> — an agent directing in another tab
+                is told about a new recording in its very next tool reply.
                 Two names are special: <code>talk</code> plays on whoever speaks,
                 <code>sway</code> replaces the idle breath.
             </p>
@@ -229,10 +256,11 @@
                 <p class="empty">No troupe installed — nothing to perform with.</p>
             {/if}
             <button class="record" class:record--armed={armed} onclick={() => (armed = !armed)}>
-                {armed ? "Armed — drag, release to finish" : "● Record a movement"}
+                <img src="/toolbar/record-button.webp" alt="" />
+                <span>{armed ? "Armed — drag, release to finish" : "Record a movement"}</span>
             </button>
         </section>
-        <button class="export" onclick={exportDrawer}>Export all animations to JSON</button>
+        <button class="export quiet" onclick={exportDrawer}>Export all animations to JSON</button>
         </div>
 
         <section class="results">
@@ -385,12 +413,24 @@
         left: 12px;
         right: 12px;
         bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
         padding: 0.55rem 0.9rem;
         border: 1.5px solid var(--text-primary);
         border-radius: 999px;
         background: var(--surface-page-elevated, #fff);
         font: inherit;
         cursor: pointer;
+    }
+
+    .record img {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+        flex: none;
+        pointer-events: none;
     }
 
     .record--armed {

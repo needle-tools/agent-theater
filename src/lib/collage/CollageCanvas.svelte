@@ -33,7 +33,7 @@
     import { createSpeaker } from "./audio.js";
     import { playInteractionSound } from "./interactionSounds.js";
     import { actorForLayer, greetingForActor } from "./characterVoice.js";
-    import { clipKeyframes, findClip, recorder, TALK_CLIP } from "./clips.js";
+    import { clipKeyframes, clipPreviewKeyframes, findClip, recorder, TALK_CLIP } from "./clips.js";
     import { prompter } from "./speech.js";
     import SubtitleVoiceMenu from "../subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "../subtitleVoice/index.js";
@@ -442,6 +442,16 @@
     const speaker = createSpeaker();
 
     /*
+     * Take the sound with us when the canvas goes.
+     *
+     * Audio elements are not owned by the component that made them: leaving
+     * the theatre for another room used to tear down the canvas and leave its
+     * bed playing underneath the next page, which then started one of its
+     * own. Two beds at once, and no way to stop either.
+     */
+    $effect(() => () => speaker.stop());
+
+    /*
      * Let dialogue push the music down.
      *
      * The prompter plays voices through its own queue and knows nothing about
@@ -639,7 +649,26 @@
                 // browser had never recorded one.
                 return new Promise(resolve => setTimeout(resolve, duration));
             }
-            const animation = element.animate(clipKeyframes(clip, layer.height), {
+            /*
+             * A clip that was recorded as a journey IS one: the document
+             * commits the destination first — same doctrine as a walk — and
+             * the frames play out from minus the journey back to zero, so
+             * "clip:run-down" really runs the piece down the page and leaves
+             * it there. Anything held rides along through the document's own
+             * held-resolution. Drift-free clips animate exactly as before.
+             */
+            const journey = clip.travel && (clip.travel.dx || clip.travel.dy)
+                ? { dx: clip.travel.dx * layer.height, dy: clip.travel.dy * layer.height }
+                : null;
+            if (journey) {
+                stagehand.commit(id, journey.dx, journey.dy);
+                stagehand.follow?.(id, journey.dx, journey.dy, duration);
+            }
+            const frames = journey
+                ? clipPreviewKeyframes(clip, layer.height,
+                    { dx: -clip.travel!.dx, dy: -clip.travel!.dy })
+                : clipKeyframes(clip, layer.height);
+            const animation = element.animate(frames, {
                 duration,
                 easing: "linear",
                 fill: "none",

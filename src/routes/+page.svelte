@@ -15,12 +15,16 @@
     import { hint } from "$lib/collage/hint";
     import { invitation } from "$lib/collage/invitation";
 
-    let promptCopied = $state(false);
+    let promptCopyState = $state<"idle" | "copied" | "failed">("idle");
 
     async function copyPrompt() {
-        await navigator.clipboard.writeText(invitation(location.origin));
-        promptCopied = true;
-        setTimeout(() => (promptCopied = false), 1800);
+        try {
+            await navigator.clipboard.writeText(invitation(location.origin));
+            promptCopyState = "copied";
+        } catch {
+            promptCopyState = "failed";
+        }
+        setTimeout(() => (promptCopyState = "idle"), 2200);
     }
 </script>
 
@@ -42,10 +46,13 @@
     <button
         type="button"
         class="help-trigger"
+        data-hint-click-feedback
         aria-label="Copy the prompt"
-        use:hint={promptCopied
+        use:hint={promptCopyState === "copied"
             ? "Prompt copied — paste it into your AI agent."
-            : "Copy the prompt for your browser’s AI agent."}
+            : promptCopyState === "failed"
+                ? "Couldn’t copy the prompt. Please try again."
+                : "WebMCP Theater was made by Needle. Click to copy the prompt for your browser’s AI agent."}
         onclick={copyPrompt}
     >
         <img src="/toolbar/questionmark.webp" alt="" draggable="false" />

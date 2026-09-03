@@ -30,6 +30,7 @@ const THOUGHT_MS = 2400;
 
 let bubble: HTMLElement | null = null;
 let textNode: HTMLElement | null = null;
+let measureNode: HTMLElement | null = null;
 /** The element the bubble currently belongs to, if any. */
 let owner: HTMLElement | null = null;
 let hideTimer = 0;
@@ -50,9 +51,14 @@ function ensureBubble(): HTMLElement {
      * of it as well would read the same words twice.
      */
     bubble.setAttribute("aria-hidden", "true");
+    const copy = document.createElement("span");
+    copy.className = "paper-hint__copy";
+    measureNode = document.createElement("span");
+    measureNode.className = "paper-hint__measure";
     textNode = document.createElement("span");
     textNode.className = "paper-hint__text";
-    bubble.append(textNode);
+    copy.append(measureNode, textNode);
+    bubble.append(copy);
     // The two trailing dots that make it a thought rather than speech.
     for (const size of ["paper-hint__dot paper-hint__dot--big", "paper-hint__dot"]) {
         const dot = document.createElement("i");
@@ -90,9 +96,13 @@ function place() {
     bubble.style.translate = `${Math.max(pad, x)}px ${Math.max(pad, y)}px`;
 }
 
-function type(text: string, prefix = "") {
-    if (!textNode) return;
+function type(text: string, prefix = "", target = prefix + text) {
+    if (!textNode || !measureNode) return;
     clearInterval(typeTimer);
+    // The complete thought occupies the layout from the first frame. The
+    // visible copy is layered over this invisible measure, so typing reveals
+    // characters without changing the bubble's width, wrapping, or height.
+    measureNode.textContent = target;
     if (reduced()) { textNode.textContent = prefix + text; place(); return; }
     // A fixed number of steps rather than one per character, so a long
     // description does not take four times as long as a short one to land.
@@ -158,13 +168,15 @@ export function hint(element: HTMLElement, text?: string) {
     function playThought(index: number) {
         stopThoughts();
         const parts = thoughts[index].split(/%wait([0-9]+(?:\.[0-9]+)?)%/i);
+        const completeThought = parts.filter((_, part) => part % 2 === 0)
+            .map(part => part.trim()).filter(Boolean).join(" ");
         let segment = 0;
         let written = "";
 
         const next = () => {
             if (owner !== element) return;
             const addition = parts[segment]?.trim() ?? "";
-            type(addition, written ? `${written} ` : "");
+            type(addition, written ? `${written} ` : "", completeThought);
             written = written ? `${written} ${addition}` : addition;
             const waitSeconds = Number(parts[segment + 1]);
             segment += 2;
@@ -212,7 +224,9 @@ export function hint(element: HTMLElement, text?: string) {
     };
     const onDown = () => {
         stopThoughts();
-        if (owner === element) hide(true);
+        // Controls that replace their hint with click feedback keep the bubble
+        // open, so the confirmation appears where the pointer already is.
+        if (owner === element && !element.hasAttribute("data-hint-click-feedback")) hide(true);
     };
 
     element.addEventListener("pointerenter", onEnter);

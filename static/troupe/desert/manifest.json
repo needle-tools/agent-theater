@@ -1,0 +1,219 @@
+{
+    "name": "desert",
+    "description": "What grows where there is no water: cacti, succulents and dry scrub. Drawn finely, closer to botanical illustration than to the flat torn-paper packs, so it sits with `stones-and-plants` rather than with `forest`. Two names appear in both packs — `agave` and `yucca` — and the descriptions say which drawing is which.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: desert plants — cacti, succulents, and the scrub that grows where there is no water. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "saguaro": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "the tall branching cactus everyone pictures — the tallest piece here, and the one that reads as desert on its own",
+            "file": "saguaro.webp"
+        },
+        "organ-pipe": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a cluster of straight ribbed columns, as tall as the saguaro but denser",
+            "file": "organ-pipe.webp"
+        },
+        "joshua-tree": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a shaggy forked trunk with spiked crowns — the only piece here shaped like a tree",
+            "file": "joshua-tree.webp"
+        },
+        "ocotillo": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "bright"
+            ],
+            "description": "tall whip-like canes tipped with red flowers, narrow and see-through",
+            "file": "ocotillo.webp"
+        },
+        "cholla": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "menacing"
+            ],
+            "description": "a branching jointed cactus, all spines and elbows",
+            "file": "cholla.webp"
+        },
+        "prickly-pear": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "flat spined pads stacked into a clump",
+            "file": "prickly-pear.webp"
+        },
+        "beavertail": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "two smooth heart-shaped pads, the plainest silhouette in the pack",
+            "file": "beavertail.webp"
+        },
+        "golden-barrel": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "bright"
+            ],
+            "description": "a fat ribbed mustard globe — the brightest thing here",
+            "file": "golden-barrel.webp"
+        },
+        "old-man-cactus": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "comic"
+            ],
+            "description": "two shaggy pale columns, hairy enough to look like a joke",
+            "file": "old-man-cactus.webp"
+        },
+        "crested-cactus": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "odd"
+            ],
+            "description": "a fan-shaped mutated cactus, wider than it is tall",
+            "file": "crested-cactus.webp"
+        },
+        "bishops-cap": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a low star-sectioned cactus, seen from above",
+            "file": "bishops-cap.webp"
+        },
+        "flowering-cactus": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "gentle"
+            ],
+            "description": "a small pad cactus with one pink bloom",
+            "file": "flowering-cactus.webp"
+        },
+        "agave": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a broad rosette of grey-green blades — softer and paler than stones-and-plants/agave",
+            "file": "agave.webp"
+        },
+        "yucca": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a spiked rosette carrying a cream flower spike — the flowering one; stones-and-plants/yucca is bare",
+            "file": "yucca.webp"
+        },
+        "desert-spoon": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a fine-bladed grey rosette, spraying outward",
+            "file": "desert-spoon.webp"
+        },
+        "aloe": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "speckled leaves under a red flower spike",
+            "file": "aloe.webp"
+        },
+        "echeveria": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "gentle"
+            ],
+            "description": "a pink succulent rosette, low and round",
+            "file": "echeveria.webp"
+        },
+        "jade": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "friendly"
+            ],
+            "description": "a small tree of round green leaves on a brown stem",
+            "file": "jade.webp"
+        },
+        "ice-plant": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "gentle"
+            ],
+            "description": "a low mat of leaves scattered with pink daisies",
+            "file": "ice-plant.webp"
+        },
+        "desert-rose": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "storybook"
+            ],
+            "description": "a swollen red trunk topped with pink blossom — the strangest shape in the pack",
+            "file": "desert-rose.webp"
+        },
+        "desert-marigold": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "bright"
+            ],
+            "description": "a low mound with mustard flowers on thin stems",
+            "file": "desert-marigold.webp"
+        },
+        "brittlebrush": {
+            "kind": "scenery",
+            "mood": [
+                "desert",
+                "bright"
+            ],
+            "description": "a sprawling grey shrub dotted with yellow",
+            "file": "brittlebrush.webp"
+        },
+        "creosote": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a wiry open shrub with small round leaves",
+            "file": "creosote.webp"
+        },
+        "sagebrush": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a pale silver-green bush, the softest silhouette here",
+            "file": "sagebrush.webp"
+        },
+        "desert-grass": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a mustard fountain of thin blades, radiating from the ground",
+            "file": "desert-grass.webp"
+        }
+    }
+}

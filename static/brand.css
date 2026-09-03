@@ -2506,6 +2506,21 @@ Variables:
     left: auto;
 }
 
+.paper-hint__copy {
+    position: relative;
+    display: block;
+}
+
+/* The full sentence silently reserves the final shape of the bubble. */
+.paper-hint__measure {
+    visibility: hidden;
+}
+
+.paper-hint__text {
+    position: absolute;
+    inset: 0;
+}
+
 /* The caret while the text is still arriving. */
 .paper-hint__text::after {
     content: "";
