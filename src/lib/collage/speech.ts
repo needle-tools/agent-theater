@@ -40,6 +40,7 @@ export interface Prompter {
     readonly busy: boolean;
     readonly mute: boolean;
     duckWith(duck: ((ms: number) => void) | null): void;
+    setLevel(level: number): void;
 }
 
 export function createPrompter(): Prompter {
@@ -49,6 +50,7 @@ export function createPrompter(): Prompter {
     let playing: SubtitleVoicePlayback | null = null;
     let duck: ((ms: number) => void) | null = null;
     let touched = false;
+    let level = 1;
     const waiters = new Set<() => void>();
     const gestures = ["pointerdown", "keydown", "touchstart"] as const;
     const noticed = () => {
@@ -82,7 +84,7 @@ export function createPrompter(): Prompter {
         let playback: SubtitleVoicePlayback | null = null;
         if (line.voice && touched && canSpeak) {
             try {
-                playback = await playSubtitleVoice(line.text, line.voice);
+                playback = await playSubtitleVoice(line.text, line.voice, level);
             } catch (error) {
                 console.warn(`[speech] "${line.text.slice(0, 40)}" could not be played:`, error);
             }
@@ -139,6 +141,7 @@ export function createPrompter(): Prompter {
             return () => waiters.delete(run);
         },
         duckWith(next) { duck = next; },
+        setLevel(next) { level = Math.max(0, Math.min(1, next)); },
         speak(line, turn = {}) {
             const spoken: Speech = { text: line.text.trim(), voice: line.voice ?? null };
             if (!spoken.text) return Promise.resolve();

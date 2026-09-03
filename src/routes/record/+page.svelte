@@ -21,13 +21,25 @@
         type Clip, type ClipSample,
     } from "$lib/collage/clips";
     import { TROUPE } from "$lib/collage/troupe";
-    import { createSpeaker, takeNames } from "$lib/collage/audio";
+    import { createSpeaker, MENU_MUSIC_LEVEL, takeNames } from "$lib/collage/audio";
     import { prompter } from "$lib/collage/speech";
 
     /** A handful of troupe actors to perform the previews. */
     const performers = TROUPE.filter(piece => piece.kind === "actor");
     const performerFor = (at: number) =>
         performers.length ? performers[at % performers.length].file : "";
+
+    /**
+     * Who stands in the paddock: re-dealt every time the recorder arms, so
+     * each take is danced with somebody new. The clip remembers its partner
+     * (`performer`) and the gallery shows the take on exactly that artwork.
+     */
+    let heroAt = $state(0);
+    const redealHero = () => {
+        if (performers.length > 1) {
+            heroAt = (heroAt + 1 + Math.floor(Math.random() * (performers.length - 1))) % performers.length;
+        }
+    };
 
     let clips = $state<Clip[]>([]);
     let armed = $state(false);
@@ -38,6 +50,9 @@
 
     onMount(() => {
         clips = listClips();
+        // After hydration, so the server and the first client render agree
+        // on who stands in the paddock before the deal shuffles them.
+        redealHero();
     });
 
     /**
@@ -49,11 +64,10 @@
      * is what keeps a single bed playing across a navigation instead of two.
      */
     const HOUSE_BEDS = takeNames("menu-theatre");
-    const HOUSE_BED = HOUSE_BEDS[Math.floor(Math.random() * HOUSE_BEDS.length)] ?? null;
     const speaker = createSpeaker();
     $effect(() => {
-        if (!HOUSE_BED) return;
-        const start = () => speaker.music(HOUSE_BED, "loop");
+        if (!HOUSE_BEDS.length) return;
+        const start = () => speaker.playlist(HOUSE_BEDS, MENU_MUSIC_LEVEL);
         // The browser refuses audio before the first gesture, exactly as on
         // the theatre page; wait for it rather than being refused.
         const stopWaiting = prompter.touched ? (start(), null) : prompter.onTouch(start);
@@ -100,7 +114,9 @@
         if (armed && samples.length > 3) {
             const clip = clipFromSamples("take", samples, size);
             if (clip) {
-                pending = clip;
+                // The take remembers who danced it, so the gallery can show
+                // the recording on the artwork it was performed with.
+                pending = { ...clip, performer: performerFor(heroAt) };
                 takeName = "";
                 note = "";
             } else {
@@ -242,7 +258,7 @@
                 <img
                     class="hero"
                     bind:this={heroEl}
-                    src={performerFor(0)}
+                    src={performerFor(heroAt)}
                     alt="the performer"
                     draggable="false"
                     style:left="{hero.x}px"
@@ -255,7 +271,10 @@
             {:else}
                 <p class="empty">No troupe installed — nothing to perform with.</p>
             {/if}
-            <button class="record" class:record--armed={armed} onclick={() => (armed = !armed)}>
+            <button class="record" class:record--armed={armed} onclick={() => {
+                armed = !armed;
+                if (armed) redealHero();
+            }}>
                 <img src="/toolbar/record-button.webp" alt="" />
                 <span>{armed ? "Armed — drag, release to finish" : "Record a movement"}</span>
             </button>
@@ -282,8 +301,11 @@
                 {#each clips as clip, at (clip.name)}
                     <article class="card">
                         <div class="stage">
+                            <!-- The artwork the take was danced with, when the
+                                 clip remembers; the dealt stand-ins otherwise
+                                 (shipped clips and old takes predate the memory). -->
                             <img
-                                src={performerFor(at + 1)}
+                                src={clip.performer ?? performerFor(at + 1)}
                                 alt=""
                                 draggable="false"
                                 use:performs={clip}

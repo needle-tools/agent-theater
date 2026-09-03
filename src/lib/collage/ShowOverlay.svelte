@@ -18,13 +18,42 @@
     let showing = $state<string | null>(null);
     let billboard = $state<Billboard | null>(null);
 
+    /**
+     * `?titlecard` (optionally `?titlecard=Some+Title`) pins a title card up
+     * for styling work — the card is otherwise only on screen for a couple of
+     * seconds at curtain-up, which is no way to look at typography.
+     */
+    const pinned = typeof location !== "undefined"
+        ? new URL(location.href).searchParams.get("titlecard")
+        : null;
+
     $effect(() => {
+        if (pinned !== null) {
+            billboard = {
+                kind: "title",
+                title: pinned || "The Moon Who Ate Tuesday",
+                byline: "a pinned card, via ?titlecard",
+                duration: 0,
+            };
+            return;
+        }
         const read = () => {
             showing = studio.showing;
             billboard = studio.billboard;
         };
         read();
         return studio.onShowChanged(read);
+    });
+
+    /*
+     * While any billboard is up the page is an auditorium in the dark: every
+     * button — playbill, file tools, the corner cut-outs — goes with the
+     * lights. Posted on the root element because most of those live in other
+     * components; each hides itself when the class is there.
+     */
+    $effect(() => {
+        document.documentElement.classList.toggle("theatre-card", !!billboard);
+        return () => document.documentElement.classList.remove("theatre-card");
     });
 </script>
 

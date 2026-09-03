@@ -92,9 +92,10 @@ export interface SubtitleVoicePlayback extends GibberishPlayback {
     readonly timing: SubtitleVoiceTiming;
 }
 
-export async function playSubtitleVoice(text: string, voice: SubtitleVoice): Promise<SubtitleVoicePlayback> {
+export async function playSubtitleVoice(text: string, voice: SubtitleVoice, level = 1): Promise<SubtitleVoicePlayback> {
     const timing = subtitleVoiceTiming(text, voice);
-    const playback = await playGibberish(text, subtitleVoiceOptions(voice));
+    const options = subtitleVoiceOptions(voice);
+    const playback = await playGibberish(text, { ...options, volume: options.volume * level });
     return { ...playback, timing };
 }
 

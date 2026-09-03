@@ -25,4 +25,11 @@ export interface IdleProp {
 
 export const idleSet = {
     props: [] as IdleProp[],
+    /**
+     * Who last struck the set. The idle page waits before dealing a fresh
+     * scatter onto an emptied canvas — briefly for a person (they can see it
+     * coming), much longer for an agent: an agent that clears is about to
+     * BUILD, and props marching on mid-build read as the page fighting it.
+     */
+    clearedBy: null as "human" | "agent" | null,
 };

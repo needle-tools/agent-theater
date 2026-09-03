@@ -29,7 +29,7 @@
     import { hint } from "$lib/collage/hint";
     import { TROUPE } from "$lib/collage/troupe";
     import { idleSet } from "$lib/collage/idleSet";
-    import { takeNames } from "$lib/collage/audio";
+    import { MENU_MUSIC_LEVEL, takeNames } from "$lib/collage/audio";
     import { beginAgentActivity, completeAgentActivity } from "$lib/room/activity";
     import { canEditPlay, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
     import SubtitleVoiceMenu from "$lib/subtitleVoice/SubtitleVoiceMenu.svelte";
@@ -78,6 +78,13 @@
     let armHandled = false;
     let clearArmed = $state(false);
     let clearTimer: ReturnType<typeof setTimeout> | undefined;
+    let fullAudio = $state(true);
+
+    function toggleAudio() {
+        fullAudio = !fullAudio;
+        studio.speaker.setMusicMuted(!fullAudio);
+        prompter.setLevel(fullAudio ? 1 : 0.1);
+    }
 
     function disarmClear() {
         clearArmed = false;
@@ -92,6 +99,7 @@
         }
         disarmClear();
         studio.stopShow();
+        idleSet.clearedBy = "human";
         await studio.clear();
     }
 
@@ -116,6 +124,14 @@
         armFrom = null;
     }
     let canvas = $state<CollageCanvas | null>(null);
+    /**
+     * Opened from a share link. On a phone this trims the chrome to a
+     * watching kit — play button, share, and the corner cut-outs — because
+     * the editing tools need a pointer and an agent, and a shared link on a
+     * phone is somebody being shown a play, not somebody making one. On a
+     * desktop it changes nothing.
+     */
+    let sharedView = $state(false);
     let fileInput: HTMLInputElement | null = $state(null);
     let restored = $state(false);
     let sharing = $state(false);
@@ -212,9 +228,15 @@
     const empty = $derived(!layers.length && !frames.length);
 
     /**
-     * House music for the page: one of the menu-theatre beds, dealt once per
-     * visit so returning does not always open on the same bars. It waits for
-     * the first gesture, because the browser refuses audio before one.
+     * House music for the page: a SET of the menu-theatre beds, dealt at
+     * random and moving to a different one each time a piece runs out. It
+     * waits for the first gesture, because the browser refuses audio before
+     * one.
+     *
+     * A set rather than one track on repeat. Every bed fades away at its end
+     * whatever the prompt asked for, so looping one gave a fade, a silence and
+     * a jump back to the top — which over an hour of arranging read as the
+     * music being broken rather than as a loop.
      *
      * It plays while the stage is idle AND while somebody is working on it.
      * It used to stop the moment a first piece landed, on the reasoning that
@@ -226,8 +248,7 @@
      * own bed and two of them at once is neither.
      */
     const MENU_BEDS = takeNames("menu-theatre");
-    const MENU_BED = MENU_BEDS[Math.floor(Math.random() * MENU_BEDS.length)] ?? null;
-    let menuMusic = false;
+    let menuMusic = $state(false);
     /*
      * `studio.showing` is a getter over plain state, so reading it inside an
      * effect would not re-run the effect. Mirror it into reactive state from
@@ -235,12 +256,24 @@
      */
     let showing = $state(false);
     $effect(() => studio.onShowChanged(() => { showing = !!studio.showing; }));
+    /*
+     * The page shell's corner cut-outs (question mark, recorder, GitHub) live
+     * outside this component, so the curtain state is posted on the root
+     * element for their stylesheets to read: they fade to a murmur while a
+     * show plays, without this component reaching into their markup.
+     */
     $effect(() => {
-        if (!restored || !MENU_BED) return;
+        document.documentElement.classList.toggle("theatre-watching", showing);
+        return () => document.documentElement.classList.remove("theatre-watching");
+    });
+    $effect(() => {
+        if (!restored || !MENU_BEDS.length) return;
         if (!showing && !menuMusic) {
             const start = () => {
                 menuMusic = true;
-                studio.speaker.music(MENU_BED, "loop");
+                // Half a scene bed: this one plays for as long as somebody
+                // is arranging, which is far longer than any scene lasts.
+                studio.speaker.playlist(MENU_BEDS, MENU_MUSIC_LEVEL);
             };
             if (prompter.touched) start();
             else return prompter.onTouch(start);
@@ -271,6 +304,7 @@
         }
         const shared = new URL(location.href).searchParams.get("play");
         if (shared) {
+            sharedView = true;
             try {
                 const response = await fetch(`/api/plays/${encodeURIComponent(shared)}`);
                 const play = await response.json();
@@ -279,6 +313,9 @@
                 toasts.push(`Opened “${play.title}”.`);
                 canvas?.fitAll();
             } catch (error) {
+                // The full chrome comes back: a person whose play did not
+                // arrive should not also be locked out of the workshop.
+                sharedView = false;
                 toasts.push(error instanceof Error ? error.message : "The shared play could not be loaded.", "error");
             }
         }
@@ -749,16 +786,26 @@
 
     /*
      * And the other direction: a canvas that becomes empty again — cleared by
-     * the person or by the agent's theater_clear — gets a beat of genuinely
-     * bare stage and then a fresh random scatter wanders on. Cleared is not
-     * broken; it is the next starting point.
+     * the person or by the agent's theater_clear — gets a good five seconds
+     * of genuinely bare stage before a fresh scatter wanders on. Cleared is
+     * not broken; it is the next starting point — but somebody who just swept
+     * the table clean did it to have a clean table, and props marching on the
+     * moment the bin closed read as the page refusing the clear. The effect
+     * re-arms on any change, so putting anything down restarts the wait.
      */
     $effect(() => {
         void version;
         if (!empty || !restored || scatter.length || !TROUPE.length) return;
+        // A person's clear gets a short bare-stage beat; an agent's clear gets
+        // half a minute — it cleared in order to BUILD, and dealing props onto
+        // its clean paper mid-build reads as the page refusing the clear.
+        const wait = idleSet.clearedBy === "agent" ? 30_000 : 5000;
         const timer = setTimeout(() => {
-            if (empty && !scatter.length) scatter = strewn();
-        }, 1400);
+            if (empty && !scatter.length) {
+                idleSet.clearedBy = null;
+                scatter = strewn();
+            }
+        }, wait);
         return () => clearTimeout(timer);
     });
 
@@ -1100,6 +1147,7 @@
 
 <div
     class="page"
+    class:page--shared={sharedView}
     bind:this={pageEl}
     role="region"
     aria-label="Theater"
@@ -1239,10 +1287,28 @@
             <!-- Just the prompt: the title and the welcome are spoken by the
                  props around it, and copying is a click anywhere on the page. -->
             <p class="invite" bind:this={inviteEl}>{prompt}</p>
+            <!-- On a phone the prompt is an instruction nobody there can
+                 follow — there is no browser agent to hand it to — so the
+                 honest middle-of-the-page line is this one instead. -->
+            <p class="phone-note">
+                Small screen, small stage — this is currently better experienced
+                on a desktop browser, where your browser's AI agent directs the play.
+            </p>
         </div>
     {/if}
 
-    <div class="file-tools" aria-label="Play tools">
+    <div class="file-tools" class:file-tools--watching={showing} aria-label="Play tools">
+        <button
+            class="file-tool audio-tool"
+            class:audio-tool--quiet={!fullAudio}
+            aria-label={fullAudio ? "Turn off music and quiet voices" : "Turn music and voices back up"}
+            aria-pressed={!fullAudio}
+            use:hint={fullAudio ? "Quiet the music and voices. Effects stay." : "Bring the music and voices back."}
+            onclick={toggleAudio}
+        >
+            <img class="audio-tool__icon audio-tool__icon--on" src="/toolbar/audio-enabled.webp" alt="" draggable="false" />
+            <img class="audio-tool__icon audio-tool__icon--off" src="/toolbar/audio-disabled.webp" alt="" draggable="false" />
+        </button>
         <button
             class="eraser"
             class:eraser--armed={erasing}
@@ -1275,14 +1341,14 @@
             <img src="/toolbar/clear-bin.webp" alt="" draggable="false" />
             {#if clearArmed}<span class="clear-stage-tool__warning">Click again to clear everything.</span>{/if}
         </button>
-        <button class="file-tool" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Save online and share a link."} onclick={sharePlay}>
+        <button class="file-tool file-tool--share" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Save online and share a link."} onclick={sharePlay}>
             <img src="/toolbar/share.webp" alt="" draggable="false" />
         </button>
         <button class="file-tool" disabled={!layers.length} aria-label="Save play" use:hint={"Save this play on disc."} onclick={saveToFile}>
             <img src={layers.length ? "/toolbar/save.webp" : "/toolbar/save-disabled.webp"} alt="" draggable="false" />
         </button>
         <button class="file-tool" aria-label="Load play" use:hint={"Load a saved play."} onclick={() => fileInput?.click()}>
-            <img src="/toolbar/load.webp" alt="" draggable="false" />
+            <img src="/toolbar/loading-icon.webp" alt="" draggable="false" />
         </button>
         {#if fileToolError}
             <button
@@ -1659,6 +1725,48 @@
         }
     }
 
+    /* Printed only on a phone; the rule that shows it lives with the other
+       phone rules at the end of the sheet. */
+    .phone-note {
+        display: none;
+    }
+
+    /*
+     * The phone rules, together.
+     *
+     * A basic fit, not a second design: the chrome shrinks and thins so the
+     * paper keeps the room. The prompt in the middle is replaced by the
+     * honest note — there is no browser agent on a phone to hand it to — and
+     * a share link opens as a watching kit: play button and share, with the
+     * question mark and GitHub cut-outs staying in their corner.
+     */
+    @media (max-width: 700px) {
+        .invite {
+            display: none;
+        }
+
+        .phone-note {
+            display: block;
+            max-width: 30ch;
+            margin: 0 auto;
+            text-align: center;
+            font-size: 1.02rem;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            text-wrap: balance;
+        }
+
+        .file-tools {
+            gap: 4px;
+        }
+
+        /* Watching somebody's play: the making tools step out. */
+        .page--shared .file-tools > :not(.file-tool--share),
+        .page--shared :global(.shelf) {
+            display: none;
+        }
+    }
+
     /*
      * Behind the props, in front of the light.
      *
@@ -1762,6 +1870,18 @@
         display: flex;
         align-items: center;
         gap: 6px;
+        transition-property: opacity;
+        transition-duration: 0.4s;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    /* Workshop tools have no business on stage: while the show plays they
+       are gone, not dimmed — pause and the programme are the only controls
+       an audience needs, and those stay at full strength (StageBar). */
+    .file-tools--watching > :not(.audio-tool),
+    :global(html.theatre-card) .file-tools > :not(.audio-tool) {
+        opacity: 0;
+        pointer-events: none;
     }
 
     .file-tool {
@@ -1798,6 +1918,28 @@
         height: 46px;
         object-fit: contain;
         pointer-events: none;
+    }
+
+    .audio-tool { position: relative; }
+
+    .audio-tool__icon {
+        position: absolute;
+        transition-property: opacity, scale, filter;
+        transition-duration: 0.2s;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .audio-tool__icon--off,
+    .audio-tool--quiet .audio-tool__icon--on {
+        opacity: 0;
+        scale: 0.25;
+        filter: blur(4px);
+    }
+
+    .audio-tool--quiet .audio-tool__icon--off {
+        opacity: 1;
+        scale: 1;
+        filter: blur(0);
     }
 
     .clear-stage-tool { position: relative; }

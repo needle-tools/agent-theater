@@ -52,7 +52,7 @@
             ? "Prompt copied — paste it into your AI agent."
             : promptCopyState === "failed"
                 ? "Couldn’t copy the prompt. Please try again."
-                : "WebMCP Theater was made by Needle. Click to copy the prompt for your browser’s AI agent."}
+                : "Create short papercut theater pieces together with your AI agent. Made by Needle. Click to copy the starting prompt."}
         onclick={copyPrompt}
     >
         <img src="/toolbar/questionmark.webp" alt="" draggable="false" />
@@ -99,9 +99,29 @@
         background: transparent;
         color: var(--text-primary);
         cursor: var(--cursor-pointer, pointer);
-        transition-property: scale;
-        transition-duration: 0.16s;
+        transition-property: scale, opacity;
+        transition-duration: 0.16s, 0.4s;
         text-decoration: none;
+    }
+
+    /* A murmur while the show plays — posted on the root by the theatre —
+       and back at a glance's touch. */
+    :global(html.theatre-watching) .help-trigger,
+    :global(html.theatre-watching) .record-trigger {
+        opacity: 0.3;
+    }
+
+    :global(html.theatre-watching) .help-trigger:hover,
+    :global(html.theatre-watching) .record-trigger:hover {
+        opacity: 1;
+    }
+
+    /* Gone entirely while a billboard holds the screen: a title card plays
+       to a dark, empty house. */
+    :global(html.theatre-card) .help-trigger,
+    :global(html.theatre-card) .record-trigger {
+        opacity: 0;
+        pointer-events: none;
     }
 
     .help-trigger { right: 140px; }
@@ -123,6 +143,19 @@
         height: 48px;
         object-fit: contain;
         pointer-events: none;
+    }
+
+    /* No recorder on a phone: the gesture paddock needs a pointer and a
+       desk. The question mark keeps its spot — and slides over to close the
+       gap the recorder leaves. */
+    @media (max-width: 700px) {
+        .record-trigger {
+            display: none;
+        }
+
+        .help-trigger {
+            right: 76px;
+        }
     }
 
 </style>

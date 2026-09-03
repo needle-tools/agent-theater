@@ -114,17 +114,17 @@
     }
 
     /*
-     * Nearly out of the way while the show runs, and back the moment the
-     * pointer looks for it. A control that vanished completely would leave no
-     * way to stop the thing.
+     * Full strength while the show runs: the pause button and the programme
+     * are the audience's two instruments, and dimming them read as "not for
+     * you". The rest of the chrome steps back instead — the file tools hide
+     * and the corner cut-outs fade, over in Collage and the page shell.
+     *
+     * The one exception is a billboard: while a title card or the credits
+     * hold the screen, even these two go dark with the house.
      */
-    .bar--showing {
-        opacity: 0.35;
-    }
-
-    .bar--showing:hover,
-    .bar--showing:focus-within {
-        opacity: 1;
+    :global(html.theatre-card) .bar {
+        opacity: 0;
+        pointer-events: none;
     }
 
     .chapters {
@@ -267,6 +267,15 @@
         .chapter,
         .play {
             transition-duration: 0s;
+        }
+    }
+
+    /* On a phone the playbill is the play button alone — the chapter list
+       fights the canvas for a small screen's height, so for now it stays a
+       desktop luxury. */
+    @media (max-width: 700px) {
+        .chapters {
+            display: none;
         }
     }
 </style>

@@ -763,8 +763,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             description:
                 "Start the theatre over: deletes EVERY piece, scene, script and title — including " +
                 "whatever the person put there. Not undoable by you. Call it only when the person asked " +
-                "for a restart or a clean canvas, and pass confirm: true. Afterwards the idle page deals " +
-                "a fresh random scatter of troupe stickers as a new starting point; theater_start reads it.",
+                "for a restart or a clean canvas, and pass confirm: true. The paper then stays bare for " +
+                "half a minute; only if nothing is built by then does the idle page deal a fresh scatter.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -782,11 +782,12 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         `the person's arrangement included. Pass confirm: true if that is really wanted.`);
                 }
                 if (studio.showing) studio.stopShow();
+                idleSet.clearedBy = "agent";
                 await studio.clear();
                 return ok(
-                    `The set is struck: canvas, scenes and title are gone. In a moment the idle page ` +
-                    `deals a fresh random scatter of troupe stickers — call theater_start to read the ` +
-                    `new starting point, or build clean.`);
+                    `The set is struck: canvas, scenes and title are gone. The paper stays bare for ` +
+                    `half a minute — room to build clean. If nothing is put down by then, the idle ` +
+                    `page deals a fresh random scatter of troupe stickers as a new starting point.`);
             },
         },
         {

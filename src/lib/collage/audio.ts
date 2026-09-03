@@ -80,6 +80,15 @@ const FULL = 1;
  */
 const CUE_LEVEL = 0.6;
 const MUSIC_LEVEL = 0.32;
+/**
+ * The editing bed, relative to a scene's.
+ *
+ * Music under a play is part of the play and belongs at the front of the mix
+ * the bed is allowed. Music under somebody arranging stickers is company —
+ * it plays for as long as they work, which is far longer than any scene, and
+ * a level that is right for two minutes is wearing after twenty. Half.
+ */
+export const MENU_MUSIC_LEVEL = 0.5;
 /** Long enough to be a change of mood rather than a splice. */
 const CROSSFADE_MS = 1200;
 /**
@@ -105,6 +114,16 @@ const DUCK_TO = 0.35;
 const DUCK_MS = 260;
 
 /**
+ * How early the next piece of house music starts.
+ *
+ * Longer than a scene change's cross-fade, and for a reason the files force:
+ * every bed fades to silence over its last few seconds no matter what the
+ * prompt asked for. Coming in on top of that tail replaces it — start only a
+ * second early and the set audibly dips to nothing between tracks.
+ */
+const PLAYLIST_LEAD_MS = 5000;
+
+/**
  * What happens when a piece of music reaches its end.
  *
  * A bed is about two minutes long and a scene is not, so most of the time the
@@ -121,8 +140,29 @@ export interface Speaker {
      *
      * `end` says what to do when the piece runs out — loop it (the default),
      * fade it away, or name another bed to blend into.
+     *
+     * `level` scales this bed against every other one — 1 by default, and the
+     * editing bed passes MENU_MUSIC_LEVEL. A multiplier rather than a volume,
+     * so the one place that decides how loud music sits under everything else
+     * stays MUSIC_LEVEL.
      */
-    music(id: string | null, end?: MusicEnd): void;
+    music(id: string | null, end?: MusicEnd, level?: number): void;
+    /**
+     * House music: deal from a set of beds, and move to a DIFFERENT one each
+     * time a piece runs out.
+     *
+     * Not `music(id, "loop")`, which is what this replaced. Every bed here
+     * fades away at its end — the generator does it whatever the prompt says —
+     * so looping one plays the fade, then silence, then a hard jump back to the
+     * top. Over an editing session that reads as the music being broken.
+     *
+     * Moving on instead fixes both halves: the next piece is cross-faded in
+     * over the tail, which covers the fade, and somebody arranging stickers for
+     * an hour hears a set rather than one track forty times.
+     */
+    playlist(ids: string[], level?: number): void;
+    /** Mute or restore music beds without changing cues and sound effects. */
+    setMusicMuted(muted: boolean): void;
     /** Fire and forget. Overlapping cues are allowed and expected. */
     cue(id: string): void;
     /**
@@ -179,6 +219,8 @@ export interface Speaker {
 /** A no-op speaker, for tests and for anywhere without a DOM. */
 export const SILENT: Speaker = {
     music() {},
+    setMusicMuted() {},
+    playlist() {},
     fadeMusic() {},
     unlock() {},
     cue() {},
@@ -202,6 +244,16 @@ export function createSpeaker(): Speaker {
     const sounding = new Set<HTMLAudioElement>();
     let bed: HTMLAudioElement | null = null;
     let bedId: string | null = null;
+    /*
+     * What the current bed settles at.
+     *
+     * The editing bed sits lower than a scene's, so ducking and recovery have
+     * to come back to THIS level rather than to MUSIC_LEVEL — otherwise the
+     * first long cue would quietly promote the menu music to full scene volume
+     * and leave it there for the rest of the session.
+     */
+    let bedLevel = MUSIC_LEVEL;
+    let musicMuted = false;
     let blocked = false;
     /** Whether a play has been allowed at least once. */
     let unlocked = false;
@@ -280,18 +332,41 @@ export function createSpeaker(): Speaker {
      * one piece overlap the first seconds of the next, which is the difference
      * between a transition and a join.
      */
+    /**
+     * The set the house music deals from, and how loud it plays.
+     *
+     * Held here rather than passed through every call, because the piece that
+     * decides what comes next is the one that just ended, and by then the
+     * caller that started the set is long gone.
+     */
+    let house: { ids: string[]; level: number } | null = null;
+
+    /** A different one, whenever there is a different one to be had. */
+    const dealFrom = (ids: string[], avoid: string | null): string | null => {
+        const others = ids.filter(id => id !== avoid);
+        const pool = others.length ? others : ids;
+        return pool[Math.floor(Math.random() * pool.length)] ?? null;
+    };
+
     const arrangeEnding = (element: HTMLAudioElement, end: MusicEnd) => {
         if (end === "loop") {
             element.loop = true;
             return;
         }
         let done = false;
+        const lead = end === "playlist" ? PLAYLIST_LEAD_MS : CROSSFADE_MS;
         const watch = () => {
             if (done || !sounding.has(element)) return;
             const total = element.duration;
             if (!Number.isFinite(total)) return;
-            if (total - element.currentTime > CROSSFADE_MS / 1000) return;
+            if (total - element.currentTime > lead / 1000) return;
             done = true;
+            if (end === "playlist") {
+                const next = house ? dealFrom(house.ids, bedId) : null;
+                if (next) speaker.music(next, "playlist", house!.level);
+                else fadeOut(element, CROSSFADE_MS);
+                return;
+            }
             if (end === "fade") {
                 fadeOut(element, CROSSFADE_MS);
                 if (bed === element) {
@@ -319,16 +394,16 @@ export function createSpeaker(): Speaker {
         const bed_ = bed;
         if (!bed_) return;
         ducking++;
-        rampTo(bed_, MUSIC_LEVEL * DUCK_TO, DUCK_MS);
+        rampTo(bed_, musicMuted ? 0 : bedLevel * DUCK_TO, DUCK_MS);
         setTimeout(() => {
             ducking--;
             // Only the last one out turns the lights back on — and only if this
             // is still the same bed, since a scene change replaces it.
-            if (ducking === 0 && bed === bed_) rampTo(bed_, MUSIC_LEVEL, DUCK_MS * 3);
+            if (ducking === 0 && bed === bed_) rampTo(bed_, musicMuted ? 0 : bedLevel, DUCK_MS * 3);
         }, ms);
     };
 
-    const start = (sound: Sound, loop: boolean, end: MusicEnd = "loop"): HTMLAudioElement => {
+    const start = (sound: Sound, loop: boolean, end: MusicEnd = "loop", level = MUSIC_LEVEL): HTMLAudioElement => {
         const element = new Audio(sound.file);
         // A bed fades up; a sting simply starts, because fading in a sting
         // removes its attack and the attack is the sting.
@@ -347,7 +422,7 @@ export function createSpeaker(): Speaker {
                 release(element);
             });
         }
-        if (loop) fadeIn(element, CROSSFADE_MS, MUSIC_LEVEL);
+        if (loop) fadeIn(element, CROSSFADE_MS, musicMuted ? 0 : level);
         return element;
     };
 
@@ -362,8 +437,25 @@ export function createSpeaker(): Speaker {
             return unlocked;
         },
 
-        music(id, end = "loop") {
-            if (id === bedId) return;
+        music(id, end = "loop", level = 1) {
+            // Anything that is not the set continuing itself ends the set: a
+            // scene's bed must not be followed by the house music resuming.
+            if (end !== "playlist") house = null;
+            const wanted = MUSIC_LEVEL * level;
+            /*
+             * The same piece at a new level is a change of mix, not a change
+             * of mood — ride it there rather than cross-fading the bed with
+             * itself, which would be audible as a dip and a swell for no
+             * reason anybody watching could name.
+             */
+            if (id === bedId) {
+                if (bed && wanted !== bedLevel) {
+                    bedLevel = wanted;
+                    rampTo(bed, musicMuted ? 0 : wanted, CROSSFADE_MS);
+                }
+                return;
+            }
+            bedLevel = wanted;
             const previous = bed;
             bedId = id;
             bed = null;
@@ -373,10 +465,23 @@ export function createSpeaker(): Speaker {
             if (!id) return;
             const sound = findSound(id);
             if (!sound) return;
-            bed = start(sound, true, end);
+            bed = start(sound, true, end, bedLevel);
+        },
+
+        setMusicMuted(muted) {
+            musicMuted = muted;
+            if (bed) rampTo(bed, muted ? 0 : bedLevel, 240);
+        },
+
+        playlist(ids, level = 1) {
+            const pool = ids.filter(id => findSound(id));
+            house = pool.length ? { ids: pool, level } : null;
+            const first = house ? dealFrom(house.ids, null) : null;
+            if (first) speaker.music(first, "playlist", level);
         },
 
         fadeMusic(ms = ENDING_FADE_MS) {
+            house = null;
             if (!bed) return;
             fadeOut(bed, ms);
             bed = null;
@@ -413,6 +518,7 @@ export function createSpeaker(): Speaker {
         },
 
         stop() {
+            house = null;
             // Everything, not just the bed. A sting still ringing when the show
             // is stopped is the show still making a noise.
             for (const element of [...sounding]) release(element);

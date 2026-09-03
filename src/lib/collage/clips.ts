@@ -36,6 +36,13 @@ export interface Clip {
      * the walk a clip rides on. Absent when the gesture stayed put.
      */
     travel?: { dx: number; dy: number };
+    /**
+     * The artwork the gesture was performed on (a troupe file path) — purely
+     * cosmetic, so the recorder's gallery can show the take on the character
+     * it was actually danced with. Plays ignore it: any piece performs any
+     * clip.
+     */
+    performer?: string;
 }
 
 /** A raw pointer sample, straight off a drag. */

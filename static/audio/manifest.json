@@ -108,6 +108,24 @@
 			"mood": ["dark", "tense", "hovering"],
 			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The only one that came back at the full length asked for, and the quietest through the middle. Fades to silence at the end, so it wants `fade` rather than `loop`."
 		},
+		"race-driving-1": {
+			"role": "bed",
+			"file": "/audio/music/race-driving-1.opus",
+			"seconds": 26.94,
+			"bpm": 155,
+			"take": "race-driving",
+			"mood": ["urgent", "driving", "tense"],
+			"description": "Racing staccato strings, pulsing low brass, urgent snare and driving percussion. For a chase or a race, and short enough to come round often. Ends about where it started, so unlike almost everything else here it genuinely loops."
+		},
+		"race-driving-2": {
+			"role": "bed",
+			"file": "/audio/music/race-driving-2.opus",
+			"seconds": 30.01,
+			"bpm": 155,
+			"take": "race-driving",
+			"mood": ["urgent", "driving", "tense"],
+			"description": "Racing staccato strings, pulsing low brass, urgent snare and driving percussion. Louder and fuller than `race-driving-1`, but it fades to silence at the end, so it wants `fade` rather than `loop`."
+		},
 		"fairy-tale-ambience": {
 			"role": "bed",
 			"hidden": true,
@@ -1512,6 +1530,143 @@
 			"seconds": 0.84,
 			"mood": ["airy", "light", "quick"],
 			"description": "A small breathed swoosh with a long thin decay, no weight underneath. Much smaller and quieter than `whoosh` — for something little moving, not something big."
+		},
+		"wind-gust-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/wind-gust-1.opus",
+			"seconds": 3.01,
+			"take": "wind-gust",
+			"mood": ["airy", "weather", "gentle"],
+			"description": "One soft gust through paper leaves, rising and falling once. Weather for an outdoor scene, not a storm."
+		},
+		"wind-gust-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/wind-gust-2.opus",
+			"seconds": 3.01,
+			"take": "wind-gust",
+			"mood": ["airy", "weather", "gentle"],
+			"description": "One soft gust through paper leaves, rising and falling once. A fuller take than `wind-gust-1`."
+		},
+		"wind-gust-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/wind-gust-3.opus",
+			"seconds": 3.01,
+			"take": "wind-gust",
+			"mood": ["airy", "weather", "gentle"],
+			"description": "One soft gust through paper leaves. The faintest of the three by about 6 dB — the one to use under dialogue."
+		},
+		"thunder-soft-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/thunder-soft-1.opus",
+			"seconds": 3.01,
+			"take": "thunder-soft",
+			"mood": ["weather", "low", "distant"],
+			"description": "Distant thunder with a paper edge to it, made by shaking a sheet of card. More weather than threat."
+		},
+		"thunder-soft-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/thunder-soft-2.opus",
+			"seconds": 3.01,
+			"take": "thunder-soft",
+			"mood": ["weather", "low", "distant"],
+			"description": "Distant thunder with a paper edge to it, made by shaking a sheet of card. More weather than threat."
+		},
+		"thunder-soft-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/thunder-soft-3.opus",
+			"seconds": 3.01,
+			"take": "thunder-soft",
+			"mood": ["weather", "low", "distant"],
+			"description": "Distant thunder with a paper edge to it, made by shaking a sheet of card. More weather than threat."
+		},
+		"animal-call-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/animal-call-1.opus",
+			"seconds": 3.01,
+			"take": "animal-call",
+			"mood": ["creature", "small", "friendly"],
+			"description": "One short animal call, small and friendly, performed by a puppeteer rather than recorded outdoors."
+		},
+		"animal-call-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/animal-call-2.opus",
+			"seconds": 3.01,
+			"take": "animal-call",
+			"mood": ["creature", "small", "friendly"],
+			"description": "One short animal call, small and friendly, performed by a puppeteer rather than recorded outdoors."
+		},
+		"animal-call-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/animal-call-3.opus",
+			"seconds": 3.01,
+			"take": "animal-call",
+			"mood": ["creature", "small", "friendly"],
+			"description": "One short animal call, small and friendly, performed by a puppeteer rather than recorded outdoors."
+		},
+		"snore-comic-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/snore-comic-1.opus",
+			"seconds": 2.01,
+			"take": "snore-comic",
+			"mood": ["sleepy", "comic", "breathy"],
+			"description": "One soft comic snore: a breath in and a whistle out. Pairs with the `sleep` skill.",
+			"skill": "sleep"
+		},
+		"snore-comic-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/snore-comic-2.opus",
+			"seconds": 2.01,
+			"take": "snore-comic",
+			"mood": ["sleepy", "comic", "breathy"],
+			"description": "One soft comic snore: a breath in and a whistle out. Pairs with the `sleep` skill.",
+			"skill": "sleep"
+		},
+		"crowd-murmur": {
+			"role": "sfx",
+			"file": "/audio/sfx/crowd-murmur.opus",
+			"seconds": 5.01,
+			"mood": ["audience", "warm", "indistinct"],
+			"description": "A small audience murmuring between scenes — twenty people, no words. Fills the gap `applause` and `gasp` leave. The loudest of the effects, so it will duck the bed while it runs."
+		},
+		"sword-draw-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/sword-draw-1.opus",
+			"seconds": 2.01,
+			"take": "sword-draw",
+			"mood": ["wooden", "playful", "light"],
+			"description": "A small wooden sword drawn from a belt: one light scrape and a tiny ring. Playful rather than dangerous."
+		},
+		"sword-draw-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/sword-draw-2.opus",
+			"seconds": 2.01,
+			"take": "sword-draw",
+			"mood": ["wooden", "playful", "light"],
+			"description": "A small wooden sword drawn from a belt: one light scrape and a tiny ring. The quieter of the two takes."
+		},
+		"sword-clash-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/sword-clash-1.opus",
+			"seconds": 2.01,
+			"take": "sword-clash",
+			"mood": ["wooden", "playful", "hollow"],
+			"description": "Two wooden swords knocking together twice: light hollow clacks. A puppet fight, not a battle."
+		},
+		"sword-clash-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/sword-clash-2.opus",
+			"seconds": 2.01,
+			"take": "sword-clash",
+			"mood": ["wooden", "playful", "hollow"],
+			"description": "Two wooden swords knocking together twice: light hollow clacks. A puppet fight, not a battle."
+		},
+		"sword-clash-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/sword-clash-3.opus",
+			"seconds": 2.01,
+			"take": "sword-clash",
+			"mood": ["wooden", "playful", "hollow"],
+			"description": "Two wooden swords knocking together twice: light hollow clacks. A puppet fight, not a battle."
 		},
 		"knock-dull": {
 			"role": "sfx",

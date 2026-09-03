@@ -132,8 +132,23 @@
         background: transparent;
         border: 0;
         color: var(--text-primary);
-        transition-property: scale;
-        transition-duration: 0.16s;
+        transition-property: scale, opacity;
+        transition-duration: 0.16s, 0.4s;
+    }
+
+    /* A murmur while a show plays; the theatre posts the state on the root. */
+    :global(html.theatre-watching) .github-corner {
+        opacity: 0.3;
+    }
+
+    :global(html.theatre-watching) .github-corner:hover {
+        opacity: 1;
+    }
+
+    /* Gone entirely while a billboard holds the screen. */
+    :global(html.theatre-card) .github-corner {
+        opacity: 0;
+        pointer-events: none;
     }
 
     .github-corner:hover {

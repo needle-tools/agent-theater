@@ -328,8 +328,19 @@
         transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
     }
 
-    /* The show plays to a clean room. */
-    .shelf--away {
+    /* No sticker drawers on a phone, for now: the piles were designed for a
+       desk's width and arrive cut off at the bottom of a small screen. The
+       strewn props still deal by touch, so the paper is not empty-handed. */
+    @media (max-width: 700px) {
+        .shelf {
+            display: none;
+        }
+    }
+
+    /* The show plays to a clean room — and a billboard (title card, credits,
+       or the ?titlecard pin) darkens the whole house, drawers included. */
+    .shelf--away,
+    :global(html.theatre-card) .shelf {
         opacity: 0;
         translate: 0 24px;
         pointer-events: none;

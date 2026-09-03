@@ -84,7 +84,7 @@
             title="Dismiss"
         >
             {#if toast.tone === "busy"}
-                <span class="spinner" aria-hidden="true"></span>
+                <img class="spinner" src="/toolbar/loading-icon.webp" alt="" aria-hidden="true" />
             {:else if toast.tone === "agent"}
                 <span class="pulse" aria-hidden="true"></span>
             {/if}
@@ -225,12 +225,11 @@
 
     .spinner {
         flex: none;
-        width: 13px;
-        height: 13px;
-        border-radius: 50%;
-        border: 2px solid color-mix(in srgb, var(--accent-brand) 30%, transparent);
-        border-top-color: var(--accent-brand);
-        animation: spin 0.7s linear infinite;
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+        filter: drop-shadow(0 1px 1px rgba(34, 44, 32, 0.18));
+        animation: spin 1.15s linear infinite;
     }
 
     @keyframes spin {

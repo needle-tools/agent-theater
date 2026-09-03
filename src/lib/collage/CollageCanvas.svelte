@@ -35,6 +35,7 @@
     import { sayName } from "./sayName.js";
     import { actorForLayer, greetingForActor } from "./characterVoice.js";
     import { clipKeyframes, clipPreviewKeyframes, findClip, recorder, TALK_CLIP } from "./clips.js";
+    import { idleSet } from "./idleSet.js";
     import { prompter } from "./speech.js";
     import SubtitleVoiceMenu from "../subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "../subtitleVoice/index.js";
@@ -90,6 +91,78 @@
     $effect(() => {
         showing = !!studio.showing;
         return studio.onShowChanged(() => (showing = !!studio.showing));
+    });
+
+    /*
+     * Bystanders step aside for the show.
+     *
+     * The canvas is a workshop, so there are usually stickers lying about
+     * that no chapter ever cast — and a title card or a scene laid out by
+     * the agent lands right on top of them. When the curtain goes up, any
+     * uncast layer overlapping the play's ground is ushered out to a ring
+     * around the scene; when it ends, everybody walks back. Presentational
+     * only (WAAPI on the element, never the document): the document is the
+     * person's arrangement, and the show has no business rewriting it.
+     */
+    const sidelined = new Map<string, Animation>();
+
+    function sidelineBystanders() {
+        if (!viewport) return;
+        const stages = studio.collage.listStages();
+        if (!stages.length) return;
+        const cast = new Set(stages.flatMap(stage => stage.cast.map(member => member.id)));
+        const world = studio.collage.list();
+        // Riders travel with their holders; a basket in a cast hand is part
+        // of the play whether or not a chapter names it.
+        for (const layer of world) {
+            if (layer.held && cast.has(layer.held.by)) cast.add(layer.id);
+        }
+        const players = world.filter(layer => cast.has(layer.id));
+        if (!players.length) return;
+        const left = Math.min(...players.map(l => l.x));
+        const right = Math.max(...players.map(l => l.x + l.width));
+        const top = Math.min(...players.map(l => l.y));
+        const bottom = Math.max(...players.map(l => l.y + l.height));
+        const cx = (left + right) / 2;
+        const cy = (top + bottom) / 2;
+        // The ring sits just past the scene's furthest corner; each bystander
+        // keeps its own bearing from the centre, so nobody crosses the stage
+        // on the way out and the strays stay in their rough neighbourhoods.
+        const ring = Math.hypot(right - left, bottom - top) / 2 + 80;
+
+        for (const layer of world) {
+            if (cast.has(layer.id) || sidelined.has(layer.id)) continue;
+            const overlaps = layer.x < right && layer.x + layer.width > left
+                && layer.y < bottom && layer.y + layer.height > top;
+            if (!overlaps) continue;
+            const element = viewport.querySelector(`[data-layer="${CSS.escape(layer.id)}"]`);
+            if (!element || typeof element.animate !== "function") continue;
+            const ownX = layer.x + layer.width / 2 - cx;
+            const ownY = layer.y + layer.height / 2 - cy;
+            const bearing = ownX || ownY ? Math.atan2(ownY, ownX)
+                : (layerSeed(layer.id) % 360) * (Math.PI / 180);
+            const reach = ring + Math.hypot(layer.width, layer.height) / 2;
+            const dx = cx + Math.cos(bearing) * reach - (layer.x + layer.width / 2);
+            const dy = cy + Math.sin(bearing) * reach - (layer.y + layer.height / 2);
+            sidelined.set(layer.id, element.animate(
+                [{ translate: "0px 0px" }, { translate: `${dx.toFixed(1)}px ${dy.toFixed(1)}px` }],
+                { duration: 700, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "forwards" }));
+        }
+    }
+
+    function recallBystanders() {
+        for (const animation of sidelined.values()) {
+            // Walked back the way they came, from wherever the glide got to.
+            animation.reverse();
+            animation.finished.then(() => animation.cancel(), () => animation.cancel());
+        }
+        sidelined.clear();
+    }
+
+    $effect(() => {
+        if (showing) sidelineBystanders();
+        else recallBystanders();
+        return () => recallBystanders();
     });
 
     /**
@@ -758,8 +831,12 @@
         placedBefore = new Map(now.map(layer => [layer.id, shape(layer)]));
 
         // `fitted` guards the first paint, where everything is new and fitAll
-        // is already about to do a better job than this could.
-        if (!changed.length || !fitted || drag || showing || !viewport) return;
+        // is already about to do a better job than this could. The idle
+        // scatter guards the adoption: while strewn props are on the floor
+        // the screen is full — just not with document — and the "everything
+        // is tiny" fit would zoom onto the first dropped sticker mid-adoption,
+        // sizing everything adopted after it against a different view.
+        if (!changed.length || !fitted || drag || showing || !viewport || idleSet.props.length) return;
 
         // A moment's wait, so a sheet arriving as twenty-five separate adds —
         // or a batch moving a whole cast — moves the camera once at the end.
@@ -1499,7 +1576,22 @@
     $effect(() => {
         // First layout only — refitting on every change would yank the view out
         // from under someone who has just panned somewhere on purpose.
-        if (viewport && !fitted && (layers.length || frames.length)) fitAll();
+        if (!viewport || fitted || !(layers.length || frames.length)) return;
+        /*
+         * And not when the first layer is joining the idle scatter. The strewn
+         * props are already ON screen at a deliberate view, and the drop that
+         * starts the adoption converts screen sizes to canvas units at that
+         * view — auto-fitting to the one new layer here re-zoomed the world
+         * BETWEEN the drop and the adoption, so the dropped sticker and its
+         * adopted neighbours were sized against two different zooms and the
+         * first drag from a pile arrived comically large. The view as it
+         * stands IS the fit.
+         */
+        if (idleSet.props.length) {
+            fitted = true;
+            return;
+        }
+        fitAll();
     });
 
     function layerBounds(layer: Layer) {
@@ -1588,26 +1680,14 @@
 
     function onPointerDown(event: PointerEvent) {
         /*
-         * Nothing is GRABBABLE during a show — a performance is watched, not
-         * handled, and dragging an actor mid-line fights the animation for
-         * the same position. But now that shows play on the open canvas, the
-         * VIEW is yours even then: the world is one big sheet and you can
-         * look wherever you like. The camera keeps directing — it will take
-         * the view back on the next scene — but a drag pans, and grabbing
-         * nothing else is exactly the difference between moving the camera
-         * and moving the play.
+         * The stage stays HANDLEABLE during a show. This used to lock to
+         * pan-only — a performance is watched, not handled — but the person
+         * asked for their hands back: the theatre's whole premise is that the
+         * arrangement is theirs, mid-show included. A grabbed actor may fight
+         * its beat's animation for a moment; that is a hand in the puppet
+         * show, which is the aesthetic, not a bug. The camera keeps directing
+         * and takes the view back on the next scene.
          */
-        if (showing) {
-            if (event.button !== 0 && event.button !== 1) return;
-            event.preventDefault();
-            try {
-                (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-            } catch { /* carry on without capture */ }
-            stopFlight();
-            moved = false;
-            drag = { mode: "pan", startX: event.clientX, startY: event.clientY, originX: view.x, originY: view.y };
-            return;
-        }
         // A stuck sweep must never survive into a fresh gesture: it would eat
         // every pointer move and read as "the canvas will not pan".
         eraseSweep = false;
