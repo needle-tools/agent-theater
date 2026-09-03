@@ -118,12 +118,20 @@ function rootCss(root: string, frame: Frame): string {
 }
 
 .${root} figure {
+    overflow: visible;
+}
+
+/* Crop the artwork inside an unclipped figure. The figure's filter therefore
+   sees the cropped silhouette but its shadow can extend past the crop box. */
+.${root} figure > .${root}__crop {
+    position: absolute;
+    inset: 0;
     overflow: hidden;
 }
 
-/* One child per figure — an <img>, or a masked <span> for a silhouette. Both
-   are sized and offset per layer below to show only the cropped region. */
-.${root} figure > * {
+/* An <img>, or a masked <span> for a silhouette. Both are sized and offset per
+   layer below to show only the cropped region. */
+.${root} figure > .${root}__crop > * {
     position: absolute;
     display: block;
     max-width: none;
@@ -178,7 +186,7 @@ function layerCss(root: string, index: number, layer: Layer, frame: Frame): stri
                 `mask-size: 100% 100%;`,
             );
         }
-        css += `\n\n${selector} > * {\n${inner.map(r => `    ${r}`).join("\n")}\n}`;
+        css += `\n\n${selector} > .${root}__crop > * {\n${inner.map(r => `    ${r}`).join("\n")}\n}`;
     } else {
         const text = layer as TextLayer;
         const textRules = [
@@ -224,12 +232,12 @@ function imageMarkup(root: string, index: number, layer: ImageLayer, options: Ht
         // custom property. `role="img"` with a label keeps the shape in the
         // accessibility tree, which a decorative <span> would not be.
         return `<figure class="${root}__l${index}" style="--src: url(&quot;${escapeAttr(src)}&quot;)">` +
-            `<span role="img" aria-label="${alt}"></span>` +
+            `<span class="${root}__crop"><span role="img" aria-label="${alt}"></span></span>` +
             `</figure>`;
     }
 
     return `<figure class="${root}__l${index}">` +
-        `<img src="${escapeAttr(src)}" alt="${alt}" loading="lazy" decoding="async">` +
+        `<span class="${root}__crop"><img src="${escapeAttr(src)}" alt="${alt}" loading="lazy" decoding="async"></span>` +
         `</figure>`;
 }
 

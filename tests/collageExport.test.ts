@@ -61,6 +61,9 @@ describe("html export", () => {
         // shifted left by 0.2/0.6 of its own width.
         expect(html).toContain("width: 166.6667%;");
         expect(html).toContain("left: -33.3333%;");
+        expect(html).toContain('class="collage__crop"');
+        expect(html).toContain("overflow: visible;");
+        expect(html).toContain("overflow: hidden;");
     });
 
     it("namespaces every class it emits", () => {

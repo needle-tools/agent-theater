@@ -2093,7 +2093,7 @@
          * as they do lying on the paper.
          */
         const filters = [own, indicator].filter(Boolean).join(" ");
-        return filters ? `; filter: ${filters}` : "";
+        return filters ? `filter: ${filters}` : "";
     }
 
     /**
@@ -2348,11 +2348,20 @@
                     style:--grain-seed={layerSeed(layer.id) % 1000}
                     style={imageStyle(layer)}
                 >
-                    {#if layer.style.silhouette}
-                        <span class={paintOf(layer)} role="img" aria-label={layer.label} style="{croppedStyle(layer)}{filterOf(layer)}"></span>
-                    {:else}
-                        <img class={paintOf(layer)} src={layer.src} alt={layer.label} style="{croppedStyle(layer)}{filterOf(layer)}" draggable="false" />
-                    {/if}
+                    <!-- Cropping and filtering cannot live on the same box:
+                         overflow clips a child's drop-shadow to the layer
+                         rectangle. Filter the already-cropped artwork from an
+                         unclipped wrapper so shadows and selection marks have
+                         room to breathe. -->
+                    <span class="layer__filter" style={filterOf(layer)}>
+                        <span class="layer__crop">
+                            {#if layer.style.silhouette}
+                                <span class={paintOf(layer)} role="img" aria-label={layer.label} style={croppedStyle(layer)}></span>
+                            {:else}
+                                <img class={paintOf(layer)} src={layer.src} alt={layer.label} style={croppedStyle(layer)} draggable="false" />
+                            {/if}
+                        </span>
+                    </span>
                 </figure>
             {:else}
                 <p
@@ -2604,9 +2613,19 @@
     .layer {
         position: absolute;
         margin: 0;
-        overflow: hidden;
+        overflow: visible;
         pointer-events: none;
     }
+
+    .layer__filter,
+    .layer__crop {
+        position: absolute;
+        display: block;
+        inset: 0;
+    }
+
+    .layer__filter { overflow: visible; }
+    .layer__crop { overflow: hidden; }
 
     /* Only while a layout settles. Named properties, never `all`: transitioning
        `filter` here would make the selection outline fade in every time. */
@@ -2622,8 +2641,8 @@
         }
     }
 
-    .layer > :global(img),
-    .layer > :global(span) {
+    .layer__crop > :global(img),
+    .layer__crop > :global(span) {
         position: absolute;
         display: block;
         max-width: none;
