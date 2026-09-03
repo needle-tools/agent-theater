@@ -134,6 +134,13 @@ export interface Stage {
     musicEnd?: string;
     /** A mood colour for the surround, rarely used and rarely needed. */
     tint?: string;
+    /**
+     * The paper's colour while this chapter plays — the scene's own weather.
+     * Fades in when the chapter begins and stays (the world is continuous;
+     * a story that ends at night leaves the night). "" resets to the house
+     * paper.
+     */
+    background?: string;
     /** Seconds to hold after the chapter before moving on. */
     hold?: number;
 }
@@ -147,6 +154,7 @@ export interface StageSpec {
     music?: string | null;
     musicEnd?: string;
     tint?: string;
+    background?: string;
     hold?: number;
 }
 

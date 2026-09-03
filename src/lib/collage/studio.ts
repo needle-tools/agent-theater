@@ -25,7 +25,8 @@ import {
     type CutRegion, type CutResult, type Progress,
 } from "./background.js";
 import {
-    collectGarbage, clearDoc, clearImages, getImage, loadDoc, newImageKey, putImage, saveDoc,
+    collectGarbage, clearDoc, clearImages, clearWings, getImage, loadDoc, loadWings,
+    newImageKey, putImage, saveDoc, stashDoc,
     type StoredDoc, type StoredView,
 } from "./persistence.js";
 import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
@@ -374,6 +375,13 @@ export interface CollageStudio {
     openFile(file: Blob, options?: { replace?: boolean }): Promise<number>;
     save(view?: StoredView): void;
     clear(): Promise<void>;
+    /**
+     * Walk the last struck set back on from the wings. A clear is a stash,
+     * not a deletion — this is the other half. Only onto an empty canvas:
+     * restoring on top of new work would trade one loss for another.
+     * Returns how many layers came back; 0 when the wings are empty.
+     */
+    restoreFromWings(): Promise<number>;
     /** The decoded images, for the canvas component to draw with. */
     readonly images: Map<string, LoadedImage>;
 }
@@ -635,6 +643,13 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // bed is already under the build-up. Cross-fading is the speaker's
             // business; from here it is just "this scene wants this".
             speaker.music(stage.music ?? null, stage.musicEnd ?? "loop");
+            // The chapter's own weather: the paper fades to it as the chapter
+            // begins, and STAYS — the world is continuous, and a story that
+            // ends at night leaves the night. Undefined means "keep whatever
+            // the paper already is"; "" means back to the house paper.
+            if (stage.background !== undefined && stage.background !== collage.background) {
+                collage.setBackground(stage.background);
+            }
 
             const { approach, beats, hidden } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
             // Arrivals start off stage, then walk the same distance back on.
@@ -807,7 +822,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
             saveTimer = null;
-            saveDoc(collage.listAll(), collage.listFrames(), lastView, collage.listStages(), collage.billing);
+            saveDoc(collage.listAll(), collage.listFrames(), lastView, collage.listStages(),
+                collage.billing, collage.background);
             // Cheap enough to run alongside a save, and it keeps a long session
             // from leaving every superseded cut-out behind in the store.
             // listAll, emphatically. With a stage showing, list() answers with
@@ -1591,7 +1607,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // becomes the page and the rest are dropped.
             const frames = doc.frames.slice(0, 1);
             pagePreset = knownPage(frames[0]?.presetId);
-            collage.restore(restored, frames, doc.stages ?? [], doc.billing ?? {});
+            collage.restore(restored, frames, doc.stages ?? [], doc.billing ?? {}, doc.background ?? "");
             // Decode in parallel — a dozen images should not be a dozen waits.
             await Promise.all(restored
                 .filter((l): l is ImageLayer => l.kind === "image")
@@ -1606,7 +1622,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
             await this.clear();
             lastView = doc.view;
             const layers = doc.layers.filter(layer => layer.kind !== "image" || !!layer.src);
-            collage.restore(layers, doc.frames.slice(0, 1), doc.stages ?? [], doc.billing ?? {});
+            collage.restore(layers, doc.frames.slice(0, 1), doc.stages ?? [], doc.billing ?? {},
+                doc.background ?? "");
             for (const clip of doc.clips ?? []) {
                 if (!hasOwnClip(clip.name)) saveClip(clip);
             }
@@ -1627,6 +1644,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 frames: collage.listFrames(),
                 ...(collage.listStages().length ? { stages: collage.listStages() } : {}),
                 ...(Object.keys(collage.billing).length ? { billing: collage.billing } : {}),
+                ...(collage.background ? { background: collage.background } : {}),
                 ...(lastView ? { view: lastView } : {}),
             };
         },
@@ -1713,6 +1731,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 ...(collage.listStages().length ? { stages: collage.listStages() } : {}),
                 ...(collage.billing.title || collage.billing.byline ? { billing: collage.billing } : {}),
                 ...(travelling.length ? { clips: travelling } : {}),
+                ...(collage.background ? { background: collage.background } : {}),
                 ...(lastView ? { view: lastView } : {}),
             };
 
@@ -1821,6 +1840,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 const frame = payload.doc.frames[0];
                 if (frame) this.setPage(knownPage(frame.presetId));
                 lastView = payload.doc.view;
+                // Same rule for the weather: the play's paper colour comes
+                // with it, but never repaints an arrangement in progress.
+                if (payload.doc.background) collage.setBackground(payload.doc.background);
             }
 
             await Promise.all(arriving
@@ -1962,14 +1984,57 @@ export function createStudio(collage = new Collage()): CollageStudio {
         async clear() {
             if (saveTimer) clearTimeout(saveTimer);
             saveTimer = null;
+            /*
+             * The set steps into the wings before the stage is struck: the
+             * document goes to localStorage, and the garbage collection below
+             * spares exactly the images it references. Clearing stopped being
+             * deletion the day agents turned out to be (rightly) afraid of a
+             * button marked "not undoable".
+             */
+            const struck = collage.listAll();
+            const stashed = struck.length
+                ? stashDoc(struck, collage.listFrames(), collage.listStages(), collage.billing,
+                    collage.background)
+                : false;
             for (const url of objectUrls) URL.revokeObjectURL(url);
             objectUrls.clear();
             images.clear();
             collage.restore([], []);
             pagePreset = FREE_PAGE;
             clearDoc();
-            await clearImages();
-            record("cleared", "The canvas was cleared.");
+            if (stashed) await collectGarbage(struck);
+            else await clearImages();
+            record("cleared", stashed
+                ? "The canvas was cleared — the set waits in the wings."
+                : "The canvas was cleared.");
+        },
+
+        async restoreFromWings() {
+            const doc = loadWings();
+            if (!doc?.layers.length) return 0;
+            if (collage.listAll().length) {
+                throw new Error("The canvas is not empty — restoring would bury the new work.");
+            }
+            const returned: Layer[] = [];
+            for (const layer of doc.layers) {
+                if (layer.kind !== "image" || !layer.storageKey) {
+                    returned.push(layer);
+                    continue;
+                }
+                const blob = await getImage(layer.storageKey);
+                if (!blob) continue; // Bytes are gone; the layer would be a hole.
+                returned.push({ ...layer, src: trackUrl(URL.createObjectURL(blob)) });
+            }
+            const frames = (doc.frames ?? []).slice(0, 1);
+            pagePreset = knownPage(frames[0]?.presetId);
+            collage.restore(returned, frames, doc.stages ?? [], doc.billing ?? {}, doc.background ?? "");
+            await Promise.all(returned
+                .filter((layer): layer is ImageLayer => layer.kind === "image")
+                .map(layer => adopt(layer.id, layer.src).catch(() => undefined)));
+            clearWings();
+            scheduleSave();
+            record("opened", "The set walked back on from the wings.", "agent");
+            return returned.length;
         },
 
         async exportFrame(frameId, format, options = {}) {

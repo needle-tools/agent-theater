@@ -340,12 +340,14 @@ describe("sound", () => {
         // the library is being replaced.
         expect(soundNames("bed").length).toBeGreaterThan(0);
         expect(soundNames("cue", "sfx").length).toBeGreaterThan(3);
-        // Twenty seconds, not thirty. The number is a proxy for the split, not
-        // a rule about length: a chase bed is deliberately short so it comes
-        // round often, and the longest effect in the library is five seconds of
-        // audience murmur. Anywhere in between separates them safely.
-        for (const id of soundNames("bed")) expect(findSound(id)!.seconds).toBeGreaterThan(20);
-        for (const id of soundNames("cue", "sfx")) expect(findSound(id)!.seconds).toBeLessThan(20);
+        // The number is a proxy for the split, not a rule about length, and it
+        // has moved twice as the library grew: a chase bed is deliberately
+        // short so it comes round often, and a music box winding down runs
+        // twenty seconds without ever being something to play a scene under.
+        // Twenty-five sits in the gap between the longest cue and the shortest
+        // bed. What matters is that a bed loops and a cue finishes.
+        for (const id of soundNames("bed")) expect(findSound(id)!.seconds).toBeGreaterThan(25);
+        for (const id of soundNames("cue", "sfx")) expect(findSound(id)!.seconds).toBeLessThan(25);
     });
 
     it("says what each one sounds like, so a choice is not a guess", () => {

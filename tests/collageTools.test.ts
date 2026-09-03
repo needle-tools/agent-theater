@@ -110,6 +110,7 @@ function fakeStudio(options: FakeOptions = {}) {
         setSpeaker() { /* the fake is deaf */ },
         async narrate() { /* and mute: bubbles need a canvas */ },
         setNarrator() { /* nothing mounts one here */ },
+        async restoreFromWings() { return 0; },
         get speaker() { return SILENT; },
         showing: null as string | null,
         holding: false,
@@ -797,7 +798,7 @@ describe("the surface an agent actually sees", () => {
             "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",
             "theater_art_prompt", "theater_avatar", "theater_background", "theater_batch",
-            "theater_clear", "theater_start",
+            "theater_clear", "theater_restore", "theater_start",
         ]);
     });
 

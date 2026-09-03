@@ -536,6 +536,15 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "\"id\". A short breath between two different speakers is added " +
                                         "for you; this is for the ones that mean something.",
                                 },
+                                background: {
+                                    type: "string",
+                                    description:
+                                        "Fade the PAPER to this hex colour as the beat starts — the " +
+                                        "weather changing mid-scene: dusk falling, a fire catching. " +
+                                        "'paper' returns the house colour. Rides along with whatever " +
+                                        "else the beat does; alone it takes no time and needs no id. " +
+                                        "It stays until something changes it again.",
+                                },
                                 duration: { type: "number", description: "Override the beat's length, in ms." },
                             },
                         },
@@ -806,13 +815,21 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             "colour and dims it. Set it when the mood wants something the picture does " +
                             "not say — a cold surround on a warm scene. Pass 'auto' to go back.",
                     },
+                    background: {
+                        type: "string",
+                        description:
+                            "The PAPER's colour while this chapter plays — the scene's weather, e.g. " +
+                            "'#1B2440' for night. Fades in as the chapter begins and stays until " +
+                            "another chapter, beat, or theater_background changes it. 'paper' resets " +
+                            "to the house colour. A beat can also change it mid-chapter.",
+                    },
                     hold: { type: "number", description: "Seconds to wait at the end before moving on." },
                     show: { type: "boolean", description: "Show this scene on the canvas. Default true for a new one." },
                 },
             },
             async execute(args: {
                 id?: string; name?: string; backdrop?: string; music?: string; musicEnd?: string;
-                tint?: string; hold?: number; show?: boolean;
+                tint?: string; background?: string; hold?: number; show?: boolean;
             }) {
                 const id = str(args?.id);
                 if (id && !collage.getStage(id)) {
@@ -845,9 +862,14 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 if (tint && tint !== "auto" && !/^#[0-9a-f]{3,8}$/i.test(tint)) {
                     return fail(`"${tint}" is not a hex colour like "#2A1F3D", and not 'auto'.`);
                 }
+                const paper = str(args?.background).toLowerCase();
+                if (paper && paper !== "paper" && !/^#[0-9a-f]{3,8}$/i.test(paper)) {
+                    return fail(`"${paper}" is not a hex colour like "#1B2440", and not 'paper'.`);
+                }
                 const patch = {
                     ...(str(args?.name) ? { name: str(args.name) } : {}),
                     ...(tint ? { tint: tint === "auto" ? "" : tint } : {}),
+                    ...(paper ? { background: paper === "paper" ? "" : paper } : {}),
                     ...(music ? { music: music === "none" ? null : music } : {}),
                     ...(musicEnd ? { musicEnd } : {}),
                     ...(num(args?.hold) ? { hold: Math.max(0, args.hold) } : {}),

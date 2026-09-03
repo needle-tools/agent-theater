@@ -1549,6 +1549,235 @@
 			"mood": ["airy", "light", "quick"],
 			"description": "A small breathed swoosh with a long thin decay, no weight underneath. Much smaller and quieter than `whoosh` — for something little moving, not something big."
 		},
+		"bird-chirp": {
+			"role": "cue",
+			"file": "/audio/cues/bird-chirp.opus",
+			"seconds": 2.01,
+			"mood": ["bright", "fluttering", "small"],
+			"description": "A quick piccolo trill and a light triangle ping. A bird, played by the instrument that sounds most like one."
+		},
+		"choir-wonder-1": {
+			"role": "cue",
+			"file": "/audio/cues/choir-wonder-1.opus",
+			"seconds": 14.83,
+			"take": "choir-wonder",
+			"mood": ["hushed", "wondering", "warm"],
+			"description": "A wordless soft choir sustaining one chord, distant and warm. The only voices in the library apart from `cry-vocal`, and the sound to reach for at a wonder. Fifteen seconds, so it holds the bed down for as long as it lasts."
+		},
+		"choir-wonder-2": {
+			"role": "cue",
+			"file": "/audio/cues/choir-wonder-2.opus",
+			"seconds": 13.81,
+			"take": "choir-wonder",
+			"mood": ["hushed", "wondering", "warm"],
+			"description": "A wordless soft choir sustaining one chord, distant and warm. The shortest of the three takes."
+		},
+		"choir-wonder-3": {
+			"role": "cue",
+			"file": "/audio/cues/choir-wonder-3.opus",
+			"seconds": 18.11,
+			"take": "choir-wonder",
+			"mood": ["hushed", "wondering", "warm"],
+			"description": "A wordless soft choir sustaining one chord, distant and warm. The longest of the three, at eighteen seconds."
+		},
+		"musicbox-down-1": {
+			"role": "cue",
+			"file": "/audio/cues/musicbox-down-1.opus",
+			"seconds": 20.01,
+			"take": "musicbox-down",
+			"mood": ["fragile", "slowing", "storybook"],
+			"description": "A music box melody winding down, single plucked notes stretching apart until they stop. For an ending, a sleep, or a spell running out. The longest cue in the library at twenty seconds."
+		},
+		"musicbox-down-2": {
+			"role": "cue",
+			"file": "/audio/cues/musicbox-down-2.opus",
+			"seconds": 17.08,
+			"take": "musicbox-down",
+			"mood": ["fragile", "slowing", "storybook"],
+			"description": "A music box melody winding down, single plucked notes stretching apart until they stop."
+		},
+		"musicbox-down-3": {
+			"role": "cue",
+			"file": "/audio/cues/musicbox-down-3.opus",
+			"seconds": 17.04,
+			"take": "musicbox-down",
+			"mood": ["fragile", "slowing", "storybook"],
+			"description": "A music box melody winding down, single plucked notes stretching apart until they stop."
+		},
+		"singing-bowl-1": {
+			"role": "cue",
+			"file": "/audio/cues/singing-bowl-1.opus",
+			"seconds": 10.54,
+			"take": "singing-bowl",
+			"mood": ["still", "open", "resonant"],
+			"description": "One struck singing bowl left to decay. The only sound here that is a single tone rather than a gesture — for a scene that has to stop. The quietest of the pair, and the quietest cue in the library."
+		},
+		"singing-bowl-2": {
+			"role": "cue",
+			"file": "/audio/cues/singing-bowl-2.opus",
+			"seconds": 13.75,
+			"take": "singing-bowl",
+			"mood": ["still", "open", "resonant"],
+			"description": "One struck singing bowl left to decay, held for fourteen seconds. For a scene that has to stop."
+		},
+		"big-beast-1": {
+			"role": "cue",
+			"file": "/audio/cues/big-beast-1.opus",
+			"seconds": 2.01,
+			"take": "big-beast",
+			"mood": ["huge", "lumbering", "low"],
+			"description": "A low tuba growl over slow timpani steps. Something very large arriving — the giant, the ogre, the whale. Peter and the Wolf, not a monster movie."
+		},
+		"big-beast-2": {
+			"role": "cue",
+			"file": "/audio/cues/big-beast-2.opus",
+			"seconds": 2.01,
+			"take": "big-beast",
+			"mood": ["huge", "lumbering", "low"],
+			"description": "A low tuba growl over slow timpani steps. Something very large arriving."
+		},
+		"big-beast-3": {
+			"role": "cue",
+			"file": "/audio/cues/big-beast-3.opus",
+			"seconds": 2.01,
+			"take": "big-beast",
+			"mood": ["huge", "lumbering", "low"],
+			"description": "A low tuba growl over slow timpani steps. Something very large arriving."
+		},
+		"bow-courtly-1": {
+			"role": "cue",
+			"file": "/audio/cues/bow-courtly-1.opus",
+			"seconds": 3.01,
+			"take": "bow-courtly",
+			"mood": ["formal", "gracious", "courtly"],
+			"description": "A short string cadence with a soft harpsichord flourish. A bow, a curtsy, a king entering — the only baroque thing in the library."
+		},
+		"bow-courtly-2": {
+			"role": "cue",
+			"file": "/audio/cues/bow-courtly-2.opus",
+			"seconds": 3.01,
+			"take": "bow-courtly",
+			"mood": ["formal", "gracious", "courtly"],
+			"description": "A short string cadence with a soft harpsichord flourish. From a prompt asking for a softer opening than `bow-courtly-1`, and it arrived nearly at level."
+		},
+		"bow-courtly-3": {
+			"role": "cue",
+			"file": "/audio/cues/bow-courtly-3.opus",
+			"seconds": 3.01,
+			"take": "bow-courtly",
+			"mood": ["formal", "gracious", "courtly"],
+			"description": "A short string cadence with a soft harpsichord flourish. A bow, a curtsy, a king entering."
+		},
+		"cat-meow": {
+			"role": "cue",
+			"file": "/audio/cues/cat-meow.opus",
+			"seconds": 1.01,
+			"mood": ["curious", "sly", "small"],
+			"description": "A rising clarinet slide with a pizzicato tail. A cat, played by the instrument that sounds most like one."
+		},
+		"clock-time-1": {
+			"role": "cue",
+			"file": "/audio/cues/clock-time-1.opus",
+			"seconds": 1.01,
+			"take": "clock-time",
+			"mood": ["even", "patient", "ticking"],
+			"description": "Steady woodblock ticks under a sparse celesta chime. Time passing, or a wait about to end."
+		},
+		"clock-time-2": {
+			"role": "cue",
+			"file": "/audio/cues/clock-time-2.opus",
+			"seconds": 1.01,
+			"take": "clock-time",
+			"mood": ["even", "patient", "ticking"],
+			"description": "Steady woodblock ticks under a sparse celesta chime. Time passing, or a wait about to end."
+		},
+		"fly-soar-1": {
+			"role": "cue",
+			"file": "/audio/cues/fly-soar-1.opus",
+			"seconds": 3.01,
+			"take": "fly-soar",
+			"mood": ["lifting", "open", "airy"],
+			"description": "A rising string swell, a harp arpeggio upward and a light flute. Taking off, or the moment a thing turns out to be possible."
+		},
+		"fly-soar-2": {
+			"role": "cue",
+			"file": "/audio/cues/fly-soar-2.opus",
+			"seconds": 3.01,
+			"take": "fly-soar",
+			"mood": ["lifting", "open", "airy"],
+			"description": "A rising string swell, a harp arpeggio upward and a light flute. Taking off."
+		},
+		"gulp-eat-1": {
+			"role": "cue",
+			"file": "/audio/cues/gulp-eat-1.opus",
+			"seconds": 1.01,
+			"take": "gulp-eat",
+			"mood": ["greedy", "comic", "abrupt"],
+			"description": "A descending bassoon slide and one woodblock knock. Something swallowed whole."
+		},
+		"gulp-eat-2": {
+			"role": "cue",
+			"file": "/audio/cues/gulp-eat-2.opus",
+			"seconds": 1.01,
+			"take": "gulp-eat",
+			"mood": ["greedy", "comic", "abrupt"],
+			"description": "A descending bassoon slide and one woodblock knock. Something swallowed whole."
+		},
+		"kiss-sweet": {
+			"role": "cue",
+			"file": "/audio/cues/kiss-sweet.opus",
+			"seconds": 3.01,
+			"mood": ["tender", "warm", "brief"],
+			"description": "A single harp glissando upward, a soft celesta note and a warm string sigh. Affection, and short enough not to labour it."
+		},
+		"splash-1": {
+			"role": "cue",
+			"file": "/audio/cues/splash-1.opus",
+			"seconds": 1.01,
+			"take": "splash",
+			"mood": ["wet", "tumbling", "comic"],
+			"description": "A descending harp glissando, a low woodblock plop and a bubbling marimba roll. Into the water, played rather than recorded."
+		},
+		"splash-2": {
+			"role": "cue",
+			"file": "/audio/cues/splash-2.opus",
+			"seconds": 1.01,
+			"take": "splash",
+			"mood": ["wet", "tumbling", "comic"],
+			"description": "A descending harp glissando, a low woodblock plop and a bubbling marimba roll. Into the water."
+		},
+		"splash-3": {
+			"role": "cue",
+			"file": "/audio/cues/splash-3.opus",
+			"seconds": 1.01,
+			"take": "splash",
+			"mood": ["wet", "tumbling", "comic"],
+			"description": "A descending harp glissando, a low woodblock plop and a bubbling marimba roll. Into the water."
+		},
+		"treasure-sparkle-1": {
+			"role": "cue",
+			"file": "/audio/cues/treasure-sparkle-1.opus",
+			"seconds": 5.01,
+			"take": "treasure-sparkle",
+			"mood": ["glittering", "rich", "bright"],
+			"description": "An ascending glockenspiel run, a harp shimmer and a soft cymbal bloom. Gold, a reveal, a chest opening. The longest of the three takes at five seconds, so it ducks the bed while it rings."
+		},
+		"treasure-sparkle-2": {
+			"role": "cue",
+			"file": "/audio/cues/treasure-sparkle-2.opus",
+			"seconds": 2.01,
+			"take": "treasure-sparkle",
+			"mood": ["glittering", "rich", "bright"],
+			"description": "An ascending glockenspiel run, a harp shimmer and a soft cymbal bloom. Gold, a reveal, a chest opening."
+		},
+		"treasure-sparkle-3": {
+			"role": "cue",
+			"file": "/audio/cues/treasure-sparkle-3.opus",
+			"seconds": 2.01,
+			"take": "treasure-sparkle",
+			"mood": ["glittering", "rich", "bright"],
+			"description": "An ascending glockenspiel run, a harp shimmer and a soft cymbal bloom. Gold, a reveal, a chest opening."
+		},
 		"explosion-comic-1": {
 			"role": "cue",
 			"file": "/audio/cues/explosion-comic-1.opus",

@@ -45,6 +45,8 @@ export interface StoredDoc {
      * that hand.
      */
     clips?: Clip[];
+    /** The paper's colour, when the play set its own weather. */
+    background?: string;
     view?: StoredView;
 }
 
@@ -56,6 +58,7 @@ export function saveDoc(
     view?: StoredView,
     stages: Stage[] = [],
     billing: Billing = {},
+    background = "",
 ): boolean {
     if (typeof localStorage === "undefined") return false;
     const doc: StoredDoc = {
@@ -68,6 +71,7 @@ export function saveDoc(
         frames,
         ...(stages.length ? { stages } : {}),
         ...(billing.title || billing.byline ? { billing } : {}),
+        ...(background ? { background } : {}),
         ...(view ? { view } : {}),
     };
     try {
@@ -97,6 +101,62 @@ export function loadDoc(): StoredDoc | null {
 
 export function clearDoc() {
     try { localStorage?.removeItem(DOC_KEY); } catch { /* nothing to do */ }
+}
+
+// ── The wings ───────────────────────────────────────────────────────────────
+
+/**
+ * Where a struck set waits. Clearing the stage is not deletion any more: the
+ * whole document steps into the wings, and theater_restore walks it back on.
+ * One set of wings, holding the LAST struck set — a stack would grow into a
+ * second undo history nobody can see.
+ */
+const WINGS_KEY = "needle-collage/wings/v1";
+
+export function stashDoc(
+    layers: Layer[],
+    frames: Frame[],
+    stages: Stage[] = [],
+    billing: Billing = {},
+    background = "",
+): boolean {
+    if (typeof localStorage === "undefined") return false;
+    const doc: StoredDoc = {
+        version: 1,
+        savedAt: Date.now(),
+        // Same rule as saveDoc: blob URLs mean nothing later; the storageKey
+        // is what survives, and the images stay in IndexedDB for it.
+        layers: layers.map(layer =>
+            layer.kind === "image" && layer.storageKey ? { ...layer, src: "" } : layer),
+        frames,
+        ...(stages.length ? { stages } : {}),
+        ...(billing.title || billing.byline || billing.credits?.length ? { billing } : {}),
+        ...(background ? { background } : {}),
+    };
+    try {
+        localStorage.setItem(WINGS_KEY, JSON.stringify(doc));
+        return true;
+    } catch (error) {
+        console.warn("[collage] could not stash the set in the wings:", error);
+        return false;
+    }
+}
+
+export function loadWings(): StoredDoc | null {
+    if (typeof localStorage === "undefined") return null;
+    try {
+        const raw = localStorage.getItem(WINGS_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as StoredDoc;
+        if (parsed?.version !== 1 || !Array.isArray(parsed.layers)) return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
+export function clearWings() {
+    try { localStorage?.removeItem(WINGS_KEY); } catch { /* nothing to do */ }
 }
 
 // ── The images ──────────────────────────────────────────────────────────────

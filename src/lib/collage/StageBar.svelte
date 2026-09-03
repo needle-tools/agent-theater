@@ -127,6 +127,22 @@
         pointer-events: none;
     }
 
+    /*
+     * The programme's ink is derived from the paper, because the agent can
+     * recolour the paper (theater_background) and dark ink on midnight blue
+     * disappears. The oklch clamp is a step function: paper lighter than
+     * L 0.62 gets near-black ink, darker paper gets near-white — with a
+     * touch of the paper's own hue so it reads as printed on it, not laid
+     * over it. The muted ink is the same flip pulled 20% back toward the
+     * paper.
+     */
+    .bar {
+        --playbill-ink: oklch(from var(--paper, var(--surface-page))
+            clamp(0.14, (0.62 - l) * 999, 0.96) min(c, 0.03) h);
+        --playbill-ink-muted: color-mix(in oklch,
+            var(--playbill-ink) 72%, var(--paper, var(--surface-page)));
+    }
+
     .chapters {
         display: flex;
         flex-direction: column;
@@ -167,7 +183,7 @@
         padding: 0 0.2rem;
         border: 0;
         background: transparent;
-        color: var(--text-secondary);
+        color: var(--playbill-ink-muted, var(--text-secondary));
         font: inherit;
         font-size: var(--type-micro-label-size);
         text-align: left;
@@ -180,7 +196,7 @@
     }
 
     .chapter:hover {
-        color: var(--text-primary);
+        color: var(--playbill-ink, var(--text-primary));
     }
 
     .chapter:active {
@@ -189,12 +205,12 @@
 
     /* The current chapter is bold, the way it is in any book's contents. */
     .chapter--current {
-        color: var(--text-primary);
+        color: var(--playbill-ink, var(--text-primary));
         font-weight: 700;
     }
 
     .chapter--busy {
-        color: var(--text-primary);
+        color: var(--playbill-ink, var(--text-primary));
     }
 
     .pip {

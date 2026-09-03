@@ -179,10 +179,6 @@
      * stage: at full strength a pink sky would make the whole window pink and
      * there would be nothing to look at.
      */
-    /** The agent-set paper colour, if any — fades in via the viewport's own
-     *  background transition; null hands the inline style back to the CSS. */
-    const paperColour = $derived.by(() => (version, studio.collage.background || null));
-
     const surround = $derived.by(() => {
         void version;
         const stage = studio.collage.activeStage;
@@ -647,6 +643,9 @@
             return studio.collage.listAll()
                 .filter(layer => layer.held?.by === id)
                 .map(layer => layer.id);
+        },
+        paper(color) {
+            studio.collage.setBackground(color === "paper" ? "" : color);
         },
         follow(id, dx, dy, duration) {
             if (!showing || !viewport) return;
@@ -2425,7 +2424,6 @@
     style:--surround={surround
         ? `color-mix(in srgb, ${surround} 22%, #0E1013)`
         : "#14161a"}
-    style:background-color={paperColour || null}
     bind:this={viewport}
     role="application"
     aria-label="Theater stage"
@@ -2612,11 +2610,22 @@
            a frame label paints it with the selection colour. */
         user-select: none;
         -webkit-user-select: none;
-        background-color: var(--surface-page);
-        background-image: radial-gradient(circle, color-mix(in srgb, var(--border-subtle) 80%, transparent) 1px, transparent 1px);
-        /* The agent can recolour the paper (theater_background); the change is
-           lighting, not a cut, so it FADES. Colour only — background-position
-           follows the pan every frame and must never ease after the hand. */
+        /*
+         * The dot grid is RELATIVE to the paper, whatever colour the paper is.
+         * The agent can recolour it (theater_background, hoisted to `--paper`
+         * on the page by Collage so the playbill can read it too), and a fixed
+         * light dot stencilled over a night blue looked like a starfield sale.
+         * The oklch step moves lightness a fifth of the way toward mid-grey,
+         * so the dots sit just off the paper on cream and just off it on navy
+         * — the same subtlety in both directions, keeping the paper's own hue.
+         */
+        background-color: var(--paper, var(--surface-page));
+        background-image: radial-gradient(circle,
+            oklch(from var(--paper, var(--surface-page)) calc(l + (0.5 - l) * 0.22) c h) 1px,
+            transparent 1px);
+        /* The recolour is lighting, not a cut, so it FADES. Colour only —
+           background-position follows the pan every frame and must never
+           ease after the hand. */
         transition-property: background-color;
         transition-duration: 1.1s;
         transition-timing-function: cubic-bezier(0.2, 0, 0, 1);

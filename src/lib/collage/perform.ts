@@ -713,6 +713,13 @@ export interface Beat {
      */
     becomes?: string;
     to?: { x?: number; y?: number };
+    /**
+     * Fade the paper to this colour as the beat starts — the scene's weather
+     * changing mid-chapter: dusk falling, a fire catching, "paper" for the
+     * house colour. Rides along with whatever else the beat does; alone it
+     * takes no time (the fade runs on its own clock).
+     */
+    background?: string;
     duration?: number;
 }
 
@@ -737,6 +744,8 @@ export interface PlannedBeat {
     camera: CameraMove | null;
     /** Where this beat leaves the layer, relative to where it started. */
     travel: { dx: number; dy: number } | null;
+    /** A paper colour this beat fades the canvas to, or null. */
+    background: string | null;
     duration: number;
 }
 
@@ -793,9 +802,11 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
             ? Math.min(10_000, beat.wait * 1000)
             : null;
         const id = typeof beat?.id === "string" ? beat.id.trim() : "";
-        // A camera beat is about the view, and a pause is about nothing at all,
-        // so neither needs somebody to be about.
-        if (!id && !camera && !wait) {
+        // A camera beat is about the view, a pause is about nothing at all,
+        // and a background change is about the paper — none needs somebody
+        // to be about.
+        const weather = typeof beat?.background === "string" && beat.background.trim();
+        if (!id && !camera && !wait && !weather) {
             problems.push({ index, reason: `every beat needs an "id" naming who it is about` });
             continue;
         }
@@ -818,15 +829,27 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
         const effect = typeof beat?.effect === "string" && beat.effect.trim()
             ? beat.effect.trim()
             : null;
+        const background = typeof beat?.background === "string" && beat.background.trim()
+            ? beat.background.trim().toLowerCase()
+            : null;
+        if (background && background !== "paper" && !/^#[0-9a-f]{3,8}$/i.test(background)) {
+            problems.push({
+                index,
+                reason: `"${background}" is not a paper colour. Pass a hex like "#1B2440", or "paper".`,
+            });
+            continue;
+        }
         // Same string-boolean lesson as `rehearse`: agents send "true". The
         // first beat has nothing to ride along with, so it can never be `with`.
         const together = planned.length > 0 &&
             (beat?.with === true || String(beat?.with ?? "").trim().toLowerCase() === "true");
-        if (!move && !say && !sound && !camera && !wait && !becomes && !take && !drop && !effect) {
+        if (!move && !say && !sound && !camera && !wait && !becomes && !take && !drop && !effect
+            && !background) {
             problems.push({
                 index,
                 reason:
-                    `a beat must have a "do", a "say", a "sound", a "camera", a "wait", a "becomes", a "take", a "drop" or an "effect"`,
+                    `a beat must have a "do", a "say", a "sound", a "camera", a "wait", a "becomes", ` +
+                    `a "take", a "drop", an "effect" or a "background"`,
             });
             continue;
         }
@@ -869,13 +892,15 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
         if (say && lastSpeaker && lastSpeaker !== id && !together) {
             planned.push({
                 id: "", with: false, becomes: null, take: null, drop: null, effect: null,
-                move: null, say: null, sound: null, camera: null, travel: null, duration: BREATH_MS,
+                move: null, say: null, sound: null, camera: null, travel: null,
+                background: null, duration: BREATH_MS,
             });
         }
         if (say) lastSpeaker = id;
 
         planned.push({
-            id, with: together, becomes, take, drop, effect, move, say, sound, camera, travel, duration,
+            id, with: together, becomes, take, drop, effect, move, say, sound, camera, travel,
+            background, duration,
         });
     }
 

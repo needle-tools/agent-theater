@@ -776,6 +776,7 @@ export class Collage {
             ...(spec.music !== undefined ? { music: spec.music } : {}),
             ...(spec.musicEnd ? { musicEnd: spec.musicEnd } : {}),
             ...(spec.tint ? { tint: spec.tint } : {}),
+            ...(spec.background !== undefined ? { background: spec.background } : {}),
             ...(typeof spec.hold === "number" ? { hold: spec.hold } : {}),
         };
         this.stages.set(stage.id, stage);
@@ -796,6 +797,7 @@ export class Collage {
             ...(patch.music !== undefined ? { music: patch.music } : {}),
             ...(patch.musicEnd ? { musicEnd: patch.musicEnd } : {}),
             ...(patch.tint !== undefined ? { tint: patch.tint } : {}),
+            ...(patch.background !== undefined ? { background: patch.background } : {}),
             ...(typeof patch.hold === "number" ? { hold: patch.hold } : {}),
         };
         this.stages.set(id, next);
@@ -964,7 +966,7 @@ export class Collage {
     }
 
     /** Replace the whole document — used when restoring a saved collage. */
-    restore(layers: Layer[], frames: Frame[], stages: Stage[] = [], billing: Billing = {}) {
+    restore(layers: Layer[], frames: Frame[], stages: Stage[] = [], billing: Billing = {}, background = "") {
         // Loading a session is not an edit, and undoing back past it into the
         // previous session's contents would be nonsense.
         this.past.length = 0;
@@ -976,7 +978,7 @@ export class Collage {
         this.active = null;
         this.billed = { ...billing };
         // A restore is a different play; it brings its own weather or none.
-        this.paper = "";
+        this.paper = background;
         for (const stage of stages) this.stages.set(stage.id, stage);
         for (const layer of layers) {
             this.layers.set(layer.id, layer);

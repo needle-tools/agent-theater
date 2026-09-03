@@ -22,7 +22,6 @@
     import { createStudio, download, FREE_PAGE } from "$lib/collage/studio";
     import { createCollageTools } from "$lib/collage/tools";
     import { registerTools } from "$lib/webmcp";
-    import { briefing, invitation } from "$lib/collage/invitation";
     import { said } from "$lib/collage/typed";
     import { prompter } from "$lib/collage/speech";
     import { boilFilterSvg, loadPainterly, PAINTERLY_CSS } from "$lib/collage/painted";
@@ -63,6 +62,12 @@
     }
 
     let version = $state(0);
+    /**
+     * The agent-set paper colour, hoisted to the page so every surface that
+     * sits ON the paper — the canvas, the playbill, the corner chrome — can
+     * derive its own ink from the same `--paper` variable with oklch.
+     */
+    const paperColour = $derived.by(() => (version, studio.collage.background || null));
     /** The eraser is armed: clicking any sticker — canvas or strewn — removes it. */
     let erasing = $state(false);
 
@@ -284,8 +289,6 @@
     });
 
     onMount(async () => {
-        prompt = invitation(location.origin);
-
         // Not awaited: the props are on screen before this resolves, and they
         // are meant to be — the boil arriving a beat late is a picture that
         // starts breathing, where blocking on it would be nine holes.
@@ -344,21 +347,6 @@
         })));
     });
 
-    // The page's own sentence, shown on the empty stage. Same string the help
-    // panel offers, from the same place, so they cannot say different things.
-    let prompt = $state(invitation("https://webmcp.needle.tools"));
-    /**
-     * "Copied" as a little speech bubble at the click, gone a moment later.
-     *
-     * The whole empty page is the copy button: the prompt is the only thing
-     * here to take, so any click that is not a drag, a prop or a control takes
-     * it. The feedback appears where the hand is, in the same bubble language
-     * everything else on this stage speaks.
-     */
-    /** The note itself, named rather than written into the markup. */
-    const COPIED_NOTE =
-        "Copied! Now paste it into ChatGPT — or any AI agent in your browser — and the show begins.";
-    const COPIED_VOICE: SubtitleVoice = { speed: 1, age: 0.5, tone: 0.5 };
 
     /**
      * Three lines, three voices, and they wait for each other.
@@ -380,9 +368,8 @@
         {
             // Punctuation is the pause syntax: the typed reveal and the voice
             // both breathe after . — ! ? — so short sentences pace themselves.
-            say: "Arrange us however you like. Then hand your browser's AI agent " +
-                "the line below — click anywhere to copy it. " +
-                "It reads your scene and puts on the show. Have fun!",
+            say: "Arrange us however you like, then ask ChatGPT for a play — " +
+                "it reads the stage. Have fun!",
             voice: { speed: 1, age: 0.5, tone: 0.58 }, band: 47, aside: true,
         },
         {
@@ -391,61 +378,7 @@
         },
     ];
 
-    let copied = $state<Array<{ id: number; x: number; y: number; tilt: number }>>([]);
-    let copiedSeq = 0;
-    let pressedAt: { x: number; y: number } | null = null;
     let pageEl: HTMLDivElement | null = $state(null);
-    let inviteEl: HTMLParagraphElement | null = $state(null);
-
-    function copyFromPage(event: MouseEvent) {
-        if (!empty || !restored || !pageEl) return;
-        const target = event.target as HTMLElement;
-        if (!pageEl.contains(target)) return;
-        // Props are for dragging, controls are for pressing; neither is this.
-        if (target.closest(".strewn__prop, button, a, input, [data-edit-trigger], .panel")) return;
-        // Only the prompt and a hand's width around it. Click-anywhere turned
-        // every stray click into a clipboard write, which is the page grabbing
-        // at you; click-the-thing is you taking it.
-        if (!inviteEl) return;
-        const reach = 48;
-        const near = inviteEl.getBoundingClientRect();
-        if (event.clientX < near.left - reach || event.clientX > near.right + reach ||
-            event.clientY < near.top - reach || event.clientY > near.bottom + reach) return;
-        // A pan that happened to end where it started is a click; a real pan
-        // is not, and copying at the end of one would be baffling.
-        if (pressedAt && Math.hypot(event.clientX - pressedAt.x, event.clientY - pressedAt.y) > 6) return;
-
-        // What lands on the clipboard is the full briefing, not the watermark:
-        // the short line is for the person glancing, the long one is for the
-        // agent it gets pasted into.
-        void navigator.clipboard.writeText(briefing(location.origin));
-        /*
-         * Cut whatever the props were saying.
-         *
-         * The one place the queue is allowed to be jumped, and it should be:
-         * this is an answer to something the person just did, and an answer
-         * that waits for a prop to finish its sentence is not an answer. It
-         * also removes the only way two of these could overlap — clicking
-         * twice — because the second hush kills the first note's line.
-         */
-        prompter.hush();
-        // One stamp per click, each with its own lean and its own clock —
-        // clicking three times leaves three notes fading on the paper, which
-        // reads as the page enjoying the attention rather than correcting it.
-        const box = pageEl.getBoundingClientRect();
-        const stamp = {
-            id: ++copiedSeq,
-            x: event.clientX - box.left,
-            y: event.clientY - box.top,
-            tilt: (Math.random() - 0.5) * 16,
-        };
-        copied = [...copied, stamp];
-        // Long enough to actually read the instruction in it. The stamp is
-        // not a confirmation tick any more; it is the next step.
-        setTimeout(() => {
-            copied = copied.filter(note => note.id !== stamp.id);
-        }, 7000);
-    }
 
     /**
      * Troupe pieces strewn across the empty stage.
@@ -1124,8 +1057,6 @@
 
 <svelte:window
     onpaste={onPaste}
-    onpointerdown={event => (pressedAt = { x: event.clientX, y: event.clientY })}
-    onclick={copyFromPage}
     ondblclick={conjureProp}
     onkeydown={event => {
         // Escape puts the eraser down — the fastest way out of a mode whose
@@ -1148,6 +1079,7 @@
 <div
     class="page"
     class:page--shared={sharedView}
+    style:--paper={paperColour || null}
     bind:this={pageEl}
     role="region"
     aria-label="Theater"
@@ -1279,17 +1211,10 @@
     {/if}
 
     {#if empty && restored}
-        <!-- The description is the instruction. There is nothing on this stage
-             until somebody directs it, so the honest thing to say about the
-             page is also the thing you hand an agent — printed large enough to
-             read and copy rather than hidden behind a button. -->
+        <!-- The watermark prompt is retired: the intro bubbles teach the flow
+             and the question-mark cut-out holds the copyable briefing. What
+             remains in the middle is the one line phones need. -->
         <div class="empty">
-            <!-- Just the prompt: the title and the welcome are spoken by the
-                 props around it, and copying is a click anywhere on the page. -->
-            <p class="invite" bind:this={inviteEl}>{prompt}</p>
-            <!-- On a phone the prompt is an instruction nobody there can
-                 follow — there is no browser agent to hand it to — so the
-                 honest middle-of-the-page line is this one instead. -->
             <p class="phone-note">
                 Small screen, small stage — this is currently better experienced
                 on a desktop browser, where your browser's AI agent directs the play.
@@ -1361,19 +1286,6 @@
         {/if}
     </div>
 
-    <!-- Said out loud, in the same voice that gave the instruction in the first
-         place: this note is the next sentence of that one, and hearing it in a
-         different voice would read as a different speaker interrupting. The
-         click already hushed the props, so it has the room to itself. -->
-    {#each copied as note (note.id)}
-        <div
-            class="copied"
-            style:left="{note.x}px"
-            style:top="{note.y}px"
-            style:--lean="{note.tilt}deg"
-            use:said={{ strong: "Copied!", voice: COPIED_VOICE }}
-        >{COPIED_NOTE}</div>
-    {/each}
 
     <!-- The auditorium: vignette, title card, credits. Nothing while the
          canvas is being worked on. -->
@@ -1768,12 +1680,9 @@
     }
 
     /*
-     * Behind the props, in front of the light.
-     *
-     * The prompt is scenery-level text — a watermark on the paper — so a prop
-     * dragged across it should pass in front, and the bubbles doing the real
-     * talking sit above everything. The stack, bottom to top: house lights,
-     * this, the props, their bubbles, the copied stamps.
+     * The middle of the empty page. The watermark prompt that used to live
+     * here is retired — the intro bubbles teach the flow, the question mark
+     * holds the briefing — so all that remains is the phone note.
      */
     .empty {
         position: absolute;
@@ -1786,80 +1695,6 @@
         gap: 2px;
         text-align: center;
         pointer-events: none;
-    }
-
-    /*
-     * The prompt: big, and barely there.
-     *
-     * It is the most important text on the page and the least interesting to
-     * read, so it is set like a watermark — large enough to be found, faded
-     * toward the paper so it does not compete with the props doing the actual
-     * talking. Not selectable: any click on the page copies it whole, which
-     * beats a careful drag-select every time.
-     */
-    .empty .invite {
-        max-width: min(46rem, calc(100vw - 2.5rem));
-        padding: 0 1rem;
-        /* A warm ink rather than a grey: saturated enough to belong to the
-           paper world, mixed far enough into the page to stay a watermark. */
-        color: color-mix(in srgb, #8A5A34 52%, var(--surface-page));
-        font-size: clamp(1.1rem, 0.95rem + 0.8vw, 1.5rem);
-        font-weight: 700;
-        line-height: 1.5;
-        text-wrap: pretty;
-        pointer-events: auto;
-        cursor: var(--cursor-pointer, pointer);
-        transition: color 0.3s cubic-bezier(0.2, 0, 0, 1);
-    }
-
-    /* Found: the watermark wakes fully under the pointer that can take it. */
-    .empty .invite:hover {
-        color: color-mix(in srgb, #8A5A34 78%, var(--surface-page));
-    }
-
-    /* "Copied", in the house bubble style, where the hand is. */
-    .copied {
-        position: absolute;
-        z-index: 30;
-        translate: -50% calc(-100% - 12px);
-        rotate: var(--lean, -2deg);
-        padding: 0.45em 0.75em;
-        border: 1.5px solid var(--text-primary);
-        border-radius: 0.8em;
-        background: var(--surface-page-elevated, #fff);
-        color: var(--text-primary);
-        max-width: min(280px, 70vw);
-        font-size: 0.95rem;
-        line-height: 1.4;
-        text-align: center;
-        text-wrap: pretty;
-        pointer-events: none;
-        animation:
-            copied-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-            copied-out 0.4s ease-in 6.3s forwards;
-    }
-
-    .copied::after {
-        content: "";
-        position: absolute;
-        left: 50%;
-        bottom: -0.34em;
-        width: 0.55em;
-        height: 0.55em;
-        translate: -50% 0;
-        rotate: 45deg;
-        border: 1.5px solid var(--text-primary);
-        border-top: 0;
-        border-left: 0;
-        background: var(--surface-page-elevated, #fff);
-    }
-
-    @keyframes copied-in {
-        from { opacity: 0; scale: 0.7; }
-    }
-
-    @keyframes copied-out {
-        to { opacity: 0; translate: -50% calc(-100% - 24px); }
     }
 
     .file-tools {

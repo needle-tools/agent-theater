@@ -97,7 +97,8 @@ async function within<T>(work: Promise<T>, waiting: () => ToolResult): Promise<T
  * picker — and none of them is a thing an agent needs in order to stage a play.
  */
 const THEATRE = new Set([
-    "theater_start", "theater_avatar", "theater_art_prompt", "theater_background", "theater_clear",
+    "theater_start", "theater_avatar", "theater_art_prompt", "theater_background",
+    "theater_clear", "theater_restore",
     "piece_list", "piece_add", "piece_copy", "piece_sheet", "piece_text",
     "piece_move", "piece_remove", "piece_say", "show_look", "show_watch",
 ]);
@@ -761,33 +762,41 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "theater_clear",
             title: "Clear the whole stage",
             description:
-                "Start the theatre over: deletes EVERY piece, scene, script and title — including " +
-                "whatever the person put there. Not undoable by you. Call it only when the person asked " +
-                "for a restart or a clean canvas, and pass confirm: true. The paper then stays bare for " +
-                "half a minute; only if nothing is built by then does the idle page deal a fresh scatter.",
-            inputSchema: {
-                type: "object",
-                properties: {
-                    confirm: {
-                        type: "boolean",
-                        description: "Must be true. The guard between \"restart\" and an accidental wipe.",
-                    },
-                },
-                required: ["confirm"],
-            },
-            async execute(args: { confirm?: boolean }) {
-                if (args?.confirm !== true) {
-                    return fail(
-                        `Not cleared. This deletes everything on the canvas — every piece and scene, ` +
-                        `the person's arrangement included. Pass confirm: true if that is really wanted.`);
-                }
+                "Clear the canvas for a fresh start — safely: everything on it (pieces, scenes, " +
+                "scripts, title) steps into the wings, and theater_restore brings the whole set back " +
+                "if it is missed. The paper then stays bare for half a minute; only if nothing is " +
+                "built by then does the idle page deal a fresh scatter.",
+            inputSchema: { type: "object", properties: {} },
+            async execute() {
                 if (studio.showing) studio.stopShow();
                 idleSet.clearedBy = "agent";
                 await studio.clear();
                 return ok(
-                    `The set is struck: canvas, scenes and title are gone. The paper stays bare for ` +
-                    `half a minute — room to build clean. If nothing is put down by then, the idle ` +
-                    `page deals a fresh random scatter of troupe stickers as a new starting point.`);
+                    `Cleared — the old set waits in the wings (theater_restore brings it back). The ` +
+                    `paper stays bare for half a minute of building room; after that the idle page ` +
+                    `deals a fresh random scatter as a new starting point.`);
+            },
+        },
+        {
+            name: "theater_restore",
+            title: "Bring the cleared set back",
+            description:
+                "Walk the last cleared set back on from the wings: every piece, scene and title as " +
+                "they stood when theater_clear was called. Only onto an empty canvas — restoring on " +
+                "top of new work would bury it.",
+            inputSchema: { type: "object", properties: {} },
+            async execute() {
+                try {
+                    const count = await studio.restoreFromWings();
+                    if (!count) {
+                        return fail(`The wings are empty — nothing has been cleared to bring back.`);
+                    }
+                    return ok(
+                        `The set is back: ${count} piece${count === 1 ? "" : "s"}, scenes and title ` +
+                        `restored as they stood. Call theater_start to re-read the stage.`);
+                } catch (error) {
+                    return fail(error instanceof Error ? error.message : String(error));
+                }
             },
         },
         {
@@ -1849,6 +1858,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 "layers moved, styles changed, exports — together with a picture of the result, so you can " +
                 "see what the person did and act on it. Blocks until there is news or the wait runs out, so " +
                 "call it in a loop to follow along while they work. " +
+                "This loop plus piece_say is NARRATOR MODE: the person (often a child) plays with the " +
+                "pieces by hand and you tell the story of what they do — the wolf creeps toward the " +
+                "house, have the pig gasp. Watch, react through the characters' own bubbles, repeat. " +
                 "Pass the `nextCursor` from the previous call so nothing is missed between calls.",
             inputSchema: {
                 type: "object",

@@ -80,6 +80,11 @@ export interface Stagehand {
      */
     follow?(id: string, dx: number, dy: number, duration: number): void;
     /**
+     * Fade the paper to a colour — a beat's weather change. "paper" is the
+     * house colour. Optional: a page without a canvas has no paper.
+     */
+    paper?(color: string): void;
+    /**
      * Move the view to frame these layers over this long.
      *
      * Separate from the moves because the camera is not on the stage: nothing
@@ -144,6 +149,9 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         // same way, and the frames play out relative to the new facing.
         if (beat.travel) hand.commit(beat.id, beat.travel.dx, beat.travel.dy);
         if (beat.move === "turn") hand.turn(beat.id);
+        // The weather turns as the beat starts; the fade runs on its own
+        // clock, so it costs the beat nothing.
+        if (beat.background) hand.paper?.(beat.background);
 
         /*
          * Acting and speaking run together.
