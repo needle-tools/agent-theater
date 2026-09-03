@@ -1,14 +1,42 @@
 # Agent Theater
 
-**Tell an AI agent a story. Watch it stage the play.**
+[![Agent Theater — a paper-cut stage where people and AI agents make stories together](docs/agent-theater-main.webp)](https://theater.needle.tools)
 
-![A witch, a king, a lion, a vampire, an owl, a fairy, a crocodile and a knight, cut from paper](docs/cast.webp)
+**Tell an AI agent a story. Watch it stage the play.**
 
 Open the page and say *"put on a play about a wolf who is afraid of the dark"*. The agent casts the parts from a drawer of paper cut-outs, dresses the stage, writes the script beat by beat, gives every character a voice, and runs the show while narrating it aloud.
 
 You are not watching a chatbot describe a play. The agent is working the actual stage — the same one you can drag pieces around on yourself, at the same time, while it does.
 
 **[Open the theatre →](https://theater.needle.tools)** then ask your agent what it can do here.
+
+## Four ways to play
+
+![A child and an agent building a set, watching a show, telling a story and playing together](docs/modes.webp)
+
+- Build a set from hundreds of stage pieces, or let ChatGPT create your very own set.
+- Let the agent design and screen a show that you can share with the world.
+- Let the agent narrate what you — or your kids — do with the characters.
+- Let the agent play what you — or your kids — narrate.
+
+## There's more
+
+![A world of music, effects, agent tools and shareable plays](docs/more.webp)
+
+- Share your screenplay with the world.
+- Motion, music, sounds and special effects — all driven by your agent.
+- The agent can do everything you can do, and more.
+- And your **personal Codex pet** appears on the stage and directs it! 🪄
+- WebMCP skills for spritesheet generation, storytelling and narration.
+- Download a screenshot and load it back up later — your entire play is saved inside it.
+
+## And there's even more
+
+![A gibberish-speaking creature, a magician's hat and a lively paper stage](docs/even-more.webp)
+
+- A custom gibberish engine for awesome dialogue.
+- A custom Houdini CSS engine for the stop-motion look.
+- Bonus workbenches for [recording custom motion](https://theater.needle.tools/record), [shaping voices](https://theater.needle.tools/talk) and [tuning the painterly renderer](https://theater.needle.tools/painted).
 
 ## Built for agents first
 

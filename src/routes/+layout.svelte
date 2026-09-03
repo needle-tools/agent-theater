@@ -18,8 +18,8 @@
         + "of cut-outs, dresses the stage, writes the script beat by beat, gives every character "
         + "a voice, and runs the show while narrating it aloud.";
     const CARD_ALT =
-        "A paper-cut-out title card reading Agent Theater, with a king, a robot, a crocodile "
-        + "with a megaphone, a bird, a treasure chest and a stage curtain around it.";
+        "A paper-cut Agent Theater title surrounded by a young director, a robot, a bird, "
+        + "a frog, a crowned bat, a hobby horse, a theatre light and a treasure chest.";
 
     // Chrome ships WebMCP behind an origin trial. This is the needle.tools
     // subdomain-matched token (same one the Mesh Baker ships, expires
@@ -57,8 +57,8 @@
     <meta property="og:description" content={CARD_DESCRIPTION} />
     <meta property="og:image" content={`${SITE}/og.webp`} />
     <meta property="og:image:type" content="image/webp" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="800" />
+    <meta property="og:image:width" content="1672" />
+    <meta property="og:image:height" content="941" />
     <meta property="og:image:alt" content={CARD_ALT} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={CARD_TITLE} />
