@@ -1,0 +1,222 @@
+{
+    "name": "weapons",
+    "description": "What a hero carries. TWO TONES IN ONE PACK, and the difference matters when choosing: fifteen pieces are storybook — sword, shield, bow, axe, spear — and belong in a fairy tale; five are modern firearms (`pistol`, `shotgun`, `rifle`, `rifle-sniper`, `submachine-gun`) drawn realistically enough to change what a scene is about; the rest are toys (`ray-gun`, `blaster`, `bazooka`). Filter on the `mood` tag: `storybook` for a play with animals and witches in it, `modern` or `firearm` only when the story is deliberately not one.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, buckles, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: the weapons and gear a hero carries. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT character, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it and nothing else in the cell. Draw the whole object, not a part of a scene. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "sword": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "brave"
+            ],
+            "description": "a broad cream blade with a navy grip — the plainest heroic weapon, and the one a child reads fastest",
+            "file": "sword.webp"
+        },
+        "shield-round": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "brave"
+            ],
+            "description": "a round navy shield with pink quarters — pairs with sword, and with the knight",
+            "file": "shield-round.webp"
+        },
+        "bow": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a strung olive longbow — pairs with the ranger",
+            "file": "bow.webp"
+        },
+        "crossbow": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a red crossbow, drawn",
+            "file": "crossbow.webp"
+        },
+        "spear": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a long pink-shafted spear with a cream head",
+            "file": "spear.webp"
+        },
+        "halberd": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a hooked halberd on an olive shaft, the tallest of the polearms",
+            "file": "halberd.webp"
+        },
+        "trident": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "an olive three-pronged trident — for anything to do with the sea",
+            "file": "trident.webp"
+        },
+        "axe-battle": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a broad navy battle axe on a mustard haft",
+            "file": "axe-battle.webp"
+        },
+        "hammer-war": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "heavy"
+            ],
+            "description": "a squared war hammer, mustard and red — the heaviest silhouette here",
+            "file": "hammer-war.webp"
+        },
+        "flail": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "menacing"
+            ],
+            "description": "a spiked ball on a chain — reads villainous as easily as heroic",
+            "file": "flail.webp"
+        },
+        "rapier": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a slim rapier with a swept guard, the thinnest piece in the pack",
+            "file": "rapier.webp"
+        },
+        "slingshot": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "comic"
+            ],
+            "description": "a mustard slingshot with a loaded pouch — the weapon a small character gets",
+            "file": "slingshot.webp"
+        },
+        "sword-energy": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "bright"
+            ],
+            "description": "a sword with a glowing pink blade — the one fantasy weapon that is not metal",
+            "file": "sword-energy.webp"
+        },
+        "gauntlet-jewelled": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "proud"
+            ],
+            "description": "a mustard gauntlet set with red stones — a power worn rather than swung",
+            "file": "gauntlet-jewelled.webp"
+        },
+        "bracer": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a banded forearm bracer, olive and mustard",
+            "file": "bracer.webp"
+        },
+        "baton": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "a navy side-handle baton",
+            "file": "baton.webp"
+        },
+        "canister": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "a red canister with a navy cap — a smoke grenade, or anything that needs throwing",
+            "file": "canister.webp"
+        },
+        "pistol": {
+            "kind": "scenery",
+            "mood": [
+                "modern",
+                "firearm"
+            ],
+            "description": "a pink and navy pistol — modern, not storybook: reads wrong in a fairy tale",
+            "file": "pistol.webp"
+        },
+        "shotgun": {
+            "kind": "scenery",
+            "mood": [
+                "modern",
+                "firearm"
+            ],
+            "description": "an olive pump shotgun — modern, not storybook",
+            "file": "shotgun.webp"
+        },
+        "rifle": {
+            "kind": "scenery",
+            "mood": [
+                "modern",
+                "firearm"
+            ],
+            "description": "a cream and navy rifle — modern, not storybook",
+            "file": "rifle.webp"
+        },
+        "rifle-sniper": {
+            "kind": "scenery",
+            "mood": [
+                "modern",
+                "firearm"
+            ],
+            "description": "a scoped sniper rifle — the most realistic weapon in the troupe, and the least at home in it",
+            "file": "rifle-sniper.webp"
+        },
+        "submachine-gun": {
+            "kind": "scenery",
+            "mood": [
+                "modern",
+                "firearm"
+            ],
+            "description": "a mustard submachine gun — modern, not storybook",
+            "file": "submachine-gun.webp"
+        },
+        "bazooka": {
+            "kind": "scenery",
+            "mood": [
+                "modern",
+                "comic"
+            ],
+            "description": "a red shoulder tube, oversized enough to read as cartoon rather than real",
+            "file": "bazooka.webp"
+        },
+        "ray-gun": {
+            "kind": "scenery",
+            "mood": [
+                "sci-fi",
+                "comic"
+            ],
+            "description": "a bulbous red ray gun with fins — plainly a toy",
+            "file": "ray-gun.webp"
+        },
+        "blaster": {
+            "kind": "scenery",
+            "mood": [
+                "sci-fi",
+                "comic"
+            ],
+            "description": "a flared-barrel blaster in pink and olive — plainly a toy",
+            "file": "blaster.webp"
+        }
+    }
+}

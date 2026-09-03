@@ -1,0 +1,331 @@
+/**
+ * .painted — one still image, held on twos and threes.
+ *
+ * Add the class to a figure that wraps a cut-out and it stops being a sticker:
+ * the pigment is re-laid every frame, the drawing shifts by a third of a
+ * percent, and the eye reads a hand. Nothing else about the layer changes — no
+ * second asset, no canvas, no script per frame.
+ *
+ * The whole animation is a single registered integer, `--paint-frame`, stepping
+ * 0 → 1 → 2 and starting again. Because it is registered, the browser knows it
+ * animates; because the paint worklet lists it in `inputProperties`, each hold
+ * re-runs the worklet with a new seed. Three holds, three takes of the same
+ * drawing.
+ *
+ * Everything that needs the worklet is behind `.painterly` on the root element,
+ * which `loadPainterly()` sets once `addModule` has resolved. That gate is not
+ * bookkeeping — an unregistered `paint()` is a *valid* image that draws
+ * nothing, so a mask referring to one does not fall back to no mask, it hides
+ * the element completely. Between the stylesheet landing and the worklet
+ * registering, an ungated page shows a hole where each cut-out should be.
+ *
+ * On the browsers without a paint worklet the gate simply never opens, and what
+ * is left — the frame-held wobble and the boil — is a real effect on its own.
+ * So the fallback is the same idea with less surface, rather than a blank.
+ *
+ * `.painted--boil` additionally needs these three filters in the document.
+ * They are not optional decoration: `filter: url(#missing)` means "do not
+ * render this element at all", so the class must not be used without them.
+ *
+ *   <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+ *     <filter id="paint-boil-0"
+ *             x="-30%" y="-30%" width="160%" height="160%"
+ *             color-interpolation-filters="sRGB">
+ *       <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2"
+ *                     seed="11" result="n"/>
+ *       <feDisplacementMap in="SourceGraphic" in2="n" scale="5"
+ *                          xChannelSelector="R" yChannelSelector="G"/>
+ *     </filter>
+ *     ...and the same again as paint-boil-1 and paint-boil-2, seeds 12 and 13.
+ *   </svg>
+ *
+ * Two numbers there are load-bearing. `scale` is in pixels and deliberately
+ * absolute rather than relative to the object: a hand wobbles by about the same
+ * amount whatever it is drawing, so five pixels is right on an acorn and right
+ * on an oak. And the region has to be generous — at -12%/124% the displacement
+ * reaches past its own subregion and the artwork comes back with a straight
+ * edge sliced through it, which is the one artifact that instantly reads as a
+ * bug rather than a brush.
+ */
+
+@property --paint-frame {
+    syntax: "<integer>";
+    inherits: true;
+    initial-value: 0;
+}
+
+/* Per-object, so two mushrooms side by side are not painted identically. */
+@property --paint-seed {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 7;
+}
+
+/* How much pigment the dry brush skips. 0 is a clean print. */
+@property --paint-bite {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 0.55;
+}
+
+/* How much of the paper's grain shows through. */
+@property --paint-tooth {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 0.5;
+}
+
+/* The angle the brush is held at, in degrees. One angle per scene reads as one
+   hand; a different angle per object reads as a collage by committee. */
+@property --paint-angle {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: -18;
+}
+
+/* Size of the marks relative to the object. Raise it on small props so the
+   texture does not turn into noise. */
+@property --paint-scale {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1;
+}
+
+/* The tonal overlay. Off by default — it needs `--src` on the figure to know
+   the silhouette, so it is opt-in via .painted--wash. */
+@property --paint-wash-strength {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 0;
+}
+
+@property --paint-wash {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #2b2118;
+}
+
+/**
+ * Three holds, and a shift between them.
+ *
+ * `step-end` is what makes this animation rather than motion: each keyframe's
+ * value is held for its whole interval and then jumps. Interpolate instead and
+ * the drawing glides, which is precisely the thing hand-painted animation does
+ * not do.
+ *
+ * The shift uses `translate` and `rotate` rather than `transform`, so it
+ * composes with whatever transform the layer already carries — a collage layer
+ * keeps its own rotation and its hover scale, and this rides on top.
+ */
+@keyframes paint-boil {
+    0% {
+        --paint-frame: 0;
+        --paint-warp: url("#paint-boil-0");
+        translate: 0 0;
+        rotate: 0deg;
+    }
+
+    33.333% {
+        --paint-frame: 1;
+        --paint-warp: url("#paint-boil-1");
+        translate: calc(var(--paint-shift, 0.3%) * 0.8) calc(var(--paint-shift, 0.3%) * -1);
+        rotate: calc(var(--paint-turn, 0.3deg) * 1);
+    }
+
+    66.666% {
+        --paint-frame: 2;
+        --paint-warp: url("#paint-boil-2");
+        translate: calc(var(--paint-shift, 0.3%) * -0.7) calc(var(--paint-shift, 0.3%) * 0.75);
+        rotate: calc(var(--paint-turn, 0.3deg) * -0.85);
+    }
+
+    100% {
+        --paint-frame: 0;
+        --paint-warp: url("#paint-boil-0");
+        translate: 0 0;
+        rotate: 0deg;
+    }
+}
+
+.painted {
+    /* ~8fps. Faster than about 12 and the boil turns into a buzz; slower than
+       about 6 and each hold is long enough to be read as a mistake.
+       The delay is in the shorthand rather than left to the element, because
+       the shorthand would reset an `animation-delay` set anywhere else — and
+       the delay is not a detail here. A shelf of props that all jump on the
+       same tick reads as a strobe; a negative `--paint-at` per object starts
+       each one part-way into its own loop. */
+    animation: paint-boil var(--paint-hold, 0.36s) var(--paint-at, 0s) step-end infinite;
+}
+
+/**
+ * The artwork itself, bitten into.
+ *
+ * `mask-image` multiplies with the cut-out's own alpha, so the silhouette
+ * survives and only the pigment inside it is lifted.
+ *
+ * Two shapes are supported: the class on a figure that wraps the image — the
+ * collage's markup — and the class on the image itself, for a loose cut-out
+ * that has no wrapper to spare. The second gives up the wash, since a replaced
+ * element cannot carry a pseudo-element to put it in, and gets everything else.
+ */
+.painterly .painted img,
+.painterly .painted [role="img"],
+.painterly img.painted,
+.painterly [role="img"].painted {
+    -webkit-mask-image: paint(painterly-mask);
+    mask-image: paint(painterly-mask);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+}
+
+/**
+ * The boil proper: the outline redrawn, not just re-textured.
+ *
+ * Everything above changes the *surface* of the drawing. This changes its
+ * *shape* — a displacement map pushes each pixel a fraction of a percent along
+ * a noise field, so the silhouette wanders. It is the difference between a
+ * photograph with grain on it and a drawing someone made twice, and it is
+ * worth the one SVG filter it costs: a rigid image with moving texture still
+ * reads as a photograph.
+ *
+ * Three seeds, one per hold, swapped through `--paint-warp` by the same
+ * keyframes that drive the worklet. `--paint-filter` is the extension point:
+ * whatever filter the layer already wanted — a drop shadow, an outline —
+ * composes after the warp instead of being overwritten by it.
+ */
+/* The fallback is frame 0's filter, not `none` — partly so a paused or
+   reduced-motion layer is still a painting rather than a photograph, and partly
+   because `filter: none drop-shadow(...)` is not a valid list, so `none` here
+   would silently throw away whatever the layer composed into
+   `--paint-filter`. */
+.painted--boil img,
+.painted--boil [role="img"],
+img.painted--boil,
+[role="img"].painted--boil {
+    filter: var(--paint-warp, url("#paint-boil-0")) var(--paint-filter, );
+}
+
+/* A silhouette layer is already masked by its own source; intersect rather than
+   replace, or the flat colour would spill out to the box. */
+.painterly .painted--silhouette [role="img"] {
+    -webkit-mask-image: paint(painterly-mask), var(--src);
+    mask-image: paint(painterly-mask), var(--src);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+}
+
+/**
+ * The tonal half: pigment sitting on the drawing.
+ *
+ * Clipped to the silhouette with the artwork's own alpha — which is why this
+ * needs `--src` on the figure — and multiplied, so it darkens where paint
+ * pooled instead of fogging the whole box.
+ */
+.painted--wash {
+    --paint-wash-strength: 1;
+    position: relative;
+    /* `multiply` blends with everything painted beneath in the stacking
+       context, which on a stage is every layer further back. Isolating keeps
+       the pigment on its own drawing. */
+    isolation: isolate;
+}
+
+.painterly .painted--wash::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: paint(painterly-wash);
+    -webkit-mask-image: var(--src);
+    mask-image: var(--src);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    mix-blend-mode: multiply;
+}
+
+/**
+ * .grained — paper grain for anything the camera has to stretch.
+ *
+ * Separate from `.painted` on purpose, and not just for tidiness. A backdrop is
+ * the room, and a room that boils is an earthquake — the whole point of the
+ * boil is that it marks out the things that are *alive*. What a backdrop needs
+ * is the opposite: to hold still and stop looking soft.
+ *
+ * Nothing here is animated, so the worklet runs once and the browser repeats
+ * the tile. `background-size` is what keeps the specks at screen scale rather
+ * than image scale, which is the only reason this firms up an enlargement
+ * instead of enlarging along with it. Raise `--grain-tile` and the grain gets
+ * coarser; it does not get bigger.
+ */
+@property --grain-seed {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 4;
+}
+
+/* Speck radius in CSS pixels. Below about 0.7 it stops surviving the display's
+   own resampling; above about 2 it stops being grain and becomes texture. */
+@property --grain-size {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1;
+}
+
+@property --grain-density {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1;
+}
+
+@property --grain-contrast {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1;
+}
+
+.grained {
+    position: relative;
+    /* `overlay` reaches through to whatever is painted beneath, which on a
+       stage is every other scene layer. The grain belongs to this picture. */
+    isolation: isolate;
+}
+
+.painterly .grained::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: paint(painterly-grain);
+    background-size: var(--grain-tile, 160px) var(--grain-tile, 160px);
+    /* `overlay` keeps the specks in the artwork's own tonality — dark ones
+       darken shadows, light ones lift highlights — where a flat multiply would
+       just fog the whole thing grey. */
+    mix-blend-mode: overlay;
+    opacity: var(--grain-amount, 0.55);
+}
+
+/* Scenery at the back of a stage should breathe, not twitch. */
+.painted--calm {
+    --paint-hold: 0.62s;
+    --paint-shift: 0.16%;
+    --paint-turn: 0.14deg;
+    --paint-bite: 0.35;
+}
+
+/* A prop the audience is meant to look at. */
+.painted--lively {
+    --paint-hold: 0.26s;
+    --paint-shift: 0.55%;
+    --paint-turn: 0.6deg;
+    --paint-bite: 0.8;
+}
+
+/* The texture is the point; the motion is optional. Frame 0 still gets a full
+   dry-brush pass, so a reduced-motion viewer sees a painting rather than a
+   photograph. */
+@media (prefers-reduced-motion: reduce) {
+    .painted {
+        animation: none;
+    }
+}

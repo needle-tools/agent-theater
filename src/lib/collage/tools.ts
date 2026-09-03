@@ -24,6 +24,8 @@ import { FREE_PAGE, type CollageStudio, type ExportFormat } from "./studio.js";
 
 import { createStageTools } from "./stageTools.js";
 import { artPrompt } from "./artPrompt.js";
+import { createTroupeTool } from "./troupeTool.js";
+import { TROUPE } from "./troupe.js";
 import { noteCall } from "./toolLog.js";
 
 export interface ToolResult {
@@ -98,9 +100,13 @@ const THEATRE = new Set([
 export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
     // Scene tools alongside the canvas ones, and both reachable from a batch:
     // staging a scene is blocking a cast, which is many small placements and
-    // exactly the thing worth doing in one call.
+    // exactly the thing worth doing in one call. The troupe drawer registers
+    // only when there is something in it — a tool surface is paid for on
+    // every turn, and an empty drawer is not worth its line.
+    const troupe = createTroupeTool(studio);
     const tools = [
         ...buildTools(studio).filter(tool => THEATRE.has(tool.name)),
+        ...(troupe ? [troupe] : []),
         ...createStageTools(studio),
     ];
     return [...tools, batchTool(studio, tools)].map(tool => reportChanges(studio, tool));
@@ -467,8 +473,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 const sameBed = stages.length > 2 && beds.size === 1 && !beds.has("");
                 const next =
                     !layers.length
-                        ? `NEXT: there is nothing to stage. Ask the person what the play should be about, ` +
-                          `then call theater_art_prompt — backgrounds first, then scenery, then actors.`
+                        ? `NEXT: there is nothing to stage. Look at theater_troupe, then PITCH the ` +
+                          `person 1–3 stories you could stage with what is in the drawer — one line ` +
+                          `each, naming the pack. If you can generate images, one pitch may go beyond ` +
+                          `the packs. Build only after they have picked.`
                     : !stages.length
                         ? `NEXT: there are pieces but no scenes. Call stage_create for the first scene, ` +
                           `giving it one of the backdrops.`
@@ -535,8 +543,28 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  starting another one beside it. Nothing is cleared between conversations, and two`,
                     `  half-finished plays on one canvas is the usual way this goes wrong.`,
                     ``,
+                    `THE STORY COMES FIRST — OPEN BY PITCHING`,
+                    `  Do not ask an empty question; bring ideas. Look at what the troupe holds`,
+                    `  (theater_troupe) and pitch 1–3 stories you could stage with it — one line`,
+                    `  each: who wants what, what stands in the way, what changes. Name the pack`,
+                    `  each pitch would use, so choosing a story is choosing a look. If you can`,
+                    `  generate images yourself, one pitch may go beyond the packs — say so; the`,
+                    `  page cuts whatever you generate into pieces (theater_art_prompt writes the`,
+                    `  prompt, piece_sheet does the cutting).`,
+                    `  Let the person pick or redirect BEFORE you build anything. Every later`,
+                    `  choice — which backdrops, which cast, what each scene is for — follows from`,
+                    `  the story. A play built art-first is a slideshow with a plot attached, and`,
+                    `  that is what every shallow play so far has been.`,
+                    ``,
                     `THE ORDER OF WORK`,
-                    `  1. theater_art_prompt writes the prompt — once per kind: backgrounds, scenery,`,
+                    ...(TROUPE.length
+                        ? [`  1. theater_troupe FIRST: ready-made, precut art is already installed, and a`,
+                           `     pack that fits the story is on stage in seconds instead of minutes. Only`,
+                           `     generate what the drawer does not cover.`,
+                           `  2. For anything missing, theater_art_prompt writes the prompt for the art the`,
+                           `     STORY needs — once per kind: backgrounds, scenery,`]
+                        : [`  1. theater_art_prompt writes the prompt for the art the STORY needs — once per`,
+                           `     kind: backgrounds, scenery,`]),
                     `     actors. Ask for ONE FULL SHEET each time, never one picture at a time: 5 × 5 for`,
                     `     scenery and actors, which is 25 pieces from one generation, and 2 × 2 for`,
                     `     backdrops, which need the pixels. A sheet also comes back looking like one set,`,

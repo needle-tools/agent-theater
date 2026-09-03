@@ -410,3 +410,103 @@ document into a public one, and everything in this file so far has assumed the
 canvas is the person's own. A published play carries generated artwork, the
 name they gave it, and whatever their agent wrote — so it needs an explicit
 step, a visible URL, and a way back out. Not a checkbox in a menu.
+
+---
+
+# Review, 2026-09-03: why the plays are shallow
+
+The tool surface is 20 tools and mechanically sound — an agent can get art,
+cut it, cast it, script it and play it, and the recent fixes mean it can also
+check its own work. The plays are still thin. Two ceilings, and they are
+different problems.
+
+## The acting ceiling (yes, partly "skills")
+
+**Nobody can face the other way.** *Built.* `flip` on the placement (per scene,
+because the wolf faces left in the forest and right outside the cottage), a
+`turn` move that spins the cut-out like a card — edge-on at the midpoint — and
+commits the flip the way a walk commits its travel. The primitive is "the
+artwork is mirrored" rather than "facing: left", because nobody can know which
+way a drawing natively faces except by looking at it.
+
+**Nine moves, all generic.** walk, jump, shake, surprised, scared, nod, bow,
+enter, exit. Nothing to point with, laugh with, cry with, sleep, dance, fall,
+or hand somebody something. The phase-4 vocabulary never got built, and a
+scene's emotional range is capped by it.
+
+**Strictly one thing at a time.** *Built:* `with: true` runs a beat alongside
+its predecessor — bounded simultaneity, not a timeline. A group is as long as
+its longest member, no breath is inserted in front of a deliberate overlap,
+and the player cancels every member on stop. Fixing this exposed something
+worse: a beat with both a move and a line silently DROPPED the move — every
+`{do: "surprised", say: "…"}` an agent ever wrote played as standing still.
+They run together now, which alone accounts for a lot of "no animation".
+
+**Speakers stand still while speaking.** *Built:* a quick small bob on the
+`translate` property while a line types — composing with the sway on `rotate`
+and with a beat's own `transform`, so somebody can bob while walking and both
+read.
+
+## The story ceiling (not skills — the flow)
+
+**Nothing ever asks for a story.** *Addressed in words.* theater_start now
+opens with THE STORY COMES FIRST — who wants what, what stands in the way,
+what changes, said to the person in two sentences before any art — and
+stage_script asks that every scene turn on something. Words are the weak tool
+(see the pattern below), so if plays stay shallow the next step is structural:
+a story the tools require, not request.
+
+**Everything is written blind, upfront, once.** *Built:* `show_play` takes
+`hold: true` — play some scenes, hold the stage lit and scored on the last
+frame, narrate, write the next scene having seen this one, continue; a call
+without hold brings the curtain down. The scene-by-scene loop is now the
+recommended default in the guide.
+
+**The budget goes to assets.** Three generations and a cutting pass dominate
+the session; the script gets what is left. This is why the troupe matters more
+than it looks: it is not a convenience, it is where the storytelling budget
+comes from.
+
+## The troupe — pipeline built, awaiting packs
+
+The plumbing is in and idle: `static/troupe/README.md` documents the pack
+convention (precut webps + manifest, `take` grouping poses for `becomes`,
+`<name>.5x5.webp` for uncut sheets), `tools/troupe.mjs` (`npm run troupe`)
+generates the catalogue module, and `theater_troupe` lists-and-adds — and
+unregisters itself entirely while the drawer is empty, so the empty state
+costs zero tool surface. theater_start points at the drawer first once packs
+exist. What remains is the art itself.
+
+A library of ready assets in `static/troupe/`, mirroring the audio pipeline
+exactly (manifest → generated module → catalogue the agent reads):
+
+- **Precut wins over sheets.** Precut transparent webps skip the 30 MB model
+  download and the cutting pass entirely — the first scene can exist seconds
+  after the conversation starts. Sheets-to-cut are still worth accepting for
+  bulk drops.
+- Convention: `static/troupe/<pack>/<label>.webp` for precut pieces, plus a
+  `manifest.json` per pack naming each piece's kind (backdrop | scenery |
+  actor), mood tags, and which pieces are the same character in another pose
+  (`take`, exactly as sounds do it). Sheets: `<name>.<cols>x<rows>.webp`, grid
+  read from the filename.
+- `tools/troupe.mjs` generates `troupe.ts`; a `theater_troupe` tool lists the
+  catalogue the way `show_sounds` does, and `piece_add` takes the local path.
+- The same-character-other-pose grouping is what makes `becomes` usable off
+  the shelf.
+
+## Progressive playback — built
+
+`show_play` holds between calls: no title card on resume, music surviving the
+hold, curtain call only on a call without `hold`. Untested against a real
+voice agent yet; the thing to watch is whether it actually uses the loop or
+still fires everything in one call.
+
+## TODO: the tempo panel (debug tools)
+
+Every timing in the show — ms per character, move durations, breath, hold,
+sway, typing share — is a constant somebody guessed. A debug section in the
+menu with sliders that change them LIVE during a rehearsal, persisted in
+localStorage, with a "copy settings" button that puts the JSON on the
+clipboard — so the person tunes by eye and hands the numbers back to be made
+the defaults. The knobs live in one `tempo` object that perform.ts reads
+instead of its constants.

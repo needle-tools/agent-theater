@@ -18,6 +18,7 @@
      * anything, and they are drawn behind everything as paper laid on a table.
      */
     import { alphaFilters, cssColor, outlineFilterSvg, pxUnit, textCss } from "./css.js";
+    import { boilFilterSvg } from "./painted.js";
     import { maskHit } from "./imaging.js";
     import { overlaps, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
     import { FREE_PAGE, type CollageStudio } from "./studio.js";
@@ -167,16 +168,51 @@
         const cameraX = (viewport.clientWidth / 2 - view.x) / view.zoom;
         const cameraY = (viewport.clientHeight / 2 - view.y) / view.zoom;
 
+        /*
+         * The zoom at which the planes agree.
+         *
+         * Depth needs a neutral point — some zoom at which everything stands
+         * exactly where it was placed — and "zoom 1" would be arbitrary. The
+         * stage-fit zoom is the natural one: it is roughly where every scene's
+         * establishing shot lands, so a scene opens true and only comes apart
+         * in depth as the camera pushes in or pulls back from there. Stateless
+         * on purpose; a remembered reference would drift across scene changes.
+         */
+        const restingZoom = Math.min(
+            viewport.clientWidth / Math.max(1, floor.width),
+            viewport.clientHeight / Math.max(1, floor.height));
+
         return dressed.map(layer => {
             const share = parallaxOf(studio.collage.planeOf(layer.id));
             if (share === 1) return layer;
-            // Derived in the module: the offset that makes a plane travel
-            // `share` as far across the screen as the middle one does.
+            // The offset that makes a plane travel `share` as far across the
+            // screen as the middle one does when the camera pans.
             const lag = 1 - share;
+            const panX = (cameraX - anchorX) * lag;
+            const panY = (cameraY - anchorY) * lag;
+
+            /*
+             * And the scale that makes it grow `share` as fast when the camera
+             * zooms. A push-in on a real set makes the near bush swell faster
+             * than the far trees; a uniform zoom scales all three planes in
+             * lockstep and reads as enlarging a photograph. zoom^(share-1) is
+             * the plane's growth relative to the middle one — front above 1,
+             * back below — applied about the camera's look-point, which is the
+             * point a zoom keeps still. Clamped, because a wild zoom should
+             * exaggerate the world, not shred it.
+             */
+            const depth = Math.min(1.8, Math.max(0.55,
+                Math.pow(view.zoom / restingZoom, share - 1)));
+            const centerX = layer.x + panX + layer.width / 2;
+            const centerY = layer.y + panY + layer.height / 2;
+            const width = layer.width * depth;
+            const height = layer.height * depth;
             return {
                 ...layer,
-                x: layer.x + (cameraX - anchorX) * lag,
-                y: layer.y + (cameraY - anchorY) * lag,
+                x: cameraX + (centerX - cameraX) * depth - width / 2,
+                y: cameraY + (centerY - cameraY) * depth - height / 2,
+                width,
+                height,
             };
         });
     });
@@ -362,7 +398,12 @@
                 size: layer?.height ?? 100,
                 rotation: layer?.rotation ?? 0,
                 opacity: layer && layer.kind === "image" ? layer.style.opacity : 1,
+                flip: !!layer?.flip,
             };
+        },
+        turn(id) {
+            const layer = studio.collage.get(id);
+            if (layer) studio.collage.update(id, { flip: !layer.flip });
         },
         commit(id, dx, dy) {
             const layer = studio.collage.get(id);
@@ -980,8 +1021,11 @@
             const radians = (-layer.rotation * Math.PI) / 180;
             const cos = Math.cos(radians);
             const sin = Math.sin(radians);
-            const localX = dx * cos - dy * sin + layer.width / 2;
+            let localX = dx * cos - dy * sin + layer.width / 2;
             const localY = dx * sin + dy * cos + layer.height / 2;
+            // A mirrored layer's pixels are mirrored too, so the hit test has
+            // to look at the same side of the mask the eye is looking at.
+            if (layer.flip) localX = layer.width - localX;
             if (localX < 0 || localY < 0 || localX > layer.width || localY > layer.height) continue;
 
             if (layer.kind === "text") return layer;
@@ -1346,7 +1390,7 @@
             `top: ${layer.y}px`,
             `width: ${layer.width}px`,
             `height: ${layer.height}px`,
-            `transform: rotate(${layer.rotation}deg)`,
+            `transform: rotate(${layer.rotation}deg)${layer.flip ? " scale(-1, 1)" : ""}`,
             `z-index: ${layer.z}`,
             filters ? `filter: ${filters}` : "",
             performedOpacity(layer, layer.style.opacity),
@@ -1373,6 +1417,51 @@
      * so the photo would simply cover the colour. Same reason the HTML export
      * emits a <span> in that case.
      */
+    /**
+     * Which painterly treatment a layer gets, decided by the part it is playing.
+     *
+     * Nothing is stored for this and no tool sets it, because the document
+     * already knows the answer in the only place it could honestly live: the
+     * casting. A stage records *who a picture is playing* in `as`, and that —
+     * not the file, not the pack, not a flag somebody remembered to set — is
+     * what separates an actor from a chair. So the treatment is derived, which
+     * means it is right the moment a piece is recast and cannot go stale in a
+     * save.
+     *
+     *   backdrop      the room. Grain, so it survives being stretched, and no
+     *                 boil, because a room that wobbles is an earthquake.
+     *   cast with `as`  somebody. The full boil — this is the thing the
+     *                 audience is meant to read as alive.
+     *   cast without  scenery. The same idea, quieter: a bush should breathe,
+     *                 not act.
+     *
+     * Only while a stage is up. A free canvas of dropped photographs is not a
+     * play, and a hand-painted boil on a photograph reads as a broken decoder.
+     *
+     * The two treatments land on different elements, and that split is forced:
+     * `.painted` rocks `rotate` and `translate`, which is exactly what the sway
+     * and the talking bob already do on the figure. Three animations on one
+     * element and the most specific rule simply wins — a character would stop
+     * breathing the moment it was painted. So the paint goes on the picture
+     * inside, one level down, where nothing else is moving, and the grain stays
+     * on the figure because it needs a pseudo-element and an <img> cannot have
+     * one. Neither is animated, so neither collides.
+     */
+    function grainOf(layer: Layer): string {
+        const stage = studio.collage.activeStage;
+        return stage && stage.backdrop === layer.id ? "grained" : "";
+    }
+
+    function paintOf(layer: Layer): string {
+        const stage = studio.collage.activeStage;
+        if (!stage || stage.backdrop === layer.id) return "";
+        const member = stage.cast.find(part => part.id === layer.id);
+        if (!member) return "";
+        return member.as
+            ? "painted painted--boil"
+            : "painted painted--boil painted--calm";
+    }
+
     function croppedStyle(layer: ImageLayer): string {
         const w = Math.max(0.0001, layer.crop.width);
         const h = Math.max(0.0001, layer.crop.height);
@@ -1403,7 +1492,7 @@
             `top: ${layer.y}px`,
             `width: ${layer.width}px`,
             `font-size: ${layer.fontSize}px`,
-            `transform: rotate(${layer.rotation}deg)`,
+            `transform: rotate(${layer.rotation}deg)${layer.flip ? " scale(-1, 1)" : ""}`,
             `z-index: ${layer.z}`,
             indicator ? `filter: ${indicator}` : "",
             performedOpacity(layer, 1),
@@ -1514,19 +1603,23 @@
         {#each layers as layer (layer.id)}
             {#if layer.kind === "image"}
                 <figure
-                    class="layer"
+                    class="layer {grainOf(layer)}"
                     data-layer={layer.id}
                     class:layer--selected={selectedIds.length > 1 && isSelected(layer.id)}
                     class:layer--settling={settling}
                     class:layer--alive={showing && !gone.has(layer.id)}
+                    class:layer--speaking={showing && spoken.has(layer.id)}
                     style:--sway="{(layerSeed(layer.id) % 1400) + 3200}ms"
                     style:--sway-at="-{layerSeed(layer.id) % 2000}ms"
+                    style:--paint-seed={layerSeed(layer.id) % 1000}
+                    style:--paint-at="-{(layerSeed(layer.id) % 90) / 100}s"
+                    style:--grain-seed={layerSeed(layer.id) % 1000}
                     style={imageStyle(layer)}
                 >
                     {#if layer.style.silhouette}
-                        <span role="img" aria-label={layer.label} style={croppedStyle(layer)}></span>
+                        <span class={paintOf(layer)} role="img" aria-label={layer.label} style={croppedStyle(layer)}></span>
                     {:else}
-                        <img src={layer.src} alt={layer.label} style={croppedStyle(layer)} draggable="false" />
+                        <img class={paintOf(layer)} src={layer.src} alt={layer.label} style={croppedStyle(layer)} draggable="false" />
                     {/if}
                 </figure>
             {:else}
@@ -1590,15 +1683,22 @@
                 <!-- The full text is present but invisible, so the bubble is
                      the size it will end at and does not grow a word at a time
                      while it is being read. -->
-                <span class="bubble__grow" aria-hidden="true">{line.text}</span>
-                <span class="bubble__said">{line.shown}</span>
+                <!-- One flow of text, laid out once from the whole line; the
+                     untyped tail is merely invisible. The old version stacked
+                     a hidden full copy under a visible prefix, which fixed the
+                     SIZE but not the SHAPE: text-wrap balances line breaks
+                     against total content, so the prefix wrapped differently
+                     from the finished line and words hopped between lines as
+                     they were typed. Invisible-in-place cannot re-wrap,
+                     because nothing about the layout ever changes. -->
+                <span>{line.shown}</span><span class="bubble__rest" aria-hidden="true">{line.text.slice(line.shown.length)}</span>
             </div>
         {/each}
     </div>
 
     <!-- Filter definitions only; nothing here is drawn. One dilate pass per
          outlined layer, plus the two shared selection and hover marks. -->
-    <svg class="defs" aria-hidden="true" focusable="false">{@html indicatorDefs + outlineDefs}</svg>
+    <svg class="defs" aria-hidden="true" focusable="false">{@html indicatorDefs + outlineDefs + boilFilterSvg()}</svg>
 
     {#if marquee}
         <div
@@ -1808,7 +1908,6 @@
         position: absolute;
         z-index: 2147483000;
         translate: -50% calc(-100% - 0.7em);
-        display: grid;
         padding: 0.55em 0.8em;
         border: 0.09em solid var(--text-primary);
         border-radius: 0.9em;
@@ -1877,15 +1976,11 @@
         background: var(--surface-page-elevated, #fff);
     }
 
-    /* Both texts occupy the same cell, so the bubble is born the size it will
-       end at. A bubble that grows a word at a time drags the eye away from the
-       words themselves. */
-    .bubble__grow,
-    .bubble__said {
-        grid-area: 1 / 1;
-    }
-
-    .bubble__grow {
+    /* The untyped remainder of the line: present, laid out, invisible. The
+       bubble is born at its final size AND its final shape — visibility does
+       not participate in layout decisions, so no character can move once the
+       line has been set. */
+    .bubble__rest {
         visibility: hidden;
     }
 
@@ -1942,8 +2037,33 @@
         to { rotate: 0.55deg; }
     }
 
+    /*
+     * A speaker moves while they talk.
+     *
+     * A quick small bob on the `translate` property — which composes with the
+     * sway on `rotate` and with a beat's own `transform`, so somebody can bob
+     * while walking and both read. Percentage translate is relative to the
+     * element's own size, so a mouse bobs a mouse-sized amount.
+     */
+    .layer--speaking {
+        animation: talking 0.42s ease-in-out infinite alternate;
+    }
+
+    .layer--alive.layer--speaking {
+        animation:
+            sway var(--sway, 4s) ease-in-out infinite alternate,
+            talking 0.42s ease-in-out infinite alternate;
+        animation-delay: var(--sway-at, 0ms), 0ms;
+    }
+
+    @keyframes talking {
+        from { translate: 0 0; }
+        to { translate: 0 -0.9%; }
+    }
+
     @media (prefers-reduced-motion: reduce) {
-        .layer--alive { animation: none; }
+        .layer--alive,
+        .layer--speaking { animation: none; }
     }
 
     /* The rubber band is the act of selecting, so it wears the selection's

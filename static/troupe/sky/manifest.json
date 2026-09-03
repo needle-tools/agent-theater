@@ -1,0 +1,217 @@
+{
+    "name": "sky",
+    "description": "What is above the stage in felt and paper: weather, lights in the sky, and things that fly. Unlike the other packs these do not stand on the ground — they hang high, over a backdrop.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: the sky. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "sun": {
+            "kind": "scenery",
+            "file": "sun.webp",
+            "mood": [
+                "day",
+                "friendly"
+            ],
+            "description": "a mustard sun with pointed rays, hangs high"
+        },
+        "moon": {
+            "kind": "scenery",
+            "file": "moon.webp",
+            "mood": [
+                "night",
+                "cosy"
+            ],
+            "description": "a cream crescent moon with craters"
+        },
+        "star": {
+            "kind": "scenery",
+            "file": "star.webp",
+            "mood": [
+                "night",
+                "storybook"
+            ],
+            "description": "a single five-pointed star, oversized so one is enough"
+        },
+        "comet": {
+            "kind": "scenery",
+            "file": "comet.webp",
+            "mood": [
+                "night",
+                "storybook"
+            ],
+            "description": "a shooting star with a red tail, moves across rather than hangs"
+        },
+        "planet": {
+            "kind": "scenery",
+            "file": "planet.webp",
+            "mood": [
+                "night",
+                "storybook"
+            ],
+            "description": "a ringed planet, pink over navy — for anything off this world"
+        },
+        "cloud": {
+            "kind": "scenery",
+            "file": "cloud.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "a layered pink and cream cloud, the workhorse of the pack"
+        },
+        "rainbow": {
+            "kind": "scenery",
+            "file": "rainbow.webp",
+            "mood": [
+                "day",
+                "friendly"
+            ],
+            "description": "a banded arch — says the weather just turned good"
+        },
+        "lightning": {
+            "kind": "scenery",
+            "file": "lightning.webp",
+            "mood": [
+                "storm"
+            ],
+            "description": "a mustard bolt with a navy edge, pairs with the `flash` cue"
+        },
+        "raindrop": {
+            "kind": "scenery",
+            "file": "raindrop.webp",
+            "mood": [
+                "storm"
+            ],
+            "description": "a single navy raindrop, oversized as a prop"
+        },
+        "snowflake": {
+            "kind": "scenery",
+            "file": "snowflake.webp",
+            "mood": [
+                "winter"
+            ],
+            "description": "a six-armed snowflake"
+        },
+        "kite": {
+            "kind": "scenery",
+            "file": "kite.webp",
+            "mood": [
+                "day",
+                "friendly"
+            ],
+            "description": "a diamond kite with a looping tail — a character on the ground can hold its line"
+        },
+        "hot-air-balloon": {
+            "kind": "scenery",
+            "file": "hot-air-balloon.webp",
+            "mood": [
+                "day",
+                "storybook"
+            ],
+            "description": "a striped balloon with a basket, big enough to carry someone off"
+        },
+        "airship": {
+            "kind": "scenery",
+            "file": "airship.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "a cream airship with a gondola, long and low"
+        },
+        "airplane": {
+            "kind": "scenery",
+            "file": "airplane.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "a small aeroplane seen from below, so it only works overhead"
+        },
+        "helicopter": {
+            "kind": "scenery",
+            "file": "helicopter.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "a navy helicopter with a mustard tail"
+        },
+        "parachute": {
+            "kind": "scenery",
+            "file": "parachute.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "an open parachute with a figure below it, descending"
+        },
+        "hang-glider": {
+            "kind": "scenery",
+            "file": "hang-glider.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "a pink delta wing, simple and quiet"
+        },
+        "rocket": {
+            "kind": "scenery",
+            "file": "rocket.webp",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a red-nosed rocket, upright — leaving rather than arriving"
+        },
+        "satellite": {
+            "kind": "scenery",
+            "file": "satellite.webp",
+            "mood": [
+                "night"
+            ],
+            "description": "a satellite with solar wings and a dish"
+        },
+        "space-station": {
+            "kind": "scenery",
+            "file": "space-station.webp",
+            "mood": [
+                "night"
+            ],
+            "description": "a modular station, the widest thing in the pack"
+        },
+        "ufo": {
+            "kind": "scenery",
+            "file": "ufo.webp",
+            "mood": [
+                "night",
+                "storybook"
+            ],
+            "description": "an olive saucer with a mustard dome and three lights"
+        },
+        "banner": {
+            "kind": "scenery",
+            "file": "banner.webp",
+            "mood": [
+                "day",
+                "friendly"
+            ],
+            "description": "a blank towed banner — hang it behind the aeroplane, or use it as a sign"
+        },
+        "windsock": {
+            "kind": "scenery",
+            "file": "windsock.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "a striped windsock on its pole — one of the two pieces that stands on the ground"
+        },
+        "weathervane": {
+            "kind": "scenery",
+            "file": "weathervane.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "a rooster weathervane on a spindle — sits on a roof, not in the air"
+        },
+        "feather": {
+            "kind": "scenery",
+            "file": "feather.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a single red feather, falling slowly or lying where it landed"
+        }
+    }
+}

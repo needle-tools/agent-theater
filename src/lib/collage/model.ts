@@ -77,6 +77,16 @@ interface LayerBase {
     rotation: number;
     /** Paint order. Higher is nearer the viewer. */
     z: number;
+    /**
+     * Mirrored left-to-right.
+     *
+     * A cut-out faces whichever way it was drawn, forever — a character walking
+     * right-to-left walked backwards, and two people in conversation could not
+     * face each other. There is no way to know which way a drawing "really"
+     * faces, so this is not "facing: left"; it is the honest primitive, "the
+     * artwork is mirrored", and whoever sets it has looked at the picture.
+     */
+    flip?: boolean;
 }
 
 export interface ImageLayer extends LayerBase {
@@ -370,6 +380,7 @@ export interface LayerPatch {
     height?: number;
     rotation?: number;
     z?: number;
+    flip?: boolean;
     label?: string;
     text?: string;
     color?: string;
@@ -412,7 +423,9 @@ export interface Billing {
 
 /** Does this edit say where something stands, rather than what it is? */
 function isPlacement(patch: LayerPatch): boolean {
-    return ["x", "y", "width", "height", "rotation", "z"].some(key => key in patch);
+    // flip is here because facing is part of where somebody stands: the same
+    // character faces left in scene one and right in scene three.
+    return ["x", "y", "width", "height", "rotation", "z", "flip"].some(key => key in patch);
 }
 
 /**
@@ -430,6 +443,7 @@ function sizedPatch(patch: LayerPatch, layer: Layer) {
     return {
         ...(typeof patch.x === "number" ? { x: patch.x } : {}),
         ...(typeof patch.y === "number" ? { y: patch.y } : {}),
+        ...(typeof patch.flip === "boolean" ? { flip: patch.flip } : {}),
         ...(width !== undefined ? { width } : {}),
         ...(typeof patch.rotation === "number" ? { rotation: patch.rotation } : {}),
         ...(typeof patch.z === "number" ? { z: patch.z } : {}),
@@ -976,6 +990,7 @@ export class Collage {
         if (typeof patch.y === "number") next.y = patch.y;
         if (typeof patch.rotation === "number") next.rotation = patch.rotation;
         if (typeof patch.z === "number") next.z = patch.z;
+        if (typeof patch.flip === "boolean") next.flip = patch.flip;
         if (typeof patch.label === "string") next.label = patch.label;
 
         // Resizing keeps the aspect ratio unless both dimensions are given —

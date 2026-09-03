@@ -76,6 +76,8 @@ export interface Placement {
     as?: string;
     /** Which depth plane it stands on. Defaults to the middle. */
     plane?: PlaneName;
+    /** Mirrored, so the same drawing can face either way per scene. */
+    flip?: boolean;
 }
 
 export interface Stage {
@@ -141,6 +143,7 @@ export function placed(layer: Layer, placement: Placement, order: number): Layer
         width,
         height,
         rotation: placement.rotation ?? layer.rotation,
+        flip: placement.flip ?? layer.flip,
         /*
          * The layer's own depth when the stage has no opinion — NOT the index.
          *
@@ -201,7 +204,10 @@ export function onStage(stage: Stage, id: string): boolean {
  */
 export function placeWith(
     placement: Placement,
-    patch: { x?: number; y?: number; width?: number; height?: number; rotation?: number; z?: number },
+    patch: {
+        x?: number; y?: number; width?: number; height?: number;
+        rotation?: number; z?: number; flip?: boolean;
+    },
 ): Placement {
     return {
         ...placement,
@@ -210,19 +216,20 @@ export function placeWith(
         ...(typeof patch.width === "number" ? { width: patch.width } : {}),
         ...(typeof patch.rotation === "number" ? { rotation: patch.rotation } : {}),
         ...(typeof patch.z === "number" ? { z: patch.z } : {}),
+        ...(typeof patch.flip === "boolean" ? { flip: patch.flip } : {}),
     };
 }
 
 /** Which parts of an edit a stage can hold. The rest go to the layer itself. */
 export function isPlacementEdit(patch: object): boolean {
-    return ["x", "y", "width", "height", "rotation", "z"].some(key => key in patch);
+    return ["x", "y", "width", "height", "rotation", "z", "flip"].some(key => key in patch);
 }
 
 /** The parts of an edit that are not about where something stands. */
 export function withoutPlacement<T extends object>(patch: T): Partial<T> {
     const rest: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(patch)) {
-        if (["x", "y", "width", "height", "rotation", "z"].includes(key)) continue;
+        if (["x", "y", "width", "height", "rotation", "z", "flip"].includes(key)) continue;
         rest[key] = value;
     }
     return rest as Partial<T>;

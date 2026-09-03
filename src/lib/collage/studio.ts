@@ -258,8 +258,20 @@ export interface CollageStudio {
      * a show is that somebody narrates over it — a call that blocked for the
      * length of the play would be the one thing the agent could not talk during.
      */
-    playShow(stageIds?: string[]): { timings: ShowTiming[]; duration: number };
+    playShow(
+        stageIds?: string[],
+        options?: { hold?: boolean },
+    ): { timings: ShowTiming[]; duration: number };
     stopShow(): void;
+    /**
+     * Whether the show is paused between scenes, waiting to be continued.
+     *
+     * Distinct from `showing`: a held show is still on — lights down, music
+     * playing, last frame standing — but nothing is animating and another
+     * playShow continues it rather than being a second show. The point is a
+     * play told scene by scene, each written after the last was watched.
+     */
+    readonly holding: boolean;
     /** The scene the show is on, or null when nothing is running. */
     readonly showing: string | null;
     /**
@@ -413,7 +425,7 @@ export function capturedLayers(
  * inherent scale, so "a backdrop" is only large or small relative to what is
  * standing on it. Everything else is derived from this one.
  */
-const STAGE_WIDTH = 960;
+export const STAGE_WIDTH = 960;
 
 /**
  * How tall the biggest thing on a sheet of cut-outs arrives.
@@ -452,6 +464,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
     let acting = false;
     /** The scene the show is on, and whether it should still be going. */
     let running: string | null = null;
+    let held = false;
     let billboard: Billboard | null = null;
     const showWatchers = new Set<() => void>();
     const announceShow = () => { for (const watcher of [...showWatchers]) watcher(); };
@@ -510,7 +523,11 @@ export function createStudio(collage = new Collage()): CollageStudio {
      * step rather than only between scenes — a show that ignored the request
      * until the current scene ended would ignore it for half a minute.
      */
-    const runShow = async (stages: Stage[]) => {
+    const runShow = async (stages: Stage[], hold = false) => {
+        // Continuing a held show is the same loop minus the opening: no second
+        // title card, no re-dimming — the house is already dark.
+        const resuming = held;
+        held = false;
         wanted = true;
 
         /*
@@ -547,7 +564,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
         // and over a dark stage, which is the one moment the audience is
         // willing to look at text instead of at the play.
         const billing = collage.billing;
-        if (billing.title) {
+        if (billing.title && !resuming) {
             await holdBillboard({
                 kind: "title",
                 title: billing.title,
@@ -588,6 +605,16 @@ export function createStudio(collage = new Collage()): CollageStudio {
             const held = (stage.hold ?? DEFAULT_HOLD) * 1000;
             const shortfall = MIN_SCENE_MS - (Date.now() - began);
             await new Promise(resolve => setTimeout(resolve, Math.max(held, shortfall)));
+        }
+
+        if (hold && wanted) {
+            // The pause between scenes of a play still being written: running
+            // stays set so the lights stay down and the wings stay masked, the
+            // bed keeps looping, and the last frame stands until the next call.
+            held = true;
+            wanted = false;
+            announceShow();
+            return;
         }
 
         if (wanted) await curtainCall(stages);
@@ -1666,6 +1693,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
             return running;
         },
 
+        get holding() {
+            return held;
+        },
+
         get billboard() {
             return billboard;
         },
@@ -1679,7 +1710,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             return () => showWatchers.delete(callback);
         },
 
-        playShow(stageIds) {
+        playShow(stageIds, options) {
             const wanted = stageIds?.length
                 ? stageIds.map(id => collage.getStage(id)).filter((s): s is Stage => !!s)
                 : collage.listStages();
@@ -1700,12 +1731,13 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 at += duration;
             }
 
-            void runShow(wanted);
+            void runShow(wanted, options?.hold === true);
             return { timings, duration: at };
         },
 
         stopShow() {
             wanted = false;
+            held = false;
             running = null;
             billboard = null;
             announceShow();

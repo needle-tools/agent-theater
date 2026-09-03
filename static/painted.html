@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painted — a Houdini boil for the troupe</title>
+<link rel="stylesheet" href="/worklets/painterly.css">
+<style>
+    :root {
+        color-scheme: light;
+        --ink: #222c20;
+        --paper: #eff5ec;
+        /* Composed into the filter chain after the boil warp, so a painted
+           layer keeps its shadow instead of trading it for the effect. */
+        --paint-filter: drop-shadow(0 6px 10px rgba(34, 44, 32, 0.18));
+    }
+
+    body {
+        margin: 0;
+        padding: 2rem clamp(1rem, 4vw, 3rem) 5rem;
+        background: var(--paper);
+        color: var(--ink);
+        font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    h1 { font-size: 1.4rem; margin: 0 0 0.25rem; }
+    h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.55; margin: 2.5rem 0 0.75rem; }
+    p.note { max-width: 62ch; opacity: 0.7; margin: 0 0 1.5rem; }
+
+    .panel {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.9rem 1.5rem;
+        align-items: center;
+        padding: 0.9rem 1.1rem;
+        background: #fff;
+        border: 1px solid #d7e2d2;
+        border-radius: 10px;
+        position: sticky;
+        top: 1rem;
+        z-index: 5;
+    }
+
+    .panel label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 12px; }
+    .panel label span { opacity: 0.6; white-space: nowrap; }
+    .panel input[type="range"] { width: 110px; }
+    .panel output { font-variant-numeric: tabular-nums; opacity: 0.9; }
+
+    #support { font-size: 12px; padding: 0.3rem 0.6rem; border-radius: 999px; background: #e6f0e2; }
+    #support[data-ok="no"] { background: #f6e3d8; }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 1.5rem 1rem;
+        align-items: end;
+    }
+
+    /* The same shape the collage uses — a figure that *is* the layer's box,
+       with an image filling it exactly. That equality matters: the wash is
+       clipped by the artwork's own alpha stretched over the figure, so a figure
+       larger than its image would smear pigment into the empty space around it.
+       The caption is a sibling, not a child, or the layer's filters would apply
+       to text. */
+    .cell {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        min-height: 170px;
+    }
+
+    figure {
+        margin: 0 auto;
+        display: block;
+        width: fit-content;
+    }
+
+    figure img {
+        display: block;
+        width: auto;
+        max-width: 100%;
+        max-height: 170px;
+        filter: var(--paint-filter);
+    }
+
+    .caption {
+        font-size: 11px;
+        opacity: 0.5;
+        text-align: center;
+        margin-top: 0.4rem;
+    }
+
+    .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        max-width: 620px;
+        background: #fff;
+        border: 1px solid #d7e2d2;
+        border-radius: 12px;
+        padding: 1.25rem;
+    }
+
+    .pair .cell { min-height: 240px; }
+    .pair img { max-height: 240px; }
+    .pair .caption { font-weight: 600; opacity: 0.75; }
+
+    .big .cell { min-height: 360px; }
+    .big img { max-height: 360px; }
+
+    /* A window onto an over-magnified backdrop. The figure is the picture's
+       box, so the grain overlay covers exactly the artwork; the viewport around
+       it is the camera. */
+    .backdrops {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        max-width: 1100px;
+    }
+
+    .backdrops .viewport {
+        overflow: hidden;
+        border-radius: 10px;
+        border: 1px solid #d7e2d2;
+        aspect-ratio: 16 / 7;
+    }
+
+    .backdrop {
+        margin: 0;
+        display: block;
+        width: calc(100% * var(--push, 3));
+        /* Centre the enlargement in the window. The offset is a share of the
+           picture's own size, so it has to be divided by the push again —
+           (push - 1) / (2 · push) — or the camera flies off the set. */
+        translate:
+            calc(-50% * (var(--push, 3) - 1) / var(--push, 3))
+            calc(-50% * (var(--push, 3) - 1) / var(--push, 3));
+    }
+
+    .backdrop img {
+        display: block;
+        width: 100%;
+        height: auto;
+        /* The cut-out rule above caps every figure image at the prop height;
+           a backdrop is the one thing here that is meant to be huge. */
+        max-width: none;
+        max-height: none;
+        filter: none;
+    }
+
+    /* A dark stage, because a subtractive mask behaves differently over one:
+       whatever the dry brush lifts shows the backdrop, not white paper. */
+    .stage { background: #1d2b33; border-color: #1d2b33; }
+    .stage .caption { color: #dfe8ec; opacity: 0.6; }
+</style>
+</head>
+<body>
+
+<h1>Painted</h1>
+<p class="note">
+    One webp, repainted eight times a second by a Houdini paint worklet. The
+    artwork never changes — what changes is where the brush ran dry, where the
+    paper grain showed through, which way the outline wandered, and a third of a
+    percent of drift. Dial it in below, then read the settings off as custom
+    properties.
+</p>
+
+<div class="panel">
+    <span id="support">checking…</span>
+    <label><span>animate</span><input type="checkbox" id="on" checked></label>
+    <label><span>boil <output id="boilOut">5</output>px</span><input type="range" id="boil" min="0" max="16" step="0.5" value="5"></label>
+    <label><span>hold <output id="holdOut">360</output>ms</span><input type="range" id="hold" min="120" max="900" step="20" value="360"></label>
+    <label><span>bite <output id="biteOut">0.55</output></span><input type="range" id="bite" min="0" max="1.5" step="0.05" value="0.55"></label>
+    <label><span>tooth <output id="toothOut">0.5</output></span><input type="range" id="tooth" min="0" max="1.5" step="0.05" value="0.5"></label>
+    <label><span>wash <output id="washOut">1</output></span><input type="range" id="wash" min="0" max="2" step="0.1" value="1"></label>
+    <label><span>scale <output id="scaleOut">1</output></span><input type="range" id="scale" min="0.3" max="3" step="0.1" value="1"></label>
+    <label><span>angle <output id="angleOut">-18</output>°</span><input type="range" id="angle" min="-90" max="90" step="2" value="-18"></label>
+    <label><span>shift <output id="shiftOut">0.3</output>%</span><input type="range" id="shift" min="0" max="1.5" step="0.05" value="0.3"></label>
+    <label><span>turn <output id="turnOut">0.3</output>°</span><input type="range" id="turn" min="0" max="1.5" step="0.05" value="0.3"></label>
+</div>
+
+<h2>Side by side</h2>
+<div class="pair">
+    <div class="cell"><figure><img src="/troupe/forest/mushroom-toadstool.webp" alt=""></figure><div class="caption">plain</div></div>
+    <div class="cell"><figure class="painted painted--boil painted--wash" style="--src: url('/troupe/forest/mushroom-toadstool.webp'); --paint-seed: 3"><img src="/troupe/forest/mushroom-toadstool.webp" alt=""></figure><div class="caption">painted</div></div>
+</div>
+
+<h2>At size</h2>
+<div class="pair big">
+    <div class="cell"><figure><img src="/troupe/forest/tree-oak.webp" alt=""></figure><div class="caption">plain</div></div>
+    <div class="cell"><figure class="painted painted--boil painted--wash" style="--src: url('/troupe/forest/tree-oak.webp'); --paint-seed: 11"><img src="/troupe/forest/tree-oak.webp" alt=""></figure><div class="caption">painted</div></div>
+</div>
+
+<h2>On a dark stage</h2>
+<div class="pair stage">
+    <div class="cell"><figure><img src="/troupe/forest/lantern.webp" alt=""></figure><div class="caption">plain</div></div>
+    <div class="cell"><figure class="painted painted--boil painted--wash" style="--src: url('/troupe/forest/lantern.webp'); --paint-seed: 5"><img src="/troupe/forest/lantern.webp" alt=""></figure><div class="caption">painted</div></div>
+</div>
+
+<h2>A backdrop, pushed into</h2>
+<p class="note">
+    Both of these are the same file at the same magnification — deliberately
+    more than a stage would ask for, so the softness is obvious. The grain does
+    not put detail back; it puts back high-frequency variation at the scale of
+    the screen, which is what the eye was using to judge sharpness in the first
+    place. Drag the crop slider to push the camera in.
+</p>
+<div class="panel" style="top: 5.5rem">
+    <label><span>push in <output id="pushOut">3</output>×</span><input type="range" id="push" min="1" max="6" step="0.25" value="3"></label>
+    <label><span>grain <output id="gAmountOut">0.55</output></span><input type="range" id="gAmount" min="0" max="1.5" step="0.05" value="0.55"></label>
+    <label><span>speck <output id="gSizeOut">1</output>px</span><input type="range" id="gSize" min="0.3" max="3" step="0.1" value="1"></label>
+    <label><span>density <output id="gDensityOut">1</output></span><input type="range" id="gDensity" min="0" max="3" step="0.1" value="1"></label>
+    <label><span>contrast <output id="gContrastOut">1</output></span><input type="range" id="gContrast" min="0" max="3" step="0.1" value="1"></label>
+    <label><span>tile <output id="gTileOut">160</output>px</span><input type="range" id="gTile" min="60" max="400" step="20" value="160"></label>
+</div>
+<div class="backdrops">
+    <div><div class="viewport"><figure class="backdrop"><img src="/troupe/bedroom/backdrop.webp" alt=""></figure></div><div class="caption">plain</div></div>
+    <div><div class="viewport"><figure class="backdrop grained"><img src="/troupe/bedroom/backdrop.webp" alt=""></figure></div><div class="caption">grained</div></div>
+</div>
+
+<h2>Some of them, not all of them</h2>
+<p class="note">
+    The point of a class rather than a global filter: a scene where three things
+    breathe and the rest hold still has a focus. Everything below is painted
+    except the pieces marked <em>still</em>.
+</p>
+<div class="grid" id="grid"></div>
+
+<!-- Three takes of the same wander. The class must not be used without these:
+     a filter reference that resolves to nothing means "do not render". -->
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+    <filter id="paint-boil-0" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="11" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="paint-boil-1" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="12" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="paint-boil-2" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="13" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+</svg>
+
+<script type="module">
+    const PIECES = [
+        ["forest/lantern", "lively"],
+        ["forest/mushroom-toadstool", "lively"],
+        ["forest/fern", ""],
+        ["forest/tree-stump", "still"],
+        ["forest/bush-berry", ""],
+        ["forest/spiderweb", "calm"],
+        ["forest/birdhouse", "still"],
+        ["forest/flowers-hanging", "lively"],
+        ["forest/rock-mossy", "still"],
+        ["forest/cattails", ""],
+        ["ocean/kelp", "lively"],
+        ["ocean/seagrass", "lively"],
+        ["ocean/lighthouse", "still"],
+        ["ocean/shell-conch", "calm"],
+        ["ocean/sailboat", ""],
+        ["ocean/anchor", "still"],
+        ["ocean/coral-branch", "calm"],
+        ["ocean/buoy", ""],
+    ];
+
+    document.getElementById("grid").innerHTML = PIECES.map(([id, mode], i) => {
+        const src = `/troupe/${id}.webp`;
+        const name = id.split("/")[1];
+        const still = mode === "still";
+        const cls = still
+            ? ""
+            : `painted painted--boil painted--wash${mode ? ` painted--${mode}` : ""}`;
+        // A negative delay starts each object part-way into its loop, so a
+        // shelf of props does not blink in unison.
+        const style = `--src: url('${src}'); --paint-seed: ${i * 7 + 3}; animation-delay: -${(i * 0.07).toFixed(2)}s`;
+        return `<div class="cell"><figure class="${cls}" style="${style}">` +
+            `<img src="${src}" alt="${name}" loading="lazy"></figure>` +
+            `<div class="caption">${name}${still ? " · still" : mode ? ` · ${mode}` : ""}</div></div>`;
+    }).join("");
+
+    const support = document.getElementById("support");
+    if (CSS.paintWorklet) {
+        try {
+            await CSS.paintWorklet.addModule("/worklets/painterly.js");
+            // The gate every worklet-dependent rule hangs off: an unregistered
+            // paint() draws nothing, so a mask on one hides its element.
+            document.documentElement.classList.add("painterly");
+            support.textContent = "paint worklet: on";
+            support.dataset.ok = "yes";
+        } catch (error) {
+            support.textContent = `worklet failed: ${error}`;
+            support.dataset.ok = "no";
+        }
+    } else {
+        support.textContent = "no paint worklet — boil only";
+        support.dataset.ok = "no";
+    }
+
+    const root = document.documentElement.style;
+    const bind = (id, apply) => {
+        const input = document.getElementById(id);
+        const out = document.getElementById(id + "Out");
+        const run = () => {
+            apply(input.value);
+            if (out) out.textContent = input.value;
+        };
+        input.addEventListener("input", run);
+        run();
+    };
+
+    const prop = (name, format = v => v) => v => root.setProperty(name, format(v));
+
+    bind("hold", prop("--paint-hold", v => `${v}ms`));
+    bind("bite", prop("--paint-bite"));
+    bind("tooth", prop("--paint-tooth"));
+    // .painted--wash sets the strength on the element itself, so the root is
+    // the wrong place to write this one.
+    bind("wash", v => {
+        for (const el of document.querySelectorAll(".painted--wash")) {
+            el.style.setProperty("--paint-wash-strength", v);
+        }
+    });
+    bind("scale", prop("--paint-scale"));
+    bind("angle", prop("--paint-angle"));
+    bind("shift", prop("--paint-shift", v => `${v}%`));
+    bind("turn", prop("--paint-turn", v => `${v}deg`));
+
+    bind("push", prop("--push"));
+    bind("gAmount", prop("--grain-amount"));
+    bind("gSize", prop("--grain-size"));
+    bind("gDensity", prop("--grain-density"));
+    bind("gContrast", prop("--grain-contrast"));
+    bind("gTile", prop("--grain-tile", v => `${v}px`));
+
+    // The warp lives in an SVG attribute rather than a custom property, so it
+    // is the one control that has to be written rather than declared.
+    bind("boil", v => {
+        for (const map of document.querySelectorAll("feDisplacementMap")) {
+            map.setAttribute("scale", v);
+        }
+    });
+
+    document.getElementById("on").addEventListener("change", e => {
+        // Pausing rather than unclassing keeps the mask and the warp, so this
+        // toggles the motion and leaves the paint.
+        for (const el of document.querySelectorAll(".painted")) {
+            el.style.animationPlayState = e.target.checked ? "" : "paused";
+        }
+    });
+</script>
+</body>
+</html>

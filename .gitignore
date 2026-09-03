@@ -14,3 +14,6 @@ build/
 # original WAVs behind static/audio/*.opus, same names. Kept out of git and out
 # of static/ so they are neither committed nor copied into the build.
 audio-source/
+# original PNG cut-outs behind static/troupe/**/*.webp, same names. Same reason
+# as audio-source: kept out of git and out of the build.
+troupe-source/

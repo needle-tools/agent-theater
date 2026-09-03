@@ -37,7 +37,7 @@ export interface Pose {
 export const AT_REST: Pose = { dx: 0, dy: 0, rotate: 0, scaleX: 1, scaleY: 1, opacity: 1 };
 
 export const MOVES = [
-    "walk", "jump", "shake", "surprised", "scared", "nod", "bow", "enter", "exit",
+    "walk", "jump", "shake", "surprised", "scared", "nod", "bow", "turn", "enter", "exit",
 ] as const;
 export type MoveName = (typeof MOVES)[number];
 
@@ -81,6 +81,7 @@ export const DEFAULT_DURATION: Record<MoveName, number> = {
     scared: 1900,
     nod: 900,
     bow: 1600,
+    turn: 800,
     // Brisk, unlike the rest. An entrance is not the scene, it is the moment
     // before it — and the build-up plays them one after another, so four
     // characters arriving at a considered pace is five seconds of nothing
@@ -106,6 +107,13 @@ export interface MoveContext {
      */
     rotation?: number;
     opacity?: number;
+    /**
+     * Whether the layer is mirrored. Baked into every frame for the same
+     * reason rotation is: the animation replaces the transform outright, so a
+     * flipped character animated without it would snap the right way round for
+     * the length of the beat.
+     */
+    flip?: boolean;
 }
 
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
@@ -195,6 +203,25 @@ export function poseFor(move: MoveName, t: number, context: MoveContext): Pose {
         }
         case "nod": {
             return { ...AT_REST, dy: -arc(time) * size * 0.05, rotate: arc(time) * 3 };
+        }
+        case "turn": {
+            /*
+             * A paper cut-out turning around: edge-on at the middle, like a
+             * card flipped between two fingers, with a small lift as it goes.
+             *
+             * The flip itself is committed to the document before this plays,
+             * the same way a walk's travel is — so these frames run relative to
+             * the FINAL facing. -cos starts at -1 (how they looked before) and
+             * ends at +1 (how they look now), passing through zero, which is
+             * the moment the paper is side-on to the audience.
+             */
+            const spin = smooth(time);
+            return {
+                ...AT_REST,
+                scaleX: -Math.cos(Math.PI * spin),
+                scaleY: 1 - arc(time) * 0.05,
+                dy: -arc(time) * size * 0.03,
+            };
         }
         case "bow": {
             // Down from the waist and back up, held a moment at the bottom.
@@ -498,6 +525,7 @@ const SAMPLES = 30;
  */
 export function keyframesFor(move: MoveName, context: MoveContext, samples = SAMPLES): Keyframe[] {
     const frames: Keyframe[] = [];
+    const facing = context.flip ? -1 : 1;
     for (let i = 0; i <= samples; i++) {
         const t = i / samples;
         const pose = poseFor(move, t, context);
@@ -508,7 +536,7 @@ export function keyframesFor(move: MoveName, context: MoveContext, samples = SAM
             transform:
                 `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) ` +
                 `rotate(${(pose.rotate + (context.rotation ?? 0)).toFixed(2)}deg) ` +
-                `scale(${pose.scaleX.toFixed(4)}, ${pose.scaleY.toFixed(4)})`,
+                `scale(${(pose.scaleX * facing).toFixed(4)}, ${pose.scaleY.toFixed(4)})`,
             opacity: pose.opacity * (context.opacity ?? 1),
         });
     }
@@ -552,6 +580,17 @@ export interface Beat {
     /** Move the view rather than anybody in it. */
     camera?: CameraMove;
     /**
+     * Run this beat AT THE SAME TIME as the one before it.
+     *
+     * Bounded simultaneity, not a timeline: a beat either follows the previous
+     * one or rides along with it, and that is the whole system. It exists
+     * because reaction is what scenes are made of — B recoils WHILE A shouts —
+     * and a strictly sequential scene reads as a slideshow. Full overlapping
+     * timelines were rejected on purpose; this buys most of their value at
+     * almost none of their cost.
+     */
+    with?: boolean;
+    /**
      * Swap this character's picture for another one, at this beat.
      *
      * A costume change, and the only way a cut-out can do anything its drawing
@@ -567,6 +606,8 @@ export interface Beat {
 
 export interface PlannedBeat {
     id: string;
+    /** Runs alongside the previous beat instead of after it. */
+    with: boolean;
     /** Another layer to draw in this one's place from here on. */
     becomes: string | null;
     move: MoveName | null;
@@ -580,7 +621,7 @@ export interface PlannedBeat {
 
 export interface Plan {
     beats: PlannedBeat[];
-    /** End to end, since nothing overlaps. */
+    /** End to end. Beats marked `with` overlap their predecessor and count once. */
     duration: number;
     /**
      * Who is not on stage yet when the scene begins.
@@ -634,6 +675,10 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
         const becomes = typeof beat?.becomes === "string" && beat.becomes.trim()
             ? beat.becomes.trim()
             : null;
+        // Same string-boolean lesson as `rehearse`: agents send "true". The
+        // first beat has nothing to ride along with, so it can never be `with`.
+        const together = planned.length > 0 &&
+            (beat?.with === true || String(beat?.with ?? "").trim().toLowerCase() === "true");
         if (!move && !say && !sound && !camera && !wait && !becomes) {
             problems.push({
                 index,
@@ -664,18 +709,31 @@ export function plan(beats: Beat[]): { plan: Plan; problems: ScoreProblem[] } {
         // The breath goes in as a beat of its own rather than as padding on the
         // one that follows, so the timeline an agent narrates against says
         // where the silence is instead of hiding it inside somebody's line.
-        if (say && lastSpeaker && lastSpeaker !== id) {
+        // Not before a `with` beat: simultaneous lines are deliberate, and a
+        // breath in front of one would push it out of the overlap it asked for.
+        if (say && lastSpeaker && lastSpeaker !== id && !together) {
             planned.push({
-                id: "", becomes: null, move: null, say: null, sound: null, camera: null,
-                travel: null, duration: BREATH_MS,
+                id: "", with: false, becomes: null, move: null, say: null, sound: null,
+                camera: null, travel: null, duration: BREATH_MS,
             });
         }
         if (say) lastSpeaker = id;
 
-        planned.push({ id, becomes, move, say, sound, camera, travel, duration });
+        planned.push({ id, with: together, becomes, move, say, sound, camera, travel, duration });
     }
 
-    const duration = planned.reduce((total, beat) => total + beat.duration, 0);
+    // Simultaneous beats count once: a group is as long as its longest member,
+    // which is also how the player will actually run it.
+    let duration = 0;
+    let groupMax = 0;
+    for (const beat of planned) {
+        if (!beat.with) {
+            duration += groupMax;
+            groupMax = 0;
+        }
+        groupMax = Math.max(groupMax, beat.duration);
+    }
+    duration += groupMax;
     if (duration > MAX_PERFORMANCE_MS) {
         problems.push({
             index: -1,

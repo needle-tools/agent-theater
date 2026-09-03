@@ -532,3 +532,31 @@ describe("who is on stage when the scene starts", () => {
         expect(sceneBeats(stage, () => 100).hidden).toEqual(["her"]);
     });
 });
+
+describe("facing", () => {
+    it("is part of where somebody stands, so it is per scene", () => {
+        // The same wolf faces left in the forest and right outside the
+        // cottage. If flip lived on the layer alone, turning him in one scene
+        // would turn him in all of them.
+        const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
+        const wolf = collage.addImage({ src: "w", natural: { width: 100, height: 200 } });
+        const stage = collage.addStage({ name: "the wood", cast: [{ id: wolf.id, x: 0, y: 0, flip: true }] });
+        collage.setActiveStage(stage.id);
+        expect(collage.list().find(l => l.id === wolf.id)?.flip).toBe(true);
+        collage.setActiveStage(null);
+        expect(collage.list().find(l => l.id === wolf.id)?.flip).toBeUndefined();
+    });
+
+    it("routes a flip edit to the placement while a scene is showing", () => {
+        // What the turn move commits mid-performance. If this wrote to the
+        // layer instead, a turn in scene three would about-face scene one.
+        const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
+        const wolf = collage.addImage({ src: "w", natural: { width: 100, height: 200 } });
+        const stage = collage.addStage({ name: "the wood", cast: [{ id: wolf.id, x: 0, y: 0 }] });
+        collage.setActiveStage(stage.id);
+        collage.update(wolf.id, { flip: true });
+        expect(collage.getStage(stage.id)?.cast[0].flip).toBe(true);
+        collage.setActiveStage(null);
+        expect(collage.get(wolf.id)?.flip).toBeUndefined();
+    });
+});

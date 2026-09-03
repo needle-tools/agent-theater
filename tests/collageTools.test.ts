@@ -43,7 +43,7 @@ function fakeStudio(options: FakeOptions = {}) {
     let pagePreset = FREE_PAGE;
     let selection: string[] = [];
 
-    const studio: CollageStudio & { played: Plan[]; shows: string[][] } = {
+    const studio: CollageStudio & { played: Plan[]; shows: string[][]; holds: boolean[] } = {
         collage,
         images,
         async addImage(url, opts = {}) {
@@ -103,7 +103,8 @@ function fakeStudio(options: FakeOptions = {}) {
         stopShow() { /* nor this */ },
         setSpeaker() { /* the fake is deaf */ },
         get speaker() { return SILENT; },
-        get showing() { return null; },
+        showing: null as string | null,
+        holding: false,
         onShowChanged() { return () => { /* the fake never changes */ }; },
         get billboard() { return null; },
         get busyStage() { return null; },
@@ -112,11 +113,13 @@ function fakeStudio(options: FakeOptions = {}) {
         async addSheet() { return []; },
         // The fake plays a whole show instantly, so the tools can be tested for
         // what they say rather than for how long they take.
-        playShow(ids?: string[]) {
+        holds: [] as boolean[],
+        playShow(ids?: string[], opts?: { hold?: boolean }) {
             const stages = ids?.length
                 ? ids.map(id => collage.getStage(id)).filter(Boolean)
                 : collage.listStages();
             (studio as any).shows.push(stages.map((s: any) => s.id));
+            (studio as any).holds.push(opts?.hold === true);
             return { timings: stages.map((s: any, i: number) => (
                 { stage: s.id, name: s.name, at: i * 1000, duration: 1000 })), duration: stages.length * 1000 };
         },
@@ -757,7 +760,12 @@ describe("the surface an agent actually sees", () => {
      */
     it("is the theatre and nothing else", () => {
         const { studio } = fakeStudio();
-        expect(createCollageTools(studio).map(t => t.name).sort()).toEqual([
+        // theater_troupe registers only when packs are installed, so it is
+        // filtered here rather than pinned — this list must not change when
+        // somebody adds art to static/troupe/.
+        const names = createCollageTools(studio).map(t => t.name)
+            .filter(name => name !== "theater_troupe").sort();
+        expect(names).toEqual([
             "piece_add", "piece_list", "piece_move", "piece_remove", "piece_sheet", "piece_text",
             "show_look", "show_play", "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",
@@ -1077,5 +1085,83 @@ describe("taking a scene out", () => {
         await remove(studio, [empty.id]);
         collage.undo();
         expect(collage.listStages()).toHaveLength(2);
+    });
+});
+
+describe("playing scene by scene", () => {
+    /**
+     * The alternative to scheduling the whole plot upfront. A held show stays
+     * lit with its music playing and its last frame standing, the agent
+     * narrates and writes the next scene having SEEN this one, and continues —
+     * which is also the only way a voice narration can actually stay in sync.
+     */
+    const ready = () => {
+        const { studio, collage } = fakeStudio();
+        const s1 = collage.addStage({ name: "Scene one" });
+        const s2 = collage.addStage({ name: "Scene two" });
+        const play = createCollageTools(studio).find(t => t.name === "show_play")!;
+        return { studio, play, s1, s2 };
+    };
+
+    it("passes the hold through, and says what holding means", async () => {
+        const { studio, play, s1 } = ready();
+        const result = await play.execute({ stages: [s1.id], hold: true });
+        const text = result.content.map((p: any) => p.text ?? "").join(" ");
+        expect((studio as any).holds).toEqual([true]);
+        expect(text).toContain("HOLD");
+        expect(text).toContain("Scene one");
+        expect(text).toMatch(/hold.*off.*last call|curtain/i);
+    });
+
+    it("lets a held show be continued rather than refusing it as a restart", async () => {
+        const { studio, play, s2 } = ready();
+        (studio as any).showing = "stage-1";
+        (studio as any).holding = true;
+        const result = await play.execute({ stages: [s2.id] });
+        expect(result.isError).toBeUndefined();
+    });
+
+    it("still refuses while a show is actually running", async () => {
+        const { studio, play, s2 } = ready();
+        (studio as any).showing = "stage-1";
+        (studio as any).holding = false;
+        const result = await play.execute({ stages: [s2.id] });
+        expect(result.isError).toBe(true);
+    });
+});
+
+describe("the troupe drawer", () => {
+    // These run against the real generated catalogue, so they exist only now
+    // that a pack is installed — the tool unregisters when the drawer is empty.
+    const drawer = (studio: any) =>
+        createCollageTools(studio).find(t => t.name === "theater_troupe")!;
+
+    it("lists the catalogue with descriptions to choose by", async () => {
+        const { studio } = fakeStudio();
+        const result = await drawer(studio).execute({});
+        const text = result.content.map((p: any) => p.text ?? "").join("\n");
+        expect(text).toContain("forest/tree-oak");
+        expect(text).toContain("Scenery");
+    });
+
+    it("adds a piece without sending it through the remover", async () => {
+        // The whole promise of precut: nothing to wait for, and no model pass
+        // that could decide part of the picture is background.
+        const { studio, collage } = fakeStudio();
+        void collage;
+        const result = await drawer(studio).execute({ add: ["forest/lantern"] });
+        expect(result.isError).toBeUndefined();
+        const text = result.content.map((p: any) => p.text ?? "").join(" ");
+        expect(text).toContain("forest/lantern");
+        // The fake records every layer that was sent to the cutter.
+        expect((studio as any).cuts ?? []).not.toContain(
+            studio.collage.listAll()[0]?.id);
+    });
+
+    it("adds nothing at all when one id is wrong", async () => {
+        const { studio } = fakeStudio();
+        const result = await drawer(studio).execute({ add: ["forest/lantern", "forest/dragon"] });
+        expect(result.isError).toBe(true);
+        expect(studio.collage.listAll()).toHaveLength(0);
     });
 });

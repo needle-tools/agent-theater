@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-    AT_REST, BREATH_MS, DEFAULT_CAMERA_MS, DEFAULT_DURATION, MOVES, compose, plan as planScene, poseFor,
+    AT_REST, BREATH_MS, DEFAULT_CAMERA_MS, DEFAULT_DURATION, MOVES, compose, keyframesFor,
+    plan as planScene, poseFor,
     readingTime, restingPlaces, score, stateAt, type MoveName,
 } from "../src/lib/collage/perform.js";
 
@@ -23,11 +24,14 @@ const near = (a: number, b: number, slack = 0.02) => Math.abs(a - b) <= slack;
 
 describe("every move", () => {
     it("starts at rest", () => {
-        // `enter` is the exception by definition: arriving from somewhere else
-        // is the whole move. Everything else must begin exactly where the
-        // layer already is, or it pops on its first frame.
+        // Two exceptions, both by definition. `enter` arrives from somewhere
+        // else — that is the whole move. `turn` begins mirrored, because the
+        // flip is committed to the document first and the frames play out
+        // relative to the NEW facing: its t=0 is the old appearance, exactly
+        // as a walk's t=0 is the old position. Everything else must begin
+        // where the layer already is, or it pops on its first frame.
         for (const move of MOVES) {
-            if (move === "enter") continue;
+            if (move === "enter" || move === "turn") continue;
             const pose = poseFor(move, 0, context);
             expect(near(pose.dx, 0), `${move} dx`).toBe(true);
             expect(near(pose.dy, 0), `${move} dy`).toBe(true);
@@ -68,7 +72,10 @@ describe("every move", () => {
                 for (const [key, value] of Object.entries(pose)) {
                     expect(Number.isFinite(value), `${move} ${key}`).toBe(true);
                 }
-                expect(pose.scaleX).toBeGreaterThan(0.5);
+                // `turn` passes through zero on purpose — that is the frame
+                // where the paper is edge-on to the audience.
+                if (move !== "turn") expect(pose.scaleX).toBeGreaterThan(0.5);
+                expect(Math.abs(pose.scaleX)).toBeLessThanOrEqual(1.2);
                 expect(pose.scaleY).toBeGreaterThan(0.5);
                 expect(pose.opacity).toBeGreaterThanOrEqual(0);
                 expect(pose.opacity).toBeLessThanOrEqual(1);
@@ -386,5 +393,85 @@ describe("changing costume", () => {
     it("carries nothing when nobody asked for one", () => {
         const { plan } = planScene([{ id: "a", do: "nod" }]);
         expect(plan.beats[0].becomes).toBeNull();
+    });
+});
+
+describe("turning around", () => {
+    /**
+     * The most visible deadness on the stage was that nobody could face the
+     * other way: a cut-out faces whichever way it was drawn, forever, so a
+     * character walking right-to-left walked backwards and two people in
+     * conversation could not look at each other.
+     */
+    it("starts as the old facing and ends as the new one", () => {
+        // The flip is committed before the beat plays, so these frames run
+        // relative to the FINAL facing: -1 is how they looked before.
+        expect(poseFor("turn", 0, context).scaleX).toBeCloseTo(-1);
+        expect(poseFor("turn", 1, context).scaleX).toBeCloseTo(1);
+    });
+
+    it("passes edge-on in the middle, like a card being flipped", () => {
+        expect(Math.abs(poseFor("turn", 0.5, context).scaleX)).toBeLessThan(0.2);
+    });
+
+    it("ends at rest, leaving nothing behind", () => {
+        const end = poseFor("turn", 1, context);
+        expect(end.dx).toBeCloseTo(0);
+        expect(end.dy).toBeCloseTo(0);
+        expect(end.rotate).toBeCloseTo(0);
+    });
+
+    it("bakes the facing into every frame of every move", () => {
+        // The animation replaces the transform outright, so a flipped
+        // character animated without this would snap the right way round for
+        // the length of the beat — the same lesson rotation already taught.
+        const frames = keyframesFor("nod", { ...context, flip: true });
+        for (const frame of frames) {
+            expect(String(frame.transform)).toMatch(/scale\(-/);
+        }
+    });
+});
+
+describe("beats that happen at the same time", () => {
+    /**
+     * Reaction is what scenes are made of — B recoils WHILE A shouts — and a
+     * strictly sequential scene reads as a slideshow. `with` is bounded
+     * simultaneity: a beat either follows its predecessor or rides along with
+     * it, and that is the entire system.
+     */
+    it("counts a simultaneous group once, as long as its longest member", () => {
+        const { plan } = planScene([
+            { id: "a", say: "You!", duration: 4000 },
+            { id: "b", do: "scared", with: true, duration: 1500 },
+        ]);
+        expect(plan.beats).toHaveLength(2);
+        expect(plan.beats[1].with).toBe(true);
+        expect(plan.duration).toBe(4000);
+    });
+
+    it("does not put a breath in front of a deliberate overlap", () => {
+        // The breath exists for turn-taking. Two people speaking at once is
+        // the opposite of turn-taking, and a breath would push the second
+        // line out of the overlap it asked for.
+        const { plan } = planScene([
+            { id: "a", say: "Listen to me—" },
+            { id: "b", say: "No, YOU listen!", with: true },
+        ]);
+        expect(plan.beats).toHaveLength(2);
+    });
+
+    it("ignores `with` on the first beat, which has nothing to ride along with", () => {
+        const { plan, problems } = planScene([{ id: "a", do: "nod", with: true }]);
+        expect(problems).toEqual([]);
+        expect(plan.beats[0].with).toBe(false);
+    });
+
+    it("keeps both the move and the line when a beat carries both", () => {
+        // The player used to drop the move from any beat that also spoke —
+        // most of the acting agents ever wrote was discarded before it played.
+        // The plan carries both; the player runs them together.
+        const { plan } = planScene([{ id: "a", do: "surprised", say: "A star fell!" }]);
+        expect(plan.beats[0].move).toBe("surprised");
+        expect(plan.beats[0].say).toBe("A star fell!");
     });
 });

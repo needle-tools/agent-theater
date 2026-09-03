@@ -1,0 +1,211 @@
+{
+    "name": "ocean",
+    "description": "The sea in felt and paper: what grows on the seabed, and what people leave in the water — a buoy, a bell, a boat.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: the ocean. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "kelp": {
+            "kind": "scenery",
+            "file": "kelp.webp",
+            "mood": [
+                "underwater"
+            ],
+            "description": "a ribbon of kelp, tall and waving, good at a stage edge"
+        },
+        "seagrass": {
+            "kind": "scenery",
+            "file": "seagrass.webp",
+            "mood": [
+                "underwater"
+            ],
+            "description": "a tuft of seagrass on pink sand, sits along the ground line"
+        },
+        "coral-branch": {
+            "kind": "scenery",
+            "file": "coral-branch.webp",
+            "mood": [
+                "underwater",
+                "friendly"
+            ],
+            "description": "branching red coral, the reef's shrub"
+        },
+        "anemone": {
+            "kind": "scenery",
+            "file": "anemone.webp",
+            "mood": [
+                "underwater",
+                "friendly"
+            ],
+            "description": "a sea anemone with pink tentacles on a mustard stalk"
+        },
+        "sponge": {
+            "kind": "scenery",
+            "file": "sponge.webp",
+            "mood": [
+                "underwater"
+            ],
+            "description": "a mustard sponge full of holes, low and round"
+        },
+        "rock": {
+            "kind": "scenery",
+            "file": "rock.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a navy boulder with an olive shoulder, good to stand behind"
+        },
+        "shell-scallop": {
+            "kind": "scenery",
+            "file": "shell-scallop.webp",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a fan-ribbed scallop shell, oversized so it reads as a prop"
+        },
+        "shell-conch": {
+            "kind": "scenery",
+            "file": "shell-conch.webp",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a spiral conch, the one you hold to your ear"
+        },
+        "sand-dollar": {
+            "kind": "scenery",
+            "file": "sand-dollar.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a pale sand dollar with its navy star"
+        },
+        "driftwood": {
+            "kind": "scenery",
+            "file": "driftwood.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a bleached driftwood branch, low and wide"
+        },
+        "lighthouse": {
+            "kind": "scenery",
+            "file": "lighthouse.webp",
+            "mood": [
+                "evening",
+                "friendly"
+            ],
+            "description": "a striped lighthouse — the tallest thing in the pack, reads as far-off scenery"
+        },
+        "sailboat": {
+            "kind": "scenery",
+            "file": "sailboat.webp",
+            "mood": [
+                "day",
+                "friendly"
+            ],
+            "description": "a little sailboat with a cream sail and a pennant"
+        },
+        "buoy": {
+            "kind": "scenery",
+            "file": "buoy.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a mooring buoy, banded mustard and red"
+        },
+        "anchor": {
+            "kind": "scenery",
+            "file": "anchor.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a navy anchor, heavy and symmetrical"
+        },
+        "ships-wheel": {
+            "kind": "scenery",
+            "file": "ships-wheel.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a spoked ship's wheel in mustard"
+        },
+        "ships-bell": {
+            "kind": "scenery",
+            "file": "ships-bell.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "an olive ship's bell on its bracket"
+        },
+        "life-ring": {
+            "kind": "scenery",
+            "file": "life-ring.webp",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a banded life ring, hangs on a wall or a post"
+        },
+        "oar": {
+            "kind": "scenery",
+            "file": "oar.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a single oar, long and narrow, leans against things"
+        },
+        "piling": {
+            "kind": "scenery",
+            "file": "piling.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a rope-wrapped wooden piling, tall and narrow — a dock is several side by side"
+        },
+        "dock-cleat": {
+            "kind": "scenery",
+            "file": "dock-cleat.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a navy dock cleat, low and wide, sits on a dock edge"
+        },
+        "fishing-net": {
+            "kind": "scenery",
+            "file": "fishing-net.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a draped fishing net with floats, hangs in a corner like the forest pack's spiderweb"
+        },
+        "crab-trap": {
+            "kind": "scenery",
+            "file": "crab-trap.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a slatted crab trap with a hatch"
+        },
+        "diving-helmet": {
+            "kind": "scenery",
+            "file": "diving-helmet.webp",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a brass diving helmet with a barred port — a prop a character could wear or carry"
+        },
+        "bottle-message": {
+            "kind": "scenery",
+            "file": "bottle-message.webp",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a corked bottle with a rolled note inside, a plot in an object"
+        },
+        "treasure-chest": {
+            "kind": "scenery",
+            "file": "treasure-chest.webp",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a banded chest with a gold lock, closed"
+        }
+    }
+}

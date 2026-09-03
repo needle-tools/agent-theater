@@ -99,6 +99,9 @@ export function renderRegion(
         // when they tilt a photo on a table.
         ctx.translate(layer.x + layer.width / 2, layer.y + layer.height / 2);
         if (layer.rotation) ctx.rotate((layer.rotation * Math.PI) / 180);
+        // Mirrored about the centre, exactly as the screen draws it — an
+        // export that quietly un-flipped the cast would be a different picture.
+        if (layer.flip) ctx.scale(-1, 1);
         ctx.translate(-layer.width / 2, -layer.height / 2);
         if (layer.kind === "image") drawImageLayer(ctx, layer, images.get(layer.id), scale);
         else drawTextLayer(ctx, layer);

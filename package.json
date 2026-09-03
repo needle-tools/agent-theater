@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Registry and hub of WebMCP tools across Needle web apps — built for 3D web development.",
+  "description": "Registry and hub of WebMCP tools across Needle web apps \u2014 built for 3D web development.",
   "scripts": {
     "dev": "vite dev --host",
     "start": "npm run dev",
@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "troupe": "node tools/troupe.mjs",
     "deploy": "npm run build && npx --yes needle-cloud deploy dist --token"
   },
   "dependencies": {

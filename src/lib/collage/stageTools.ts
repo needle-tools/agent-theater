@@ -166,6 +166,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             // is, and saying so is better than implying they mean something.
             : `at ${Math.round(placement.x)}, ${Math.round(placement.y)} (no backdrop to measure against)`;
         return `${name} ${at}` +
+            `${placement.flip ? " (flipped)" : ""}` +
             `${placement.plane && placement.plane !== "mid" ? ` [${placement.plane}]` : ""}` +
             `${placement.entrance ? ` (enters ${placement.entrance})` : ""}`;
     };
@@ -310,6 +311,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "show_play",
             title: "Put the show on",
             description:
+                "Run scenes. Pass hold:true to play SOME scenes and then HOLD — the stage stays lit, the " +
+                "music keeps playing, and the last frame stands — so you can narrate what happened and " +
+                "write the next scene AFTER seeing this one. Call again with the next stage to continue; " +
+                "a call without hold ends with the curtain call and credits. This scene-by-scene loop is " +
+                "how a play stays in step with a story being told aloud, and it is the better default. " +
                 "Run the scenes one after another. Each one builds up — everybody with an entrance arrives — " +
                 "then its script plays, then they leave and the next scene begins. Returns the whole timetable " +
                 "at once and keeps playing, so you know when each scene starts and can narrate to it rather " +
@@ -323,10 +329,19 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         items: { type: "string" },
                         description: "Scene ids, in the order to play them. Omit for all of them, as created.",
                     },
+                    hold: {
+                        type: "boolean",
+                        description:
+                            "Hold the stage after these scenes instead of ending: lights stay down, music " +
+                            "keeps playing, last frame stands. Continue with another show_play; end with " +
+                            "one that leaves this off.",
+                    },
                 },
             },
-            async execute(args: { stages?: string[] }) {
-                if (studio.showing) {
+            async execute(args: { stages?: string[]; hold?: boolean }) {
+                // A held show is waiting to be continued — that is the point of
+                // the hold, so continuing must not be refused as a restart.
+                if (studio.showing && !studio.holding) {
                     return fail(`The show is already running. Stop it with show_stop before starting another.`);
                 }
                 const wanted = (Array.isArray(args?.stages) ? args.stages : []).map(str).filter(Boolean);
@@ -338,7 +353,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     return fail(`There are no scenes to play. Make one with stage_create.`);
                 }
 
-                const { timings, duration } = studio.playShow(wanted.length ? wanted : undefined);
+                const hold = bool(args?.hold, false);
+                const { timings, duration } = studio.playShow(
+                    wanted.length ? wanted : undefined, { hold });
                 if (!timings.length) return fail(`Nothing to play.`);
 
                 // Sound is the one thing that can fail silently, and an agent
@@ -355,6 +372,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 return ok(
                     [`The show is running — ${timings.length} scene(s), ${(duration / 1000).toFixed(1)}s. ` +
                      `Narrate along with it; do not wait for it.`,
+                     ...(hold
+                         ? [`It will HOLD after "${timings[timings.length - 1].name}" — lights down, ` +
+                            `music playing, last frame standing. Narrate, write the next scene now that ` +
+                            `you have seen this one, then show_play again with the next stage. Leave ` +
+                            `"hold" off on the last call to bring the curtain down.`]
+                         : []),
                      ...(unseen
                          ? [`NOBODY CAN SEE THIS: the theatre tab is in the background or minimised, so ` +
                             `the show is playing where the person is not looking. Ask them to bring it ` +
@@ -474,6 +497,14 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "for both on the same sheet and they will match. Lasts until the " +
                                         "scene ends or another beat changes it again.",
                                 },
+                                with: {
+                                    type: "boolean",
+                                    description:
+                                        "Run this beat AT THE SAME TIME as the one before it — B recoils " +
+                                        "while A shouts, two people speak over each other, the wolf " +
+                                        "creeps while the girl talks. Reaction is what scenes are made " +
+                                        "of; use this often.",
+                                },
                                 wait: {
                                     type: "number",
                                     description:
@@ -586,10 +617,23 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 }
 
                 let at = 0;
+                let groupMax = 0;
                 const timeline = plan.beats.map(beat => {
-                    const line = `${(at / 1000).toFixed(1)}s  ${beat.id} ` +
-                        `${beat.move ?? `says "${beat.say!.slice(0, 40)}"`}`;
-                    at += beat.duration;
+                    // A `with` beat shares its predecessor's start; the clock
+                    // advances by the longest member once the group is done.
+                    if (!beat.with) {
+                        at += groupMax;
+                        groupMax = 0;
+                    }
+                    // Null-safe on purpose: automatic breaths have no move and
+                    // no line, and the old template threw on them.
+                    const what = beat.move
+                        ?? (beat.say ? `says "${beat.say.slice(0, 40)}"`
+                            : beat.camera ? "camera"
+                                : beat.id ? "waits" : "a breath");
+                    const line = `${(at / 1000).toFixed(1)}s  ` +
+                        `${beat.with ? "+ " : ""}${beat.id || "—"} ${what}`;
+                    groupMax = Math.max(groupMax, beat.duration);
                     return line;
                 });
                 return ok(
@@ -776,6 +820,14 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                     enum: [...ENTRANCES],
                                     description: "How it arrives when the scene builds up.",
                                 },
+                                flip: {
+                                    type: "boolean",
+                                    description:
+                                        "Mirror the artwork so they face the other way. A cut-out faces " +
+                                        "whichever way it was drawn — look with show_look to see which — " +
+                                        "and two people in conversation should face each other. The " +
+                                        "\"turn\" move flips somebody mid-scene.",
+                                },
                                 plane: {
                                     type: "string",
                                     enum: [...PLANES],
@@ -888,6 +940,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         ...(member.plane && (PLANES as readonly string[]).includes(member.plane)
                             ? { plane: member.plane }
                             : previous?.plane ? { plane: previous.plane } : {}),
+                        ...(typeof member.flip === "boolean" ? { flip: member.flip }
+                            : previous?.flip ? { flip: previous.flip } : {}),
                     };
                     if (at >= 0) cast[at] = placement;
                     else cast.push(placement);

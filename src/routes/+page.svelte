@@ -13,19 +13,19 @@
      */
     import { onMount } from "svelte";
     import Collage from "$lib/collage/Collage.svelte";
-    import { chatgptWith, invitation } from "$lib/collage/invitation";
+    import { briefing, chatgptWith } from "$lib/collage/invitation";
 
     // The same sentence the empty stage shows. One string, defined once: it is
     // both the description of this page and the thing you paste into an agent,
     // and two copies of it would drift the moment either was reworded.
-    let prompt = $state(invitation("https://webmcp.needle.tools"));
+    let prompt = $state(briefing("https://webmcp.needle.tools"));
     let chatgptUrl = $state("https://chatgpt.com/");
     let copied = $state(false);
     let helpOpen = $state(false);
     let helpPanel: HTMLDivElement | null = $state(null);
 
     onMount(() => {
-        prompt = invitation(location.origin);
+        prompt = briefing(location.origin);
         chatgptUrl = chatgptWith(prompt);
     });
 
@@ -37,9 +37,9 @@
 </script>
 
 <svelte:head>
-    <title>Needle × WebMCP Theater — a stage your AI agent can put on a play in</title>
+    <title>Needle × WebMCP Theater — your browser's AI puts on a play</title>
     <meta name="description"
-        content="A theatre stage that hands typed tools to the AI agent in your browser. Drop photos, have their backgrounds removed and cut into characters, then let the agent cast them, write the scene, and play the show." />
+        content="A paper theatre driven by the AI agent in your browser: it decides the story with you, stages ready-cut props on three depth planes, directs camera and music — and you can rearrange the set while it works." />
 </svelte:head>
 
 <svelte:window
@@ -78,9 +78,9 @@
         <div class="help" bind:this={helpPanel} role="dialog" aria-label="About this page">
             <p class="lede">
                 Needle web apps hand typed tools to the AI agent in your browser. This one is a
-                theatre. Your agent writes the prompt for the artwork, cuts the sheet that comes
-                back into a cast, puts them in scenes, and directs — moves, lines, music, camera.
-                You watch, rearrange anything you like, and press play yourself.
+                theatre with a drawer of ready-cut paper props. Your agent decides the story with
+                you, builds the set, and directs — moves, lines, music, camera. You watch,
+                rearrange anything you like, and press play yourself.
             </p>
 
             <div class="prompt-box">

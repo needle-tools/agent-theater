@@ -23,9 +23,15 @@ export interface Stagehand {
     /** The element drawing a layer, if it is on screen. */
     elementFor(id: string): Element | null;
     /** What the layer already is, so a beat builds on it rather than replacing it. */
-    stateOf(id: string): { size: number; rotation: number; opacity: number };
+    stateOf(id: string): { size: number; rotation: number; opacity: number; flip: boolean };
     /** Move a layer for real. Called before a travelling beat animates. */
     commit(id: string, dx: number, dy: number): void;
+    /**
+     * Mirror a layer for real. Called before a turn animates, for the same
+     * reason travel commits first: the document ends up where the beat says,
+     * and the animation runs from the old appearance back to it.
+     */
+    turn(id: string): void;
     /** Put a line above somebody, or take it away. */
     say(id: string, line: string | null, progress: number): void;
     /** True once a layer has left, so it stays gone rather than snapping back. */
@@ -78,12 +84,15 @@ const TYPING_TICK_MS = 40;
  */
 export function play(plan: Plan, hand: Stagehand): Playing {
     let stopped = false;
-    let current: Animation | null = null;
-    let typing: ReturnType<typeof setInterval> | null = null;
+    // Sets, not single slots. One animation and one typing timer was enough
+    // when strictly one thing happened at a time; a `with` group runs several
+    // at once, and a single slot meant stop() could only cancel the last.
+    const animations = new Set<Animation>();
+    const typings = new Set<ReturnType<typeof setInterval>>();
 
     const clear = () => {
-        if (typing) clearInterval(typing);
-        typing = null;
+        for (const timer of typings) clearInterval(timer);
+        typings.clear();
     };
 
     // Taken off stage before the first beat, and put back by their own
@@ -92,9 +101,15 @@ export function play(plan: Plan, hand: Stagehand): Playing {
     for (const id of plan.hidden ?? []) hand.setGone(id, true);
 
     const finished = (async () => {
-        for (const beat of plan.beats) {
+        for (let at = 0; at < plan.beats.length; at++) {
             if (stopped) break;
-            await playBeat(beat);
+            // A beat and everything riding along with it play as one group;
+            // the scene moves on when the whole group is done.
+            const group = [plan.beats[at]];
+            while (at + 1 < plan.beats.length && plan.beats[at + 1].with) {
+                group.push(plan.beats[++at]);
+            }
+            await Promise.all(group.map(beat => playBeat(beat)));
         }
         clear();
     })();
@@ -106,22 +121,40 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         // Before anything moves, so a beat that both changes costume and acts
         // does the acting in the new one.
         if (beat.becomes) hand.wear(beat.id, beat.becomes);
-        // Ordered before the move so a beat can do both: the camera pushes in
+        // Started before the move so a beat can do both: the camera pushes in
         // while the person it is pushing in on takes their step.
-        if (beat.camera) {
-            const framing = hand.camera(beat.camera.on, beat.camera.tight ?? 1, beat.duration);
-            if (!beat.move && !beat.say) return framing;
-            void framing;
-        }
-        if (beat.say) return speak(beat);
-        // A costume change on its own is instant: it is a cut, and holding the
-        // scene still afterwards would draw attention to the seam.
-        if (!beat.move) return;
-
+        const framing = beat.camera
+            ? hand.camera(beat.camera.on, beat.camera.tight ?? 1, beat.duration)
+            : null;
         // The document is told where this ends up first; the animation then
-        // runs from minus the journey back to zero.
+        // runs from minus the journey back to zero. A turn commits its flip the
+        // same way, and the frames play out relative to the new facing.
         if (beat.travel) hand.commit(beat.id, beat.travel.dx, beat.travel.dy);
+        if (beat.move === "turn") hand.turn(beat.id);
 
+        /*
+         * Acting and speaking run together.
+         *
+         * They used to be either/or: `if (say) return speak(beat)` — which
+         * silently dropped the move from every beat that had both. Agents
+         * write `{do: "surprised", say: "..."}` constantly, so most of the
+         * acting in every play so far was discarded before it reached the
+         * stage, and the plays looked exactly as still as that implies.
+         */
+        const doing: Array<Promise<void>> = [];
+        if (beat.move) doing.push(act(beat));
+        if (beat.say) doing.push(speak(beat));
+        if (doing.length) {
+            await Promise.all(doing);
+            return;
+        }
+        // Nothing to act and nothing to say: a camera beat takes the camera's
+        // time, a wait takes its own, and anything else is instant.
+        if (framing) return framing;
+        return wait(beat.duration);
+    }
+
+    async function act(beat: PlannedBeat): Promise<void> {
         const element = hand.elementFor(beat.id);
         if (!element || typeof element.animate !== "function") {
             // No element to animate — the layer is off screen or the browser
@@ -131,21 +164,27 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         }
 
         const layer = hand.stateOf(beat.id);
-        const frames = keyframesFor(beat.move, {
+        // act() is only ever queued for beats with a move; the null in the
+        // type is the say-only shape of the same interface.
+        const frames = keyframesFor(beat.move!, {
             size: layer.size,
             dx: beat.travel?.dx ?? 0,
             dy: beat.travel?.dy ?? 0,
             rotation: layer.rotation,
             opacity: layer.opacity,
+            flip: layer.flip,
         });
         hand.setGone(beat.id, false);
-        current = element.animate(frames, { duration: beat.duration, easing: "linear", fill: "none" });
+        const animation = element.animate(frames, {
+            duration: beat.duration, easing: "linear", fill: "none",
+        });
+        animations.add(animation);
         try {
-            await current.finished;
+            await animation.finished;
         } catch {
             // Cancelling an animation rejects. That is a stop, not a fault.
         }
-        current = null;
+        animations.delete(animation);
         if (!stopped && beat.move === "exit") hand.setGone(beat.id, true);
     }
 
@@ -156,15 +195,17 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         // A timer rather than an animation: the bubble is text being revealed,
         // not a transform, so there is nothing for the compositor to do.
         await new Promise<void>(resolve => {
-            typing = setInterval(() => {
+            const timer = setInterval(() => {
                 const elapsed = performance.now() - started;
                 if (stopped || elapsed >= beat.duration) {
-                    clear();
+                    clearInterval(timer);
+                    typings.delete(timer);
                     resolve();
                     return;
                 }
                 hand.say(beat.id, line, Math.min(1, elapsed / beat.duration / TYPING_SHARE));
             }, TYPING_TICK_MS);
+            typings.add(timer);
         });
         hand.say(beat.id, null, 0);
     }
@@ -189,7 +230,8 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         stop() {
             stopped = true;
             clear();
-            current?.cancel();
+            for (const animation of [...animations]) animation.cancel();
+            animations.clear();
         },
     };
 }

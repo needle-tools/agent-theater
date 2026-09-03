@@ -1,0 +1,233 @@
+{
+    "name": "forest",
+    "description": "Woodland scenery in felt and paper: trees, fungus, and the odd made thing — a gate, a lantern, a bench.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: a forest. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "backdrop": {
+            "kind": "backdrop",
+            "file": "backdrop.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "the far backdrop: pink sky, one cream cloud, pine silhouettes, a ground band. Opaque and full-bleed, 21:9 — everything else stands in front of it"
+        },
+        "midground": {
+            "kind": "midground",
+            "file": "midground.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "a treeline band across the lower half, transparent above. Sits between the backdrop and the actors"
+        },
+        "foreground": {
+            "kind": "foreground",
+            "file": "foreground.webp",
+            "mood": [
+                "day"
+            ],
+            "description": "the nearest plane: a trunk up the left, branches into the top corners, undergrowth along the bottom. The middle is empty on purpose — that is where the actors stand"
+        },
+        "tree-oak": {
+            "kind": "scenery",
+            "file": "tree-oak.webp",
+            "mood": [
+                "day",
+                "friendly"
+            ],
+            "description": "a round-crowned oak, red trunk, the biggest tree in the pack"
+        },
+        "tree-stump": {
+            "kind": "scenery",
+            "file": "tree-stump.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a low cut stump, good to sit on or stand behind"
+        },
+        "tree-roots": {
+            "kind": "scenery",
+            "file": "tree-roots.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "gnarled roots at a trunk's base, good along the ground line"
+        },
+        "log-fallen": {
+            "kind": "scenery",
+            "file": "log-fallen.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a fallen log, wide and low"
+        },
+        "bush-berry": {
+            "kind": "scenery",
+            "file": "bush-berry.webp",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a round bush with berries, good for the front plane"
+        },
+        "fern": {
+            "kind": "scenery",
+            "file": "fern.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a spread of fern fronds"
+        },
+        "cattails": {
+            "kind": "scenery",
+            "file": "cattails.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "tall cattail reeds, says water is near"
+        },
+        "vine-ivy": {
+            "kind": "scenery",
+            "file": "vine-ivy.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a hanging ivy vine, tall and narrow, good at a stage edge"
+        },
+        "flowers-hanging": {
+            "kind": "scenery",
+            "file": "flowers-hanging.webp",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a hanging flower spray"
+        },
+        "leaf-maple": {
+            "kind": "scenery",
+            "file": "leaf-maple.webp",
+            "mood": [
+                "autumn"
+            ],
+            "description": "a single huge maple leaf — oversized, so it reads as a prop"
+        },
+        "acorn": {
+            "kind": "scenery",
+            "file": "acorn.webp",
+            "mood": [
+                "autumn"
+            ],
+            "description": "a single huge acorn — oversized, a prop a small creature could carry"
+        },
+        "pinecone": {
+            "kind": "scenery",
+            "file": "pinecone.webp",
+            "mood": [
+                "autumn"
+            ],
+            "description": "a single huge pinecone, same oversized prop scale as the acorn"
+        },
+        "mushroom-toadstool": {
+            "kind": "scenery",
+            "file": "mushroom-toadstool.webp",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a classic red-capped toadstool"
+        },
+        "fungus-fan": {
+            "kind": "scenery",
+            "file": "fungus-fan.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "fan fungus, low and wide, sits at a trunk's foot"
+        },
+        "fungus-bracket": {
+            "kind": "scenery",
+            "file": "fungus-bracket.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "bracket fungus shelves, can hang off a tree edge"
+        },
+        "rock-mossy": {
+            "kind": "scenery",
+            "file": "rock-mossy.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a mossy boulder"
+        },
+        "spiderweb": {
+            "kind": "scenery",
+            "file": "spiderweb.webp",
+            "mood": [
+                "spooky"
+            ],
+            "description": "a navy spiderweb, hangs in a corner or between things"
+        },
+        "wall-brick": {
+            "kind": "scenery",
+            "file": "wall-brick.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a mossy brick wall section, tileable-ish side by side"
+        },
+        "gate": {
+            "kind": "scenery",
+            "file": "gate.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a wooden garden gate, somewhere to enter through"
+        },
+        "door-round": {
+            "kind": "scenery",
+            "file": "door-round.webp",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a round-topped door on its own — put it against a tree or wall"
+        },
+        "bench": {
+            "kind": "scenery",
+            "file": "bench.webp",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a wooden bench, somewhere for two to sit"
+        },
+        "birdhouse": {
+            "kind": "scenery",
+            "file": "birdhouse.webp",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a birdhouse on a post"
+        },
+        "ladder": {
+            "kind": "scenery",
+            "file": "ladder.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a leaning wooden ladder, tall and narrow"
+        },
+        "lantern": {
+            "kind": "scenery",
+            "file": "lantern.webp",
+            "mood": [
+                "evening",
+                "cosy"
+            ],
+            "description": "a navy lantern with a warm pane, tall and narrow"
+        },
+        "trough": {
+            "kind": "scenery",
+            "file": "trough.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a wooden feed trough, low and wide"
+        }
+    }
+}

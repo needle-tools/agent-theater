@@ -12,7 +12,7 @@
      * button in the corner. Everything that acts on a single picture is at the
      * pointer; everything global is behind the button.
      */
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import CollageCanvas from "$lib/collage/CollageCanvas.svelte";
     import EditPopover from "$lib/collage/EditPopover.svelte";
     import ShowOverlay from "$lib/collage/ShowOverlay.svelte";
@@ -21,7 +21,10 @@
     import { createStudio, download, FREE_PAGE } from "$lib/collage/studio";
     import { createCollageTools } from "$lib/collage/tools";
     import { registerTools } from "$lib/webmcp";
-    import { invitation } from "$lib/collage/invitation";
+    import { briefing, invitation } from "$lib/collage/invitation";
+    import { typed } from "$lib/collage/typed";
+    import { boilFilterSvg, loadPainterly, PAINTERLY_CSS } from "$lib/collage/painted";
+    import { TROUPE } from "$lib/collage/troupe";
 
     const studio = createStudio();
     const collage = studio.collage;
@@ -59,6 +62,11 @@
     onMount(async () => {
         prompt = invitation(location.origin);
 
+        // Not awaited: the props are on screen before this resolves, and they
+        // are meant to be — the boil arriving a beat late is a picture that
+        // starts breathing, where blocking on it would be nine holes.
+        loadPainterly();
+
         // Restore before registering tools: an agent that calls describe on the
         // first turn should see the collage the person left, not an empty one.
         try {
@@ -71,6 +79,12 @@
             console.warn("[collage] could not restore the saved collage:", error);
         }
         restored = true;
+        // Only onto a genuinely empty stage, and computed on the client so the
+        // arrangement is fresh each visit without upsetting hydration.
+        if (!collage.listAll().length && TROUPE.length) {
+            scatter = strewn();
+            scheduleRestock();
+        }
         // Wrapped once here rather than in each tool: an agent's work should be
         // visible, and that should not be fourteen call sites.
         const { notifyAgentActivity } = await import("$lib/room/activity");
@@ -121,13 +135,387 @@
     // The page's own sentence, shown on the empty stage. Same string the help
     // panel offers, from the same place, so they cannot say different things.
     let prompt = $state(invitation("https://webmcp.needle.tools"));
-    let copiedInvite = $state(false);
+    /**
+     * "Copied" as a little speech bubble at the click, gone a moment later.
+     *
+     * The whole empty page is the copy button: the prompt is the only thing
+     * here to take, so any click that is not a drag, a prop or a control takes
+     * it. The feedback appears where the hand is, in the same bubble language
+     * everything else on this stage speaks.
+     */
+    let copied = $state<Array<{ id: number; x: number; y: number; tilt: number }>>([]);
+    let copiedSeq = 0;
+    let pressedAt: { x: number; y: number } | null = null;
+    let pageEl: HTMLDivElement | null = $state(null);
+    let inviteEl: HTMLParagraphElement | null = $state(null);
 
-    async function copyInvitation() {
-        await navigator.clipboard.writeText(prompt);
-        copiedInvite = true;
-        setTimeout(() => (copiedInvite = false), 1800);
+    function copyFromPage(event: MouseEvent) {
+        if (!empty || !restored || editOpen || !pageEl) return;
+        const target = event.target as HTMLElement;
+        if (!pageEl.contains(target)) return;
+        // Props are for dragging, controls are for pressing; neither is this.
+        if (target.closest(".strewn__prop, button, a, input, [data-edit-trigger], .panel")) return;
+        // Only the prompt and a hand's width around it. Click-anywhere turned
+        // every stray click into a clipboard write, which is the page grabbing
+        // at you; click-the-thing is you taking it.
+        if (!inviteEl) return;
+        const reach = 48;
+        const near = inviteEl.getBoundingClientRect();
+        if (event.clientX < near.left - reach || event.clientX > near.right + reach ||
+            event.clientY < near.top - reach || event.clientY > near.bottom + reach) return;
+        // A pan that happened to end where it started is a click; a real pan
+        // is not, and copying at the end of one would be baffling.
+        if (pressedAt && Math.hypot(event.clientX - pressedAt.x, event.clientY - pressedAt.y) > 6) return;
+
+        // What lands on the clipboard is the full briefing, not the watermark:
+        // the short line is for the person glancing, the long one is for the
+        // agent it gets pasted into.
+        void navigator.clipboard.writeText(briefing(location.origin));
+        // One stamp per click, each with its own lean and its own clock —
+        // clicking three times leaves three notes fading on the paper, which
+        // reads as the page enjoying the attention rather than correcting it.
+        const box = pageEl.getBoundingClientRect();
+        const stamp = {
+            id: ++copiedSeq,
+            x: event.clientX - box.left,
+            y: event.clientY - box.top,
+            tilt: (Math.random() - 0.5) * 16,
+        };
+        copied = [...copied, stamp];
+        // Long enough to actually read the instruction in it. The stamp is
+        // not a confirmation tick any more; it is the next step.
+        setTimeout(() => {
+            copied = copied.filter(note => note.id !== stamp.id);
+        }, 7000);
     }
+
+    /**
+     * Troupe pieces strewn across the empty stage.
+     *
+     * Decoration, emphatically not document. If these were real layers they
+     * would be in every save, every piece_list, and the "NEXT:" guidance would
+     * tell the agent to cast them — the empty state would stop being empty
+     * without anybody having done anything. So they live only in this
+     * component, the agent cannot see them (show_look renders the document,
+     * not the DOM), and the first real piece of work fades them out.
+     *
+     * They also do the empty state's actual job better than text can: the
+     * page's claim is "a whole troupe is already waiting", and here is some
+     * of it, visibly waiting.
+     */
+    let scatter = $state<Array<{
+        /** Render identity: a new key remounts the prop, which plays its
+         *  entrance — how a swapped or conjured piece pops rather than blinks. */
+        key: string;
+        id: string; file: string; x: number; y: number;
+        size: number; tilt: number; drift: number; delay: number;
+        /** Which painterly temperament this prop was given, if any. */
+        paint?: string;
+        paintSeed?: number;
+        paintAt?: number;
+        /** A line this prop speaks. The page's copy, worn by the scenery. */
+        say?: string;
+        sayTilt?: number;
+        /** Position in the entrance queue: bubbles appear one after another. */
+        sayOrder?: number;
+        /** Seconds per full swing cycle, and where in it this bubble starts. */
+        swingCycle?: number;
+        swingAt?: number;
+        /** The bubble that is the page title rather than an explanation. */
+        titleCard?: boolean;
+        /** The image's rendered height, measured on load, to anchor a bubble. */
+        h?: number;
+    }>>([]);
+
+    /** The prop being dragged, and where the pointer last was. */
+    let heldProp = $state<{ id: string; lastX: number; lastY: number } | null>(null);
+    let propSeq = 0;
+
+    /**
+     * How big a strewn prop is, everywhere one is made.
+     *
+     * One function because the size is dealt three times — the opening
+     * scatter, the restock, and a conjured piece — and the first version had
+     * the same literal in all three, which is how one of them ends up
+     * different forever. Sized against the viewport, so the props read as a
+     * set on a stage rather than confetti on a desktop monitor, with a floor
+     * for phones.
+     */
+    function propSize(): number {
+        const stage = typeof window === "undefined" ? 900 : Math.min(window.innerWidth, window.innerHeight);
+        const base = Math.max(72, stage * 0.09);
+        return base + Math.random() * base * 0.8;
+    }
+
+    /**
+     * Only things that read as props may be strewn.
+     *
+     * The pool used to be the whole troupe, which includes backdrops and the
+     * full-width scene slices — so a filing cabinet the size of a door or an
+     * entire bedroom midground could land on the welcome page. Scenery and
+     * actors are the toys; the stages stay in the drawer.
+     */
+    function propPool() {
+        return TROUPE.filter(piece => piece.kind === "scenery" || piece.kind === "actor");
+    }
+
+    /**
+     * Push overlapping props apart until everybody has room.
+     *
+     * Plain circle relaxation in pixels: each prop is roughly a disc of half
+     * its size, and any pair standing closer than their radii allow is pushed
+     * apart along the line between them. Speakers only slide sideways — their
+     * height is the reading order, and the one thing this must not do is
+     * shuffle the sentences.
+     */
+    function separate(props: typeof scatter, movable?: Set<string>) {
+        if (typeof window === "undefined") return props;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const out = props.map(prop => ({ ...prop }));
+        for (let pass = 0; pass < 40; pass++) {
+            let crowded = false;
+            for (let a = 0; a < out.length; a++) {
+                for (let b = a + 1; b < out.length; b++) {
+                    const one = out[a];
+                    const two = out[b];
+                    const dx = ((two.x - one.x) / 100) * w;
+                    const dy = ((two.y - one.y) / 100) * h;
+                    const gap = Math.hypot(dx, dy) || 1;
+                    const room = ((one.size + two.size) / 2) * 0.92;
+                    if (gap >= room) continue;
+                    crowded = true;
+                    const push = (room - gap) / 2;
+                    const ux = dx / gap;
+                    const uy = dy / gap;
+                    for (const [prop, sign] of [[one, -1], [two, 1]] as const) {
+                        if (movable && !movable.has(prop.key)) continue;
+                        prop.x = Math.min(94, Math.max(4, prop.x + ((ux * push * sign) / w) * 100));
+                        if (!prop.say) {
+                            prop.y = Math.min(90, Math.max(6, prop.y + ((uy * push * sign) / h) * 100));
+                        }
+                    }
+                }
+            }
+            if (!crowded) break;
+        }
+        return out;
+    }
+
+    /**
+     * The set slowly restocks itself.
+     *
+     * Every few seconds one quiet prop — never a speaker, never the one in
+     * your hand — is exchanged for a piece that is not on the floor yet. The
+     * remount plays the entrance, so the change reads as stagehands tidying
+     * between glances rather than pixels flickering. It also quietly shows off
+     * the drawer: leave the page open and most of the troupe will have walked
+     * across it.
+     */
+    let restock: ReturnType<typeof setTimeout> | null = null;
+
+    function scheduleRestock() {
+        restock = setTimeout(() => {
+            swapOneProp();
+            scheduleRestock();
+        }, 3500 + Math.random() * 2500);
+    }
+
+    function swapOneProp() {
+        if (!empty || heldProp || !scatter.length) return;
+        const quiet = scatter.filter(prop => !prop.say);
+        if (!quiet.length) return;
+        const used = new Set(scatter.map(prop => prop.file));
+        const fresh = propPool().filter(piece => !used.has(piece.file));
+        if (!fresh.length) return;
+        const victim = quiet[Math.floor(Math.random() * quiet.length)];
+        const piece = fresh[Math.floor(Math.random() * fresh.length)];
+        scatter = scatter.map(prop => prop.id === victim.id
+            ? {
+                ...prop,
+                key: `prop-${++propSeq}`,
+                id: piece.id,
+                file: piece.file,
+                size: propSize(),
+                tilt: (Math.random() - 0.5) * 22,
+                h: undefined,
+            }
+            : prop);
+    }
+
+    /**
+     * A double-click conjures a prop out of the drawer, where you clicked.
+     *
+     * The empty canvas does nothing on double-click otherwise, and a page that
+     * hands you toys when you knock on it teaches the one thing the empty
+     * state has to teach: this surface is for putting things on.
+     */
+    function conjureProp(event: MouseEvent) {
+        if (!empty || !restored || !pageEl || !TROUPE.length) return;
+        const target = event.target as HTMLElement;
+        if (!pageEl.contains(target)) return;
+        if (target.closest(".strewn__prop, button, a, input, [data-edit-trigger], .panel")) return;
+        const box = pageEl.getBoundingClientRect();
+        const used = new Set(scatter.map(prop => prop.file));
+        const pool = propPool();
+        const drawer = pool.filter(piece => !used.has(piece.file));
+        const from = drawer.length ? drawer : pool;
+        const piece = from[Math.floor(Math.random() * from.length)];
+        const key = `prop-${++propSeq}`;
+        scatter = separate([...scatter, {
+            key,
+            id: `${piece.id}#${propSeq}`,
+            file: piece.file,
+            x: Math.min(97, Math.max(3, ((event.clientX - box.left) / box.width) * 100)),
+            y: Math.min(95, Math.max(5, ((event.clientY - box.top) / box.height) * 100)),
+            size: propSize(),
+            tilt: (Math.random() - 0.5) * 22,
+            drift: 5 + Math.random() * 4,
+            delay: Math.random() * 6,
+        // Only the newcomer gives way: the pieces already on the floor are
+        // where somebody put them, or at least where they have settled.
+        }], new Set([key]));
+    }
+
+    onDestroy(() => {
+        if (restock) clearTimeout(restock);
+    });
+
+    function grabProp(event: PointerEvent, id: string) {
+        // The canvas underneath pans on this same event; a grabbed prop is not
+        // a pan.
+        event.stopPropagation();
+        event.preventDefault();
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        heldProp = { id, lastX: event.clientX, lastY: event.clientY };
+    }
+
+    function dragProp(event: PointerEvent, id: string) {
+        if (!heldProp || heldProp.id !== id) return;
+        const host = (event.currentTarget as HTMLElement).parentElement;
+        if (!host) return;
+        const box = host.getBoundingClientRect();
+        const dx = ((event.clientX - heldProp.lastX) / Math.max(1, box.width)) * 100;
+        const dy = ((event.clientY - heldProp.lastY) / Math.max(1, box.height)) * 100;
+        heldProp = { id, lastX: event.clientX, lastY: event.clientY };
+        scatter = scatter.map(prop => prop.id === id
+            ? {
+                ...prop,
+                x: Math.min(97, Math.max(3, prop.x + dx)),
+                y: Math.min(95, Math.max(5, prop.y + dy)),
+            }
+            : prop);
+    }
+
+    function dropProp() {
+        heldProp = null;
+    }
+
+    function strewn() {
+        // A ring around the middle, jittered — the middle belongs to the
+        // invitation, and a ring reads as "arranged by someone" where a
+        // uniform scatter reads as "spilled".
+        /*
+         * A cast list, not a lucky dip: mostly scenery with a couple of
+         * actors, so the floor reads as a set with characters on it rather
+         * than nine unrelated objects from four different worlds.
+         */
+        const pool = propPool();
+        const actors = pool.filter(piece => piece.kind === "actor").sort(() => Math.random() - 0.5);
+        const scenery = pool.filter(piece => piece.kind === "scenery").sort(() => Math.random() - 0.5);
+        const picked = [...actors.slice(0, 2), ...scenery.slice(0, 7)]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 9);
+        const clamp = (value: number, low: number, high: number) =>
+            Math.min(high, Math.max(low, value));
+        const strewn = picked.map((piece, index) => {
+            const angle = (index / picked.length) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+            return {
+                key: `prop-${++propSeq}`,
+                id: piece.id,
+                file: piece.file,
+                x: clamp(50 + Math.cos(angle) * (33 + Math.random() * 11), 5, 90),
+                y: clamp(52 + Math.sin(angle) * (27 + Math.random() * 13), 8, 84),
+                size: propSize(),
+                tilt: (Math.random() - 0.5) * 22,
+                drift: 5 + Math.random() * 4,
+                delay: Math.random() * 6,
+                /*
+                 * How hard this one boils, and where in its loop it starts.
+                 *
+                 * Every third prop is calm and every third is lively, in ring
+                 * order, so the pile is not one temperament repeated nine
+                 * times — the page's claim is a troupe, and a troupe is not a
+                 * chorus line. The negative offset matters more than it looks:
+                 * nine cut-outs stepping on the same tick is a strobe, and
+                 * nine stepping on their own is a room full of drawings.
+                 */
+                paint: ["calm", "", "lively"][index % 3],
+                paintSeed: Math.floor(Math.random() * 1000),
+                paintAt: Math.random() * 0.9,
+            };
+        });
+
+        /*
+         * The page's copy, spoken by the props.
+         *
+         * A centred block of text over a scattered set read as a website; the
+         * same words in speech bubbles read as the set talking, which is what
+         * the whole page is about. Three props get lines — spread around the
+         * ring by index, pulled down far enough that a bubble pointing up
+         * stays on screen — and the rest stay quiet.
+         */
+        /*
+         * Speakers are placed in bands, not left to the ring.
+         *
+         * The bubbles are read as a page: title, then the explanation, then
+         * the prompt in the middle, then the invitation to play. Random
+         * placement scrambled that order — the explanation saying "the line
+         * below" could land below the line. Each speaker keeps its ring x
+         * (nudged off the centre so the prompt stays clear) but is pulled to
+         * a fixed height, jittered just enough to stay looking strewn.
+         */
+        const lines: Array<{ say: string; titleCard?: boolean; band: number; aside: boolean }> = [
+            { say: "Agent Theater", titleCard: true, band: 25, aside: true },
+            {
+                say: "Hand your browser's AI agent the line below — click it to copy. " +
+                    "It will ask what your play should be about, then build the set and " +
+                    "put the show on.",
+                band: 47, aside: true,
+            },
+            { say: "We come already cut out. Drag me somewhere.", band: 78, aside: false },
+        ];
+        const speakers = [0, Math.floor(strewn.length / 2), strewn.length - 1];
+        for (const [which, line] of lines.entries()) {
+            const prop = strewn[speakers[which]];
+            if (!prop) break;
+            prop.y = clamp(line.band + (Math.random() - 0.5) * 6, 12, 88);
+            // Flanking the prompt, not exiled to the edges: a speaker parked
+            // at 5% read as unrelated to the text in the middle, and the
+            // bubbles are the page's actual copy. Off-centre on purpose —
+            // pulled toward the middle, never into it.
+            prop.x = line.aside
+                ? (prop.x < 50 ? 30 + Math.random() * 10 : 60 + Math.random() * 10)
+                : clamp(prop.x, 28, 72);
+            Object.assign(prop, {
+                say: line.say,
+                sayOrder: which,
+                ...(line.titleCard ? { titleCard: true } : {}),
+                sayTilt: (Math.random() - 0.5) * (line.titleCard ? 6 : 8),
+                // Each bubble swings on its own slow clock: the cycle length
+                // sets both how long it rests on a side (~40% of it) and how
+                // briskly it crosses (~10%), and the offset scatters the
+                // moments so no two ever move together.
+                swingCycle: 5.5 + Math.random() * 5.5,
+                swingAt: Math.random() * 11,
+            });
+        }
+        // Nobody starts on top of anybody: overlap is fine once a person has
+        // made it — that is theirs — but at spawn it just reads as a glitch.
+        return separate(strewn);
+    }
+
+
 
     /** Save the whole collage as a picture that opens again. */
     async function saveToFile() {
@@ -432,8 +820,18 @@
     }
 </script>
 
+<!-- A plain stylesheet rather than a component style, because the same rules
+     have to reach the collage layers and the exported HTML later, and none of
+     those are inside this component's scope. -->
+<svelte:head>
+    <link rel="stylesheet" href={PAINTERLY_CSS} />
+</svelte:head>
+
 <svelte:window
     onpaste={onPaste}
+    onpointerdown={event => (pressedAt = { x: event.clientX, y: event.clientY })}
+    onclick={copyFromPage}
+    ondblclick={conjureProp}
     onkeydown={event => {
         if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
         const target = event.target;
@@ -449,6 +847,7 @@
 <div
     class="page"
     class:page--dropping={dragging}
+    bind:this={pageEl}
     role="region"
     aria-label="Theater"
     ondragover={e => { e.preventDefault(); dragging = true; }}
@@ -466,19 +865,96 @@
          the light behind it blink out. -->
     <div class="houselights" class:houselights--off={!empty} aria-hidden="true"></div>
 
+    {#if scatter.length}
+        <!-- Fades with the house lights rather than unmounting, so the first
+             dropped picture does not make nine props blink out of existence.
+             The props are grabbable — decoration you can fidget with is the
+             first taste of a canvas you can rearrange — but they are still
+             not document: nothing here survives into a save or a scene. -->
+        <!-- The three takes of the wander every painted piece steps through.
+             Not optional: a `filter: url()` that resolves to nothing means the
+             element is not rendered, so these have to be in the document before
+             anything claims them. -->
+        <svg class="paint-defs" aria-hidden="true" focusable="false">{@html boilFilterSvg()}</svg>
+
+        <div class="strewn" class:strewn--away={!empty}>
+            {#each scatter as prop (prop.key)}
+                <div
+                    class="strewn__prop"
+                    class:strewn__prop--held={heldProp?.id === prop.id}
+                    role="presentation"
+                    style:left="{prop.x}%"
+                    style:top="{prop.y}%"
+                    style:--tilt="{prop.tilt}deg"
+                    style:--drift="{prop.drift}s"
+                    style:--drift-at="-{prop.delay}s"
+                    onpointerdown={event => grabProp(event, prop.id)}
+                    onpointermove={event => dragProp(event, prop.id)}
+                    onpointerup={dropProp}
+                    onpointercancel={dropProp}
+                >
+                    <!-- Painted on the picture, not on the prop around it. The
+                         prop already owns `translate` and `rotate` for its
+                         drift and its tilt, and the boil's frame-held shift
+                         uses the very same two properties — on one element the
+                         later animation simply wins and the drift stops. One
+                         level down they compose: the prop breathes, the drawing
+                         inside it is repainted.
+
+                         `painted--boil` is deliberately absent: it would set
+                         `filter` from the shared sheet, and this component's
+                         own scoped rule for the drop shadow is more specific
+                         and would win. So the piece reads `--paint-warp`
+                         itself, below, and composes the two by hand. -->
+                    <img
+                        class="strewn__piece painted {prop.paint ? `painted--${prop.paint}` : ''}"
+                        src={prop.file}
+                        alt=""
+                        draggable="false"
+                        style:width="{prop.size}px"
+                        style:--paint-seed={prop.paintSeed ?? 0}
+                        style:--paint-at="-{prop.paintAt ?? 0}s"
+                        onload={event => {
+                            const height = (event.currentTarget as HTMLImageElement).clientHeight;
+                            scatter = scatter.map(other =>
+                                other.id === prop.id ? { ...other, h: height } : other);
+                        }}
+                    />
+                </div>
+            {/each}
+        </div>
+
+        <!-- The bubbles, on a layer of their own above every prop. Inside a
+             prop they were trapped in its stacking context — translate and
+             rotate create one — so whichever prop came later in the DOM could
+             sit on the title's face, and did. They follow their prop's
+             position from the same state, so dragging carries them along. -->
+        <div class="strewn-bubbles" class:strewn--away={!empty}>
+            {#each scatter.filter(prop => prop.say) as prop (prop.key)}
+                <div
+                    class="strewn__bubble"
+                    class:strewn__bubble--title={prop.titleCard}
+                    style:left="{prop.x}%"
+                    style:top="{prop.y}%"
+                    style:--rise="{(prop.h ?? prop.size) / 2 + 14}px"
+                    style:--lean="{prop.sayTilt ?? 0}deg"
+                    style:--pop-at="{450 + (prop.sayOrder ?? 0) * 700}ms"
+                    style:--swing-cycle="{prop.swingCycle ?? 8}s"
+                    style:--swing-at="-{prop.swingAt ?? 0}s"
+                >{prop.say}</div>
+            {/each}
+        </div>
+    {/if}
+
     {#if empty && restored}
         <!-- The description is the instruction. There is nothing on this stage
              until somebody directs it, so the honest thing to say about the
              page is also the thing you hand an agent — printed large enough to
              read and copy rather than hidden behind a button. -->
         <div class="empty">
-            <h1>An empty stage</h1>
-            <p class="invite">{prompt}</p>
-            <div class="empty__actions">
-                <button class="empty__cta" onclick={copyInvitation}>
-                    {copiedInvite ? "Copied" : "Copy prompt"}
-                </button>
-            </div>
+            <!-- Just the prompt: the title and the welcome are spoken by the
+                 props around it, and copying is a click anywhere on the page. -->
+            <p class="invite" bind:this={inviteEl}>{prompt}</p>
         </div>
     {/if}
 
@@ -494,6 +970,16 @@
             <path d="M4 6h12M4 10h12M4 14h7" />
         </svg>
     </button>
+
+    {#each copied as note (note.id)}
+        <div
+            class="copied"
+            style:left="{note.x}px"
+            style:top="{note.y}px"
+            style:--lean="{note.tilt}deg"
+            use:typed={{ strong: "Copied!" }}
+        >Copied! Now paste it into ChatGPT — or any AI agent in your browser — and the show begins.</div>
+    {/each}
 
     <!-- The auditorium: vignette, title card, credits. Nothing while the
          canvas is being worked on. -->
@@ -615,10 +1101,231 @@
         .houselights { transition-duration: 0s; }
     }
 
-    .empty {
+    .paint-defs {
+        position: absolute;
+        width: 0;
+        height: 0;
+        pointer-events: none;
+    }
+
+    .strewn {
         position: absolute;
         inset: 0;
         z-index: 2;
+        pointer-events: none;
+        transition: opacity 0.8s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .strewn--away {
+        opacity: 0;
+    }
+
+    .strewn__prop {
+        position: absolute;
+        translate: -50% -50%;
+        rotate: var(--tilt, 0deg);
+        /* The parent is pointer-transparent; the props themselves are not.
+           Grabbable decoration is the first taste of a canvas you can
+           rearrange. */
+        pointer-events: auto;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        /* Arrive, then live: the pop plays once on mount — which is also how
+           a swapped-in or conjured piece announces itself, since a new key
+           remounts the prop — and the drift runs forever on its own clock. */
+        animation:
+            prop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+            strewn-drift var(--drift, 6s) ease-in-out infinite alternate;
+        animation-delay: 0s, var(--drift-at, 0s);
+    }
+
+    @keyframes prop-in {
+        from { opacity: 0; scale: 0.6; }
+    }
+
+    /* Once the lights change, the toys stop being toys: pointer-events on the
+       child would win over `none` on the faded parent, and an invisible prop
+       that still swallowed a drag would read as a broken canvas. */
+    .strewn--away .strewn__prop {
+        pointer-events: none;
+    }
+
+    .strewn__prop--held {
+        cursor: grabbing;
+        z-index: 4;
+        /* Held things stop breathing — the drift fighting the hand felt like
+           the prop trying to escape. */
+        animation-play-state: paused;
+    }
+
+    .strewn__prop--held .strewn__piece {
+        scale: 1.05;
+        filter: var(--paint-warp, url("#paint-boil-0"))
+            drop-shadow(0 10px 22px rgba(34, 44, 32, 0.26));
+    }
+
+    .strewn__piece {
+        display: block;
+        /*
+         * Bigger marks than the default, because these props are small.
+         *
+         * The worklet sizes its brush against the object, which keeps one
+         * setting working on a mushroom and on a backdrop — but a prop 90px
+         * across gets marks under a pixel wide, and a sub-pixel dry brush is
+         * not subtle, it is absent. Roughly doubling the marks puts them back
+         * where the eye can find them without turning the texture coarse.
+         *
+         * Only the scale. The temperaments set their own bite, and this rule
+         * is more specific than they are, so anything else set here would
+         * flatten the difference between a calm prop and a lively one.
+         */
+        --paint-scale: 2.2;
+        /*
+         * The boil's warp, then the shadow that was always here.
+         *
+         * `--paint-warp` is swapped between three displacement filters by the
+         * `.painted` keyframes; the fallback is the first of them rather than
+         * `none`, both because a paused or reduced-motion prop should still be
+         * a painting and because `filter: none drop-shadow(...)` is not a valid
+         * list — `none` here would silently drop the shadow.
+         */
+        filter: var(--paint-warp, url("#paint-boil-0"))
+            drop-shadow(0 5px 12px rgba(34, 44, 32, 0.16));
+        /* Scale only. `filter` changes eight times a second now, and a
+           transition on it would try to cross-fade every one of them. */
+        transition-property: scale;
+        transition-duration: 0.15s;
+    }
+
+    /*
+     * A prop speaking the page's copy, in the show's own bubble language —
+     * white card, ink border, a tail, and a slight tilt so it reads as pinned
+     * on rather than typeset. Placeholder wording; the shape is the point.
+     */
+    .strewn-bubbles {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+        transition: opacity 0.8s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .strewn__bubble {
+        position: absolute;
+        /* Anchored over the prop's measured height, so the tail points at the
+           picture rather than at a guess about its aspect ratio. */
+        translate: -50% calc(-100% - var(--rise, 60px));
+        rotate: var(--lean, 0deg);
+        /* Everything pivots on the tail's tip: the swing rocks the bubble
+           around the point that touches the prop, and the pop grows out of it
+           — a bubble that rotated about its own middle swept its tail from
+           side to side like a windscreen wiper. */
+        transform-origin: 50% calc(100% + 0.4em);
+        /*
+         * Two motions on separate clocks. The pop is the entrance, once, in
+         * queue order. The swing is idle life: rest tilted one way, cross to
+         * the other side in under a second, rest again — mostly stillness,
+         * because a bubble that never stops moving reads as a loading
+         * indicator. Cycle length and phase are per bubble, so no two agree.
+         */
+        animation:
+            bubble-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+            bubble-swing var(--swing-cycle, 8s) ease-in-out infinite;
+        animation-delay: var(--pop-at, 0ms), var(--swing-at, 0s);
+        width: max-content;
+        max-width: min(260px, 56vw);
+        padding: 0.5em 0.8em;
+        border: 1.5px solid var(--text-primary);
+        border-radius: 0.9em;
+        background: var(--surface-page-elevated, #fff);
+        color: var(--text-primary);
+        font-size: clamp(0.9rem, 0.85rem + 0.3vw, 1rem);
+        line-height: 1.45;
+        text-align: center;
+        text-wrap: pretty;
+    }
+
+    .strewn__bubble::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -0.34em;
+        width: 0.55em;
+        height: 0.55em;
+        translate: -50% 0;
+        rotate: 45deg;
+        border: 1.5px solid var(--text-primary);
+        border-top: 0;
+        border-left: 0;
+        background: var(--surface-page-elevated, #fff);
+    }
+
+    @keyframes bubble-pop {
+        from { opacity: 0; scale: 0.6; }
+    }
+
+    /* Long rests, quick crossings: 40% of the cycle on each side, a tenth of
+       it in motion. At 5.5–11s cycles that is 2.2–4.4s of rest and 0.55–1.1s
+       of swing — deliberately not symmetrical in time with the pop above. */
+    @keyframes bubble-swing {
+        0%, 40% { rotate: var(--lean, 0deg); }
+        50%, 90% { rotate: calc(var(--lean, 0deg) * -1); }
+        100% { rotate: var(--lean, 0deg); }
+    }
+
+    .strewn__bubble--title {
+        font-family: var(--font-family-display);
+        font-size: clamp(1.3rem, 1.1rem + 1vw, 1.8rem);
+        font-weight: 600;
+        line-height: 1.15;
+        text-wrap: balance;
+    }
+
+    @keyframes strewn-drift {
+        from { translate: -50% -50%; }
+        to { translate: -50% calc(-50% - 9px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .strewn,
+        .strewn__prop,
+        .strewn__piece { animation: none; transition: none; }
+
+        /* No entrance and no idle swing; the base tilt on the `rotate`
+           property takes over the moment the animations are gone. */
+        .strewn__bubble { animation: none; }
+    }
+
+    /* On a phone the ring of props and the text share very little room, so
+       the props shrink in place — scale does not disturb their layout — and
+       the middle stays legible. */
+    /* On a phone the ring of props and the text share very little room: the
+       pictures shrink in place — scale does not disturb layout — while the
+       bubbles keep their reading size and just get narrower. */
+    @media (max-width: 640px) {
+        .strewn__piece {
+            scale: 0.62;
+        }
+
+        .strewn__bubble {
+            max-width: 62vw;
+        }
+    }
+
+    /*
+     * Behind the props, in front of the light.
+     *
+     * The prompt is scenery-level text — a watermark on the paper — so a prop
+     * dragged across it should pass in front, and the bubbles doing the real
+     * talking sit above everything. The stack, bottom to top: house lights,
+     * this, the props, their bubbles, the copied stamps.
+     */
+    .empty {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -628,75 +1335,78 @@
         pointer-events: none;
     }
 
-    .empty h1 {
-        margin: 0 0 6px;
-        font-family: var(--font-family-display);
-        font-size: var(--type-page-title-size);
-        font-weight: var(--type-page-title-weight);
-        letter-spacing: var(--type-page-title-tracking);
-        text-wrap: balance;
-    }
-
-    .empty p {
-        margin: 0;
-        max-width: 30rem;
-        padding: 0 1.5rem;
-        color: var(--text-secondary);
-        text-wrap: pretty;
-    }
-
-    /* The sentence itself: the largest thing after the heading, because it is
-       what the page is for. Not selectable, deliberately — it sits in the
-       middle of the canvas, and a drag that started on it would highlight text
-       instead of panning. The Copy button is how you take it. */
+    /*
+     * The prompt: big, and barely there.
+     *
+     * It is the most important text on the page and the least interesting to
+     * read, so it is set like a watermark — large enough to be found, faded
+     * toward the paper so it does not compete with the props doing the actual
+     * talking. Not selectable: any click on the page copies it whole, which
+     * beats a careful drag-select every time.
+     */
     .empty .invite {
-        max-width: 34rem;
-        margin-top: 4px;
-        color: var(--text-primary);
-        font-size: var(--type-body-size);
+        max-width: min(46rem, calc(100vw - 2.5rem));
+        padding: 0 1rem;
+        /* A warm ink rather than a grey: saturated enough to belong to the
+           paper world, mixed far enough into the page to stay a watermark. */
+        color: color-mix(in srgb, #8A5A34 52%, var(--surface-page));
+        font-size: clamp(1.1rem, 0.95rem + 0.8vw, 1.5rem);
+        font-weight: 700;
         line-height: 1.5;
-    }
-
-    .empty__actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 16px;
-        /* The heading and paragraphs above are decoration; these two are not. */
+        text-wrap: pretty;
         pointer-events: auto;
-    }
-
-    .empty__cta {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 38px;
-        padding: 0 0.9rem;
-        border-radius: 12px;
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
-        background: var(--surface-panel);
-        color: var(--text-primary);
-        font: inherit;
-        font-size: var(--type-body-muted-size);
-        text-decoration: none;
         cursor: pointer;
-        transition-property: background, border-color, color, scale;
-        transition-duration: 0.14s;
+        transition: color 0.3s cubic-bezier(0.2, 0, 0, 1);
     }
 
-    .empty__cta {
-        border-color: transparent;
-        background: var(--accent-brand);
-        color: #14200f;
-        font-weight: 600;
+    /* Found: the watermark wakes fully under the pointer that can take it. */
+    .empty .invite:hover {
+        color: color-mix(in srgb, #8A5A34 78%, var(--surface-page));
     }
 
-    .empty__cta:hover {
-        background: var(--accent-brand-deep, var(--accent-brand));
+    /* "Copied", in the house bubble style, where the hand is. */
+    .copied {
+        position: absolute;
+        z-index: 30;
+        translate: -50% calc(-100% - 12px);
+        rotate: var(--lean, -2deg);
+        padding: 0.45em 0.75em;
+        border: 1.5px solid var(--text-primary);
+        border-radius: 0.8em;
+        background: var(--surface-page-elevated, #fff);
+        color: var(--text-primary);
+        max-width: min(280px, 70vw);
+        font-size: 0.95rem;
+        line-height: 1.4;
+        text-align: center;
+        text-wrap: pretty;
+        pointer-events: none;
+        animation:
+            copied-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+            copied-out 0.4s ease-in 6.3s forwards;
     }
 
-    .empty__cta:active {
-        scale: 0.96;
+    .copied::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -0.34em;
+        width: 0.55em;
+        height: 0.55em;
+        translate: -50% 0;
+        rotate: 45deg;
+        border: 1.5px solid var(--text-primary);
+        border-top: 0;
+        border-left: 0;
+        background: var(--surface-page-elevated, #fff);
+    }
+
+    @keyframes copied-in {
+        from { opacity: 0; scale: 0.7; }
+    }
+
+    @keyframes copied-out {
+        to { opacity: 0; translate: -50% calc(-100% - 24px); }
     }
 
     .trigger {
