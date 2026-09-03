@@ -20,6 +20,7 @@ import { prompter } from "./speech.js";
 import { isSubtitleVoice, normalizeSubtitleVoice, type SubtitleVoice } from "../subtitleVoice/index.js";
 import { ENTRANCES, PLANES, type Placement, type Stage } from "./stage.js";
 import type { Layer } from "./model.js";
+import { actorForLayer, voiceForActor } from "./characterVoice.js";
 import type { CollageStudio } from "./studio.js";
 import type { ToolResult, WebMcpToolDef } from "./tools.js";
 
@@ -928,7 +929,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                     required: ["speed", "age", "tone"],
                                     description:
                                         "The character's complete voice: exactly speed, age and tone. " +
-                                        "Leave it out and the part is silent. Vary age and tone across the cast.",
+                                        "For troupe actors, leaving it out chooses a fitting voice from the " +
+                                        "character; passing it overrides that choice. Vary age and tone across the cast.",
                                 },
                             },
                             required: ["id"],
@@ -968,8 +970,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 for (const member of wanted) {
                     const id = str(member?.id);
                     if (!id) continue;
+                    const layer = collage.own(id)!;
                     const at = cast.findIndex(existing => existing.id === id);
                     const previous = at >= 0 ? cast[at] : null;
+                    const actor = actorForLayer(layer);
 
                     /*
                      * Casting is MEMBERSHIP — who they play, which plane, how
@@ -1002,7 +1006,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         ...(str(member.as) ? { as: str(member.as) }
                             : previous?.as ? { as: previous.as } : {}),
                         ...(voice(member.voice) ? { voice: voice(member.voice)! }
-                            : previous?.voice ? { voice: previous.voice } : {}),
+                            : previous?.voice ? { voice: previous.voice }
+                                : actor ? { voice: voiceForActor(actor) } : {}),
                     };
                     if (at >= 0) cast[at] = placement;
                     else cast.push(placement);

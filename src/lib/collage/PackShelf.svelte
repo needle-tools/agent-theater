@@ -21,6 +21,8 @@
     import { idleSet } from "./idleSet.js";
     import { tamedWidth } from "./placement.js";
     import { hint } from "./hint.js";
+    import { greetingForActor, voiceForActor } from "./characterVoice.js";
+    import type { SubtitleVoice } from "../subtitleVoice/index.js";
 
     interface Props {
         studio: CollageStudio;
@@ -28,9 +30,11 @@
         toCanvas: (clientX: number, clientY: number) => { x: number; y: number } | null;
         /** The current view zoom, so stickers arrive at a sensible SEEN size. */
         zoom: () => number;
+        /** Introduce an actor placed on the open canvas, outside a chapter. */
+        onActorPlaced?: (id: string, voice: SubtitleVoice, greeting: string) => void;
     }
 
-    let { studio, toCanvas, zoom }: Props = $props();
+    let { studio, toCanvas, zoom, onActorPlaced }: Props = $props();
 
     /** Hidden while a show runs — the audience does not see the prop room. */
     let showing = $state(false);
@@ -145,6 +149,17 @@
         // Widths match, heights may not: a pencil at sheep-width is a tower.
         const tamed = tamedWidth(layer, world);
         if (tamed !== null) studio.collage.update(layer.id, { width: tamed });
+        const stage = studio.collage.activeStage;
+        if (piece.kind === "actor") {
+            const voice = voiceForActor(piece);
+            if (stage && !stage.cast.some(member => member.id === layer.id)) {
+                studio.collage.updateStage(stage.id, {
+                    cast: [...stage.cast, { id: layer.id, voice }],
+                });
+            } else if (!stage) {
+                onActorPlaced?.(layer.id, voice, greetingForActor(piece));
+            }
+        }
         studio.save();
     }
 
@@ -201,6 +216,10 @@
                 window.innerWidth * (0.42 + Math.random() * 0.16),
                 window.innerHeight * (0.4 + Math.random() * 0.2)));
         }
+    }
+
+    function cancelDrag() {
+        ghost = null;
     }
 </script>
 

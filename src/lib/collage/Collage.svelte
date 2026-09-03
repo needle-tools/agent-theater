@@ -1211,6 +1211,7 @@
         {studio}
         toCanvas={(x, y) => canvas?.canvasPoint(x, y) ?? null}
         zoom={() => canvas?.getView().zoom ?? 1}
+        onActorPlaced={(id, voice, greeting) => canvas?.greetActor(id, voice, greeting)}
     />
 
     <Toasts items={toasts.items} onDismiss={toasts.dismiss} />

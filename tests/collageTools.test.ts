@@ -1225,4 +1225,20 @@ describe("casting touches the world only when asked", () => {
         const member = collage.getStage(stage.id)!.cast[0];
         expect(member.entrance).toBe("fade");
     });
+
+    it("gives troupe actors a fitting voice unless MCP supplies one", async () => {
+        const { collage, stage, cast } = staged();
+        const giant = collage.addImage({
+            src: "/troupe/fairy-tale/giant.webp", label: "fairy-tale/giant",
+            natural: { width: 100, height: 200 }, width: 100, x: 0, y: 0,
+        });
+        await cast.execute({ stage: stage.id, cast: [{ id: giant.id }] });
+        const automatic = collage.getStage(stage.id)!.cast[0].voice!;
+        expect(Object.keys(automatic).sort()).toEqual(["age", "speed", "tone"]);
+        expect(automatic.tone).toBeLessThan(0.5);
+
+        const chosen = { speed: 1.8, age: 0.1, tone: 0.9 };
+        await cast.execute({ stage: stage.id, cast: [{ id: giant.id, voice: chosen }] });
+        expect(collage.getStage(stage.id)!.cast[0].voice).toEqual(chosen);
+    });
 });

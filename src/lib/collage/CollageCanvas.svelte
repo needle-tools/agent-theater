@@ -29,9 +29,11 @@
     import { parallaxOf } from "./stage.js";
     import { play, type Playing, type Stagehand } from "./player.js";
     import { createSpeaker } from "./audio.js";
+    import { actorForLayer, greetingForActor } from "./characterVoice.js";
     import { clipKeyframes, findClip, recorder, TALK_CLIP } from "./clips.js";
     import { prompter } from "./speech.js";
     import SubtitleVoiceMenu from "../subtitleVoice/SubtitleVoiceMenu.svelte";
+    import type { SubtitleVoice } from "../subtitleVoice/index.js";
 
     interface Props {
         studio: CollageStudio;
@@ -642,6 +644,42 @@
             worn = next;
         },
     };
+
+    /** Speak outside a running show, while keeping its bubble on the same clock. */
+    export function greetActor(id: string, voice: SubtitleVoice, greeting: string): Promise<void> {
+        return prompter.speak(
+            { text: greeting, voice },
+            {
+                fallback: 900,
+                begin: () => stagehand.say(id, greeting, 0),
+                show: progress => stagehand.say(id, greeting, progress),
+                end: () => stagehand.say(id, null, 0),
+            });
+    }
+
+    /* Observe every model emission synchronously. Svelte effects batch a new
+     * chapter and its first cast into one render, which made that cast look
+     * pre-existing and swallowed its greetings. */
+    $effect(() => {
+        const known = new Map(studio.collage.listStages()
+            .map(stage => [stage.id, new Set(stage.cast.map(member => member.id))] as const));
+        return studio.collage.onChanged(() => {
+            const active = studio.collage.activeStage;
+            for (const stage of studio.collage.listStages()) {
+                const before = known.get(stage.id) ?? new Set<string>();
+                const newcomers = stage.cast.filter(member => !before.has(member.id));
+                known.set(stage.id, new Set(stage.cast.map(member => member.id)));
+                if (showing || stage.id !== active?.id) continue;
+                for (const member of newcomers) {
+                    const layer = studio.collage.own(member.id);
+                    const actor = layer ? actorForLayer(layer) : null;
+                    if (actor && member.voice) {
+                        void greetActor(member.id, member.voice, greetingForActor(actor));
+                    }
+                }
+            }
+        });
+    });
 
     /**
      * Follow what the agent is doing.
