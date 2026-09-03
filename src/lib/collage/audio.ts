@@ -77,8 +77,16 @@ const FULL = 1;
  * the synthesised voices live well under 1.0 by their own headroom, and a
  * door slam at parity with the mix ceiling flattened every line near it.
  * Playback mix only — the files themselves stay exactly as generated.
+ *
+ * 0.45 rather than 0.6, after listening. Two things make an effect land harder
+ * than its number suggests: cues are allowed to overlap, so two at once is
+ * most of the way to the ceiling on their own; and each file was generated
+ * separately with no loudness pass, so a hot one arrives hot. This is the
+ * global lever. If a handful of individual sounds still jump out, the honest
+ * fix is a per-sound trim in the manifest rather than pulling the whole class
+ * down until the loudest one behaves.
  */
-const CUE_LEVEL = 0.6;
+const CUE_LEVEL = 0.45;
 const MUSIC_LEVEL = 0.32;
 /**
  * The editing bed, relative to a scene's.
