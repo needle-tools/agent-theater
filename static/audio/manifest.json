@@ -108,6 +108,24 @@
 			"mood": ["dark", "tense", "hovering"],
 			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The only one that came back at the full length asked for, and the quietest through the middle. Fades to silence at the end, so it wants `fade` rather than `loop`."
 		},
+		"chase-comic-1": {
+			"role": "bed",
+			"file": "/audio/music/chase-comic-1.opus",
+			"seconds": 30.01,
+			"bpm": 150,
+			"take": "chase-comic",
+			"mood": ["comic", "hurried", "scurrying"],
+			"description": "Scurrying pizzicato strings, bustling xylophone, chattering woodwinds and a light snare gallop. A chase played for laughs, where `race-driving` is played straight. The fuller of the two takes."
+		},
+		"chase-comic-2": {
+			"role": "bed",
+			"file": "/audio/music/chase-comic-2.opus",
+			"seconds": 30.01,
+			"bpm": 150,
+			"take": "chase-comic",
+			"mood": ["comic", "hurried", "scurrying"],
+			"description": "Scurrying pizzicato strings, bustling xylophone, chattering woodwinds and a light snare gallop. A chase played for laughs. Two dB quieter than `chase-comic-1` and the easier of the two to talk over."
+		},
 		"race-driving-1": {
 			"role": "bed",
 			"file": "/audio/music/race-driving-1.opus",
@@ -1530,6 +1548,33 @@
 			"seconds": 0.84,
 			"mood": ["airy", "light", "quick"],
 			"description": "A small breathed swoosh with a long thin decay, no weight underneath. Much smaller and quieter than `whoosh` — for something little moving, not something big."
+		},
+		"explosion-comic-1": {
+			"role": "cue",
+			"file": "/audio/cues/explosion-comic-1.opus",
+			"seconds": 5.01,
+			"take": "explosion-comic",
+			"mood": ["chaotic", "slapstick", "loud"],
+			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals. Turned down 4 dB on the way in — it arrived at -16 LUFS, the loud end of the library, and dense enough to swamp a line. Long enough to duck the bed while it runs.",
+			"skill": "flash"
+		},
+		"explosion-comic-2": {
+			"role": "cue",
+			"file": "/audio/cues/explosion-comic-2.opus",
+			"seconds": 5.01,
+			"take": "explosion-comic",
+			"mood": ["chaotic", "slapstick", "loud"],
+			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals. Turned down 4 dB on the way in, and the quietest of the three takes.",
+			"skill": "flash"
+		},
+		"explosion-comic-3": {
+			"role": "cue",
+			"file": "/audio/cues/explosion-comic-3.opus",
+			"seconds": 5.01,
+			"take": "explosion-comic",
+			"mood": ["chaotic", "slapstick", "loud"],
+			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals. Turned down 4 dB on the way in.",
+			"skill": "flash"
 		},
 		"wind-gust-1": {
 			"role": "sfx",

@@ -1299,17 +1299,6 @@
 
     <div class="file-tools" class:file-tools--watching={showing} aria-label="Play tools">
         <button
-            class="file-tool audio-tool"
-            class:audio-tool--quiet={!fullAudio}
-            aria-label={fullAudio ? "Turn off music and quiet voices" : "Turn music and voices back up"}
-            aria-pressed={!fullAudio}
-            use:hint={fullAudio ? "Quiet the music and voices. Effects stay." : "Bring the music and voices back."}
-            onclick={toggleAudio}
-        >
-            <img class="audio-tool__icon audio-tool__icon--on" src="/toolbar/audio-enabled.webp" alt="" draggable="false" />
-            <img class="audio-tool__icon audio-tool__icon--off" src="/toolbar/audio-disabled.webp" alt="" draggable="false" />
-        </button>
-        <button
             class="eraser"
             class:eraser--armed={erasing}
             aria-label={erasing ? "Put the eraser down" : "Pick up the eraser"}
@@ -1349,6 +1338,17 @@
         </button>
         <button class="file-tool" aria-label="Load play" use:hint={"Load a saved play."} onclick={() => fileInput?.click()}>
             <img src="/toolbar/loading-icon.webp" alt="" draggable="false" />
+        </button>
+        <button
+            class="file-tool audio-tool"
+            class:audio-tool--quiet={!fullAudio}
+            aria-label={fullAudio ? "Turn off music and quiet voices" : "Turn music and voices back up"}
+            aria-pressed={!fullAudio}
+            use:hint={fullAudio ? "Quiet the music and voices. Effects stay." : "Bring the music and voices back."}
+            onclick={toggleAudio}
+        >
+            <img class="audio-tool__icon audio-tool__icon--on" src="/toolbar/audio-enabled.webp" alt="" draggable="false" />
+            <img class="audio-tool__icon audio-tool__icon--off" src="/toolbar/audio-disabled.webp" alt="" draggable="false" />
         </button>
         {#if fileToolError}
             <button

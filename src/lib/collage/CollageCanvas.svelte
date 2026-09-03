@@ -927,12 +927,25 @@
         studio.setPerformer(playScene);
         studio.setStopper(stopScene);
         studio.setSpeaker(speaker);
+        studio.setNarrator(narrate);
         return () => {
             studio.setPerformer(null);
             studio.setStopper(null);
             studio.setSpeaker(null);
+            studio.setNarrator(null);
         };
     });
+
+    /**
+     * A line over one piece outside any show — the agent's aside at the
+     * workbench. The same voice the piece would act in, resolved at speaking
+     * time, so a bubble here and a line in the play sound like one character.
+     */
+    function narrate(id: string, text: string): Promise<void> {
+        const voice = voiceFor(id);
+        if (!voice || !studio.collage.get(id)) return Promise.resolve();
+        return greetActor(id, voice, text);
+    }
 
     export async function playScene(plan: Plan): Promise<void> {
         stopScene();

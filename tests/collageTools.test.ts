@@ -108,6 +108,8 @@ function fakeStudio(options: FakeOptions = {}) {
         stopScene() { /* nor here */ },
         stopShow() { /* nor this */ },
         setSpeaker() { /* the fake is deaf */ },
+        async narrate() { /* and mute: bubbles need a canvas */ },
+        setNarrator() { /* nothing mounts one here */ },
         get speaker() { return SILENT; },
         showing: null as string | null,
         holding: false,
@@ -789,7 +791,8 @@ describe("the surface an agent actually sees", () => {
         const names = createCollageTools(studio).map(t => t.name)
             .filter(name => name !== "theater_troupe").sort();
         expect(names).toEqual([
-            "piece_add", "piece_copy", "piece_list", "piece_move", "piece_remove", "piece_sheet", "piece_text",
+            "piece_add", "piece_copy", "piece_list", "piece_move", "piece_remove", "piece_say",
+            "piece_sheet", "piece_text",
             "show_list", "show_load", "show_look", "show_play", "show_publish", "show_save",
             "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",

@@ -1,77 +1,89 @@
-# Needle × WebMCP
+# Agent Theater
 
-**Ask the AI agent in your browser to put on a play — and see which [Needle](https://needle.tools) apps it can drive next.**
+**Tell an AI agent a story. Watch it stage the play.**
 
 ![A witch, a king, a lion, a vampire, an owl, a fairy, a crocodile and a knight, cut from paper](docs/cast.webp)
 
-This repository is two things that turned out to be one thing.
+Open the page and say *"put on a play about a wolf who is afraid of the dark"*. The agent casts the parts from a drawer of paper cut-outs, dresses the stage, writes the script beat by beat, gives every character a voice, and runs the show while narrating it aloud.
 
-It is the **registry** of [WebMCP](https://github.com/webmachinelearning/webmcp) tools across Needle's web apps — which app can do what, in one place. And it is a **paper theatre** that proves the point: open the page, tell your agent *"put on a play about a wolf who is afraid of the dark"*, and watch it cast the parts, dress the stage, write the script and run the show. No install, no API key, no server. The tools are simply there when you open the page.
+You are not watching a chatbot describe a play. The agent is working the actual stage — the same one you can drag pieces around on yourself, at the same time, while it does.
 
-## What WebMCP changes
+**[Open the theatre →](https://webmcp.needle.tools)** then ask your agent what it can do here.
 
-An agent automating a website normally works from the outside: read the DOM, find something that looks like a button, click it, hope it did what it looked like it would do.
+## Built for agents first
 
-WebMCP lets the page hand the agent its own typed functions instead. *"Bake this model to 6,000 triangles"* becomes one call with a number in it, not a hunt for a slider. The agent gets **intent instead of pixels** — so it keeps working when the UI is redesigned, and it runs inside your tab where you are already signed in. Your data never detours through a third-party service.
+Agent Theater is a [WebMCP](https://github.com/webmachinelearning/webmcp) app. The page hands the agent its own typed tools instead of making it hunt for buttons.
 
-## The theatre
+That is the whole difference. An agent automating a website normally works from the outside — read the DOM, find something that looks like a button, click it, hope. Staging a play that way is hopeless: *"walk stage left, look surprised, then speak"* is not a sequence of clicks. Here it is one call with a number in it.
+
+Nothing to install, no API key, no server. The tools are there when the page loads.
+
+**Drive it from:**
+
+| | |
+| --- | --- |
+| **ChatGPT** — the app and Atlas | Native WebMCP, no flag |
+| **Codex** | Connects to the page's tools |
+| **Microsoft Edge 147+** | Native |
+| **Chrome 149+** | Origin trial — this app ships a token, so it just works |
+| Firefox, Safari | Not yet |
+
+## What is in the room
 
 ![An oak, a barrel cactus, a campfire, a lighthouse, a teapot, a street lamp, a slice of watermelon and the moon, cut from paper](docs/props.webp)
 
-The front page is a stage. Everything on it is a paper cut-out, and everything an agent needs to make a show is already in the room:
+**615 pieces of art, in 21 packs.** A cast of animals, fairy-tale characters, heroes and villains — and the scenery to put them in: forests, deserts, oceans, streets, kitchens, the night sky. Every piece is a paper cut-out with a name and a description, so an agent picks a mossy boulder on purpose rather than by luck.
 
-- **594 pieces of art** across 21 packs — a cast of animals, fairy-tale characters, heroes and villains, and the scenery to put them in: forests, deserts, oceans, streets, kitchens, the night sky.
-- **A voice for every character.** An actor speaks in the voice its drawing suggests; anything else gets a stable voice dealt from its own name. Nobody who was written a line goes unheard.
-- **130 sounds** — beds that cross-fade between scenes, stings that land on a beat, and the seams a show is built from: curtain up, drumroll, curtain down.
-- **Paper that behaves like paper.** Every piece is drawn by a CSS paint worklet, so edges wander and the ink boils slightly, the way a hand-cut shape does.
+**A voice for everyone who speaks.** Voices are synthesised and modulated per character — an actor sounds like its drawing suggests, and anything else gets a stable voice dealt from its own name. Nobody who was written a line goes unheard, and the same character sounds the same way every run.
 
-An agent writes a play the way a director blocks one: `stage_create` makes a scene, `stage_cast` decides who is in it and where they stand, `stage_script` writes the beats — *walk here, look surprised, say this* — and `show_play` runs it while the agent narrates aloud.
+**168 sounds.** 26 music beds that cross-fade between scenes, 71 stings that land on a beat, 56 effects, and 15 seams — curtain up, drumroll, curtain down.
 
-**Try it:** open [webmcp.needle.tools](https://webmcp.needle.tools) and ask your agent *"what can you do on this page?"*
+**Paper that behaves like paper.** Every piece is drawn through a CSS paint worklet, so edges wander and the ink boils slightly, the way a hand-cut shape does. The cursor is cut from paper too.
 
-## The apps
+## How a play gets made
 
-| App | Where | What an agent can do there |
-| --- | --- | --- |
-| **[Needle Theatre](https://webmcp.needle.tools)** | webmcp.needle.tools | Cast a play from the troupe, dress a stage, write a script, run the show, save it and share it. Also: cut a photo out, arrange a collage, export it as a picture or a page. |
-| **[Needle Documentation](https://engine.needle.tools/docs)** | every docs page | Search the entire Needle knowledge base — documentation, API reference, forum posts, Discord threads and source — via embedding-ranked semantic search. |
-| **[Needle Mesh Baker](https://mesh-baker.needle.tools)** | mesh-baker.needle.tools | Load a 3D model, bake it to a triangle budget, compress it, compare before/after screenshots, download or publish. On capable machines: generate 3D models from a text prompt or an image. |
-| **[Needle FastCut](https://fastcut.needle.tools)** | fastcut.needle.tools | Remove image backgrounds in the browser, split sprite sheets, assemble grids and atlases, export. |
-| **[Needle Inspector](https://chromewebstore.google.com/detail/jonplpbnhmanoekkgcepnedhghflblmo)** | Chrome extension, any three.js or Needle Engine page | Inspect and edit the live 3D scene: scene graph, materials, performance. *"What is making this scene slow?"* Tools are registered dynamically from the Inspector's command set. |
-| **[Needle Cloud](https://cloud.needle.tools)** | cloud.needle.tools | Search and inspect your hosted 3D assets. More tools in development. |
+Thirty-four tools, four families. An agent blocks a scene the way a director does:
 
-Apps chain, too. The Mesh Baker's image-to-3D tool points agents at FastCut for background removal — an agent with a second tab cuts the photo out there and brings the transparent PNG back.
-
-The agent always discovers the current tool set from the page itself, so the reliable move is: open a Needle app and ask what it can do. The full lists — names, descriptions, status — live in [`registry.json`](registry.json).
-
-## Trying it
-
-Two pieces have to line up: a browser that implements WebMCP, and an agent that calls the tools it finds.
-
-| Browser | Status |
+| | |
 | --- | --- |
-| ChatGPT Atlas | Native, no flag |
-| Microsoft Edge 147+ | Native |
-| Chrome 149+ | Origin trial — Needle apps ship a token, so it just works. For your own pages, enable `chrome://flags/#enable-webmcp-testing` or get an [origin trial token](https://developer.chrome.com/origintrials). |
-| Firefox, Safari | Not yet implemented |
+| `theater_start` | The one to call first. It explains the rest. |
+| `stage_create` | A scene, with its own music. |
+| `stage_cast` | Who is in it, where they stand, how they arrive. |
+| `stage_script` | The beats — *walk here, look surprised, say this, laugh*. |
+| `show_play` | Runs it, and returns immediately with the timings so the agent can narrate on the beat. |
+| `piece_*` | Add, cut out, arrange, restyle and trace anything on the canvas. |
 
-[Chrome's WebMCP guide](https://developer.chrome.com/docs/ai/webmcp) tracks the state of the API and which agents can call page tools.
+Shows save, publish and share: `show_save`, `show_publish`, `show_list`, `show_load`. Share URLs are `/p/<id>`.
+
+An agent that cannot draw can still get art: `theater_art_prompt` writes the image-generation prompt in the house style — including the parts a model gets wrong unless told, like the gutters between cells and keeping a character's feet visible so it can walk later.
+
+## The registry
+
+The same page is also the hub for [Needle](https://needle.tools)'s other WebMCP apps — which app can do what, in one place, human-readable and machine-readable in [`registry.json`](registry.json).
+
+| App | What an agent can do there |
+| --- | --- |
+| **[Needle Documentation](https://engine.needle.tools/docs)** | Search the whole Needle knowledge base — docs, API reference, forum, Discord, source — by semantic search. |
+| **[Needle Mesh Baker](https://mesh-baker.needle.tools)** | Load a 3D model, bake it to a triangle budget, compress, compare before/after, publish. On capable machines: generate 3D models from a prompt or an image. |
+| **[Needle FastCut](https://fastcut.needle.tools)** | Remove image backgrounds in the browser, split sprite sheets, assemble atlases, export. |
+| **[Needle Inspector](https://chromewebstore.google.com/detail/jonplpbnhmanoekkgcepnedhghflblmo)** | Inspect and edit a live three.js or Needle Engine scene: scene graph, materials, performance. |
+| **[Needle Cloud](https://cloud.needle.tools)** | Search and inspect hosted 3D assets. |
+
+Apps chain. An agent with two tabs cuts a photo out in FastCut, brings the transparent PNG back, and puts it on the stage. `get_workflow` ships those recipes; `find_tool_for_task` routes a job to the right app.
 
 ## The knowledge base, without a browser
 
-The search tool on the docs pages is backed by a public HTTP API — the same knowledge base behind the [Needle MCP Server](https://engine.needle.tools/docs/ai/needle-mcp-server). Building an agent that is *not* in a browser? Use it directly:
+The docs search is backed by a public HTTP API — the same knowledge base behind the [Needle MCP Server](https://engine.needle.tools/docs/ai/needle-mcp-server). For agents that are not in a browser:
 
-- `GET https://search.needle.tools/api/semantic-search?q=...` — embedding-ranked excerpts with source URLs
-- `POST https://search.needle.tools/api/ask` — an answer instead of a result list
-- Full endpoint docs: <https://search.needle.tools/api-docs>
+- `GET https://search.needle.tools/api/semantic-search?q=...` — ranked excerpts with source URLs
+- `POST https://search.needle.tools/api/ask` — an answer instead of a list
+- Docs: <https://search.needle.tools/api-docs>
 
-Public and unauthenticated, rate-limited per IP.
+Public, unauthenticated, rate-limited per IP.
 
 ## Exposing tools from your own page
 
-WebMCP is a plain browser API — no framework required. [`examples/register-tool.js`](examples/register-tool.js) is a complete, dependency-free example: it registers a tool that searches the Needle knowledge base, handling both API generations (`document.modelContext.registerTool()` and the older `provideContext()`).
-
-The short version:
+WebMCP is a plain browser API — no framework needed. [`examples/register-tool.js`](examples/register-tool.js) is a complete, dependency-free example handling both API generations (`document.modelContext.registerTool()` and the older `provideContext()`).
 
 ```js
 await document.modelContext.registerTool({
@@ -91,21 +103,11 @@ await document.modelContext.registerTool({
 })
 ```
 
-The spec is a moving draft — the entry point moved from `navigator` to `document`, bulk registration was removed, and unregistering is now done by aborting an `AbortSignal` passed at registration. The example shows how to stay compatible across origin-trial builds.
-
-## What this page registers
-
-Four registry tools, and the theatre's own set:
-
-- **`list_needle_webmcp_apps`** — the registry, machine-readable.
-- **`find_tool_for_task`** — route a task (*"remove this photo's background"*) to the right app and tool, with the URL to open.
-- **`get_workflow`** — cross-app recipes. WebMCP tools are per-page, but an agent with more than one tab can chain them: *photo → FastCut cut-out → Mesh Baker image-to-3D → bake → publish to Needle Cloud*.
-- **`search_needle_knowledge_base`** — semantic search over all Needle content.
-- **`theater_*`, `stage_*`, `show_*`, `piece_*`** — the theatre: start a show, cast it, script it, play it, capture it, publish it. `theater_start` is the one to call first; it explains the rest.
+The spec is a moving draft — the entry point moved from `navigator` to `document`, bulk registration was removed, and unregistering now aborts an `AbortSignal` passed at registration. The example stays compatible across origin-trial builds.
 
 ## Development
 
-A [SvelteKit](https://svelte.dev/docs/kit) project on Vite, using Needle's brand system from [branding.needle.tools](https://branding.needle.tools). The page renders the registry from `registry.json` (also served as [`/registry.json`](src/routes/registry.json/+server.ts)) and registers its own WebMCP tools (`src/lib/webmcp.ts`).
+A [SvelteKit](https://svelte.dev/docs/kit) project on Vite, using Needle's brand system from [branding.needle.tools](https://branding.needle.tools).
 
 ```bash
 npm install
@@ -115,27 +117,27 @@ npm run build:static  # flat, server-less build into ./dist
 npm test              # vitest
 ```
 
-Two generated modules keep content out of the code. `npm run troupe` reads every `static/troupe/*/manifest.json` and writes `src/lib/collage/troupe.ts`; `node tools/sounds.mjs` does the same for `static/audio/manifest.json`. Adding art or music is a folder, a manifest entry and a run of the script — never a code change. `static/troupe/README.md` has the conventions.
+Content stays out of the code. `npm run troupe` reads every `static/troupe/*/manifest.json` and writes `src/lib/collage/troupe.ts`; `node tools/sounds.mjs` does the same for `static/audio/manifest.json`; `node tools/cursors.mjs` cuts the paper cursors. Adding art, music or a cursor is a folder, a manifest entry and a run of the script — never a code change. `static/troupe/README.md` has the conventions.
 
 ### Docker / Coolify
 
-The included [`Dockerfile`](Dockerfile) builds and runs the SvelteKit Node server on port 3000. In Coolify, create a Dockerfile application from this repository, expose port `3000`, and use `/api/health` as its health-check path.
+[`Dockerfile`](Dockerfile) builds and runs the SvelteKit Node server on port 3000. In Coolify, create a Dockerfile application from this repository, expose port `3000`, and use `/api/health` as the health-check path.
 
-Copy the names from [`.env.example`](.env.example) into Coolify's environment settings. Set `ORIGIN` to the public application URL, use the connection string from the managed PostgreSQL service for `DATABASE_URL`, and keep the Backblaze application key server-side. `PUBLIC_ASSET_BASE_URL` is the public B2 or Cloudflare asset origin. Do not commit a populated `.env` file; all `.env*` files except the example are ignored.
+Copy the names from [`.env.example`](.env.example) into Coolify's environment settings. Set `ORIGIN` to the public application URL, use the managed PostgreSQL connection string for `DATABASE_URL`, and keep the Backblaze application key server-side. `PUBLIC_ASSET_BASE_URL` is the public B2 or Cloudflare asset origin. Do not commit a populated `.env`; all `.env*` files except the example are ignored.
 
-The server creates the `plays` table on first use; the equivalent SQL is kept in [`migrations/001_plays.sql`](migrations/001_plays.sql) for managed migration workflows. `show_save`, `show_publish`, `show_list` and `show_load` provide unlisted saves, public publishing, discovery and loading. Share URLs use `/p/<id>`. Configure the B2 application key with read/write access restricted to the selected bucket and the `plays/assets/` prefix.
+The server creates the `plays` table on first use; the equivalent SQL is in [`migrations/001_plays.sql`](migrations/001_plays.sql). Configure the B2 key with read/write access restricted to the chosen bucket and the `plays/assets/` prefix.
 
 ### Needle Cloud
 
-Pushes to `main` deploy automatically to Needle Cloud via [`deploy-to-needle-cloud-action`](https://github.com/needle-tools/deploy-to-needle-cloud-action) — see [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The deploy token lives in the repository's GitHub secrets (`NEEDLE_CLOUD_TOKEN`), never in the repo.
+Pushes to `main` deploy automatically via [`deploy-to-needle-cloud-action`](https://github.com/needle-tools/deploy-to-needle-cloud-action) — see [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The token lives in GitHub secrets (`NEEDLE_CLOUD_TOKEN`), never in the repo.
 
-Needle Cloud serves files rather than running a server, so that deployment is the **static** build (`npm run build:static`, into `./dist`) and not the Node build Coolify runs. The theatre, the recorder, `/painted` and `/talk` are client-side once loaded and work there unchanged. What is absent by design is everything needing a server: `/api/*` and the `/p/<id>` share page, which already declare `prerender = false`. Saving and publishing a play therefore works on the Coolify deployment and not on the Needle Cloud one.
+Needle Cloud serves files rather than running a server, so that deployment is the **static** build (`npm run build:static`, into `./dist`). The theatre, the recorder, `/painted` and `/talk` are client-side once loaded and work there unchanged. Absent by design: `/api/*` and the `/p/<id>` share page, which declare `prerender = false`. Saving and publishing therefore work on the Coolify deployment and not on the Needle Cloud one.
 
-Chrome ships WebMCP behind an origin trial. The build bakes a `<meta http-equiv="origin-trial">` token into the page — by default Needle's subdomain-matched token for `needle.tools` (expires 2026-11-17), so the tools work in plain Chrome whenever the site is served from a `*.needle.tools` origin. For a different origin, [register it for the WebMCP trial](https://developer.chrome.com/origintrials) and set the repository **variable** `WEBMCP_ORIGIN_TRIAL_TOKEN`. Without a matching token, the tools still work in ChatGPT's browser and Edge, and in Chrome with `chrome://flags/#enable-webmcp-testing`.
+Chrome ships WebMCP behind an origin trial. The build bakes a `<meta http-equiv="origin-trial">` token into the page — by default Needle's subdomain-matched token for `needle.tools` (expires 2026-11-17), so the tools work in plain Chrome from any `*.needle.tools` origin. For another origin, [register it for the trial](https://developer.chrome.com/origintrials) and set the repository **variable** `WEBMCP_ORIGIN_TRIAL_TOKEN`. Without a matching token the tools still work in ChatGPT's browser and Edge, and in Chrome with `chrome://flags/#enable-webmcp-testing`.
 
 ## Contributing
 
-Found a Needle app whose tools are missing or out of date here? Open an issue or PR against [`registry.json`](registry.json) — it is the source of truth, and the README table summarizes it.
+A Needle app whose tools are missing or out of date here? Open an issue or PR against [`registry.json`](registry.json) — it is the source of truth, and the table above summarizes it.
 
 ## License
 

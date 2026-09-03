@@ -34,7 +34,7 @@
 </main>
 
 <!-- Source link pinned to the corner, out of the way of the scene. -->
-<a class="github-corner" href="https://github.com/needle-tools/webmcp" target="_blank" rel="noopener"
+<a class="github-corner" href="https://github.com/needle-tools/agent-theater" target="_blank" rel="noopener"
     aria-label="Source on GitHub" draggable="false" use:hint={"Open the source code on GitHub."}>
     <img src="/toolbar/github.webp" alt="" draggable="false" />
 </a>

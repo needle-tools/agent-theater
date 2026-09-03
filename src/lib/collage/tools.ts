@@ -99,7 +99,7 @@ async function within<T>(work: Promise<T>, waiting: () => ToolResult): Promise<T
 const THEATRE = new Set([
     "theater_start", "theater_avatar", "theater_art_prompt", "theater_clear",
     "piece_list", "piece_add", "piece_copy", "piece_sheet", "piece_text",
-    "piece_move", "piece_remove", "show_look", "show_watch",
+    "piece_move", "piece_remove", "piece_say", "show_look", "show_watch",
 ]);
 
 export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
@@ -759,7 +759,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
         },
         {
             name: "theater_clear",
-            title: "Strike the set",
+            title: "Clear the whole stage",
             description:
                 "Start the theatre over: deletes EVERY piece, scene, script and title — including " +
                 "whatever the person put there. Not undoable by you. Call it only when the person asked " +
@@ -1658,6 +1658,49 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 const layer = collage.remove(id);
                 if (!layer) return fail(`There is nothing with id "${id}". Call piece_list.`);
                 return ok(`Removed "${layer.label}".`, { layer });
+            },
+        },
+        {
+            name: "piece_say",
+            title: "Have a piece say something now",
+            description:
+                "Put a spoken speech bubble over a piece RIGHT NOW, outside any play — the workbench " +
+                "aside. Use it to react to what the person is doing (they placed a dragon: have the " +
+                "knight gulp), to think out loud through a character while you build, or to let a piece " +
+                "answer a question in its own voice. Same bubble and voice the piece would have in a " +
+                "play. Pass an array to have it deliver several lines in a row. Not while a show is " +
+                "playing — the script owns the stage then; give them a say beat instead.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    id: { type: "string", description: "Which piece speaks." },
+                    say: {
+                        anyOf: [
+                            { type: "string" },
+                            { type: "array", items: { type: "string" } },
+                        ],
+                        description: "The line — or lines, delivered one bubble after another.",
+                    },
+                },
+                required: ["id", "say"],
+            },
+            async execute(args: { id?: string; say?: string | string[] }) {
+                const id = str(args?.id);
+                const lines = (Array.isArray(args?.say) ? args.say : [args?.say])
+                    .map(line => (typeof line === "string" ? line.trim() : ""))
+                    .filter(Boolean);
+                if (!id || !lines.length) return fail(`Pass "id" and "say" — who speaks, and the line.`);
+                const layer = collage.get(id);
+                if (!layer) return fail(`There is nothing with id "${id}". Call piece_list.`);
+                if (studio.showing) {
+                    return fail(
+                        `A show is playing and its script owns the stage. Stop it, or write the line ` +
+                        `into the scene as a say beat.`);
+                }
+                for (const line of lines) await studio.narrate(id, line);
+                return ok(
+                    `"${layer.label}" said ${lines.map(line => `“${line}”`).join(", then ")}. ` +
+                    `The bubble has already come and gone.`);
             },
         },
         {

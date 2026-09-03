@@ -260,6 +260,16 @@ export interface CollageStudio {
     setStopper(stop: (() => void) | null): void;
     /** And a way to make a noise. Silent until the canvas has mounted. */
     setSpeaker(speaker: Speaker | null): void;
+    /**
+     * Put a spoken bubble over one piece OUTSIDE a show — the agent leaning
+     * in over the workbench: a reaction to what the person just placed, a
+     * running commentary, a piece introducing itself. Same bubble, same
+     * typed reveal, same auto voice as a play; none of the play's machinery.
+     * Resolves when the line has been said. A no-op without a canvas, so
+     * tools behave the same in a test as in a browser.
+     */
+    narrate(id: string, text: string): Promise<void>;
+    setNarrator(narrator: ((id: string, text: string) => Promise<void>) | null): void;
     readonly speaker: Speaker;
     /** Abandon whatever is playing. */
     stopScene(): void;
@@ -480,6 +490,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
     const selectionWatchers = new Set<() => void>();
     const settleWatchers = new Set<() => void>();
     let performer: ((plan: Plan) => Promise<void>) | null = null;
+    let narrator: ((id: string, text: string) => Promise<void>) | null = null;
     let stopPerformance: (() => void) | null = null;
     let acting = false;
     /** The scene the show is on, and whether it should still be going. */
@@ -1838,6 +1849,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
         setSpeaker(next: Speaker | null) {
             speaker = next ?? SILENT;
+        },
+
+        narrate(id, text) {
+            return narrator ? narrator(id, text) : Promise.resolve();
+        },
+
+        setNarrator(next) {
+            narrator = next;
         },
 
         get speaker() {
