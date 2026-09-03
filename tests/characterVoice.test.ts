@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actorForLayer, greetingForActor, voiceForActor } from "../src/lib/collage/characterVoice.js";
+import { actorForLayer, greetingForActor, randomGreetingForLayer, voiceForActor } from "../src/lib/collage/characterVoice.js";
 import { TROUPE } from "../src/lib/collage/troupe.js";
 
 const piece = (id: string) => TROUPE.find(candidate => candidate.id === id)!;
@@ -48,5 +48,14 @@ describe("character voices", () => {
         expect(greetingForActor(piece("animals/rabbit"))).toBe(greetingForActor(piece("animals/rabbit")));
         const greetings = new Set(TROUPE.filter(candidate => candidate.kind === "actor").map(greetingForActor));
         expect(greetings.size).toBeGreaterThan(15);
+    });
+
+    it("deals greetings to actors and ordinary objects", () => {
+        const rabbit = piece("animals/rabbit");
+        const rabbitLayer = { label: rabbit.id, src: rabbit.file };
+        expect(randomGreetingForLayer(rabbitLayer, () => 0)).toBe("Oh! Hi.");
+        expect(randomGreetingForLayer(rabbitLayer, () => 0.999)).toBe("I hope I'm not in the way.");
+        expect(randomGreetingForLayer({ label: "A talking teapot" }, () => 0)).toBe("Hi!");
+        expect(randomGreetingForLayer({ label: "A talking teapot" }, () => 0.999)).toBe("Nice to meet you!");
     });
 });

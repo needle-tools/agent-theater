@@ -33,7 +33,7 @@
     import { createSpeaker } from "./audio.js";
     import { playInteractionSound } from "./interactionSounds.js";
     import { sayName } from "./sayName.js";
-    import { actorForLayer, greetingForActor } from "./characterVoice.js";
+    import { actorForLayer, greetingForActor, randomGreetingForLayer } from "./characterVoice.js";
     import { clipKeyframes, clipPreviewKeyframes, findClip, recorder, TALK_CLIP } from "./clips.js";
     import { idleSet } from "./idleSet.js";
     import { prompter } from "./speech.js";
@@ -1248,9 +1248,14 @@
 
     function onDoubleClick(event: MouseEvent) {
         const layer = layerAt(event.clientX, event.clientY);
-        if (layer?.kind !== "text") return;
+        if (!layer) return;
         event.preventDefault();
-        editingId = layer.id;
+        if (layer.kind === "text") {
+            editingId = layer.id;
+            return;
+        }
+        const greeting = randomGreetingForLayer(layer);
+        void stagehand.voice(layer.id, greeting, readingTime(greeting));
     }
     /** A drag that has not moved yet is a click; used to keep selection sane. */
     let moved = false;

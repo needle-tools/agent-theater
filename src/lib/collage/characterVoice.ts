@@ -103,21 +103,36 @@ export function voiceForActor(piece: TroupePiece): SubtitleVoice {
     };
 }
 
-export function greetingForActor(piece: TroupePiece): string {
-    const pools = {
-        timid: ["Oh! Hi.", "Um... hello.", "Hello there?", "Oh, it's you!", "Hi... nice to meet you.", "I hope I'm not in the way."],
-        grand: ["Greetings.", "Well met!", "Ah, company.", "Welcome, welcome.", "A pleasure to meet you.", "Good day to you."],
-        comic: ["Ta-da!", "Oh, hi!", "Well, look who's here!", "Hey there!", "Hello, hello!", "Fancy meeting you here!", "Did someone call?"],
-        dark: ["Well, well.", "Who's there?", "Ah... hello.", "So, we meet.", "You found me.", "What have we here?"],
-        warm: ["Hi there!", "Hello, friend!", "Lovely to meet you!", "Good to see you!", "Oh, hello there!", "Hi! How are you?", "Welcome!"],
-        plain: ["Hi!", "Hello!", "Hey!", "Hello there!", "Good day!", "Hi, everyone!", "Here I am!", "Nice to meet you!"],
-    };
+const GREETINGS = {
+    timid: ["Oh! Hi.", "Um... hello.", "Hello there?", "Oh, it's you!", "Hi... nice to meet you.", "I hope I'm not in the way."],
+    grand: ["Greetings.", "Well met!", "Ah, company.", "Welcome, welcome.", "A pleasure to meet you.", "Good day to you."],
+    comic: ["Ta-da!", "Oh, hi!", "Well, look who's here!", "Hey there!", "Hello, hello!", "Fancy meeting you here!", "Did someone call?"],
+    dark: ["Well, well.", "Who's there?", "Ah... hello.", "So, we meet.", "You found me.", "What have we here?"],
+    warm: ["Hi there!", "Hello, friend!", "Lovely to meet you!", "Good to see you!", "Oh, hello there!", "Hi! How are you?", "Welcome!"],
+    plain: ["Hi!", "Hello!", "Hey!", "Hello there!", "Good day!", "Hi, everyone!", "Here I am!", "Nice to meet you!"],
+} as const;
+
+function greetingsForActor(piece: TroupePiece): readonly string[] {
     const moods = new Set(piece.mood);
-    const greetings = moods.has("timid") ? pools.timid
-        : moods.has("menacing") || moods.has("cold") || moods.has("sneaky") ? pools.dark
-            : moods.has("proud") || moods.has("wise") || moods.has("storybook") ? pools.grand
-                : moods.has("comic") || moods.has("odd") ? pools.comic
-                    : moods.has("friendly") || moods.has("gentle") || moods.has("kind") ? pools.warm
-                        : pools.plain;
+    return moods.has("timid") ? GREETINGS.timid
+        : moods.has("menacing") || moods.has("cold") || moods.has("sneaky") ? GREETINGS.dark
+            : moods.has("proud") || moods.has("wise") || moods.has("storybook") ? GREETINGS.grand
+                : moods.has("comic") || moods.has("odd") ? GREETINGS.comic
+                    : moods.has("friendly") || moods.has("gentle") || moods.has("kind") ? GREETINGS.warm
+                        : GREETINGS.plain;
+}
+
+export function greetingForActor(piece: TroupePiece): string {
+    const greetings = greetingsForActor(piece);
     return greetings[Math.floor(seedOf(piece.id) * greetings.length) % greetings.length];
+}
+
+/** A fresh greeting for any picture: themed for actors, friendly for props. */
+export function randomGreetingForLayer(
+    layer: { label: string; src?: string },
+    random = Math.random,
+): string {
+    const actor = actorForLayer(layer);
+    const greetings = actor ? greetingsForActor(actor) : GREETINGS.plain;
+    return greetings[Math.min(greetings.length - 1, Math.floor(random() * greetings.length))];
 }
