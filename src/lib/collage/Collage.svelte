@@ -1172,10 +1172,10 @@
 
     <div class="file-tools" aria-label="Play files">
         <button class="file-tool" disabled={!layers.length} aria-label="Save play" use:hint={"Save this play as a file."} onclick={saveToFile}>
+            <img src="/toolbar/save.webp" alt="" draggable="false" />
+        </button>
         <button class="file-tool" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Save online and share a link."} onclick={sharePlay}>
             <img src="/toolbar/share.webp" alt="" draggable="false" />
-        </button>
-            <img src="/toolbar/save.webp" alt="" draggable="false" />
         </button>
         <button class="file-tool" aria-label="Load play" use:hint={"Load a saved play."} onclick={() => fileInput?.click()}>
             <img src="/toolbar/load.webp" alt="" draggable="false" />
