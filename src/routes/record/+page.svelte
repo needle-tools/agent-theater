@@ -15,7 +15,8 @@
      */
     import { onMount } from "svelte";
     import {
-        clipFromSamples, clipKeyframes, clipName, clipToCss, deleteClip, listClips, saveClip,
+        clipExtent, clipFromSamples, clipName, clipPreviewKeyframes, clipToCss,
+        deleteClip, listClips, saveClip,
         TALK_CLIP, SWAY_CLIP,
         type Clip, type ClipSample,
     } from "$lib/collage/clips";
@@ -136,15 +137,33 @@
     }
 
     /**
-     * A preview performer looping a clip, via the same keyframes the theatre
-     * plays. Re-run when the clip changes; sized to the element on screen.
+     * A preview performer looping a clip — the gesture as PERFORMED, travel
+     * included (in a play the drift-free form rides a walk instead). When the
+     * journey is bigger than the card, the whole motion scales down to fit
+     * rather than running out of the box.
      */
     function performs(element: HTMLElement, clip: Clip) {
         let animation: Animation | null = null;
         const start = () => {
             animation?.cancel();
-            const size = element.getBoundingClientRect().height || 90;
-            animation = element.animate(clipKeyframes(clip, size), {
+            const rect = element.getBoundingClientRect();
+            const room = element.parentElement?.getBoundingClientRect();
+            const bounds = clipExtent(clip);
+            const spanX = bounds.maxX - bounds.minX;
+            const spanY = bounds.maxY - bounds.minY;
+            let size = rect.height || 90;
+            if (room) {
+                if (spanX > 0.01) size = Math.min(size, Math.max(0, room.width - rect.width) / spanX);
+                if (spanY > 0.01) size = Math.min(size, Math.max(0, room.height - rect.height) / spanY);
+            }
+            // The performer starts centred; shift the whole motion so its
+            // bounding box is what sits centred instead, and a one-way run
+            // uses the full card rather than half of it.
+            const origin = {
+                dx: -(bounds.minX + bounds.maxX) / 2,
+                dy: -(bounds.minY + bounds.maxY) / 2,
+            };
+            animation = element.animate(clipPreviewKeyframes(clip, size, origin), {
                 duration: Math.max(400, clip.seconds * 1000),
                 iterations: Infinity,
                 easing: "linear",
@@ -190,6 +209,7 @@
              paddock is deliberately NOT the wide part of the page — a gesture
              is performed in a hand's-width of space, and the interesting area
              is the shelf of results next to it. -->
+        <div class="side">
         <section class="paddock" class:paddock--armed={armed}>
             {#if performers.length}
                 <img
@@ -212,6 +232,8 @@
                 {armed ? "Armed — drag, release to finish" : "● Record a movement"}
             </button>
         </section>
+        <button class="export" onclick={exportDrawer}>Export all animations to JSON</button>
+        </div>
 
         <section class="results">
             {#if pending}
@@ -259,8 +281,6 @@
                     <p class="empty">Nothing recorded on this browser yet — arm the recorder and perform something.</p>
                 {/each}
             </div>
-
-            <button class="export" onclick={exportDrawer}>Export the whole drawer</button>
         </section>
     </div>
 </main>
@@ -324,9 +344,16 @@
         }
     }
 
-    .paddock {
+    /* The whole recording column sticks together: paddock, then export. */
+    .side {
         position: sticky;
         top: 16px;
+        display: grid;
+        gap: 10px;
+    }
+
+    .paddock {
+        position: relative;
         height: 420px;
         border: 1.5px dashed color-mix(in srgb, var(--border-strong, #888) 60%, transparent);
         border-radius: 16px;
@@ -493,9 +520,6 @@
         border-color: #c4463c;
     }
 
-    .export {
-        margin-top: 14px;
-    }
 
     .empty {
         color: var(--text-secondary);

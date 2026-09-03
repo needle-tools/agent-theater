@@ -12,8 +12,18 @@
      * the bar at the bottom of the stage; the stage's own size is whatever the
      * backdrop is, which is what a set is anyway.
      */
+    import { onMount } from "svelte";
     import type { CollageStudio } from "./studio.js";
     import { toolCalls, toolLogFile } from "./toolLog.js";
+    import {
+        canEditPlay,
+        listPublicPlays,
+        loadPlayOnline,
+        savePlayOnline,
+        type PublishedPlay,
+    } from "./publishing.js";
+
+    const CURRENT_PLAY = "needle-play/current";
 
     interface Props {
         studio: CollageStudio;
@@ -46,6 +56,71 @@
     const calls = $derived.by(() => (open, toolCalls().length));
 
     let copiedLog = $state(false);
+    let current = $state<PublishedPlay | null>(null);
+    let publicPlays = $state<PublishedPlay[]>([]);
+    let onlineOpen = $state(false);
+    let browseOpen = $state(false);
+    let playUrl = $state("");
+    let onlineBusy = $state(false);
+    let onlineMessage = $state("");
+
+    onMount(() => {
+        try {
+            const saved = localStorage.getItem(CURRENT_PLAY);
+            if (saved) current = JSON.parse(saved);
+        } catch { /* Publishing remains available without remembered state. */ }
+    });
+
+    function remember(play: PublishedPlay) {
+        current = play;
+        try { localStorage.setItem(CURRENT_PLAY, JSON.stringify(play)); } catch { /* optional */ }
+    }
+
+    async function saveOnline(published: boolean) {
+        onlineBusy = true;
+        onlineMessage = published ? "Publishing…" : "Saving online…";
+        try {
+            const owned = current && canEditPlay(current.id) ? current.id : undefined;
+            const play = await savePlayOnline(studio, { published, id: owned });
+            remember(play);
+            playUrl = play.url;
+            onlineMessage = published ? "Published." : "Saved as an unlisted link.";
+        } catch (error) {
+            onlineMessage = error instanceof Error ? error.message : "Could not save the play.";
+        } finally { onlineBusy = false; }
+    }
+
+    async function copyShareUrl() {
+        if (!current) return;
+        await navigator.clipboard.writeText(current.url);
+        onlineMessage = "Share link copied.";
+    }
+
+    async function loadFromUrl(value = playUrl) {
+        onlineBusy = true;
+        onlineMessage = "Opening play…";
+        try {
+            const { play, layers } = await loadPlayOnline(studio, value);
+            playUrl = play.url;
+            remember(play);
+            onlineMessage = `Opened “${play.title}” (${layers} pieces).`;
+        } catch (error) {
+            onlineMessage = error instanceof Error ? error.message : "Could not open the play.";
+        } finally { onlineBusy = false; }
+    }
+
+    async function browse() {
+        browseOpen = !browseOpen;
+        if (!browseOpen || publicPlays.length) return;
+        onlineBusy = true;
+        onlineMessage = "Loading public plays…";
+        try {
+            publicPlays = await listPublicPlays();
+            onlineMessage = publicPlays.length ? "" : "No public plays yet.";
+        } catch (error) {
+            onlineMessage = error instanceof Error ? error.message : "Could not load public plays.";
+        } finally { onlineBusy = false; }
+    }
 
     async function copyLog() {
         const file = toolLogFile({
@@ -76,8 +151,12 @@
     <div class="panel" bind:this={panel} role="dialog" aria-label="The play">
         <section style:--i="0">
             <div class="grid">
-                <button class="strong" disabled={!hasLayers} onclick={onSave}>Save play</button>
-                <button class="strong" onclick={onLoad}>Load play</button>
+                <button class="strong icon-button" disabled={!hasLayers} onclick={onSave}>
+                    <img src="/toolbar/save.webp" alt="" /><span>Download file</span>
+                </button>
+                <button class="strong icon-button" onclick={onLoad}>
+                    <img src="/toolbar/load.webp" alt="" /><span>Open file</span>
+                </button>
             </div>
             <p class="note">
                 One picture keeps the whole play. <kbd>Ctrl S</kbd> to save.
@@ -85,6 +164,57 @@
         </section>
 
         <section style:--i="1">
+            <button class="disclosure" aria-expanded={onlineOpen} onclick={() => (onlineOpen = !onlineOpen)}>
+                <span class="icon-label"><img src="/toolbar/share.webp" alt="" />Share online</span>
+                <span aria-hidden="true">{onlineOpen ? "−" : "+"}</span>
+            </button>
+            {#if onlineOpen}
+                <div class="online">
+                    <div class="grid">
+                        <button disabled={!hasLayers || onlineBusy} onclick={() => saveOnline(false)}>
+                            {current && canEditPlay(current.id) ? "Update link" : "Save link"}
+                        </button>
+                        <button class="publish icon-button" disabled={!hasLayers || onlineBusy} onclick={() => saveOnline(true)}>
+                            <img src="/toolbar/publish.webp" alt="" />
+                            <span>{current?.visibility === "public" && canEditPlay(current.id) ? "Update public" : "Publish"}</span>
+                        </button>
+                    </div>
+
+                    {#if current}
+                        <div class="share-row">
+                            <a href={current.url} target="_blank" rel="noopener">{current.title}</a>
+                            <button class="compact" onclick={copyShareUrl}>Copy link</button>
+                        </div>
+                        {#if canEditPlay(current.id)}
+                            <button class="manage" disabled={onlineBusy} onclick={() => saveOnline(current?.visibility !== "public")}>
+                                Make {current.visibility === "public" ? "unlisted" : "public"}
+                            </button>
+                        {/if}
+                    {/if}
+
+                    <form class="url-row" onsubmit={event => { event.preventDefault(); void loadFromUrl(); }}>
+                        <input bind:value={playUrl} aria-label="Play URL or id" placeholder="Paste play link or id" />
+                        <button class="compact" disabled={!playUrl.trim() || onlineBusy}>Open</button>
+                    </form>
+
+                    <button class="browse" disabled={onlineBusy} onclick={browse}>
+                        {browseOpen ? "Hide public plays" : "Browse public plays"}
+                    </button>
+                    {#if browseOpen && publicPlays.length}
+                        <ul class="plays">
+                            {#each publicPlays as play}
+                                <li>
+                                    <button disabled={onlineBusy} onclick={() => loadFromUrl(play.id)}>{play.title}</button>
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                    {#if onlineMessage}<p class="online-message" aria-live="polite">{onlineMessage}</p>{/if}
+                </div>
+            {/if}
+        </section>
+
+        <section style:--i="2">
             <h2>Motion clips</h2>
             <!-- The recorder moved to its own page: recording on the working
                  canvas fought selection, panning and the eraser for the same
@@ -98,7 +228,7 @@
             </p>
         </section>
 
-        <footer style:--i="2">
+        <footer style:--i="3">
             <p class="status" class:status--ready={toolsRegistered}>
                 <span class="status__dot" aria-hidden="true"></span>
                 {toolsRegistered ? "Agent tools ready" : "Agent tools unavailable"}
@@ -113,7 +243,9 @@
                     {copiedLog ? "Copied" : `Copy agent log (${calls})`}
                 </button>
             {/if}
-            <button class="quiet quiet--danger" onclick={onClear}>Clear stage</button>
+            <button class="quiet quiet--danger icon-button" onclick={onClear}>
+                <img src="/toolbar/clear-stage.webp" alt="" /><span>Clear stage</span>
+            </button>
         </footer>
     </div>
 {/if}
@@ -124,7 +256,9 @@
         top: 62px;
         right: 16px;
         z-index: 40;
-        width: 300px;
+        width: 320px;
+        max-height: calc(100dvh - 82px);
+        overflow-y: auto;
         /* Outer 18 = inner 12 + 6 padding, so the corners stay concentric with
            the controls sitting against them. */
         border-radius: 18px;
@@ -197,6 +331,131 @@
         font-weight: 600;
     }
 
+    .icon-button, .icon-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+    }
+
+    .icon-button img, .icon-label img {
+        width: 24px;
+        height: 24px;
+        flex: 0 0 auto;
+        object-fit: contain;
+        pointer-events: none;
+    }
+
+    .icon-label {
+        justify-content: flex-start;
+    }
+
+    .disclosure .icon-label img {
+        width: 26px;
+        height: 26px;
+    }
+
+    .disclosure, .browse, .manage {
+        width: 100%;
+    }
+
+    .disclosure {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 40px;
+        border-color: transparent;
+        background: transparent;
+        font-weight: 700;
+        text-align: left;
+    }
+
+    .online {
+        display: grid;
+        gap: 8px;
+        padding-top: 8px;
+    }
+
+    .publish {
+        border-color: color-mix(in srgb, var(--accent-brand) 55%, var(--border-subtle));
+        background: color-mix(in srgb, var(--accent-brand) 16%, var(--surface-page-elevated, #fff));
+    }
+
+    .share-row, .url-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .share-row {
+        min-width: 0;
+        padding: 7px 8px 7px 11px;
+        border-radius: 12px;
+        background: var(--surface-panel-muted);
+    }
+
+    .share-row a {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--text-primary);
+        font-size: var(--type-body-muted-size);
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    input {
+        flex: 1;
+        min-width: 0;
+        height: 40px;
+        padding: 0 10px;
+        border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+        border-radius: 12px;
+        background: var(--surface-page-elevated, #fff);
+        color: var(--text-primary);
+        font: inherit;
+        font-size: var(--type-body-muted-size);
+    }
+
+    .compact {
+        flex: 0 0 auto;
+        min-height: 40px;
+        padding-inline: 10px;
+    }
+
+    .manage, .browse {
+        border-color: transparent;
+        background: transparent;
+        color: var(--text-muted);
+    }
+
+    .plays {
+        display: grid;
+        gap: 4px;
+        max-height: 180px;
+        margin: 0;
+        padding: 0;
+        overflow-y: auto;
+        list-style: none;
+    }
+
+    .plays button {
+        width: 100%;
+        overflow: hidden;
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .online-message {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: var(--type-micro-label-size);
+        line-height: 1.35;
+        text-wrap: pretty;
+    }
+
     h2 {
         margin: 0 0 8px;
         font-size: var(--type-body-size);
@@ -226,10 +485,6 @@
         font-size: var(--type-body-muted-size);
         line-height: var(--type-body-muted-line-height);
         text-wrap: pretty;
-    }
-
-    .num {
-        font-variant-numeric: tabular-nums;
     }
 
     kbd, code {

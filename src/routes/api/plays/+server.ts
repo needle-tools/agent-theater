@@ -1,7 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { database } from "$lib/server/database";
-import { newId, newToken, tokenHash, validateDoc } from "$lib/server/plays";
+import { newId, newToken, tokenHash, validateAssets, validateDoc } from "$lib/server/plays";
 import { env } from "$env/dynamic/private";
 
 export const prerender = false;
@@ -19,7 +19,8 @@ export const POST: RequestHandler = async ({ request, url }) => {
     try {
         const body = await request.json();
         if (!validateDoc(body.doc)) return json({ error: "Invalid play document." }, { status: 400 });
-        const assets = body.assets && typeof body.assets === "object" ? body.assets : {};
+        if (!validateAssets(body.doc, body.assets)) return json({ error: "Invalid or incomplete asset map." }, { status: 400 });
+        const assets = body.assets;
         const id = newId(); const editToken = newToken();
         const title = String(body.title || "Untitled play").slice(0, 160);
         const visibility = body.visibility === "public" ? "public" : "unlisted";

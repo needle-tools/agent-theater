@@ -15,7 +15,6 @@
     import CollageCanvas from "$lib/collage/CollageCanvas.svelte";
     import PackShelf from "$lib/collage/PackShelf.svelte";
     import { playInteractionSound } from "$lib/collage/interactionSounds.js";
-    import EditPopover from "$lib/collage/EditPopover.svelte";
     import ShowOverlay from "$lib/collage/ShowOverlay.svelte";
     import StageBar from "$lib/collage/StageBar.svelte";
     import AgentActivity from "$lib/collage/AgentActivity.svelte";
@@ -30,6 +29,7 @@
     import { hint } from "$lib/collage/hint";
     import { TROUPE } from "$lib/collage/troupe";
     import { idleSet } from "$lib/collage/idleSet";
+    import { takeNames } from "$lib/collage/audio";
     import { notifyAgentActivity } from "$lib/room/activity";
     import SubtitleVoiceMenu from "$lib/subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "$lib/subtitleVoice";
@@ -50,8 +50,6 @@
     }
 
     let version = $state(0);
-    let toolsRegistered = $state(false);
-    let editOpen = $state(false);
     /** The eraser is armed: clicking any sticker — canvas or strewn — removes it. */
     let erasing = $state(false);
 
@@ -120,11 +118,12 @@
      * real work appears — a show brings its own bed, and somebody arranging
      * stickers deserves the room, not a loop.
      */
-    const MENU_BED = `menu-theatre-${1 + Math.floor(Math.random() * 5)}`;
+    const MENU_BEDS = takeNames("menu-theatre");
+    const MENU_BED = MENU_BEDS[Math.floor(Math.random() * MENU_BEDS.length)] ?? null;
     let menuMusic = false;
     $effect(() => {
         if (!restored) return;
-        if (empty && !menuMusic) {
+        if (empty && !menuMusic && MENU_BED) {
             const start = () => {
                 menuMusic = true;
                 studio.speaker.music(MENU_BED, "loop");
@@ -181,7 +180,7 @@
         scheduleRestock();
         // Wrapped once here rather than in each tool: an agent's work should be
         // visible, and that should not be fourteen call sites.
-        toolsRegistered = await registerTools(createCollageTools(studio).map(tool => ({
+        await registerTools(createCollageTools(studio).map(tool => ({
             ...tool,
             execute: (args: unknown, options?: { signal?: AbortSignal }) => {
                 notifyAgentActivity(tool.name, args);
@@ -224,13 +223,15 @@
     }> = [
         { say: "Agent Theater", voice: { speed: 0.8, age: 0.72, tone: 0.32 }, titleCard: true, band: 25, aside: true },
         {
-            say: "Hand your browser's AI agent the line below — click it to copy. " +
-                "It will ask what your play should be about, then build the set and " +
-                "put the show on.",
+            // Punctuation is the pause syntax: the typed reveal and the voice
+            // both breathe after . — ! ? — so short sentences pace themselves.
+            say: "Arrange us however you like. Then hand your browser's AI agent " +
+                "the line below — click anywhere to copy it. " +
+                "It reads your scene and puts on the show. Have fun!",
             voice: { speed: 1, age: 0.5, tone: 0.58 }, band: 47, aside: true,
         },
         {
-            say: "We come already cut out. Drag me somewhere.",
+            say: "Drag me somewhere! The piles down there deal more of us.",
             voice: { speed: 1.15, age: 0.18, tone: 0.7 }, band: 78, aside: false,
         },
     ];
@@ -242,7 +243,7 @@
     let inviteEl: HTMLParagraphElement | null = $state(null);
 
     function copyFromPage(event: MouseEvent) {
-        if (!empty || !restored || editOpen || !pageEl) return;
+        if (!empty || !restored || !pageEl) return;
         const target = event.target as HTMLElement;
         if (!pageEl.contains(target)) return;
         // Props are for dragging, controls are for pressing; neither is this.
@@ -927,16 +928,6 @@
         }
     }
 
-    async function clearCanvas() {
-        await studio.clear();
-        studio.setSelection([]);
-        editOpen = false;
-        toasts.push("Cleared.");
-        // The refill is the $effect's job now — one mechanism for every way
-        // the canvas can empty. This only makes the stage bare RIGHT NOW.
-        scatter = [];
-    }
-
     /*
      * There is no right-click menu any more.
      *
@@ -1000,7 +991,7 @@
         bind:this={canvas}
         {studio}
         {erasing}
-        showPage={editOpen || studio.pagePreset !== FREE_PAGE}
+        showPage={studio.pagePreset !== FREE_PAGE}
     />
     <AgentActivity canvas={pageEl} />
 
@@ -1131,26 +1122,14 @@
         </div>
     {/if}
 
-    <button
-        class="trigger"
-        class:trigger--open={editOpen}
-        data-edit-trigger
-        aria-label="Theater options"
-        aria-expanded={editOpen}
-        onclick={() => {
-            editOpen = !editOpen;
-            // Opening the menu means attention has left the play: bring the
-            // house lights up. The show stops (music fading out with it) and
-            // the world returns to its curtain-up arrangement — play is one
-            // press away, and a show running behind a menu is a show playing
-            // to the back of somebody's head.
-            if (editOpen && studio.showing) studio.stopShow();
-        }}
-    >
-        <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M4 6h12M4 10h12M4 14h7" />
-        </svg>
-    </button>
+    <div class="file-tools" aria-label="Play files">
+        <button class="file-tool" disabled={!layers.length} aria-label="Save play" use:hint={"Save this play as a file."} onclick={saveToFile}>
+            <img src="/toolbar/save.webp" alt="" draggable="false" />
+        </button>
+        <button class="file-tool" aria-label="Load play" use:hint={"Load a saved play."} onclick={() => fileInput?.click()}>
+            <img src="/toolbar/load.webp" alt="" draggable="false" />
+        </button>
+    </div>
 
     <!--
         The eraser, lying beside the menu as a sticker rather than sitting in a
@@ -1222,18 +1201,6 @@
     />
 
     <Toasts items={toasts.items} onDismiss={toasts.dismiss} />
-
-    <EditPopover
-        {studio}
-        open={editOpen}
-        {toolsRegistered}
-        onSave={saveToFile}
-        onLoad={() => {
-            fileInput?.click();
-        }}
-        onClear={clearCanvas}
-        onClose={() => (editOpen = false)}
-    />
 
     <input
         class="file"
@@ -1661,52 +1628,49 @@
         to { opacity: 0; translate: -50% calc(-100% - 24px); }
     }
 
-    .trigger {
+    .file-tools {
         position: absolute;
-        top: 16px;
+        top: 10px;
         right: 16px;
         z-index: 45;
         display: flex;
         align-items: center;
+        gap: 6px;
+    }
+
+    .file-tool {
+        display: flex;
+        align-items: center;
         justify-content: center;
-        /* 42px keeps the whole control inside a comfortable pointer target
-           without needing a pseudo-element to pad it out. */
-        width: 42px;
-        height: 42px;
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
-        border-radius: 999px;
-        background: var(--surface-panel);
-        color: var(--text-primary);
-        box-shadow:
-            0 1px 2px rgba(34, 44, 32, 0.06),
-            0 8px 22px rgba(34, 44, 32, 0.08);
+        width: 50px;
+        height: 50px;
+        padding: 0;
+        border: 0;
+        background: transparent;
         cursor: var(--cursor-pointer, pointer);
-        transition-property: background, border-color, color, scale;
+        transition-property: translate, scale, opacity;
         transition-duration: 0.16s;
     }
 
-    .trigger:hover {
-        background: var(--surface-panel-muted);
-        border-color: var(--border-strong);
+    .file-tool:hover:not(:disabled) {
+        translate: 0 -2px;
+        scale: 1.06;
     }
 
-    .trigger:active {
+    .file-tool:active:not(:disabled) {
         scale: 0.96;
     }
 
-    .trigger--open {
-        background: var(--accent-brand);
-        border-color: transparent;
-        color: #14200f;
+    .file-tool:disabled {
+        opacity: 0.38;
+        cursor: var(--cursor-forbidden, not-allowed);
     }
 
-    .trigger svg {
-        width: 18px;
-        height: 18px;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 1.75;
-        stroke-linecap: round;
+    .file-tool img {
+        width: 46px;
+        height: 46px;
+        object-fit: contain;
+        pointer-events: none;
     }
 
     /*
@@ -1714,12 +1678,12 @@
      *
      * No circle, no fill, no border: the drawer below is stickers lying on
      * paper and this is one of them, resting where the tools live. One
-     * button-width left of the menu, as the button was: 16 + 42 + 8.
+     * just left of the two file cut-outs.
      */
     .eraser {
         position: absolute;
         top: 16px;
-        right: 66px;
+        right: 128px;
         z-index: 22;
         display: grid;
         place-items: center;

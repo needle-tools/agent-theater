@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { clipFromSamples, clipKeyframes, clipToCss, clipName } from "../src/lib/collage/clips.js";
+import {
+    clipFromSamples, clipKeyframes, clipPreviewKeyframes, clipToCss, clipName,
+} from "../src/lib/collage/clips.js";
 import { plan as planScene } from "../src/lib/collage/perform.js";
 
 /**
@@ -34,6 +36,27 @@ describe("turning a drag into a clip", () => {
         ]), 160)!;
         const peak = Math.min(...clip.frames.map(frame => frame.dy));
         expect(peak).toBeCloseTo(-0.5, 1);
+    });
+
+    it("remembers the journey it subtracted", () => {
+        // The frames loop in place so a clip composes with a walk — but the
+        // travel is kept, so a preview can replay the gesture as performed:
+        // a recorded "run down" runs down instead of wobbling on the spot.
+        const clip = clipFromSamples("run-down", drag([
+            [0, 100, 100], [200, 160, 90], [400, 210, 130], [600, 300, 200],
+        ]), 100)!;
+        expect(clip.travel).toEqual({ dx: 2, dy: 1 });
+
+        const preview = clipPreviewKeyframes(clip, 100);
+        const last = String(preview[preview.length - 1].translate).split(" ").map(parseFloat);
+        expect(last[0]).toBeCloseTo(200, 0);
+        expect(last[1]).toBeCloseTo(100, 0);
+
+        // A gesture that stayed put does not claim to travel.
+        const hop = clipFromSamples("hop", drag([
+            [0, 0, 0], [100, 0, -50], [200, 0, -100], [300, 0, -50], [400, 0, 0],
+        ]), 100)!;
+        expect(hop.travel).toBeUndefined();
     });
 
     it("refuses a twitch", () => {

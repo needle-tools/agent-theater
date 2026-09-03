@@ -262,12 +262,67 @@
 		},
 		"menu-theatre-5": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/menu-theatre-5.opus",
 			"seconds": 50.01,
 			"bpm": 75,
 			"take": "menu-theatre",
 			"mood": ["curious", "handcrafted", "gentle", "theatrical"],
-			"description": "Subtle menu music with felt piano, soft pizzicato strings, delicate music-box tones and a faint analog ambient bed. Warm, playful and unobtrusive."
+			"description": "Subtle menu music with felt piano, soft pizzicato strings, delicate music-box tones and a faint analog ambient bed. Warm, playful and unobtrusive. Hidden because it decodes byte for byte identical to `menu-theatre-3`: the same take saved twice, which would deal it into the idle pool at double weight."
+		},
+		"menu-theatre-6": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-6.opus",
+			"seconds": 50.01,
+			"bpm": 40,
+			"take": "menu-theatre",
+			"mood": ["idle", "textural", "calm"],
+			"description": "Barely music: felt piano resonance over soft room tone, no melody and no lead. The quietest and least eventful of the idle pool — the one to reach for when somebody is concentrating."
+		},
+		"menu-theatre-7": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-7.opus",
+			"seconds": 50.01,
+			"bpm": 60,
+			"take": "menu-theatre",
+			"mood": ["idle", "warm", "percussive"],
+			"description": "Soft hand percussion: fingertip bongos and light shaker over warm room tone. Movement without a tune, for an idle page that would otherwise feel becalmed."
+		},
+		"menu-theatre-8": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-8.opus",
+			"seconds": 50.01,
+			"bpm": 60,
+			"take": "menu-theatre",
+			"mood": ["idle", "warm", "percussive"],
+			"description": "Soft hand percussion: fingertip bongos and light shaker over warm room tone. A quieter take than `menu-theatre-7`."
+		},
+		"menu-theatre-9": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-9.opus",
+			"seconds": 50.01,
+			"bpm": 60,
+			"take": "menu-theatre",
+			"mood": ["idle", "warm", "percussive"],
+			"description": "Soft hand percussion: fingertip bongos and light shaker over warm room tone. Much the loudest of the pool through its middle — about 8 dB above the others, so it announces itself when it comes round."
+		},
+		"menu-theatre-10": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-10.opus",
+			"seconds": 50.01,
+			"bpm": 110,
+			"take": "menu-theatre",
+			"mood": ["playful", "light", "bouncy"],
+			"description": "Playful and lighthearted: acoustic piano, bouncy woodwinds, soft pizzicato strings and light percussion hits. Unlike the rest of the pool this one has a tune, so it is the most present of the eight."
+		},
+		"menu-theatre-11": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-11.opus",
+			"seconds": 48.18,
+			"bpm": 110,
+			"take": "menu-theatre",
+			"mood": ["playful", "light", "bouncy"],
+			"description": "Playful and lighthearted: acoustic piano, bouncy woodwinds, soft pizzicato strings and light percussion hits. The only bed in the whole library that does not fade at the end — it finishes where it started, so it is the one that genuinely loops."
 		},
 		"cosy-folk-1": {
 			"role": "bed",

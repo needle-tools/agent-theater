@@ -29,6 +29,13 @@ export interface Clip {
     name: string;
     seconds: number;
     frames: ClipFrame[];
+    /**
+     * Where the gesture ENDED, in units of the piece's height — the journey
+     * that is subtracted out of `frames` so a clip loops in place. Kept so a
+     * preview can replay the real gesture; in a play, travel still belongs to
+     * the walk a clip rides on. Absent when the gesture stayed put.
+     */
+    travel?: { dx: number; dy: number };
 }
 
 /** A raw pointer sample, straight off a drag. */
@@ -94,7 +101,13 @@ export function clipFromSamples(name: string, samples: ClipSample[], size: numbe
             dy: Math.round((y / size) * 1000) / 1000,
         });
     }
-    return { name, seconds: Math.round(seconds * 100) / 100, frames };
+    const clip: Clip = { name, seconds: Math.round(seconds * 100) / 100, frames };
+    // A journey worth remembering: more than a twentieth of a body. Below
+    // that it is pointer noise, and storing it would make every clip claim
+    // to travel.
+    const travel = { dx: Math.round((driftX / size) * 1000) / 1000, dy: Math.round((driftY / size) * 1000) / 1000 };
+    if (Math.hypot(travel.dx, travel.dy) >= 0.05) clip.travel = travel;
+    return clip;
 }
 
 /**
@@ -113,15 +126,46 @@ export function clipKeyframes(clip: Clip, size: number): Keyframe[] {
 }
 
 /**
+ * The gesture as it was actually performed: the subtracted travel put back,
+ * so a recorded "run down" runs down. For previews — in a play the drift-free
+ * form composes with the walk that owns the travel.
+ */
+export function clipPreviewKeyframes(
+    clip: Clip, size: number, origin: { dx: number; dy: number } = { dx: 0, dy: 0 },
+): Keyframe[] {
+    const travel = clip.travel ?? { dx: 0, dy: 0 };
+    return clip.frames.map(frame => ({
+        offset: frame.t,
+        translate: `${((origin.dx + frame.dx + travel.dx * frame.t) * size).toFixed(1)}px ` +
+            `${((origin.dy + frame.dy + travel.dy * frame.t) * size).toFixed(1)}px`,
+    }));
+}
+
+/** The bounding box of the performed gesture (travel included), in size units. */
+export function clipExtent(clip: Clip): { minX: number; maxX: number; minY: number; maxY: number } {
+    const travel = clip.travel ?? { dx: 0, dy: 0 };
+    const xs = clip.frames.map(frame => frame.dx + travel.dx * frame.t);
+    const ys = clip.frames.map(frame => frame.dy + travel.dy * frame.t);
+    return {
+        minX: Math.min(...xs, 0), maxX: Math.max(...xs, 0),
+        minY: Math.min(...ys, 0), maxY: Math.max(...ys, 0),
+    };
+}
+
+/**
  * The same clip as CSS text, for taking a recorded gesture out of the page.
- * `em` rather than px so the CSS scales the way the runtime does.
+ * `em` rather than px so the CSS scales the way the runtime does. Travel is
+ * put back in: the copied keyframes match the preview card, not the internal
+ * composition form.
  */
 export function clipToCss(clip: Clip, emPerSize = 10): string {
+    const travel = clip.travel ?? { dx: 0, dy: 0 };
     const stops = clip.frames
         .filter((_, index) => index % 4 === 0 || index === clip.frames.length - 1)
         .map(frame =>
             `    ${(frame.t * 100).toFixed(1)}% { translate: ` +
-            `${(frame.dx * emPerSize).toFixed(2)}em ${(frame.dy * emPerSize).toFixed(2)}em; }`)
+            `${((frame.dx + travel.dx * frame.t) * emPerSize).toFixed(2)}em ` +
+            `${((frame.dy + travel.dy * frame.t) * emPerSize).toFixed(2)}em; }`)
         .join("\n");
     return `@keyframes clip-${clip.name} {\n${stops}\n}`;
 }

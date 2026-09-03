@@ -2,7 +2,16 @@ import type { CollageStudio } from "./studio.js";
 import type { StoredDoc } from "./persistence.js";
 import type { WebMcpToolDef } from "./tools.js";
 
-const TOKEN_PREFIX = "needle-play/edit/";
+export const TOKEN_PREFIX = "needle-play/edit/";
+
+export interface PublishedPlay {
+    id: string;
+    title: string;
+    visibility: "public" | "unlisted";
+    url: string;
+    created_at?: string;
+    updated_at?: string;
+}
 
 async function webp(blob: Blob): Promise<Blob> {
     const image = await createImageBitmap(blob);
@@ -25,6 +34,59 @@ async function json(response: Response) {
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.error || `Server returned ${response.status}.`);
     return body;
+}
+
+export function playId(value: string): string | null {
+    return value.trim().match(/(?:\/p\/)?([A-Za-z0-9_-]{10,40})\/?(?:[?#].*)?$/)?.[1] ?? null;
+}
+
+export function canEditPlay(id: string): boolean {
+    try { return !!localStorage.getItem(TOKEN_PREFIX + id); } catch { return false; }
+}
+
+export async function savePlayOnline(
+    studio: CollageStudio,
+    options: { published: boolean; id?: string; title?: string },
+): Promise<PublishedPlay> {
+    const assets: Record<string, string> = {};
+    const local = await studio.storedAssets!();
+    if (local.length > 40) throw new Error("A play can publish at most 40 custom images.");
+    let total = 0;
+    for (const asset of local) {
+        const encoded = await webp(asset.blob);
+        total += encoded.size;
+        if (total > 12_582_912) throw new Error("Custom images exceed the 12 MB per-play limit.");
+        const uploaded = await json(await fetch("/api/assets", {
+            method: "POST", headers: { "content-type": "image/webp" }, body: encoded,
+        }));
+        assets[asset.key] = uploaded.sha;
+    }
+    const id = options.id;
+    const token = id ? localStorage.getItem(TOKEN_PREFIX + id) : null;
+    const result = await json(await fetch(id ? `/api/plays/${encodeURIComponent(id)}` : "/api/plays", {
+        method: id ? "PUT" : "POST",
+        headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+            title: options.title || studio.collage.billing.title || "Untitled play",
+            visibility: options.published ? "public" : "unlisted",
+            doc: studio.storedDoc!(), assets,
+        }),
+    })) as PublishedPlay & { editToken?: string };
+    if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);
+    return result;
+}
+
+export async function listPublicPlays(limit = 20): Promise<PublishedPlay[]> {
+    const data = await json(await fetch(`/api/plays?limit=${Math.max(1, Math.min(50, limit))}`));
+    return data.plays as PublishedPlay[];
+}
+
+export async function loadPlayOnline(studio: CollageStudio, value: string): Promise<{ play: PublishedPlay; layers: number }> {
+    const id = playId(value);
+    if (!id) throw new Error("Enter a play link or id.");
+    const play = await json(await fetch(`/api/plays/${encodeURIComponent(id)}`));
+    const layers = await studio.loadPublished!(play.doc as StoredDoc);
+    return { play: { ...play, id, url: `${location.origin}/p/${id}` }, layers };
 }
 
 export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {

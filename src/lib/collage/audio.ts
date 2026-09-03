@@ -32,6 +32,18 @@ export function soundNames(...roles: SoundRole[]): string[] {
 }
 
 /**
+ * Every id filed under one take, for a caller that wants variety.
+ *
+ * Takes of a prompt are interchangeable by construction, so anywhere that
+ * deals a track at random — the idle page's house music — should ask for the
+ * group rather than count it. Counting is how a hardcoded `* 5` outlives the
+ * five tracks it was written for and stops reaching the sixth.
+ */
+export function takeNames(take: string): string[] {
+    return SOUNDS.filter(sound => sound.take === take).map(sound => sound.id);
+}
+
+/**
  * One line per sound, for an agent choosing between them.
  *
  * The moods and the descriptions are the whole reason to have this: "a bed" is

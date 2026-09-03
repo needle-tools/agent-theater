@@ -13,6 +13,15 @@
      */
     import Collage from "$lib/collage/Collage.svelte";
     import { hint } from "$lib/collage/hint";
+    import { invitation } from "$lib/collage/invitation";
+
+    let promptCopied = $state(false);
+
+    async function copyPrompt() {
+        await navigator.clipboard.writeText(invitation(location.origin));
+        promptCopied = true;
+        setTimeout(() => (promptCopied = false), 1800);
+    }
 </script>
 
 <svelte:head>
@@ -33,13 +42,13 @@
     <button
         type="button"
         class="help-trigger"
-        aria-label="What is this?"
-        use:hint={"Your browser’s AI can build and direct a paper play with you."}
+        aria-label="Copy the prompt"
+        use:hint={promptCopied
+            ? "Prompt copied — paste it into your AI agent."
+            : "Copy the prompt for your browser’s AI agent."}
+        onclick={copyPrompt}
     >
-        <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M7.4 7.3a2.7 2.7 0 1 1 3.2 3.1c-.5.2-.8.6-.8 1.1v.5" />
-            <circle cx="10" cy="15.1" r="0.85" fill="currentColor" stroke="none" />
-        </svg>
+        <img src="/toolbar/questionmark.webp" alt="" draggable="false" />
     </button>
 </section>
 
@@ -58,45 +67,40 @@
         background: var(--surface-page);
     }
 
-    /* Sits immediately left of the layout's GitHub corner (42px wide at 16px). */
+    /* Sits immediately left of the GitHub cut-out. The button stays large for
+       touch, but has no visible chrome of its own. */
     .help-trigger {
         position: fixed;
-        right: 66px;
-        bottom: 16px;
+        right: 76px;
+        bottom: 12px;
         z-index: 30;
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 42px;
-        height: 42px;
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
-        border-radius: var(--radius-pill);
-        background: var(--surface-panel);
+        width: 52px;
+        height: 52px;
+        padding: 0;
+        border: 0;
+        background: transparent;
         color: var(--text-primary);
-        box-shadow:
-            0 1px 2px rgba(34, 44, 32, 0.06),
-            0 8px 22px rgba(34, 44, 32, 0.08);
         cursor: var(--cursor-pointer, pointer);
-        transition-property: background, border-color, color, scale;
+        transition-property: scale;
         transition-duration: 0.16s;
     }
 
     .help-trigger:hover {
-        background: var(--surface-panel-muted);
-        border-color: var(--border-strong);
+        scale: 1.05;
     }
 
     .help-trigger:active {
         scale: 0.96;
     }
 
-    .help-trigger svg {
-        width: 19px;
-        height: 19px;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 1.75;
-        stroke-linecap: round;
+    .help-trigger img {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;
+        pointer-events: none;
     }
 
 </style>

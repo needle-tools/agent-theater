@@ -1,9 +1,10 @@
 /**
  * A signal that an agent just did something in the room.
  *
- * Deliberately free of any engine import: the Svelte page subscribes to this,
- * and a static import that reached @needle-tools/engine would drag the whole
- * engine out of the hero's lazy chunk and into the main bundle.
+ * Deliberately free of any dependency: the Svelte page subscribes to this, and
+ * an import here that reached anything heavy would drag it into the main
+ * bundle. It was written to keep the 3D engine out; the engine is gone now and
+ * the rule still earns its keep.
  */
 
 export interface AgentActivity {

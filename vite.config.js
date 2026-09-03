@@ -1,19 +1,9 @@
 import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 
-export default defineConfig(async ({ command }) => {
-    const { needlePlugins, loadConfig } = await import("@needle-tools/engine/vite");
-    const needleConfig = await loadConfig();
+export default defineConfig(async () => {
     return {
         plugins: [
-            needlePlugins(command, needleConfig, {
-                noPoster: true,
-                // dist/assets never exists in this SvelteKit setup (assets live in
-                // dist/_app/immutable), so the pipeline waits and then skips with
-                // "nothing to compress" (engine fix in 6.0.0-canary...c23278827).
-                // Short wait keeps that no-op cheap in CI.
-                buildPipeline: { maxWaitDuration: 5000 },
-            }),
             sveltekit(),
         ],
         server: {
@@ -26,6 +16,11 @@ export default defineConfig(async ({ command }) => {
         },
         build: {
             emptyOutDir: true,
+        },
+        // Server-only clients stay as Node dependencies rather than being
+        // bundled for the browser.
+        ssr: {
+            external: ["@aws-sdk/client-s3", "postgres"],
         },
     };
 });

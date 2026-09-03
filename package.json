@@ -18,16 +18,12 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1125.0",
-    "@needle-tools/engine": "6.0.0-canary.1788016117.fresh-leaf.c23278827",
     "@sveltejs/adapter-node": "^5.5.7",
-    "postgres": "^3.4.9",
-    "three": "npm:@needle-tools/three@0.185.2-alpha.1"
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
-    "@needle-tools/helper": "^1.11.4",
     "@sveltejs/kit": "^2.70.3",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
-    "@types/three": "0.185.0",
     "svelte": "^5.57.0",
     "typescript": "^5.0.4",
     "vite": "^8.2.2",
