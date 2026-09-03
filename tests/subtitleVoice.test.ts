@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { estimateSubtitleTextDuration, timeSubtitleTokens } from "../src/lib/subtitleVoice/timing.js";
 import {
+    articulationNuclei,
     normalizeGibberishVoice,
     babbleMotion,
     beginSilent,
@@ -154,9 +155,16 @@ describe("English pronunciation", () => {
     it("scales articulation from all syllables down to one broad mouth shape", () => {
         expect(wordNuclei("hello").map(value => value.symbol)).toEqual(["AH", "OW"]);
         expect(wordNuclei("recipe", "syllable")).toHaveLength(3);
-        expect(wordNuclei("recipe", "coarse")).toHaveLength(2);
         expect(wordNuclei("hello", "word")).toMatchObject([{ symbol: "OW", kind: "o", glide: "u", stress: 1 }]);
         expect(wordNuclei("hello", "super-coarse")).toMatchObject([{ symbol: "U", kind: "u", glide: undefined }]);
+    });
+
+    it("reduces articulation density across words without crossing sentences", () => {
+        const words = ["Hello", "there!", "How", "can", "I", "help", "you?"];
+        expect(articulationNuclei(words, "syllable").map(value => value.length)).toEqual([2, 1, 1, 1, 1, 1, 1]);
+        expect(articulationNuclei(words, "word").map(value => value.length)).toEqual([1, 1, 1, 1, 1, 1, 1]);
+        expect(articulationNuclei(words, "coarse").map(value => value.length)).toEqual([1, 0, 1, 0, 1, 0, 1]);
+        expect(articulationNuclei(words, "super-coarse").map(value => value.length)).toEqual([1, 0, 1, 0, 0, 0, 1]);
     });
 
     it("retains the script-aware fallback outside plain English spelling", () => {

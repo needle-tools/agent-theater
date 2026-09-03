@@ -359,16 +359,10 @@ const strongest = (vowels: VowelPhone[]): VowelPhone =>
     vowels.reduce((best, vowel) => vowel.stress > best.stress ? vowel : best);
 
 function articulateNuclei(vowels: VowelPhone[], articulation: Articulation): VowelPhone[] {
-    if (vowels.length < 2 || articulation === "syllable") return vowels;
-    if (articulation === "coarse") {
-        const result: VowelPhone[] = [];
-        for (let index = 0; index < vowels.length; index += 2) {
-            result.push(strongest(vowels.slice(index, index + 2)));
-        }
-        return result;
-    }
+    if (!vowels.length || articulation === "syllable") return vowels;
+    if (vowels.length === 1 && articulation !== "super-coarse") return vowels;
     const nucleus = strongest(vowels);
-    if (articulation === "word") return [nucleus];
+    if (articulation !== "super-coarse") return [nucleus];
     // Only three broad mouth shapes and no diphthong travel: intentionally
     // more puppet-like than the recognisable one-gesture `word` mode.
     const kind: VowelKind = nucleus.kind === "a" ? "a"
@@ -381,6 +375,29 @@ export function wordNuclei(token: string, articulation: Articulation = "syllable
     return articulateNuclei(vowels, articulation);
 }
 
+/**
+ * Plan audible mouth gestures across words. Coarse modes deliberately reduce
+ * utterance density across the phrase, rather than only changing the rare
+ * multi-syllable word: coarse keeps one gesture per two words and super-coarse
+ * one per four. Groups never cross sentence punctuation.
+ */
+export function articulationNuclei(tokens: readonly string[], articulation: Articulation): VowelPhone[][] {
+    const result = tokens.map(() => [] as VowelPhone[]);
+    const groupSize = articulation === "super-coarse" ? 4 : articulation === "coarse" ? 2 : 1;
+    let phraseStart = 0;
+    while (phraseStart < tokens.length) {
+        const relativeEnd = tokens.slice(phraseStart).findIndex(token => /[.!?]+["')\]]*$/.test(token));
+        const phraseEnd = relativeEnd < 0 ? tokens.length - 1 : phraseStart + relativeEnd;
+        for (let start = phraseStart; start <= phraseEnd; start += groupSize) {
+            const end = Math.min(phraseEnd + 1, start + groupSize);
+            const vowels = tokens.slice(start, end).flatMap(token => wordNuclei(token));
+            result[start] = articulateNuclei(vowels, articulation);
+        }
+        phraseStart = phraseEnd + 1;
+    }
+    return result;
+}
+
 export function sentencePitchContour(
     tokens: TimedToken[],
     pause = DEFAULT_GIBBERISH_VOICE.pause,
@@ -388,6 +405,7 @@ export function sentencePitchContour(
 ): PitchPoint[] {
     if (!tokens.length) return [{ at: 0, multiplier: 1 }];
     const points: PitchPoint[] = [];
+    const nucleiByToken = articulationNuclei(tokens.map(token => token.text), articulation);
     let sentenceStart = 0;
     let sentenceEndIndex = tokens.findIndex(token => /[.!?]+["')\]]*$/.test(token.text));
     if (sentenceEndIndex < 0) sentenceEndIndex = tokens.length - 1;
@@ -404,7 +422,7 @@ export function sentencePitchContour(
         const tokenDuration = Math.max(0.02, token.end - token.start);
         const voicedEnd = Math.max(token.start + 0.01, token.end - wordReleaseGap(tokenDuration, pause, token.text));
         const voicedDuration = voicedEnd - token.start;
-        const vowels = wordNuclei(token.text, articulation);
+        const vowels = nucleiByToken[index];
         const syllables = vowels.length || 1;
         // Speech tends to gather energy through the middle of a phrase and
         // relax toward its end. The broad arch sits underneath the smaller
@@ -653,10 +671,10 @@ export async function playGibberish(
     roughness.stop(start + duration + 0.06);
     sources.push(voiceSource, roughness);
     let syllableIndex = 0;
-    for (const token of tokens) {
+    const nucleiByToken = articulationNuclei(tokens.map(token => token.text), acoustics.options.articulation);
+    for (const [tokenIndex, token] of tokens.entries()) {
         const pronunciation = pronounceToken(token.text);
-        const allNuclei = pronunciation.phones.filter((value): value is VowelPhone => value.type === "vowel");
-        const nuclei = articulateNuclei(allNuclei, acoustics.options.articulation);
+        const nuclei = nucleiByToken[tokenIndex];
         const consonants = pronunciation.phones
             .map((value, index) => ({ value, index }))
             .filter((entry): entry is { value: ConsonantPhone; index: number } => entry.value.type === "consonant");

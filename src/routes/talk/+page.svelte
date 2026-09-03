@@ -178,7 +178,7 @@
                         </label>
                     {/each}
                 </div>
-                <small>From three broad puppet mouth-shapes to every spoken syllable.</small>
+                <small>One gesture per four words, two words, word, or spoken syllable.</small>
             </fieldset>
 
             <div class="voice-space">
