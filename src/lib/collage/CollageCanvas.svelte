@@ -27,7 +27,7 @@
     import { maskHit } from "./imaging.js";
     import { overlaps, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
     import { FREE_PAGE, type CollageStudio } from "./studio.js";
-    import type { Plan } from "./perform.js";
+    import { readingTime, type Plan } from "./perform.js";
     import { parallaxOf } from "./stage.js";
     import { play, type Playing, type Stagehand } from "./player.js";
     import { createSpeaker } from "./audio.js";
@@ -961,6 +961,33 @@
             flock.remove();
             flocks.delete(flock);
         }, total + 80);
+    }
+
+    /**
+     * Say a page notification the way a CHARACTER says a line.
+     *
+     * "Picked up where you left off" used to be a chip in a corner — an app
+     * talking about itself in app furniture. Here, a random piece on the
+     * canvas says it instead, in the exact bubble the cast uses: anchored to
+     * the speaker, typed out letter by letter, voiced in the speaker's own
+     * automatic voice. Somebody on screen when possible, because a bubble
+     * three screens away is a notification nobody gets. Returns false when
+     * there is nothing to anchor to, and the caller keeps its corner chip.
+     */
+    export function announce(text: string): boolean {
+        const candidates = placed.filter(layer =>
+            layer.kind === "image" && !gone.has(layer.id) && !layer.held);
+        if (!candidates.length) return false;
+        const seen = visibleRect();
+        const onScreen = seen
+            ? candidates.filter(layer =>
+                layer.x < seen.x + seen.width && layer.x + layer.width > seen.x &&
+                layer.y < seen.y + seen.height && layer.y + layer.height > seen.y)
+            : [];
+        const pool = onScreen.length ? onScreen : candidates;
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        void stagehand.voice(pick.id, text, readingTime(text));
+        return true;
     }
 
     export function stopScene() {

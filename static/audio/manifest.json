@@ -233,6 +233,15 @@
 			"mood": ["curious", "handcrafted", "gentle", "theatrical"],
 			"description": "Subtle menu music with felt piano, soft pizzicato strings, delicate music-box tones and a faint analog ambient bed. Warm, playful and unobtrusive."
 		},
+		"menu-theatre-5": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-5.opus",
+			"seconds": 50.01,
+			"bpm": 75,
+			"take": "menu-theatre",
+			"mood": ["curious", "handcrafted", "gentle", "theatrical"],
+			"description": "Subtle menu music with felt piano, soft pizzicato strings, delicate music-box tones and a faint analog ambient bed. Warm, playful and unobtrusive."
+		},
 		"cosy-folk-1": {
 			"role": "bed",
 			"hidden": true,
@@ -1376,6 +1385,102 @@
 			"mood": ["cute", "bright", "playful"],
 			"description": "Short bright giggle, close mic, dry interior. Pairs with the `laugh` skill.",
 			"skill": "laugh"
+		},
+		"curtain-open-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/curtain-open-1.opus",
+			"seconds": 4.01,
+			"take": "curtain-open",
+			"mood": ["theatrical", "cloth", "mechanical"],
+			"description": "Heavy velvet curtain sweeping open across a wooden stage, with soft fabric folds, rail movement, rope and pulley detail."
+		},
+		"curtain-open-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/curtain-open-2.opus",
+			"seconds": 2.67,
+			"take": "curtain-open",
+			"mood": ["theatrical", "cloth", "mechanical"],
+			"description": "Heavy velvet curtain sweeping open across a wooden stage, with soft fabric folds, rail movement, rope and pulley detail."
+		},
+		"curtain-open-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/curtain-open-3.opus",
+			"seconds": 2.79,
+			"take": "curtain-open",
+			"mood": ["theatrical", "cloth", "mechanical"],
+			"description": "Heavy velvet curtain sweeping open across a wooden stage, with soft fabric folds, rail movement, rope and pulley detail."
+		},
+		"prop-clatter-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/prop-clatter-1.opus",
+			"seconds": 2.57,
+			"take": "prop-clatter",
+			"mood": ["playful", "wooden", "clumsy"],
+			"description": "A small wooden theatre prop falls onto floorboards, clatters briefly and makes one gentle bounce."
+		},
+		"prop-clatter-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/prop-clatter-2.opus",
+			"seconds": 3.12,
+			"take": "prop-clatter",
+			"mood": ["playful", "wooden", "clumsy"],
+			"description": "A small wooden theatre prop falls onto floorboards, clatters briefly and makes one gentle bounce."
+		},
+		"prop-clatter-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/prop-clatter-3.opus",
+			"seconds": 3.1,
+			"take": "prop-clatter",
+			"mood": ["playful", "wooden", "clumsy"],
+			"description": "A small wooden theatre prop falls onto floorboards, clatters briefly and makes one gentle bounce."
+		},
+		"magic-transformation-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/magic-transformation-1.opus",
+			"seconds": 2.62,
+			"take": "magic-transformation",
+			"mood": ["magical", "whimsical", "intimate"],
+			"description": "Delicate bell shimmer, reversed paper rustle and a tiny wooden-chime flourish for a handmade fairy-tale transformation."
+		},
+		"magic-transformation-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/magic-transformation-2.opus",
+			"seconds": 2.47,
+			"take": "magic-transformation",
+			"mood": ["magical", "whimsical", "intimate"],
+			"description": "Delicate bell shimmer, reversed paper rustle and a tiny wooden-chime flourish for a handmade fairy-tale transformation."
+		},
+		"magic-transformation-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/magic-transformation-3.opus",
+			"seconds": 1.57,
+			"take": "magic-transformation",
+			"mood": ["magical", "whimsical", "intimate"],
+			"description": "Delicate bell shimmer, reversed paper rustle and a tiny wooden-chime flourish for a handmade fairy-tale transformation."
+		},
+		"paper-shuffle-1": {
+			"role": "sfx",
+			"file": "/audio/sfx/paper-shuffle-1.opus",
+			"seconds": 2.57,
+			"take": "paper-shuffle",
+			"mood": ["handcrafted", "papery", "gentle"],
+			"description": "A paper cut-out puppet shuffles across a miniature stage with dry paper rubbing and tiny cardboard taps."
+		},
+		"paper-shuffle-2": {
+			"role": "sfx",
+			"file": "/audio/sfx/paper-shuffle-2.opus",
+			"seconds": 2.01,
+			"take": "paper-shuffle",
+			"mood": ["handcrafted", "papery", "gentle"],
+			"description": "A paper cut-out puppet shuffles across a miniature stage with dry paper rubbing and tiny cardboard taps."
+		},
+		"paper-shuffle-3": {
+			"role": "sfx",
+			"file": "/audio/sfx/paper-shuffle-3.opus",
+			"seconds": 2.31,
+			"take": "paper-shuffle",
+			"mood": ["handcrafted", "papery", "gentle"],
+			"description": "A paper cut-out puppet shuffles across a miniature stage with dry paper rubbing and tiny cardboard taps."
 		}
 	}
 }

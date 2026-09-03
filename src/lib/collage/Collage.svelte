@@ -36,6 +36,17 @@
     const collage = studio.collage;
     const toasts = createToasts();
 
+    /**
+     * Say a page line the way the CAST says lines: a bubble on a random
+     * piece in the scene, typed out and voiced. Falls back to a corner chip
+     * only when the canvas has nobody to speak it. Errors and progress
+     * spinners stay chips — a spinner cannot be a sentence, and an error
+     * read aloud by a cheerful mushroom is the wrong messenger.
+     */
+    function announce(text: string) {
+        if (!canvas?.announce(text)) toasts.push(text);
+    }
+
     let version = $state(0);
     let toolsRegistered = $state(false);
     let editOpen = $state(false);
@@ -60,7 +71,7 @@
     $effect(() => studio.onShowChanged(() => {
         if (!studio.showing || warnedSilent || studio.speaker.ready) return;
         warnedSilent = true;
-        toasts.push("Click anywhere to turn the sound on — the browser keeps it off until you do.");
+        announce("Click anywhere to turn the sound on — the browser keeps it off until you do.");
     }));
 
     const layers = $derived.by(() => (version, collage.list()));
@@ -80,7 +91,7 @@
         try {
             const count = await studio.restore();
             if (count) {
-                toasts.push(`Picked up where you left off — ${count} layer${count === 1 ? "" : "s"}.`);
+                announce(`Picked up where you left off — ${count} layer${count === 1 ? "" : "s"}.`);
                 canvas?.fitAll();
             }
         } catch (error) {
@@ -660,7 +671,7 @@
     /** Save the whole collage as a picture that opens again. */
     async function saveToFile() {
         if (!collage.list().length) {
-            toasts.push("Nothing to save yet — begin with a troupe piece or ask an agent to stage a story.");
+            announce("Nothing to save yet — begin with a troupe piece or ask an agent to stage a story.");
             return;
         }
         const toast = toasts.push("Packing it up…", "busy");
@@ -668,7 +679,7 @@
             const { blob, filename } = await studio.saveFile();
             download(blob, filename);
             toast.close();
-            toasts.push(`Saved ${filename} — open it from Theater options to keep working.`);
+            announce(`Saved ${filename} — open it from Theater options to keep working.`);
         } catch (error) {
             toast.close();
             toasts.push(`Could not save that — ${message(error)}`, "error");
@@ -729,7 +740,7 @@
             // collage that loaded off-screen is indistinguishable from one that
             // did not load at all.
             canvas?.fitAll();
-            toasts.push(`Opened a saved play — ${opened} pieces.`);
+            announce(`Opened a saved play — ${opened} pieces.`);
         }
         return rest;
     }
@@ -792,7 +803,7 @@
         }
         toast.close();
         if (shapes) {
-            toasts.push(`Traced into ${shapes} shapes — crisp at any size now.`);
+            announce(`Traced into ${shapes} shapes — crisp at any size now.`);
             studio.save();
         } else {
             toasts.push(failure ?? "Nothing could be traced.", "error");

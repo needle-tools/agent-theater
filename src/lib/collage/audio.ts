@@ -60,6 +60,13 @@ export function soundCatalogue(...roles: SoundRole[]): string[] {
  * is the room.
  */
 const FULL = 1;
+/**
+ * Stings and effects sit BELOW full scale now that the cast actually talks:
+ * the synthesised voices live well under 1.0 by their own headroom, and a
+ * door slam at parity with the mix ceiling flattened every line near it.
+ * Playback mix only — the files themselves stay exactly as generated.
+ */
+const CUE_LEVEL = 0.6;
 const MUSIC_LEVEL = 0.32;
 /** Long enough to be a change of mood rather than a splice. */
 const CROSSFADE_MS = 1200;
@@ -313,7 +320,7 @@ export function createSpeaker(): Speaker {
         const element = new Audio(sound.file);
         // A bed fades up; a sting simply starts, because fading in a sting
         // removes its attack and the attack is the sting.
-        element.volume = loop ? 0 : FULL;
+        element.volume = loop ? 0 : CUE_LEVEL;
         sounding.add(element);
         if (loop) arrangeEnding(element, end);
         else element.addEventListener("ended", () => release(element), { once: true });
