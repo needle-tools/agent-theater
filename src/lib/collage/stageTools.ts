@@ -352,7 +352,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             `will be heard. Give each part a "voice" in stage_cast — different voices ` +
                             `for different parts — and the page speaks the lines itself. Until then, ` +
                             `do not narrate as though the characters are audible.`]
-                         : []),
+                         // The cast is audible, so anything you also say out
+                         // loud is a second voice over the top of theirs.
+                         : [`THE CAST SPEAKS ITS OWN LINES ALOUD, in the voices you cast. Do NOT read ` +
+                            `the dialogue out as well — if you are being spoken by a voice client, the ` +
+                            `person hears both at once. Narrate around the play: set a scene up, say ` +
+                            `what changed, react between chapters.`]),
                      ...(silent
                          ? [`NO SOUND YET: the browser refuses audio until the person has clicked or ` +
                             `typed on the page, and they have not. The music and the stings will not be ` +

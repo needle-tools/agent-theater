@@ -4,7 +4,7 @@ import { castOf, renamedIn, type EntranceName, type Stage } from "../src/lib/col
 import { buildUp, entering, filmed, handOff, sceneBeats } from "../src/lib/collage/show.js";
 import { plan as planBeats, type Beat } from "../src/lib/collage/perform.js";
 import { SOUNDS, findSound, soundCatalogue, soundNames } from "../src/lib/collage/audio.js";
-import { creditLines, creditsFor, performers } from "../src/lib/collage/billboard.js";
+import { creditLines, creditsFor, leads, performers } from "../src/lib/collage/billboard.js";
 
 /**
  * Scenes.
@@ -506,6 +506,34 @@ describe("the credits", () => {
         expect(who).toEqual(["gran.png", "her.png"]);
         expect(performers([scene]).has("house")).toBe(false);
         expect(performers([scene]).has("sky")).toBe(false);
+    });
+});
+
+describe("who takes a bow", () => {
+    const scene = (id: string, cast: string[], script: Beat[]): Stage => ({
+        id, name: id, backdrop: null,
+        cast: cast.map(member => ({ id: member, x: 0, y: 0 })),
+        script,
+    });
+
+    it("keeps the curtain call to the leads, in the order they stand", () => {
+        // Bows are one at a time, so a nine-strong company bows for most of a
+        // minute after a play the audience has already watched.
+        const stages = [scene(
+            "s1",
+            ["gran", "wolf", "her", "bird", "cat"],
+            [{ id: "wolf", say: "What big teeth." }, { id: "wolf", do: "walk" },
+             { id: "her", say: "Grandmother?" }, { id: "gran", do: "wave" },
+             { id: "bird", do: "jump" }])];
+
+        // Picked by what they did, but bowing in the order they stand.
+        expect(leads(stages, ["gran", "wolf", "her", "bird", "cat"]))
+            .toEqual(["gran", "wolf", "her"]);
+    });
+
+    it("bows everybody when there are only a few of them", () => {
+        const stages = [scene("s1", ["a", "b"], [{ id: "a", say: "Oh." }])];
+        expect(leads(stages, ["a", "b"])).toEqual(["a", "b"]);
     });
 });
 

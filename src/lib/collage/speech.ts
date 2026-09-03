@@ -13,6 +13,14 @@ const BREATH_MS = 320;
 const TAIL_MS = 450;
 const DUCK_OVER_MS = 900;
 
+/**
+ * How long to wait for a voice to START before going on without it.
+ * A suspended audio context answers resume() with a promise that never
+ * settles, and it would sit in the queue every bubble waits in — one line that
+ * never begins is a scene that never finishes. Shown silently instead.
+ */
+const VOICE_START_MS = 4000;
+
 export interface Speech {
     text: string;
     voice?: SubtitleVoice | null;
@@ -79,16 +87,32 @@ export function createPrompter(): Prompter {
         }, 60);
     });
 
+    /** A voice, or nothing, within a fixed time. Never rejects, never hangs.
+     *  One that turns up late is stopped: its line has already been and gone. */
+    const starting = (line: Speech) => new Promise<SubtitleVoicePlayback | null>(resolve => {
+        let gaveUp = false;
+        const timer = setTimeout(() => {
+            gaveUp = true;
+            console.warn(`[speech] "${line.text.slice(0, 40)}" did not start in time — said in silence.`);
+            resolve(null);
+        }, VOICE_START_MS);
+        playSubtitleVoice(line.text, line.voice!, level).then(
+            playback => {
+                clearTimeout(timer);
+                if (gaveUp) return playback.stop();
+                resolve(playback);
+            },
+            error => {
+                clearTimeout(timer);
+                console.warn(`[speech] "${line.text.slice(0, 40)}" could not be played:`, error);
+                if (!gaveUp) resolve(null);
+            });
+    });
+
     const utter = async (line: Speech, turn: Turn, mine: number) => {
         if (turn.dropped?.()) return;
         let playback: SubtitleVoicePlayback | null = null;
-        if (line.voice && touched && canSpeak) {
-            try {
-                playback = await playSubtitleVoice(line.text, line.voice, level);
-            } catch (error) {
-                console.warn(`[speech] "${line.text.slice(0, 40)}" could not be played:`, error);
-            }
-        }
+        if (line.voice && touched && canSpeak) playback = await starting(line);
         if (mine !== era || turn.dropped?.()) {
             playback?.stop();
             return;

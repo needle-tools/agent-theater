@@ -87,21 +87,17 @@ export const WAIT_FOR_AUDIENCE_MS = 30_000;
  */
 export const BLACKOUT_MS = 900;
 
-/** Per credit line, plus a moment at each end to start and finish reading.
- *  Trimmed from the original 900: pictures read faster than sentences, and
- *  the roll now travels its full height, so the same time moves twice the
- *  distance. */
-export const CREDIT_LINE_MS = 650;
-export const CREDIT_PAD_MS = 1800;
+/** Per credit line, plus a moment at each end to start and finish reading. */
+export const CREDIT_LINE_MS = 820;
+export const CREDIT_PAD_MS = 2200;
 
 /**
- * The rows the page adds to every roll uninvited: the director's portrait,
- * the house cactus, its line, and the thank-you. They are content like any
- * other and the roll has to travel past them — leaving them out of the
- * duration made real rolls noticeably faster than the ?credits preview,
- * which counted the same rows nobody was counting.
+ * The rows the page adds to every roll uninvited: the director's portrait, the
+ * house cactus, its line, the thank-you, and the empty screen that clears the
+ * cast off the top so the roll ends on the Needle logo alone. Distance the roll
+ * has to travel, so it is paid for in the duration or the pace picks up.
  */
-export const CREDIT_HOUSE_ROWS = 4;
+export const CREDIT_HOUSE_ROWS = 7;
 
 /**
  * Who acted, as opposed to who was on stage.
@@ -134,6 +130,34 @@ export function performers(stages: Stage[]): Set<string> {
         if (stage.backdrop) acted.delete(stage.backdrop);
     }
     return acted;
+}
+
+/** How many take a bow. One at a time is what a curtain call is, which is also
+ *  why it cannot be everybody: nine bows is most of a minute of nothing. */
+export const BOWS = 3;
+
+/**
+ * The leads among `among`, most of the play first, returned in the given order.
+ * Weight is what they actually did across the show — a line counts double,
+ * since who the play is about is who it lets speak.
+ */
+export function leads(stages: Stage[], among: string[], limit = BOWS): string[] {
+    const weight = new Map<string, number>();
+    const add = (id: string, much: number) => weight.set(id, (weight.get(id) ?? 0) + much);
+    for (const stage of stages) {
+        for (const beat of stage.script) {
+            if (beat.id) add(beat.id, beat.say ? 2 : 1);
+        }
+        for (const member of stage.cast) {
+            if (member.as?.trim()) add(member.id, 1);
+        }
+    }
+    const picked = new Set(among
+        .map((id, order) => ({ id, order }))
+        .sort((a, b) => (weight.get(b.id) ?? 0) - (weight.get(a.id) ?? 0) || a.order - b.order)
+        .slice(0, Math.max(1, limit))
+        .map(entry => entry.id));
+    return among.filter(id => picked.has(id));
 }
 
 /**

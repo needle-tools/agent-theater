@@ -455,13 +455,17 @@
     }
 
     /* The house bow: the Needle cactus over its line, and the whole block is
-       the one clickable thing in the auditorium — it goes home. */
+       the one clickable thing in the auditorium — it goes home.
+
+       A screen's worth of nothing above it, so the cast has climbed out of
+       frame by the time the roll stops and the last thing standing is the
+       logo. CREDIT_HOUSE_ROWS pays for the extra travel. */
     .roll__house {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 0.9rem;
-        margin-top: 3rem;
+        margin-top: min(52vh, 30rem);
         color: inherit;
         text-decoration: none;
         pointer-events: auto;

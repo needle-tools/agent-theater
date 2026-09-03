@@ -32,14 +32,26 @@
     // since both are studio state that the document's change event knows
     // nothing about.
     let busy = $state<string | null>(null);
+    // A held show is lit and standing still, waiting for an agent to write the
+    // next chapter. It is not playing, and offering a pause button for it left
+    // the person pressing stop to get a play button back.
+    let holding = $state(false);
     $effect(() => {
         const read = () => {
             showing = studio.showing;
             busy = studio.busyStage;
+            holding = studio.holding;
         };
         read();
         return studio.onShowChanged(read);
     });
+    const playing = $derived(!!showing && !holding);
+
+    /** Play from the top. A held show is ended first, so it starts as a show. */
+    function play() {
+        if (holding) studio.stopShow();
+        studio.playShow();
+    }
 
     const stages = $derived.by(() => (version, collage.listStages()));
     const activeId = $derived.by(() => (version, collage.activeStageId));
@@ -53,11 +65,11 @@
         <div class="controls">
             <button
                 class="play"
-                class:play--stop={!!showing}
-                aria-label={showing ? "Pause the show" : "Play the show"}
-                onclick={() => (showing ? studio.stopShow() : studio.playShow())}
+                class:play--stop={playing}
+                aria-label={playing ? "Pause the show" : "Play the show"}
+                onclick={() => (playing ? studio.stopShow() : play())}
             >
-                <img src={showing ? "/icons/playback/pause.webp" : "/icons/playback/play.webp"} alt="" />
+                <img src={playing ? "/icons/playback/pause.webp" : "/icons/playback/play.webp"} alt="" />
             </button>
 
         </div>

@@ -979,6 +979,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 "One image holding a grid of separate pictures becomes one piece per cell. This is how " +
                 "art written by theater_art_prompt gets onto the canvas: an image model will not hand " +
                 "over nine cut-outs, it hands over one sheet, and this is the other half of that. " +
+                "The grid is divided here and each cell goes through FastCut's remover, which this page " +
+                "runs itself in a hidden frame — there is no second tab to open. " +
                 "'actors' cuts each cell out of its background so it can stand on a stage; 'backgrounds' " +
                 "keeps each cell whole, because a backdrop IS a background and removing it would leave " +
                 "nothing. Pass the same labels you gave as subjects and every piece arrives named.",
@@ -1120,8 +1122,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             title: "Add an image to the collage",
             description:
                 "Put an image on the canvas from an http(s) or data: URL. " +
-                "The background is removed automatically — this page cuts it out in the browser, so do NOT " +
-                "open FastCut or any other tool first; just pass the original photo. " +
+                "The background is removed automatically: this page runs FastCut's own remover in a hidden " +
+                "frame, so the cut IS FastCut — do not open it in another tab first, just pass the original " +
+                "photo. " +
                 "An image that is already transparent is left alone. Pass removeBackground: false to keep a " +
                 "background on purpose. The result says what happened, and what to do if the cut could not run. " +
                 "A picture holding several distinct objects — a poster, a sheet of stickers, things laid out " +
@@ -1714,7 +1717,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 "aside. Use it to react to what the person is doing (they placed a dragon: have the " +
                 "knight gulp), to think out loud through a character while you build, or to let a piece " +
                 "answer a question in its own voice. Same bubble and voice the piece would have in a " +
-                "play. Pass an array to have it deliver several lines in a row. Not while a show is " +
+                "play: the page SAYS the line out loud, so do not repeat it in your own reply — a voice " +
+                "client reading it too means the person hears it twice. " +
+                "Pass an array to have it deliver several lines in a row. Not while a show is " +
                 "playing — the script owns the stage then; give them a say beat instead.",
             inputSchema: {
                 type: "object",

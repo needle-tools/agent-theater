@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createStudio, FREE_PAGE } from "../src/lib/collage/studio.js";
 
 /**
@@ -192,5 +192,63 @@ describe("the event log", () => {
         const kinds = studio.eventsSince(0).map(e => e.kind);
         expect(kinds).toContain("page-changed");
         expect(kinds).toContain("arranged");
+    });
+});
+
+describe("the show", () => {
+    /** Three scenes, one line each, and a record of which one played. */
+    function showOf(perform: () => Promise<void>) {
+        const studio = createStudio();
+        const a = studio.collage.addImage({
+            src: "a", label: "a", natural: { width: 100, height: 100 },
+            x: 0, y: 0, width: 100,
+        });
+        const stages = ["one", "two", "three"].map((name, index) => studio.collage.addStage({
+            name,
+            cast: [{ id: a.id, x: index * 200, y: 0 }],
+            script: [{ id: a.id, do: "wave", say: name }],
+        }));
+        const seen: string[] = [];
+        studio.onShowChanged(() => {
+            const now = studio.showing;
+            if (now && seen.at(-1) !== now) seen.push(now);
+        });
+        studio.setPerformer(perform);
+        return { studio, stages, seen };
+    }
+
+    /** A show is minutes of waiting, so it is watched on a clock we can wind. */
+    async function watch(studio: ReturnType<typeof createStudio>, hold?: boolean) {
+        vi.useFakeTimers();
+        try {
+            const { duration } = await studio.playShow(undefined, hold ? { hold } : undefined);
+            await vi.advanceTimersByTimeAsync(duration + 120_000);
+        } finally {
+            vi.useRealTimers();
+        }
+    }
+
+    it("plays every scene without being asked to continue", async () => {
+        const { studio, stages, seen } = showOf(async () => {});
+        await watch(studio);
+        expect(seen).toEqual(stages.map(stage => stage.id));
+        expect(studio.showing).toBe(null);
+    });
+
+    it("goes on when a scene never finishes, rather than stopping the play", async () => {
+        // What this is here for: a voice the browser never starts leaves the
+        // scene waiting forever, and the show waited with it — the play ended
+        // on chapter one with the lights still down and nothing said about it.
+        const { studio, stages, seen } = showOf(() => new Promise<void>(() => {}));
+        await watch(studio);
+        expect(seen).toEqual(stages.map(stage => stage.id));
+        expect(studio.showing).toBe(null);
+    });
+
+    it("holds after the last scene only when it was asked to", async () => {
+        const { studio, seen } = showOf(async () => {});
+        await watch(studio, true);
+        expect(seen).toHaveLength(3);
+        expect(studio.holding).toBe(true);
     });
 });

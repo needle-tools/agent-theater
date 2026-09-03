@@ -33,7 +33,7 @@ import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
 import { renamedIn } from "./stage.js";
 import { cellPixels, gridCells, paperBox } from "./sheet.js";
 import {
-    BLACKOUT_MS, CREDIT_HOUSE_ROWS, creditsDuration, creditsFor, performers, TITLE_MS,
+    BLACKOUT_MS, CREDIT_HOUSE_ROWS, creditsDuration, creditsFor, leads, performers, TITLE_MS,
     WAIT_FOR_AUDIENCE_MS, type Billboard,
 } from "./billboard.js";
 
@@ -50,6 +50,14 @@ import {
 import { autoVoiceFor } from "./characterVoice.js";
 import { prompter } from "./speech.js";
 import { ENDING_FADE_MS, SILENT, type Speaker } from "./audio.js";
+
+/**
+ * How far past its own plan a scene may run before the show goes on without it.
+ * Every await in the loop is somewhere the show can stop for good, and what
+ * that looks like is a play that ends after chapter one with nothing to click.
+ * A dropped beat is a smaller loss; only an asked-for hold should hold a show.
+ */
+const SCENE_OVERRUN_MS = 15_000;
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
 
@@ -560,6 +568,28 @@ export function createStudio(collage = new Collage()): CollageStudio {
     const timingsFor = (stage: Stage) =>
         spokenBy(stage, id => autoVoiceFor(collage.own(id)));
 
+    /** A scene, played, but never for longer than its plan plus a wide margin.
+     *  Tripping it abandons the scene as pressing stop would — which also frees
+     *  whatever it was waiting on — and the show moves to the next chapter. */
+    const played = async (plan: Plan) => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const overran = new Promise<"overran">(resolve => {
+            timer = setTimeout(() => resolve("overran"), plan.duration + SCENE_OVERRUN_MS);
+        });
+        const outcome = await Promise.race([
+            studio.playScene(plan).then(() => "done" as const),
+            overran,
+        ]);
+        clearTimeout(timer);
+        if (outcome === "overran") {
+            console.warn(
+                `[show] a scene ran ${Math.round(SCENE_OVERRUN_MS / 1000)}s past its ` +
+                `${Math.round(plan.duration / 1000)}s plan and was let go. Moving on.`);
+            stopPerformance?.();
+            prompter.hush();
+        }
+    };
+
     /**
      * The show itself.
      *
@@ -685,7 +715,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
             const { plan } = planScene(beats, timingsFor(stage));
             const began = Date.now();
-            if (plan.beats.length) await studio.playScene({ ...plan, hidden });
+            if (plan.beats.length) await played({ ...plan, hidden });
             if (!wanted) break;
             // The hold, or whatever is left of the minimum — whichever is
             // longer. A scene nobody wrote anything for still has to be looked
@@ -765,13 +795,16 @@ export function createStudio(collage = new Collage()): CollageStudio {
         // And only the people. The set is cast exactly the way the cast is —
         // the house and the bush go in through the same tool with the same
         // fields — so without this the scenery bowed too, which is funny once.
+        // And only the leads, since bows are one at a time: a full company
+        // spends longer bowing than the last scene took. The rest are in the roll.
         const acted = performers(stages);
         const last = stages[stages.length - 1];
-        const bowing = last?.cast.filter(member =>
+        const present = last?.cast.filter(member =>
             acted.has(member.id) && collage.get(member.id)) ?? [];
+        const bowing = leads(stages, present.map(member => member.id));
         if (bowing.length) {
-            const { plan } = planScene(bowing.map(member => ({ id: member.id, do: "bow" as const })));
-            if (plan.beats.length) await studio.playScene(plan);
+            const { plan } = planScene(bowing.map(id => ({ id, do: "bow" as const })));
+            if (plan.beats.length) await played(plan);
         }
         if (!wanted) return;
 

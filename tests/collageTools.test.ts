@@ -299,7 +299,10 @@ describe("adding images", () => {
         const { tool } = fakeStudio();
         const description = tool("piece_add").description;
         expect(description).toMatch(/background is removed automatically/i);
-        expect(description).toMatch(/do NOT\s+open FastCut/i);
+        // Whose remover it is, and that it is already here: an agent that says
+        // it did not use FastCut is reading a description that hid the fact.
+        expect(description).toMatch(/FastCut/);
+        expect(description).toMatch(/do not open it in another tab first/i);
     });
 
     it("leaves an image that is already a cut-out alone", async () => {

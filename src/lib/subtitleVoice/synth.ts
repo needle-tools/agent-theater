@@ -78,6 +78,28 @@ function context(): AudioContext {
     return sharedContext;
 }
 
+/** Long enough for a context that is going to start; short enough to give up on one that is not. */
+const RESUME_MS = 1500;
+
+/**
+ * Ask a suspended context to start, and carry on either way. resume() does not
+ * fail when the browser says no — it just never answers, and awaiting that
+ * stalls whatever is waiting on the voice. Giving up costs a silent line.
+ */
+async function resumed(ctx: AudioContext): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        await Promise.race([
+            ctx.resume(),
+            new Promise<void>(resolve => { timer = setTimeout(resolve, RESUME_MS); }),
+        ]);
+    } catch {
+        // A context that refuses to start is a quiet play, not a broken one.
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 function noise(ctx: AudioContext): AudioBuffer {
     if (noiseBuffer?.sampleRate === ctx.sampleRate) return noiseBuffer;
     const length = ctx.sampleRate * 2;
@@ -646,7 +668,7 @@ export async function playGibberish(
 ): Promise<GibberishPlayback> {
     if (typeof window === "undefined") throw new Error("Gibberish voice playback requires a browser.");
     const ctx = context();
-    if (ctx.state === "suspended") await ctx.resume();
+    if (ctx.state === "suspended") await resumed(ctx);
     const acoustics = voiceAcoustics(input);
     const processing = voiceProcessing(acoustics.options);
     const tokens = timeSubtitleTokens(text, acoustics.options.speed, acoustics.options.rhythm);
