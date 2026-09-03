@@ -64,6 +64,14 @@ export const DEFAULT_CAMERA_MS = 1800;
  */
 export const BREATH_MS = 700;
 
+/**
+ * Reaching for a thing, and letting one go. The reach is quicker than the
+ * fall: picking up is intent, dropping is gravity, and gravity takes a moment
+ * to finish bouncing.
+ */
+export const TAKE_MS = 450;
+export const DROP_MS = 650;
+
 /** How long each reads as, before anything overrides it. */
 /**
  * How long each reads as, before anything overrides it.
@@ -276,7 +284,7 @@ export interface Cue {
     /** Which layer. */
     id: string;
     /** What it does. */
-    do?: MoveName;
+    do?: MoveName | (string & {});
     /** Where it ends up, for the moves that go somewhere. Canvas units. */
     to?: { x?: number; y?: number };
     /** What it says, in a bubble above it. */
@@ -288,6 +296,7 @@ export interface Cue {
 /** A cue with its timing resolved, ready to be played. */
 export interface ScoredCue {
     id: string;
+    /** A built-in move, or "clip:<name>" routed to the gesture hand. */
     move: MoveName | null;
     say: string | null;
     start: number;
@@ -341,9 +350,11 @@ export function score(cues: Cue[]): { score: Score; problems: ScoreProblem[] } {
             problems.push({ index, reason: `every cue needs an "id" naming the layer it acts on` });
             continue;
         }
-        const move = cue?.do ?? null;
-        if (move && !MOVES.includes(move)) {
-            problems.push({ index, reason: `"${move}" is not a move. Use one of: ${MOVES.join(", ")}` });
+        // The older cue system knows only the built-ins; clips arrived with
+        // plan() and never grew backwards into this path.
+        const move = MOVES.includes(cue?.do as MoveName) ? (cue!.do as MoveName) : null;
+        if (cue?.do && !move) {
+            problems.push({ index, reason: `"${cue.do}" is not a move. Use one of: ${MOVES.join(", ")}` });
             continue;
         }
         const say = typeof cue?.say === "string" && cue.say.trim() ? cue.say.trim() : null;
@@ -543,6 +554,42 @@ export function keyframesFor(move: MoveName, context: MoveContext, samples = SAM
     return frames;
 }
 
+/**
+ * The frames a HELD thing plays while its holder acts.
+ *
+ * Only the translation: the basket goes where the hand goes, but it does not
+ * squash when the holder jumps or lean when they walk — a held cut-out is a
+ * rigid prop, and deforming it with its carrier looks like jelly. The rider's
+ * own rotation and facing are baked in for the same reason the holder's are:
+ * the animation replaces the transform outright.
+ */
+export function rideKeyframes(
+    move: MoveName,
+    context: MoveContext,
+    rider: { rotation?: number; flip?: boolean; opacity?: number },
+    samples = SAMPLES,
+): Keyframe[] {
+    const frames: Keyframe[] = [];
+    const facing = rider.flip ? -1 : 1;
+    for (let i = 0; i <= samples; i++) {
+        const t = i / samples;
+        const pose = poseFor(move, t, context);
+        const dx = pose.dx - context.dx;
+        const dy = pose.dy - context.dy;
+        frames.push({
+            offset: t,
+            transform:
+                `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) ` +
+                `rotate(${(rider.rotation ?? 0).toFixed(2)}deg) ` +
+                `scale(${facing}, 1)`,
+            // The rider keeps its own opacity throughout: fading is the
+            // holder's beat, not the basket's.
+            opacity: rider.opacity ?? 1,
+        });
+    }
+    return frames;
+}
+
 /** One thing that happens, in a scene where things happen one at a time. */
 /**
  * Where the camera looks.
@@ -573,7 +620,8 @@ export interface Beat {
      * no way to write one — every beat had to be somebody doing something.
      */
     wait?: number;
-    do?: MoveName;
+    /** What they do — a built-in move, or "clip:<name>" for a recorded one. */
+    do?: MoveName | (string & {});
     say?: string;
     /** A noise, fired as the beat starts. Rides along with whatever else it does. */
     sound?: string;
@@ -590,6 +638,14 @@ export interface Beat {
      * almost none of their cost.
      */
     with?: boolean;
+    /**
+     * Pick something up: the id of a cast member this one starts holding.
+     * The object animates into the hand and then belongs to the holder —
+     * they move as one until a `drop`.
+     */
+    take?: string;
+    /** Put something down where it is: the id of a held cast member. */
+    drop?: string;
     /**
      * Swap this character's picture for another one, at this beat.
      *
@@ -608,9 +664,16 @@ export interface PlannedBeat {
     id: string;
     /** Runs alongside the previous beat instead of after it. */
     with: boolean;
+    // `move` may also be "clip:<name>"; the player routes those to the
+    // gesture hand instead of the pose mathematics.
     /** Another layer to draw in this one's place from here on. */
     becomes: string | null;
-    move: MoveName | null;
+    /** A cast member this one picks up as the beat starts. */
+    take: string | null;
+    /** A held cast member this one lets go of. */
+    drop: string | null;
+    /** A built-in move, or "clip:<name>" routed to the gesture hand. */
+    move: MoveName | (string & {}) | null;
     say: string | null;
     sound: string | null;
     camera: CameraMove | null;
@@ -684,7 +747,10 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
             continue;
         }
         const move = beat?.do ?? null;
-        if (move && !MOVES.includes(move)) {
+        // "clip:<name>" is a recorded move. Whether the recording exists is a
+        // browser question the tool layer answers; the plan only carries it.
+        const isClip = typeof move === "string" && move.startsWith("clip:");
+        if (move && !isClip && !MOVES.includes(move as MoveName)) {
             problems.push({ index, reason: `"${move}" is not a move. Use one of: ${MOVES.join(", ")}` });
             continue;
         }
@@ -693,15 +759,17 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
         const becomes = typeof beat?.becomes === "string" && beat.becomes.trim()
             ? beat.becomes.trim()
             : null;
+        const take = typeof beat?.take === "string" && beat.take.trim() ? beat.take.trim() : null;
+        const drop = typeof beat?.drop === "string" && beat.drop.trim() ? beat.drop.trim() : null;
         // Same string-boolean lesson as `rehearse`: agents send "true". The
         // first beat has nothing to ride along with, so it can never be `with`.
         const together = planned.length > 0 &&
             (beat?.with === true || String(beat?.with ?? "").trim().toLowerCase() === "true");
-        if (!move && !say && !sound && !camera && !wait && !becomes) {
+        if (!move && !say && !sound && !camera && !wait && !becomes && !take && !drop) {
             problems.push({
                 index,
                 reason:
-                    `a beat must have a "do", a "say", a "sound", a "camera", a "wait" or a "becomes"`,
+                    `a beat must have a "do", a "say", a "sound", a "camera", a "wait" or a "becomes", a "take" or a "drop"`,
             });
             continue;
         }
@@ -710,7 +778,10 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
             typeof beat?.duration === "number" && beat.duration > 0
                 ? beat.duration
                 : wait ? wait
-                    : move ? DEFAULT_DURATION[move]
+                    : isClip ? 1200
+                    : move ? DEFAULT_DURATION[move as MoveName]
+                    : take ? TAKE_MS
+                    : drop ? DROP_MS
                     // A spoken line is as long as the speaking takes; an unspoken
                     // one is as long as it takes to read.
                     : say ? timings?.saying(say, id) ?? readingTime(say)
@@ -721,7 +792,7 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
                             // scene carries on over it, which is what a sting is.
                             : 0));
 
-        const travel = move && TRAVELS.has(move) && beat?.to
+        const travel = move && !isClip && TRAVELS.has(move as MoveName) && beat?.to
             ? { dx: typeof beat.to.x === "number" ? beat.to.x : 0,
                 dy: typeof beat.to.y === "number" ? beat.to.y : 0 }
             : null;
@@ -733,13 +804,15 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
         // breath in front of one would push it out of the overlap it asked for.
         if (say && lastSpeaker && lastSpeaker !== id && !together) {
             planned.push({
-                id: "", with: false, becomes: null, move: null, say: null, sound: null,
-                camera: null, travel: null, duration: BREATH_MS,
+                id: "", with: false, becomes: null, take: null, drop: null, move: null,
+                say: null, sound: null, camera: null, travel: null, duration: BREATH_MS,
             });
         }
         if (say) lastSpeaker = id;
 
-        planned.push({ id, with: together, becomes, move, say, sound, camera, travel, duration });
+        planned.push({
+            id, with: together, becomes, take, drop, move, say, sound, camera, travel, duration,
+        });
     }
 
     // Simultaneous beats count once: a group is as long as its longest member,

@@ -69,8 +69,8 @@ const DUCK_OVER_MS = 900;
  *
  * Only ever spent when the model is already loaded, where synthesis is a
  * fraction of a second and waiting is invisible. While the model is still
- * downloading this is skipped entirely — eighty megabytes is not something to
- * hold a bubble open for, and the silent fallback is right there.
+ * downloading this is skipped entirely — a hundred and fifty megabytes is not
+ * something to hold a bubble open for, and the silent fallback is right there.
  */
 const GRACE_MS = 1200;
 
@@ -91,9 +91,15 @@ export interface Speech {
 export interface Turn {
     /**
      * Its turn has come. Given the whole length, so anything with its own
-     * animation can match it.
+     * animation can match it — and whether it is actually being HEARD.
+     *
+     * The second half matters more than it looks. A line can reach this point
+     * having failed to make a sound for reasons that are nobody's fault and are
+     * not permanent: the model had not finished arriving, or the browser had not
+     * been touched yet and refused to play. A bubble that wants to try again
+     * later has no other way to know it needs to.
      */
-    begin?(ms: number): void;
+    begin?(ms: number, voiced: boolean): void;
     /** How much of the line to show, 0 to 1. Called while it plays. */
     show?(progress: number): void;
     /** Finished, or cut off by a hush. Always called if `begin` was. */
@@ -145,8 +151,47 @@ export interface Prompter {
     expect(lines: Speech[]): Promise<void>;
     /** Stop talking, now, and drop whatever was queued behind it. */
     hush(): void;
+    /**
+     * Whether the browser will let us make a sound yet.
+     *
+     * False until somebody has clicked, tapped or typed. Not a setting and not
+     * something that can be asked for in advance — every browser refuses audio
+     * on a page nobody has touched, and the only way to find out is to try. A
+     * page that opens talking is not a thing the web allows.
+     */
+    readonly touched: boolean;
+    /**
+     * Bumped by every hush, so a caller can tell whether it was interrupted
+     * while it was away.
+     *
+     * There is one case that needs this and it is not exotic: the first gesture
+     * on the empty page is usually the click that copies the prompt, so the same
+     * event both wakes the props up and calls for a note that outranks them. A
+     * line that went off to be synthesised and came back has to be able to ask
+     * whether the world moved on without it.
+     */
+    readonly generation: number;
+    /**
+     * Run this the first time the page is touched, or now if it already has
+     * been. Returns a way to stop caring.
+     *
+     * For lines that were shown before anybody could hear them. The bubble has
+     * already done its job as text; this is how it gets a second chance to be
+     * speech.
+     */
+    onTouch(run: () => void): () => void;
     /** Whether anything is being said or waiting to be. */
     readonly busy: boolean;
+    /**
+     * Whether nothing will ever be heard, however long anybody waits.
+     *
+     * Speech switched off in this build, or tried and found impossible. Both are
+     * settled answers, which is what separates them from "still loading" — and
+     * a bubble that would otherwise arrange to say itself again later needs to
+     * know the difference, or it arranges a second silent performance for an
+     * audience that was never going to hear the first.
+     */
+    readonly mute: boolean;
     /**
      * Where to send a request to push the music down under dialogue.
      *
@@ -172,6 +217,33 @@ export function createPrompter(voices: Voices = createVoices()): Prompter {
     let waiting = 0;
     let playing: HTMLAudioElement | null = null;
     let duck: ((ms: number) => void) | null = null;
+
+    /*
+     * Watch for the first sign of a person.
+     *
+     * Capture phase and on the window, because the gesture that counts is any
+     * gesture at all: dragging a prop is one, so is a keystroke, and by the time
+     * anything wants to speak it is too late to start asking. The listeners take
+     * themselves off once they have fired — this only ever happens once per page
+     * and a permanent listener on every pointerdown is a permanent cost for an
+     * answer that stopped changing.
+     */
+    let touched = false;
+    const waiters = new Set<() => void>();
+    const GESTURES = ["pointerdown", "keydown", "touchstart"] as const;
+    const noticed = () => {
+        if (touched) return;
+        touched = true;
+        for (const type of GESTURES) window.removeEventListener(type, noticed, true);
+        // Copied first: a callback that registers another one must not run
+        // inside the loop that is draining them.
+        const due = [...waiters];
+        waiters.clear();
+        for (const run of due) run();
+    };
+    if (typeof window !== "undefined") {
+        for (const type of GESTURES) window.addEventListener(type, noticed, true);
+    }
 
     /** Sleep, but wake early if the era has moved on. */
     const rest = (ms: number, mine: number) => new Promise<void>(resolve => {
@@ -218,8 +290,25 @@ export function createPrompter(voices: Voices = createVoices()): Prompter {
             element = new Audio(spoken.url);
             try {
                 await element.play();
-            } catch {
-                // Autoplay refused, or the blob went away. Either way: silent.
+            } catch (error) {
+                /*
+                 * Refused. Silent, and it says so.
+                 *
+                 * Degrading quietly is right for the person watching — a play
+                 * with bubbles and no voices is still a play — and it was
+                 * exactly wrong for anybody trying to find out why nothing
+                 * could be heard. The symptom of a swallowed rejection here is
+                 * a model that loads, a console with nothing in it, and no
+                 * audio ever, which is indistinguishable from the feature not
+                 * existing. Almost always the autoplay policy, which no amount
+                 * of code fixes: a browser will not make a sound on a page
+                 * nobody has touched.
+                 */
+                const why = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+                console.warn(
+                    `[speech] "${line.text.slice(0, 40)}" was synthesised but could not be played` +
+                    `${touched ? "" : " — the page has not been clicked yet, and browsers refuse audio until it has"}` +
+                    `: ${why}`);
                 element = null;
             }
         }
@@ -237,31 +326,38 @@ export function createPrompter(voices: Voices = createVoices()): Prompter {
         const whole = element ? spokenLength(voices, line) : null;
         const ms = whole !== null ? whole - BREATH_MS : turn.fallback ?? readingTime(line.text);
 
-        turn.begin?.(ms);
-        if (element && ms >= DUCK_OVER_MS) duck?.(ms);
+        try {
+            turn.begin?.(ms, !!element);
+            if (element && ms >= DUCK_OVER_MS) duck?.(ms);
 
-        const started = performance.now();
-        await new Promise<void>(resolve => {
-            const stop = () => {
-                clearInterval(timer);
-                resolve();
-            };
-            const timer = setInterval(() => {
-                if (mine !== era) return stop();
-                const elapsed = performance.now() - started;
-                if (elapsed >= ms) return stop();
-                turn.show?.(Math.min(1, elapsed / ms / TYPING_SHARE));
-            }, TICK_MS);
-        });
-
-        // Released whether it finished or was cut off. An element left playing
-        // with nothing pointing at it is the bug audio.ts learned the hard way.
-        if (element) {
-            element.pause();
-            element.src = "";
+            const started = performance.now();
+            await new Promise<void>(resolve => {
+                const stop = () => {
+                    clearInterval(timer);
+                    resolve();
+                };
+                const timer = setInterval(() => {
+                    if (mine !== era) return stop();
+                    const elapsed = performance.now() - started;
+                    if (elapsed >= ms) return stop();
+                    turn.show?.(Math.min(1, elapsed / ms / TYPING_SHARE));
+                }, TICK_MS);
+            });
+        } finally {
+            /*
+             * Released however this ended — finished, hushed, or a callback
+             * that threw. An element left playing with nothing pointing at it
+             * is the bug audio.ts learned the hard way, and a bubble whose own
+             * `begin` threw would otherwise keep its voice going forever with
+             * no way left to reach it.
+             */
+            if (element) {
+                element.pause();
+                element.src = "";
+            }
+            if (playing === element) playing = null;
+            turn.end?.();
         }
-        if (playing === element) playing = null;
-        turn.end?.();
         // Only after a voice. A score already writes its own breath between two
         // speakers, and a silent bubble is timed by a plan that has not been
         // told about this one — so adding it there would make every unvoiced
@@ -272,6 +368,27 @@ export function createPrompter(voices: Voices = createVoices()): Prompter {
     return {
         get busy() {
             return waiting > 0;
+        },
+
+        get mute() {
+            return voices.state === "off" || voices.state === "unavailable";
+        },
+
+        get touched() {
+            return touched;
+        },
+
+        get generation() {
+            return era;
+        },
+
+        onTouch(run) {
+            if (touched) {
+                run();
+                return () => {};
+            }
+            waiters.add(run);
+            return () => waiters.delete(run);
         },
 
         get voices() {
@@ -294,8 +411,12 @@ export function createPrompter(voices: Voices = createVoices()): Prompter {
             waiting++;
             const run = chain.then(() => (mine === era ? utter(spoken, turn, mine) : undefined));
             // The chain must never reject, or one bad line stops every line
-            // after it for the life of the page.
-            chain = run.then(() => {}, () => {});
+            // after it for the life of the page. Reported on the way past,
+            // though: swallowing it silently is how a broken line becomes an
+            // afternoon of wondering why the page went quiet.
+            chain = run.then(() => {}, error => {
+                console.warn(`[speech] "${spoken.text.slice(0, 40)}" failed while being said:`, error);
+            });
             return run.then(() => {}, () => {}).finally(() => {
                 waiting--;
             });
@@ -311,7 +432,10 @@ export function createPrompter(voices: Voices = createVoices()): Prompter {
 
         hush() {
             era++;
-            waiting = 0;
+            // `waiting` is NOT reset here. Every queued line still has a promise
+            // in flight that will decrement it on its way out, and zeroing it
+            // first would send the count negative — after which `busy` would
+            // answer false through the next several lines.
             if (playing) {
                 playing.pause();
                 playing.src = "";

@@ -17,7 +17,8 @@
             "mood": [
                 "day"
             ],
-            "description": "a treeline band across the lower half, transparent above. Sits between the backdrop and the actors"
+            "description": "RETIRED (full-width layer, nothing to stack on now): a treeline band across the lower half, transparent above. Sits between the backdrop and the actors",
+            "hidden": true
         },
         "foreground": {
             "kind": "foreground",
@@ -25,7 +26,8 @@
             "mood": [
                 "day"
             ],
-            "description": "the nearest plane: a trunk up the left, branches into the top corners, undergrowth along the bottom. The middle is empty on purpose — that is where the actors stand"
+            "description": "RETIRED (full-width layer, nothing to stack on now): the nearest plane: a trunk up the left, branches into the top corners, undergrowth along the bottom. The middle is empty on purpose — that is where the actors stand",
+            "hidden": true
         },
         "tree-oak": {
             "kind": "scenery",

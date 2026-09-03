@@ -49,6 +49,22 @@ if (existsSync(ROOT)) {
         if (!existsSync(manifestPath)) continue;
 
         const manifest = JSON.parse(readFileSync(manifestPath, "utf8").replace(/^﻿/, ""));
+
+        /*
+         * Retired art, kept on disk and out of the drawer.
+         *
+         * The show moved from painted stages to free objects on bare paper,
+         * which left the midground and foreground layers with nothing to do:
+         * they are full-width slices of one room, and a room is exactly what
+         * stopped being painted. Deleting them would throw away work that is
+         * fine in itself and might be wanted again; leaving them in the drawer
+         * offers an agent a parallax kit for a show that has no parallax.
+         *
+         * So: "hidden": true on a pack or a piece keeps the file served and
+         * takes the entry out of TROUPE. Reversing it is deleting one word.
+         */
+        if (manifest.hidden) continue;
+
         packs.push({
             id: entry,
             description: manifest.description ?? "",
@@ -59,6 +75,7 @@ if (existsSync(ROOT)) {
             ...(manifest.stylePrompt ? { stylePrompt: manifest.stylePrompt } : {}),
         });
         for (const [id, piece] of Object.entries(manifest.pieces ?? {})) {
+            if (piece.hidden) continue;
             if (!KINDS.has(piece.kind)) {
                 // Loudly, at generation time — a typo'd kind that was silently
                 // dropped would look like a missing piece three tools later.

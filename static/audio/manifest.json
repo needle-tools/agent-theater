@@ -1,9 +1,17 @@
 {
 	"version": 1,
-	"comment": "Cue names to files, for `sound` beats and per-stage music. Adding a track is an edit here, not a code change. Roles: bed = plays under a whole stage, cue = short musical sting, seam = plays between stages (build-up, hand-off, curtain), sfx = one-off effect. `skill` names the show skill a cue accompanies. Ids ending -1/-2/-3 are alternate takes of the same prompt; `take` groups them.",
+	"comment": "Cue names to files, for `sound` beats and per-stage music. Adding a track is an edit here, not a code change. Roles: bed = plays under a whole stage, cue = short musical sting, seam = plays between stages (build-up, hand-off, curtain), sfx = one-off effect. `skill` names the show skill a cue accompanies. Ids ending -1/-2/-3 are alternate takes of the same prompt; `take` groups them. `hidden` keeps a sound in the manifest and on disk but out of the app and out of the agent's catalogue — for a track being replaced rather than deleted. Delete the flag to bring it back.",
 	"sounds": {
+		"night-hush": {
+			"role": "bed",
+			"file": "/audio/music/night-hush.opus",
+			"seconds": 50.01,
+			"mood": ["night", "sparse", "still"],
+			"description": "Celesta notes struck far apart, low bowed strings sustaining, one high harmonic held above, deep quiet between. Cool and dark blue. No melody and no arrival, so it cross-fades into itself unheard."
+		},
 		"fairy-tale-ambience": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/fairy-tale-ambience.opus",
 			"seconds": 120.01,
 			"mood": ["happy", "gentle", "storybook"],
@@ -11,6 +19,7 @@
 		},
 		"fantasy-forest-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/fantasy-forest-1.opus",
 			"seconds": 120.01,
 			"bpm": 90,
@@ -20,6 +29,7 @@
 		},
 		"fantasy-forest-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/fantasy-forest-2.opus",
 			"seconds": 120.01,
 			"bpm": 90,
@@ -29,6 +39,7 @@
 		},
 		"superhero-triumph-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/superhero-triumph-1.opus",
 			"seconds": 120.01,
 			"bpm": 120,
@@ -38,6 +49,7 @@
 		},
 		"superhero-triumph-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/superhero-triumph-2.opus",
 			"seconds": 120.01,
 			"bpm": 120,
@@ -47,6 +59,7 @@
 		},
 		"superhero-triumph-3": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/superhero-triumph-3.opus",
 			"seconds": 120.01,
 			"bpm": 120,
@@ -56,6 +69,7 @@
 		},
 		"mystery-underscore-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/mystery-underscore-1.opus",
 			"seconds": 120.01,
 			"bpm": 115,
@@ -65,6 +79,7 @@
 		},
 		"mystery-underscore-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/mystery-underscore-2.opus",
 			"seconds": 120.01,
 			"bpm": 115,
@@ -74,6 +89,7 @@
 		},
 		"dialogue-strings": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/dialogue-strings.opus",
 			"seconds": 60.01,
 			"bpm": 70,
@@ -82,6 +98,7 @@
 		},
 		"dialogue-guitar": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/dialogue-guitar.opus",
 			"seconds": 60.01,
 			"bpm": 70,
@@ -90,6 +107,7 @@
 		},
 		"opening-musicbox-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/opening-musicbox-1.opus",
 			"seconds": 50.01,
 			"bpm": 90,
@@ -99,6 +117,7 @@
 		},
 		"opening-musicbox-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/opening-musicbox-2.opus",
 			"seconds": 50.01,
 			"bpm": 90,
@@ -108,6 +127,7 @@
 		},
 		"cosy-folk-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/cosy-folk-1.opus",
 			"seconds": 50.01,
 			"bpm": 85,
@@ -117,6 +137,7 @@
 		},
 		"cosy-folk-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/cosy-folk-2.opus",
 			"seconds": 50.01,
 			"bpm": 85,
@@ -126,6 +147,7 @@
 		},
 		"cosy-folk-3": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/cosy-folk-3.opus",
 			"seconds": 50.01,
 			"bpm": 85,
@@ -135,6 +157,7 @@
 		},
 		"villain-menacing-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/villain-menacing-1.opus",
 			"seconds": 60.01,
 			"bpm": 85,
@@ -144,6 +167,7 @@
 		},
 		"villain-menacing-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/villain-menacing-2.opus",
 			"seconds": 60.01,
 			"bpm": 85,
@@ -153,6 +177,7 @@
 		},
 		"villain-menacing-3": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/villain-menacing-3.opus",
 			"seconds": 60.01,
 			"bpm": 85,
@@ -162,6 +187,7 @@
 		},
 		"villain-menacing-4": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/villain-menacing-4.opus",
 			"seconds": 60.01,
 			"bpm": 85,
@@ -171,6 +197,7 @@
 		},
 		"dialogue-woodblock-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/dialogue-woodblock-1.opus",
 			"seconds": 60.01,
 			"bpm": 60,
@@ -180,6 +207,7 @@
 		},
 		"dialogue-woodblock-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/dialogue-woodblock-2.opus",
 			"seconds": 60.01,
 			"bpm": 60,
@@ -189,6 +217,7 @@
 		},
 		"comic-chase-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/comic-chase-1.opus",
 			"seconds": 60.01,
 			"bpm": 150,
@@ -198,6 +227,7 @@
 		},
 		"comic-chase-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/comic-chase-2.opus",
 			"seconds": 60.01,
 			"bpm": 150,
@@ -207,6 +237,7 @@
 		},
 		"sad-tender-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/sad-tender-1.opus",
 			"seconds": 120.01,
 			"bpm": 60,
@@ -216,6 +247,7 @@
 		},
 		"sad-tender-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/sad-tender-2.opus",
 			"seconds": 120.01,
 			"bpm": 60,
@@ -225,6 +257,7 @@
 		},
 		"sad-tender-3": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/sad-tender-3.opus",
 			"seconds": 120.01,
 			"bpm": 60,
@@ -234,6 +267,7 @@
 		},
 		"idle-ambient-1": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/idle-ambient-1.opus",
 			"seconds": 30.01,
 			"bpm": 40,
@@ -243,6 +277,7 @@
 		},
 		"idle-ambient-2": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/idle-ambient-2.opus",
 			"seconds": 30.01,
 			"bpm": 40,
@@ -252,6 +287,7 @@
 		},
 		"idle-ambient-3": {
 			"role": "bed",
+			"hidden": true,
 			"file": "/audio/music/idle-ambient-3.opus",
 			"seconds": 30.01,
 			"bpm": 40,

@@ -655,8 +655,19 @@ export class Collage {
 
     list(): Layer[] {
         const stage = this.activeStage;
-        if (stage) return castOf(stage, id => this.layers.get(id) ?? null);
-        return [...this.layers.values()].sort((a, b) => a.z - b.z);
+        if (!stage) return [...this.layers.values()].sort((a, b) => a.z - b.z);
+        /*
+         * The scene, ON the canvas — not instead of it. Scenes live at their
+         * own sections of one infinite sheet of paper: the cast stands where
+         * the scene places it, and everything else stays exactly where it is,
+         * so the camera can travel from one scene to the next and the world
+         * keeps existing between them. Hiding the rest used to be this
+         * method's whole job; now the camera does the focusing.
+         */
+        const cast = castOf(stage, id => this.layers.get(id) ?? null);
+        const inScene = new Set(cast.map(layer => layer.id));
+        const rest = [...this.layers.values()].filter(layer => !inScene.has(layer.id));
+        return [...cast, ...rest].sort((a, b) => a.z - b.z);
     }
 
     /** Every layer, whatever stage is showing. For anything that edits the cast. */
@@ -979,7 +990,21 @@ export class Collage {
             if (index >= 0) {
                 this.remember(`place-${Object.keys(patch).sort().join(",")}-${id}`);
                 const cast = [...stage.cast];
-                cast[index] = placeWith(cast[index], sizedPatch(patch, current));
+                /*
+                 * The canvas edits in world coordinates — it can only see
+                 * where things ARE — but an attached placement stores offsets
+                 * from its holder. Translate at the door, or dragging a held
+                 * basket would teleport it by the holder's whole position.
+                 */
+                const sized = sizedPatch(patch, current);
+                const holder = cast[index].on
+                    ? cast.find(member => member.id === cast[index].on)
+                    : null;
+                if (holder) {
+                    if (typeof sized.x === "number") sized.x -= holder.x;
+                    if (typeof sized.y === "number") sized.y -= holder.y;
+                }
+                cast[index] = placeWith(cast[index], sized);
                 this.stages.set(stage.id, { ...stage, cast });
                 const rest = withoutPlacement(patch);
                 if (Object.keys(rest).length) {

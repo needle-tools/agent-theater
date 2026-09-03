@@ -10,16 +10,27 @@
  *
  * Three decisions worth stating, because each of them costs something.
  *
- * **The model is fetched, never shipped.** Eighty-odd megabytes is not something
- * to put in front of somebody who came to move pictures around, so nothing is
- * downloaded until a cast member is actually given a voice. From then on the
- * browser's own cache holds it and every later visit is free.
+ * **The model is fetched, never shipped.** A hundred and fifty megabytes is not
+ * something to put in front of somebody who came to move pictures around, so
+ * nothing is downloaded until a cast member is actually given a voice. From then
+ * on the browser's own cache holds it and every later visit is free.
  *
- * **One quantisation on every device.** q8 on the GPU and q8 on the CPU, rather
- * than the full-precision weights WebGPU would otherwise prefer. A
- * device-dependent choice means a device-dependent download, so anybody whose
- * first attempt fell back from GPU to CPU would fetch the model twice. Better
- * slightly slower everywhere than eighty megabytes twice anywhere.
+ * **fp16, which is not the smallest.** The first version of this shipped q8 at
+ * 88MB, on the reasoning that the download is what a person actually feels. It
+ * was measured, and it was wrong twice over. Int8 kernels barely exist on
+ * WebGPU, so most of the graph fell back to the CPU and generation ran at half
+ * of real time — a forty-line play would have taken minutes to prepare before
+ * the curtain went up. Worse, the output was audibly damaged: recognisably
+ * speech, recognisably not English. Measured on the same machine, per four
+ * seconds of audio:
+ *
+ *     q8      88MB   0.5x real time, and mangled
+ *     q4f16  147MB   5.9x real time
+ *     fp16   156MB   9x real time
+ *
+ * fp16 costs nine megabytes more than q4f16 and is half again as fast, with less
+ * quantisation between the model and what you hear. Sixty-eight megabytes more
+ * than the broken one, for the difference between a feature and a rumour of one.
  *
  * **Lines are learned before the show, not during it.** The timetable a
  * narrating agent works from is built out of beat durations, and a spoken line
@@ -58,6 +69,18 @@ export interface Voice {
  * instead of bare ids. What is here covers the parts a play actually needs: two
  * or three that can carry a lead, a range of ages and weights around them, and
  * a handful with enough character to be somebody in particular.
+ *
+ * **Every one of them is English**, and that is a property of the list rather
+ * than a coincidence. Kokoro names its voices by language: `a` is American, `b`
+ * is British, and the model also ships `j` and `z` voices that speak Japanese
+ * and Mandarin. None of those are here, and an id outside this list is refused
+ * rather than passed through — so a play cannot be cast into a language it did
+ * not ask for by a typo.
+ *
+ * Worth knowing because it has been mistaken for the opposite: a voice from this
+ * list speaking something that sounds foreign is not a language setting gone
+ * wrong, it is the model being too heavily quantised to form English. See the
+ * dtype note at the top.
  */
 export const VOICES: Voice[] = [
     { id: "af_heart", name: "Heart", accent: "american", gender: "female", grade: "A",
@@ -135,11 +158,20 @@ export type VoiceState =
     | "working"
     | "ready"
     /**
-     * Tried and cannot. No WebGPU and no WebAssembly, a blocked network, a
-     * browser too old — all the same from here, and all recoverable in the only
-     * way that matters: the show still runs, with bubbles and no voices.
+     * Tried and cannot. No WebGPU, a blocked network, a browser too old — all
+     * the same from here, and all recoverable in the only way that matters: the
+     * show still runs, with bubbles and no voices.
      */
-    | "unavailable";
+    | "unavailable"
+    /**
+     * Switched off in this build. Nothing was tried and nothing failed.
+     *
+     * Kept distinct from "unavailable" because the two want opposite things
+     * said about them. Unavailable is a fault worth reporting and possibly
+     * worth working around; off is a decision, and reporting it as a failure
+     * would send somebody hunting for a broken model that was never asked for.
+     */
+    | "off";
 
 export interface Voices {
     /**
@@ -164,7 +196,7 @@ export interface Voices {
      * Called the moment somebody is first given a voice, which is the earliest
      * honest signal that this play intends to be heard. Waiting until the show
      * starts would put the whole download inside the pause before the first
-     * scene, where it is eighty megabytes of nothing happening.
+     * scene, where it is a hundred and fifty megabytes of nothing happening.
      */
     warm(): void;
     /** Drop every spoken line and release its audio. */
@@ -185,6 +217,32 @@ export const MUTE: Voices = {
     trouble: null,
 };
 
+/** The same, but saying it was never switched on rather than that it broke. */
+const SWITCHED_OFF: Voices = { ...MUTE, state: "off" };
+
+/**
+ * Whether this build loads a speech model at all.
+ *
+ * Off, and off deliberately rather than by neglect. Kokoro works — it
+ * synthesises correct English at nine times real time on WebGPU — but it never
+ * reached the ear reliably enough to keep switched on, and another speech system
+ * is likely to replace it. Rather than delete a working implementation on the
+ * strength of "probably", it is turned off here, in one place, with everything
+ * around it left standing.
+ *
+ * What still works with this false: every bubble on the page, sequenced through
+ * the one prompter, timed by reading time. That was always the fallback path and
+ * it is the only path now. Nothing is downloaded, nothing is inferred, and no
+ * console has anything to say about ONNX.
+ *
+ * To turn it back on, set this true. To put a different engine behind it,
+ * implement `Voices` — five methods, all of them small — and return it from
+ * `createVoices`; nothing outside this file knows or cares which model is
+ * talking. Parts stay cast with their voices in the meantime, so a document
+ * saved today speaks when a voice system arrives.
+ */
+export const SPEECH_ENABLED = false;
+
 /**
  * The model, and the quantisation.
  *
@@ -192,7 +250,26 @@ export const MUTE: Voices = {
  * embeddings baked in, which is where every voice above comes from.
  */
 const MODEL = "onnx-community/Kokoro-82M-v1.0-ONNX";
-const DTYPE = "q8";
+/**
+ * Half precision. See the note at the top of this file for why not smaller —
+ * the smaller ones are slower here, and the smallest one does not speak English.
+ */
+const DTYPE = "fp16";
+
+/**
+ * How many spoken lines to keep before dropping the oldest.
+ *
+ * Each one is a blob of raw audio held by an object URL, and an object URL is
+ * not collected while it exists — so a cache with no bound is a leak with a
+ * pleasant name. A play rewritten a dozen times across an afternoon is easily a
+ * few hundred lines, and this is generous next to a single scene while still
+ * being a few megabytes rather than an open-ended number of them.
+ *
+ * Oldest first, which is the right order here: a line dropped is a line
+ * re-synthesised in a fraction of a second, and the ones being dropped are from
+ * drafts of scenes nobody is going to play again.
+ */
+const KEEP = 240;
 
 /**
  * Lines are spoken one at a time.
@@ -203,6 +280,9 @@ const DTYPE = "q8";
  * it looks like either way.
  */
 export function createVoices(): Voices {
+    // Before the window check, so it reads as the decision it is rather than as
+    // one more environment that happens not to support speech.
+    if (!SPEECH_ENABLED) return SWITCHED_OFF;
     if (typeof window === "undefined") return MUTE;
 
     const spoken = new Map<string, Spoken>();
@@ -226,15 +306,35 @@ export function createVoices(): Voices {
                 // play has a voice in it.
                 const { KokoroTTS } = await import("kokoro-js");
                 /*
-                 * WebGPU if the browser has it, WebAssembly if not.
+                 * WebGPU or nothing.
                  *
-                 * Tried in that order rather than detected, because
-                 * `navigator.gpu` existing is not the same as an adapter being
-                 * available to us — a laptop on integrated graphics with a
-                 * blocklisted driver reports the API and then fails to give out
-                 * a device. The fallback is the detection.
+                 * Asked for properly rather than sniffed: `navigator.gpu`
+                 * existing is not the same as an adapter being handed out — a
+                 * laptop on a blocklisted driver reports the API and then
+                 * refuses the device — so the request IS the detection.
+                 *
+                 * And no WebAssembly fallback, which is a deliberate removal.
+                 * There was one, and measuring it showed it to be a trap: on the
+                 * CPU this model runs at under half of real time, so the
+                 * "fallback" spends a hundred and fifty megabytes of somebody's
+                 * connection to arrive at a play that takes longer to prepare
+                 * than to watch. Refusing is the kinder answer, and the show is
+                 * built to run silently — bubbles, no voices — without anything
+                 * else changing.
                  */
-                const device = "gpu" in navigator ? "webgpu" : "wasm";
+                // Typed here rather than by pulling in @webgpu/types: one
+                // optional property and one method is the whole of what this
+                // file knows about WebGPU, and a dependency for that would be
+                // larger than the thing it describes.
+                const gpu = (navigator as Navigator & {
+                    gpu?: { requestAdapter(): Promise<unknown | null> };
+                }).gpu;
+                const adapter = gpu ? await gpu.requestAdapter().catch(() => null) : null;
+                if (!adapter) {
+                    throw new Error(
+                        "this browser has no WebGPU, and on the CPU the voices generate slower than " +
+                        "they speak — so the play runs with bubbles and no speech");
+                }
                 /*
                  * Narrowed to what this file uses, and the voice id widened
                  * back to a string on the way through.
@@ -246,14 +346,8 @@ export function createVoices(): Voices {
                  * call above this. A union at the boundary would only move the
                  * cast, not remove it.
                  */
-                const loaded = async (on: "webgpu" | "wasm") =>
-                    await KokoroTTS.from_pretrained(MODEL, { dtype: DTYPE, device: on }) as unknown as KokoroLike;
-                try {
-                    tts = await loaded(device);
-                } catch (error) {
-                    if (device === "wasm") throw error;
-                    tts = await loaded("wasm");
-                }
+                tts = await KokoroTTS.from_pretrained(
+                    MODEL, { dtype: DTYPE, device: "webgpu" }) as unknown as KokoroLike;
                 state = "ready";
                 return tts;
             } catch (error) {
@@ -280,6 +374,15 @@ export function createVoices(): Voices {
             url: URL.createObjectURL(blob),
             seconds: audio.audio.length / audio.sampling_rate,
         });
+        // A Map iterates in insertion order, so the first key is the oldest.
+        // Revoked as it goes, because deleting the entry alone would drop the
+        // only reference to a URL that keeps its blob alive regardless.
+        while (spoken.size > KEEP) {
+            const oldest = spoken.keys().next();
+            if (oldest.done) break;
+            URL.revokeObjectURL(spoken.get(oldest.value)!.url);
+            spoken.delete(oldest.value);
+        }
     };
 
     return {
@@ -317,7 +420,15 @@ export function createVoices(): Voices {
                         // a voice, not a play without a soundtrack. It falls
                         // back to reading time and a silent bubble, which is
                         // where every line was a moment ago.
+                        //
+                        // Said out loud as well as remembered. Inference can
+                        // fail per-line long after the model loaded happily —
+                        // WebGPU sessions in particular create fine and then
+                        // throw on generate — and without this the whole
+                        // failure mode is "no audio, no errors, forever".
                         trouble = error instanceof Error ? error.message : String(error);
+                        console.warn(
+                            `[voice] could not speak "${line.text.slice(0, 40)}" as ${line.voice}:`, error);
                     }
                 }
             });

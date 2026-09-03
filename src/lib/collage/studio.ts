@@ -34,6 +34,13 @@ import {
     BLACKOUT_MS, creditLines, creditsDuration, creditsFor, performers, TITLE_MS,
     WAIT_FOR_AUDIENCE_MS, type Billboard,
 } from "./billboard.js";
+
+/**
+ * How long the camera takes to find the next scene when the show plays in the
+ * open. Matches the canvas's SCENE_FRAMING_MS plus its settle — the first
+ * beat should start after the glide, not during it.
+ */
+const TRAVEL_MS = 950;
 import { plan as planScene, type Plan } from "./perform.js";
 import {
     DEFAULT_HOLD, linesOf, MIN_SCENE_MS, sceneBeats, spokenBy, type ShowTiming,
@@ -589,9 +596,24 @@ export function createStudio(collage = new Collage()): CollageStudio {
         // up; every later boundary — including continuing a held show — fades
         // through darkness, with the set swapped while nobody can see it.
         let opening = !resuming;
+        /*
+         * Scene changes travel; they do not cut. The scenes live at their own
+         * sections of one canvas, so the camera can glide from the last one to
+         * the next in the open — the journey across the paper IS the scene
+         * change, and it shows the audience that the world is one place.
+         *
+         * The blackout survives for exactly one case: two scenes that share a
+         * cast member. A shared piece teleports from one placement to the
+         * other the instant the scene switches, and that jump must happen in
+         * the dark or the audience watches somebody blink across the world.
+         */
+        let previous = resuming ? collage.activeStage : null;
         for (const stage of stages) {
             if (!wanted) break;
-            if (!opening) {
+            const before = previous;
+            const dark = !opening && !!before && before.id !== stage.id &&
+                stage.cast.some(member => before.cast.some(other => other.id === member.id));
+            if (dark) {
                 billboard = { kind: "blackout", duration: BLACKOUT_MS };
                 announceShow();
                 await new Promise(resolve => setTimeout(resolve, BLACKOUT_MS * 0.45));
@@ -616,12 +638,17 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 });
             }
 
-            if (!opening) {
+            if (dark) {
                 await new Promise(resolve => setTimeout(resolve, BLACKOUT_MS * 0.55));
                 billboard = null;
                 announceShow();
+            } else if (!opening) {
+                // In the open, the first beat waits for the camera to arrive:
+                // the glide is the scene change, and it deserves its moment.
+                await new Promise(resolve => setTimeout(resolve, TRAVEL_MS));
             }
             opening = false;
+            previous = stage;
 
             const { plan } = planScene(beats, timingsFor(stage));
             const began = Date.now();
@@ -635,6 +662,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             await new Promise(resolve => setTimeout(resolve, Math.max(held, shortfall)));
         }
 
+        void previous;
         if (hold && wanted) {
             // The pause between scenes of a play still being written: running
             // stays set so the lights stay down and the wings stay masked, the

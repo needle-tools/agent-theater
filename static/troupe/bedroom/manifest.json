@@ -1,6 +1,6 @@
 {
     "name": "bedroom",
-    "description": "A bedroom in felt and paper, as three depth planes. Layers only — there are no loose props in this pack yet.",
+    "description": "RETIRED — hidden from the drawer. Files are still here and still served; delete `hidden` in this manifest to bring the pack back. A bedroom in felt and paper, as three depth planes. Layers only — there are no loose props in this pack yet.",
     "stylePrompt": "NOTE — THIS PACK WAS MADE THE OLD WAY. Its midground and foreground are full-width strips, which have two hard vertical edges and show them the moment the camera pans or pulls back. Do not generate more layers like this. New layers are SEGMENTS of a band: ask theater_art_prompt for kind \"layers\", which returns 25 pieces with open ragged ends that butt together into a band of any width. The backdrop below is still made as one wide picture, but with this rule added:\n\n\n\nCRITICAL — THE CAMERA MOVES ACROSS THIS. Keep the outer fifth of every edge — left, right, top and bottom — plain and empty: a continuation of the sky and the ground band, nothing else. No feature, no shape and no change of horizon may sit near an edge, because the edges are cropped at some camera positions and revealed at others. The sky colour must run all the way to the top edge and to both side edges, so that a camera passing the picture still finds sky rather than a hole.\n\n\n\nSTYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe theme is: a bedroom. All three strips are the same room, at the same time of day.",
     "pieces": {
         "backdrop": {
@@ -19,7 +19,8 @@
                 "day",
                 "cosy"
             ],
-            "description": "the furniture line: a patchwork bed centre, a nightstand and lamp left, a nightstand with a plant right. Transparent above, so the wall shows through"
+            "description": "RETIRED (full-width layer, nothing to stack on now): the furniture line: a patchwork bed centre, a nightstand and lamp left, a nightstand with a plant right. Transparent above, so the wall shows through",
+            "hidden": true
         },
         "foreground": {
             "kind": "foreground",
@@ -28,7 +29,9 @@
                 "day",
                 "cosy"
             ],
-            "description": "the nearest plane: a tied navy curtain down the left, a wardrobe with a hanging robe down the right, floor along the bottom. The middle is empty on purpose — that is where the actors stand"
+            "description": "RETIRED (full-width layer, nothing to stack on now): the nearest plane: a tied navy curtain down the left, a wardrobe with a hanging robe down the right, floor along the bottom. The middle is empty on purpose — that is where the actors stand",
+            "hidden": true
         }
-    }
+    },
+    "hidden": true
 }

@@ -14,7 +14,8 @@ import { MOVES, plan as planScene, type Beat } from "./perform.js";
 import { creditsFor } from "./billboard.js";
 import { linesOf, spokenBy } from "./show.js";
 import { findSound, soundCatalogue, soundNames } from "./audio.js";
-import { findVoice, voiceCatalogue, voiceNames } from "./voice.js";
+import { SPEECH_ENABLED, findVoice, voiceCatalogue, voiceNames } from "./voice.js";
+import { findClip, listClips } from "./clips.js";
 import { prompter } from "./speech.js";
 import { ENTRANCES, PLANES, type Placement, type Stage } from "./stage.js";
 import type { Layer } from "./model.js";
@@ -165,6 +166,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
     };
 
     const describeMember = (placement: Placement, floor: Layer | null): string => {
+        // A held thing's x/y are offsets from its holder, and reporting them
+        // as stage fractions would be reporting nonsense with confidence.
+        if (placement.on) {
+            return `${placement.id}${placement.as ? ` as ${placement.as}` : ""} ` +
+                `(held by ${placement.on})`;
+        }
         const where = relativeTo(placement, floor);
         const name = `${placement.id}${placement.as ? ` as ${placement.as}` : ""}`;
         const at = where
@@ -384,6 +391,27 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 // agent that reported success would be reporting the wrong
                 // thing entirely.
                 const unseen = typeof document !== "undefined" && document.visibilityState === "hidden";
+                /*
+                 * Whether anybody in this show can be heard, and whether that
+                 * was the intention.
+                 *
+                 * Same rule as the music warning below it: an agent narrating
+                 * "and the wolf growls" over a silent bubble is describing a
+                 * performance that is not happening. The two cases are worth
+                 * separating — a cast nobody gave voices to is a choice not yet
+                 * made, and a cast with voices that will not load is a failure.
+                 */
+                const played = wanted.length
+                    ? wanted.map(id => collage.getStage(id)).filter((s): s is Stage => !!s)
+                    : collage.listStages();
+                const voiced = played.some(stage => stage.cast.some(member => member.voice));
+                // Off is not broken, and the two get told apart before anything
+                // is said about either. Nagging an agent to cast voices in a
+                // build that has no speech would be asking for work that cannot
+                // pay off, and calling it a failure would send it looking for a
+                // fault that does not exist.
+                const speechOff = prompter.voices.state === "off";
+                const brokenVoices = voiced && prompter.voices.state === "unavailable";
                 return ok(
                     [`The show is running — ${timings.length} scene(s), ${(duration / 1000).toFixed(1)}s. ` +
                      `Narrate along with it; do not wait for it.`,
@@ -397,6 +425,24 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                          ? [`NOBODY CAN SEE THIS: the theatre tab is in the background or minimised, so ` +
                             `the show is playing where the person is not looking. Ask them to bring it ` +
                             `to the front — then show_stop and show_play again from the start.`]
+                         : []),
+                     ...(speechOff
+                         ? [`THE CAST DOES NOT SPEAK: this build has no speech engine, so every line ` +
+                            `appears in a bubble and none of them is heard. Nothing is wrong and there ` +
+                            `is nothing to switch on. Write the lines as you would anyway — they are ` +
+                            `read, and they still set the pace of the scene — but do not narrate as ` +
+                            `though the characters are audible.`]
+                         : !voiced
+                         ? [`NOBODY HAS A VOICE: every line will appear in a bubble and none of them ` +
+                            `will be heard. Give each part a "voice" in stage_cast — different voices ` +
+                            `for different parts — and the page speaks the lines itself. Until then, ` +
+                            `do not narrate as though the characters are audible.`]
+                         : []),
+                     ...(brokenVoices
+                         ? [`THE VOICES FAILED TO LOAD: parts are cast with voices but the speech model ` +
+                            `could not start${prompter.voices.trouble ? ` — ${prompter.voices.trouble}` : ""}. ` +
+                            `The show runs with bubbles and no speech. Nothing to retry; report it plainly ` +
+                            `rather than narrating lines nobody can hear.`]
                          : []),
                      ...(silent
                          ? [`NO SOUND YET: the browser refuses audio until the person has clicked or ` +
@@ -440,7 +486,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "work out. The scene KEEPS its script, so show_play can run it again as part of the whole " +
                 "show — pass rehearse:false to write it without playing it now. " +
                 `Moves: ${MOVES.join(", ")}. "walk" and "jump" take a "to" and leave the layer there; ` +
-                "everything else finishes exactly where it started.",
+                "everything else finishes exactly where it started. A beat's \"take\" picks another " +
+                "cast member up — it rides along through every later move until a \"drop\" lets it fall.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -456,7 +503,20 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             type: "object",
                             properties: {
                                 id: { type: "string", description: "Who this beat is about." },
-                                do: { type: "string", enum: [...MOVES], description: "What they do." },
+                                do: {
+                                    type: "string",
+                                    // No enum: recorded clips extend the move
+                                    // vocabulary after registration, and an
+                                    // enum stamped at load time would refuse
+                                    // every clip recorded since.
+                                    description:
+                                        `What they do: ${MOVES.join(", ")} — or a hand-recorded move ` +
+                                        `as "clip:<name>"` +
+                                        (listClips().length
+                                            ? `; recorded so far: ${listClips()
+                                                .map(clip => `clip:${clip.name}`).join(", ")}.`
+                                            : `.`),
+                                },
                                 say: { type: "string", description: "A line, in a bubble above them." },
                                 sound: {
                                     type: "string",
@@ -500,6 +560,20 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         },
                                     },
                                     required: ["on"],
+                                },
+                                take: {
+                                    type: "string",
+                                    description:
+                                        "The id of a cast member this character picks up. It animates " +
+                                        "into their hand and then belongs to them — walks, jumps and " +
+                                        "turns carry it along — until a \"drop\". A character holding " +
+                                        "a basket, sitting on a vehicle, carrying a lantern: all this.",
+                                },
+                                drop: {
+                                    type: "string",
+                                    description:
+                                        "The id of a held cast member to let go of. It falls to the " +
+                                        "ground line and stays where it lands.",
                                 },
                                 becomes: {
                                     type: "string",
@@ -595,10 +669,61 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                  * agent narrates from and a timeline of reading times for lines
                  * that will be spoken is a timeline that will not be kept.
                  */
-                const scripted: Stage = { ...stage, script: beats };
+                /*
+                 * Hands are checked here because only the stage knows them. A
+                 * take of something not in the scene, of the backdrop, or a
+                 * chain (holding a thing that holds a thing) would each fail
+                 * silently downstream in a different confusing way; refusing
+                 * them by name is the whole cost of a paragraph.
+                 */
+                const handErrors: string[] = [];
+                const inCast = new Set(stage.cast.map(member => member.id));
+                for (const [index, beat] of beats.entries()) {
+                    for (const [field, target] of [["take", str(beat?.take)], ["drop", str(beat?.drop)]] as const) {
+                        if (!target) continue;
+                        if (!inCast.has(target)) {
+                            handErrors.push(`beat ${index + 1}: "${target}" is not in this scene's cast`);
+                        } else if (target === stage.backdrop) {
+                            handErrors.push(`beat ${index + 1}: the backdrop is the room, not a prop`);
+                        } else if (field === "take" && stage.cast.some(member => member.on === target)) {
+                            handErrors.push(
+                                `beat ${index + 1}: "${target}" is itself holding something — ` +
+                                `one level only, no chains`);
+                        }
+                    }
+                }
+                if (handErrors.length) {
+                    return fail(["The scene has problems:", ...handErrors].join("\n"));
+                }
+
+                // Recorded moves: the plan carries them blind, so existence
+                // and true length are settled here, where the drawer is.
+                const unknownClips = [...new Set(beats
+                    .map(b => (typeof b?.do === "string" && b.do.startsWith("clip:") ? b.do.slice(5) : ""))
+                    .filter(Boolean))]
+                    .filter(name => !findClip(name));
+                if (unknownClips.length) {
+                    const have = listClips().map(clip => `clip:${clip.name}`);
+                    return fail(
+                        `No recorded clip called ${unknownClips.map(n => `"${n}"`).join(", ")}. ` +
+                        (have.length ? `There is: ${have.join(", ")}.` : `Nothing has been recorded ` +
+                        `on this browser yet — clips are made by the person, in the menu.`));
+                }
+                // A clip beat without a duration takes the recording's own
+                // length: the gesture was performed at a speed, and that speed
+                // is part of it.
+                const timed = beats.map(beat => {
+                    if (typeof beat?.do !== "string" || !beat.do.startsWith("clip:") || beat.duration) {
+                        return beat;
+                    }
+                    const clip = findClip(beat.do.slice(5));
+                    return clip ? { ...beat, duration: clip.seconds * 1000 } : beat;
+                });
+
+                const scripted: Stage = { ...stage, script: timed };
                 await prompter.expect(linesOf(scripted));
 
-                const { plan, problems } = planScene(beats, spokenBy(scripted, prompter.voices));
+                const { plan, problems } = planScene(timed, spokenBy(scripted, prompter.voices));
                 if (problems.length) {
                     return fail(["The scene has problems:", ...problems.map(
                         p => (p.index >= 0 ? `beat ${p.index + 1}: ${p.reason}` : p.reason))].join("\n"));
@@ -634,7 +759,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 // another and has to know what each of them does; a script that
                 // only existed at the moment it was sent could be performed
                 // once and never again, which is a rehearsal, not a play.
-                collage.updateStage(stage.id, { script: beats });
+                collage.updateStage(stage.id, { script: timed });
                 studio.save();
 
                 // Deliberately not awaited: a scene runs for seconds and the
@@ -698,8 +823,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "Create a stage: a named scene with a backdrop and a cast. A stage does not own its layers — " +
                 "it records where they stand while it plays — so one character can appear in two scenes at " +
                 "different places without being duplicated, and restyling it changes it in both. Pass an " +
-                "existing id to rename a stage or change its backdrop. Showing a stage makes the canvas show " +
-                "that scene alone; everything else stays on the canvas, just not on this stage.",
+                "existing id to rename a stage or change its backdrop. Scenes live at their own sections of " +
+                "one infinite canvas: showing a stage places its cast and points the camera there, while " +
+                "everything else stays put on the paper — so build each scene at its own spot, and a " +
+                "show becomes the camera travelling from one to the next.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -709,7 +836,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         type: "string",
                         description:
                             "Layer id to draw behind everything. It never acts and never enters — it is the " +
-                            "room, not somebody in it. Pass 'none' to remove it.",
+                            "room, not somebody in it. Pass 'none' to remove it. A scene WITHOUT a backdrop " +
+                            "plays in the open on the bare paper: the back plane becomes distant silhouettes " +
+                            "and the front plane dims, so depth still reads without a painted room.",
                     },
                     music: {
                         type: "string",
@@ -878,13 +1007,23 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                 voice: {
                                     type: "string",
                                     enum: voiceNames(),
-                                    description:
-                                        "Which voice speaks this part's lines aloud, in the page itself. " +
-                                        "Leave it out and the part is silent — its lines still appear in " +
-                                        "a bubble. GIVE DIFFERENT PARTS DIFFERENT VOICES: a whole cast on " +
-                                        "one voice is a table read, not a play. Pick by what the part is, " +
-                                        "not by what is first in the list:\n" +
-                                        voiceCatalogue().map(line => `  ${line}`).join("\n"),
+                                    description: SPEECH_ENABLED
+                                        ? "Which voice speaks this part's lines aloud, in the page itself. " +
+                                          "Leave it out and the part is silent — its lines still appear in " +
+                                          "a bubble. GIVE DIFFERENT PARTS DIFFERENT VOICES: a whole cast on " +
+                                          "one voice is a table read, not a play. Pick by what the part is, " +
+                                          "not by what is first in the list:\n" +
+                                          voiceCatalogue().map(line => `  ${line}`).join("\n")
+                                        // Said plainly rather than by removing the field. The casting is
+                                        // still worth recording — it is part of who the character is, it
+                                        // survives a save, and it will be heard the day a speech engine
+                                        // lands — but an agent told a part will be "spoken aloud" when
+                                        // nothing will be is an agent that narrates a silent play.
+                                        : "Which voice WOULD say this part's lines. NOTHING IS SPOKEN ALOUD " +
+                                          "in this build: every line appears in a bubble and is read. Setting " +
+                                          "this is optional and costs nothing — it is remembered with the " +
+                                          "casting — but it changes nothing you or the audience can hear, so " +
+                                          "do not narrate as though the characters have voices.",
                                 },
                             },
                             required: ["id"],
@@ -1020,7 +1159,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                  * set still has to be built and the scene still has to be
                  * written. So the model starts downloading now, on the one
                  * signal that is both honest and early. Not awaited: nothing
-                 * here needs it, and eighty megabytes is not something a
+                 * here needs it, and a hundred and fifty megabytes is not something a
                  * casting call should block on.
                  */
                 if (next.cast.some(member => member.voice)) prompter.voices.warm();
@@ -1089,7 +1228,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     const floor = stage.backdrop ? collage.get(stage.backdrop) : null;
                     if (!floor) return [];
                     return stage.cast
-                        .filter(m => m.id !== stage.backdrop)
+                        .filter(m => m.id !== stage.backdrop && !m.on)
                         .filter(m => {
                             const where = relativeTo(m, floor);
                             return where && (where.feet < 0.6 || where.feet > 1.15);

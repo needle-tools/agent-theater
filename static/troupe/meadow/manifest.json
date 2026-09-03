@@ -19,7 +19,8 @@
                 "day",
                 "gentle"
             ],
-            "description": "the hill line: layered green slopes and bushes across the lower half, transparent above"
+            "description": "RETIRED (full-width layer, nothing to stack on now): the hill line: layered green slopes and bushes across the lower half, transparent above",
+            "hidden": true
         },
         "foreground": {
             "kind": "foreground",
@@ -28,7 +29,8 @@
                 "day",
                 "gentle"
             ],
-            "description": "the nearest plane: a navy trunk with leaves down the left, foliage down the right, and a band of grass and yellow flowers along the bottom. The middle is empty on purpose"
+            "description": "RETIRED (full-width layer, nothing to stack on now): the nearest plane: a navy trunk with leaves down the left, foliage down the right, and a band of grass and yellow flowers along the bottom. The middle is empty on purpose",
+            "hidden": true
         }
     }
 }

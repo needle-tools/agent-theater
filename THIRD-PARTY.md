@@ -12,6 +12,7 @@ reading the files.
 | --- | --- | --- | --- |
 | VTracer 1.0.0-alpha.4 (`@visioncortex/vtracer`), vendored with two mechanical edits | `src/lib/vendor/vtracer/` | MIT OR Apache-2.0 | `src/lib/vendor/vtracer/LICENSE` |
 | SvelteKit, Svelte, Vite, Vitest, TypeScript | `devDependencies` | MIT | in `node_modules`, not redistributed |
+| `kokoro-js` (and, through it, `@huggingface/transformers` and `onnxruntime-web`) | `dependencies` | Apache-2.0 (ONNX Runtime: MIT) | in `node_modules`, bundled into a lazily-loaded chunk |
 | `@needle-tools/engine`, `@needle-tools/three` | `dependencies` | Needle Tools | first-party |
 
 The vendored VTracer is the only third-party code checked into this repository
@@ -76,12 +77,37 @@ Neither of these makes the page's *output* free of anybody's rights: what an
 image model returns is between the person and whoever they asked. It keeps this
 page from being the one doing the asking.
 
+### Model weights fetched at runtime
+
+**Currently switched off.** `SPEECH_ENABLED` in `src/lib/collage/voice.ts` is
+false, which makes the dynamic import unreachable — the bundler drops the whole
+library, and no build fetches any weights. Everything below describes what
+happens when it is turned back on, and is kept because the code is still there
+and the switch is one line.
+
+The cast's voices are [Kokoro 82M](https://huggingface.co/hexgrad/Kokoro-82M),
+Apache-2.0, in the ONNX conversion published as
+[`onnx-community/Kokoro-82M-v1.0-ONNX`](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX).
+The half-precision build is used — about 156 MB — because the smaller quantised
+ones are both slower and, at int8, audibly broken. The weights are downloaded
+from the Hugging Face CDN the first time a part is cast with a voice and then
+held in the browser's cache. Nothing is committed
+here and nothing is redistributed by this repository — the same arrangement as
+the Google Fonts above, and it carries the same caveat: a person who runs this
+page reaches a third-party CDN, and the licence that matters is the model's
+rather than this project's.
+
+The voices are the model's own speaker embeddings. They are synthetic and are
+not clones of identifiable people.
+
 ## Services
 
 Background removal and sheet cutting call Needle-operated endpoints
-(`remove-background-*.needle.run`, `fastcut.needle.tools`). No model weights are
-shipped or run locally, so whatever those models are licensed under is a
-question about those services rather than about this repository.
+(`remove-background-*.needle.run`, `fastcut.needle.tools`). Their weights are
+not shipped or run locally, so whatever those models are licensed under is a
+question about those services rather than about this repository. Speech is the
+exception and goes the other way — it runs in the page, which is why it has a
+row of its own above.
 
 ## Brand
 

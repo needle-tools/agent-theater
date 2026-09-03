@@ -1,6 +1,6 @@
 {
     "name": "cave",
-    "description": "A cave in torn paper, as three depth planes. Layers only — no loose props in this pack.",
+    "description": "RETIRED — hidden from the drawer. Files are still here and still served; delete `hidden` in this manifest to bring the pack back. A cave in torn paper, as three depth planes. Layers only — no loose props in this pack.",
     "stylePrompt": "NOTE — THIS PACK WAS MADE THE OLD WAY. Its midground and foreground are full-width strips, which have two hard vertical edges and show them the moment the camera pans or pulls back. Do not generate more layers like this. New layers are SEGMENTS of a band: ask theater_art_prompt for kind \"layers\", which returns 25 pieces with open ragged ends that butt together into a band of any width. The backdrop below is still made as one wide picture, but with this rule added:\n\n\n\nCRITICAL — THE CAMERA MOVES ACROSS THIS. Keep the outer fifth of every edge — left, right, top and bottom — plain and empty: a continuation of the sky and the ground band, nothing else. No feature, no shape and no change of horizon may sit near an edge, because the edges are cropped at some camera positions and revealed at others. The sky colour must run all the way to the top edge and to both side edges, so that a camera passing the picture still finds sky rather than a hole.\n\n\n\nSTYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another. ABSOLUTELY NOT: digital painting, watercolour, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe theme is: a cave. All three strips are the same cave, lit the same way.",
     "pieces": {
         "backdrop": {
@@ -18,7 +18,8 @@
             "mood": [
                 "underground"
             ],
-            "description": "the rock line: olive, mustard and red formations rising across the lower half, transparent above. The busiest midground of any pack"
+            "description": "RETIRED (full-width layer, nothing to stack on now): the rock line: olive, mustard and red formations rising across the lower half, transparent above. The busiest midground of any pack",
+            "hidden": true
         },
         "foreground": {
             "kind": "foreground",
@@ -26,7 +27,9 @@
             "mood": [
                 "underground"
             ],
-            "description": "the nearest plane: dark navy rock down both edges and stalactites hanging from the top, floor along the bottom. The middle is empty on purpose"
+            "description": "RETIRED (full-width layer, nothing to stack on now): the nearest plane: dark navy rock down both edges and stalactites hanging from the top, floor along the bottom. The middle is empty on purpose",
+            "hidden": true
         }
-    }
+    },
+    "hidden": true
 }

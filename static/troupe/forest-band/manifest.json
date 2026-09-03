@@ -1,6 +1,6 @@
 {
     "name": "forest-band",
-    "description": "Forest scenery as BAND SEGMENTS rather than strips — 13 midground and 12 foreground pieces, each with open ragged ends so copies butt together into a band as wide as the camera travels. This is what replaces the fixed-width layers in the `forest` pack: place several side by side, repeat as needed, and slide the two bands at different speeds for parallax. Drawn more finely than the flat torn-paper packs, so it reads as a slightly different hand.",
+    "description": "RETIRED — the show plays on bare paper now, so a kit of band segments has nothing to stack on. Files are still here and still served; delete `hidden` in this manifest to bring the pack back. Forest scenery as BAND SEGMENTS rather than strips — 13 midground and 12 foreground pieces, each with open ragged ends so copies butt together into a band as wide as the camera travels. This is what replaces the fixed-width layers in the `forest` pack: place several side by side, repeat as needed, and slide the two bands at different speeds for parallax. Drawn more finely than the flat torn-paper packs, so it reads as a slightly different hand.",
     "stylePrompt": "STYLE — torn and cut paper collage. Every shape is coloured paper cut or torn by hand and laid\nflat, with visible deckle edges, paper grain and a dry speckled texture. Seen STRAIGHT ON, flat,\nfrom the front. No vanishing point, no perspective, no lighting, no gradients, no cast shadows.\nPalette: muted, warm and mid-century — moss and olive green, deep navy instead of black, brick\nred, cream, dusty rose, mustard, soft pink.\n\nThe theme is: a forest.\n\nA 5 × 5 sheet of 25 pieces, and these pieces are THE PARTS OF TWO SCENERY BANDS, not separate\nobjects. They are laid side by side, repeated and overlapped, to build a band as wide as the\nstage needs — so each one is a SEGMENT of a band, never a thing standing on its own.\nTHE RULE THAT MATTERS: every piece must sit next to a copy of itself without a seam showing. So\nthe LEFT and RIGHT edges are ragged, uneven and open — foliage that carries on, grass that keeps\ngoing — never a straight vertical cut. Each piece is torn out of the middle of a longer band.\nThe TOP edge is the silhouette against the sky; the BOTTOM edge runs flat and level so pieces\nline up on a shared ground line.\n13 MIDGROUND pieces: behind the actors, distant, low contrast, a third to half the cell height.\n12 FOREGROUND pieces: nearest the audience, darker, larger, more detailed, up to three quarters.\nEvery piece on a PLAIN WHITE background, no shadow, no ground line drawn under it.",
     "pieces": {
         "mid-scrub": {
@@ -205,5 +205,6 @@
             "description": "a mossy log with ferns growing over it",
             "file": "fore-log-mossy.webp"
         }
-    }
+    },
+    "hidden": true
 }

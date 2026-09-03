@@ -91,6 +91,17 @@ export interface Placement {
     plane?: PlaneName;
     /** Mirrored, so the same drawing can face either way per scene. */
     flip?: boolean;
+    /**
+     * Held by, riding on, sitting in: the id of another cast member this one
+     * is attached to. While attached, x and y are OFFSETS from that member,
+     * so a walk moves both as one and nothing has to keep them in step.
+     *
+     * Deliberately NOT DOM nesting downstream: a rider must be able to paint
+     * on a different plane than the vehicle, and nesting would weld their
+     * z-orders together. One level only — a thing held by a held thing is a
+     * chain nobody can reason about, and the tools refuse it.
+     */
+    on?: string;
 }
 
 export interface Stage {
@@ -191,12 +202,22 @@ export function castOf(stage: Stage, layerOf: (id: string) => Layer | null): Lay
         if (backdrop) out.push({ ...backdrop, z: -1_000_000 });
     }
     const order = new Map<string, number>();
+    const anchors = new Map(stage.cast.map(member => [member.id, member]));
     for (const [at, placement] of stage.cast.entries()) {
         if (placement.id === stage.backdrop) continue;
         const layer = layerOf(placement.id);
         if (!layer) continue;
         order.set(placement.id, at);
-        out.push(placed(layer, placement, at));
+        const standing = placed(layer, placement, at);
+        // An attached placement stores offsets; the world position is the
+        // holder's plus them. One level deep by construction, so this needs
+        // no recursion and can meet no cycle.
+        const holder = placement.on ? anchors.get(placement.on) : null;
+        if (holder && holder.id !== placement.id) {
+            standing.x = holder.x + placement.x;
+            standing.y = holder.y + placement.y;
+        }
+        out.push(standing);
     }
     // Ties break on casting order, so two layers at the same depth keep the
     // order they were put on stage in rather than whichever sort wins today.
@@ -233,6 +254,16 @@ export function placeWith(
     };
 }
 
+/** Where a member stands in the world, offsets resolved. */
+export function resolvedIn(stage: Stage, id: string): { x: number; y: number } | null {
+    const member = stage.cast.find(candidate => candidate.id === id);
+    if (!member) return null;
+    const holder = member.on ? stage.cast.find(candidate => candidate.id === member.on) : null;
+    return holder
+        ? { x: holder.x + member.x, y: holder.y + member.y }
+        : { x: member.x, y: member.y };
+}
+
 /** Which parts of an edit a stage can hold. The rest go to the layer itself. */
 export function isPlacementEdit(patch: object): boolean {
     return ["x", "y", "width", "height", "rotation", "z", "flip"].some(key => key in patch);
@@ -265,7 +296,27 @@ export function withoutPlacement<T extends object>(patch: T): Partial<T> {
 export function renamedIn(stage: Stage, ids: Map<string, string>): Stage {
     const cast = stage.cast
         .filter(member => ids.has(member.id))
-        .map(member => ({ ...member, id: ids.get(member.id)! }));
+        .map(member => {
+            const moved = { ...member, id: ids.get(member.id)! };
+            if (member.on) {
+                const holder = ids.get(member.on);
+                if (holder && stage.cast.some(candidate => candidate.id === member.on)) {
+                    moved.on = holder;
+                } else {
+                    // The holder did not make the journey. Detaching quietly
+                    // would leave offsets pretending to be positions, so the
+                    // member keeps its own feet: offsets become where it
+                    // actually stood.
+                    const stood = resolvedIn(stage, member.id);
+                    delete moved.on;
+                    if (stood) {
+                        moved.x = stood.x;
+                        moved.y = stood.y;
+                    }
+                }
+            }
+            return moved;
+        });
     const present = new Set(cast.map(member => member.id));
 
     const script = stage.script.flatMap(beat => {

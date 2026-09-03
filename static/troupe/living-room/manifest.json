@@ -19,7 +19,8 @@
                 "day",
                 "cosy"
             ],
-            "description": "the furniture line: a long olive sofa with cushions centre, a low table left, transparent above. Sits between the wall and the actors"
+            "description": "RETIRED (full-width layer, nothing to stack on now): the furniture line: a long olive sofa with cushions centre, a low table left, transparent above. Sits between the wall and the actors",
+            "hidden": true
         },
         "foreground": {
             "kind": "foreground",
@@ -28,7 +29,8 @@
                 "day",
                 "cosy"
             ],
-            "description": "the nearest plane: a tied navy curtain down the left, a filled bookcase and a monstera down the right, floor along the bottom. The middle is empty on purpose — that is where the actors stand"
+            "description": "RETIRED (full-width layer, nothing to stack on now): the nearest plane: a tied navy curtain down the left, a filled bookcase and a monstera down the right, floor along the bottom. The middle is empty on purpose — that is where the actors stand",
+            "hidden": true
         }
     }
 }

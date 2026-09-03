@@ -17,7 +17,7 @@
  * swapping it for a real position afterwards, and the swap is one frame of
  * flicker every time anybody walks.
  */
-import { keyframesFor, type Plan, type PlannedBeat } from "./perform.js";
+import { keyframesFor, rideKeyframes, type MoveName, type Plan, type PlannedBeat } from "./perform.js";
 
 export interface Stagehand {
     /** The element drawing a layer, if it is on screen. */
@@ -59,6 +59,18 @@ export interface Stagehand {
      * same character rather than as a cut.
      */
     wear(id: string, becomes: string | null): void;
+    /**
+     * Perform a recorded clip. The player cannot build these frames itself —
+     * clips live in the browser's storage, which this module deliberately
+     * knows nothing about.
+     */
+    gesture(id: string, clip: string, duration: number): Promise<void>;
+    /** Animate an object into this holder's hand, then attach it. */
+    take(holder: string, item: string, duration: number): Promise<void>;
+    /** Detach a held object and let it fall where it is. */
+    drop(holder: string, item: string, duration: number): Promise<void>;
+    /** Who is attached to this cast member right now. */
+    riders(id: string): string[];
     /**
      * Move the view to frame these layers over this long.
      *
@@ -135,6 +147,8 @@ export function play(plan: Plan, hand: Stagehand): Playing {
          * stage, and the plays looked exactly as still as that implies.
          */
         const doing: Array<Promise<void>> = [];
+        if (beat.take) doing.push(hand.take(beat.id, beat.take, beat.duration));
+        if (beat.drop) doing.push(hand.drop(beat.id, beat.drop, beat.duration));
         if (beat.move) doing.push(act(beat));
         if (beat.say) doing.push(speak(beat));
         if (doing.length) {
@@ -148,6 +162,11 @@ export function play(plan: Plan, hand: Stagehand): Playing {
     }
 
     async function act(beat: PlannedBeat): Promise<void> {
+        // A recorded move is somebody's hand, replayed; the pose mathematics
+        // below is only for the built-ins.
+        if (beat.move!.startsWith("clip:")) {
+            return hand.gesture(beat.id, beat.move!.slice(5), beat.duration);
+        }
         const element = hand.elementFor(beat.id);
         if (!element || typeof element.animate !== "function") {
             // No element to animate — the layer is off screen or the browser
@@ -159,7 +178,9 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         const layer = hand.stateOf(beat.id);
         // act() is only ever queued for beats with a move; the null in the
         // type is the say-only shape of the same interface.
-        const frames = keyframesFor(beat.move!, {
+        // Narrowed by hand: the clip branch above returned, so what is left
+        // is a built-in the type system lost track of at the startsWith.
+        const frames = keyframesFor(beat.move as MoveName, {
             size: layer.size,
             dx: beat.travel?.dx ?? 0,
             dy: beat.travel?.dy ?? 0,
@@ -172,6 +193,25 @@ export function play(plan: Plan, hand: Stagehand): Playing {
             duration: beat.duration, easing: "linear", fill: "none",
         });
         animations.add(animation);
+
+        /*
+         * Whatever this one is holding rides along: the same translation, the
+         * rider's own facing, none of the squash — a held cut-out is a rigid
+         * prop in a hand, and deforming it with its carrier looks like jelly.
+         */
+        for (const riderId of hand.riders(beat.id)) {
+            const riderElement = hand.elementFor(riderId);
+            if (!riderElement || typeof riderElement.animate !== "function") continue;
+            const rider = hand.stateOf(riderId);
+            animations.add(riderElement.animate(
+                rideKeyframes(beat.move as MoveName, {
+                    size: layer.size,
+                    dx: beat.travel?.dx ?? 0,
+                    dy: beat.travel?.dy ?? 0,
+                }, rider),
+                { duration: beat.duration, easing: "linear", fill: "none" }));
+        }
+
         try {
             await animation.finished;
         } catch {

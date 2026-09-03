@@ -27,6 +27,7 @@ import { artPrompt } from "./artPrompt.js";
 import { createTroupeTool } from "./troupeTool.js";
 import { TROUPE } from "./troupe.js";
 import { noteCall } from "./toolLog.js";
+import { idleSet } from "./idleSet.js";
 
 export interface ToolResult {
     content: Array<
@@ -471,6 +472,31 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 // raising once there are enough scenes for it to be audible.
                 const beds = new Set(stages.map(stage => stage.music ?? ""));
                 const sameBed = stages.length > 2 && beds.size === 1 && !beds.has("");
+                /*
+                 * The idle page is not actually blank: troupe pieces are strewn
+                 * on it as decoration, and the person may have arranged them.
+                 * They are not document — piece_list will not show them and a
+                 * show replaces them — but an agent that cannot see them will
+                 * describe an empty room to somebody looking at a full one.
+                 * Touched pieces matter most: those are where somebody put
+                 * them, and a pitch that builds on that arrangement lands
+                 * better than one that ignores it.
+                 */
+                const strewn = !layers.length && idleSet.props.length
+                    ? [
+                        ``,
+                        `THE PAGE IS NOT BLANK`,
+                        `  Troupe pieces are strewn on the idle page as a random starting point (not yet ` +
+                        `on the canvas, so piece_list does not show them):`,
+                        `  ${idleSet.props.map(prop =>
+                            `${prop.piece} at ${prop.x}%,${prop.y}%${prop.touched ? " (placed by the person)" : ""}`,
+                        ).join("; ")}.`,
+                        `  Pieces marked "placed by the person" were arranged by hand. The moment any real ` +
+                        `piece is added, ALL of these become real layers exactly where they stand — so you ` +
+                        `can riff on the arrangement as it is, and theater_clear deals a fresh one.`,
+                    ]
+                    : [];
+
                 const next =
                     !layers.length
                         ? `NEXT: there is nothing to stage. Look at theater_troupe, then PITCH the ` +
@@ -478,8 +504,13 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                           `each, naming the pack. If you can generate images, one pitch may go beyond ` +
                           `the packs. Build only after they have picked.`
                     : !stages.length
-                        ? `NEXT: there are pieces but no scenes. Call stage_create for the first scene, ` +
-                          `giving it one of the backdrops.`
+                        ? `NEXT: there are pieces but no scenes — and the pieces may BE the brief. The ` +
+                          `person can arrange stickers on the canvas themselves, and an arrangement is a ` +
+                          `story pitch made with their hands: look at it with show_look and piece_list ` +
+                          `before inventing anything. Who stands next to whom, what is big, what is far ` +
+                          `away — read it like a scene, offer a short story that fits it, then build the ` +
+                          `play from it: stage_create (each scene at its own spot on the canvas), ` +
+                          `stage_cast, and stage_script for the moves, lines and speech bubbles.`
                     : emptyStages.length
                         ? `NEXT: ${emptyStages.map(stage => `"${stage.name}"`).join(" and ")} ` +
                           `${emptyStages.length === 1 ? "has" : "have"} nobody in ` +
@@ -600,6 +631,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         : []),
                     `  ${state}`,
                     `  ${next}`,
+                    ...strewn,
                 ].join("\n"), {
                     layers: layers.length,
                     stages: stages.map(stage => ({
@@ -614,6 +646,38 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     page: where.id,
                     visible: !where.hidden,
                 });
+            },
+        },
+        {
+            name: "theater_clear",
+            title: "Strike the set",
+            description:
+                "Start the theatre over: deletes EVERY piece, scene, script and title — including " +
+                "whatever the person put there. Not undoable by you. Call it only when the person asked " +
+                "for a restart or a clean canvas, and pass confirm: true. Afterwards the idle page deals " +
+                "a fresh random scatter of troupe stickers as a new starting point; theater_start reads it.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    confirm: {
+                        type: "boolean",
+                        description: "Must be true. The guard between \"restart\" and an accidental wipe.",
+                    },
+                },
+                required: ["confirm"],
+            },
+            async execute(args: { confirm?: boolean }) {
+                if (args?.confirm !== true) {
+                    return fail(
+                        `Not cleared. This deletes everything on the canvas — every piece and scene, ` +
+                        `the person's arrangement included. Pass confirm: true if that is really wanted.`);
+                }
+                if (studio.showing) studio.stopShow();
+                await studio.clear();
+                return ok(
+                    `The set is struck: canvas, scenes and title are gone. In a moment the idle page ` +
+                    `deals a fresh random scatter of troupe stickers — call theater_start to read the ` +
+                    `new starting point, or build clean.`);
             },
         },
         {

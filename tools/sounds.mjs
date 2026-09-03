@@ -10,7 +10,16 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
 const manifest = JSON.parse(readFileSync("static/audio/manifest.json", "utf8").replace(/^\uFEFF/, ""));
-const entries = Object.entries(manifest.sounds).map(([id, sound]) => ({ id, ...sound }));
+/**
+ * `hidden` keeps a sound in the manifest and on disk but out of the app.
+ *
+ * A track being replaced is not the same as a track being wrong: the file, the
+ * mood and the description are worth keeping while the new one is on trial, and
+ * losing them to make room is the kind of edit nobody can undo a week later.
+ */
+const entries = Object.entries(manifest.sounds)
+    .filter(([, sound]) => !sound.hidden)
+    .map(([id, sound]) => ({ id, ...sound }));
 entries.sort((a, b) => a.role.localeCompare(b.role) || a.id.localeCompare(b.id));
 
 const line = (s) => {
@@ -40,7 +49,9 @@ export type SoundRole =
     /** A short musical sting, fired on a beat. */
     | "cue"
     /** A one-off effect. */
-    | "sfx";
+    | "sfx"
+    /** Punctuation between the show's parts: curtains, drumrolls, reveals. */
+    | "seam";
 
 export interface Sound {
     id: string;

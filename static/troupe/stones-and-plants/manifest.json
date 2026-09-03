@@ -1,6 +1,6 @@
 {
     "name": "stones-and-plants",
-    "description": "Ground dressing: rocks, crystals and fossils on one hand, ferns, flowers and seeds on the other. Smaller and more particular than the `forest` pack — these are what you scatter along a ground line once the big scenery is placed.",
+    "description": "Ground dressing from two sheets: rocks, crystals and fossils on one hand, ferns, flowers, leaves and seeds on the other. Smaller and more particular than the `forest` pack — these are what you scatter along a ground line once the big scenery is placed. Fifty pieces, so it is the widest pack in the troupe.",
     "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: stones and plants — rocks, crystals, fossils, flowers, ferns and seeds. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
     "pieces": {
         "monolith": {
@@ -205,6 +205,212 @@
             ],
             "description": "a winged sycamore seed — falls, spinning",
             "file": "seed-winged.webp"
+        },
+        "sunflower": {
+            "kind": "scenery",
+            "mood": [
+                "summer",
+                "bright"
+            ],
+            "description": "a mustard sunflower on a stem — the brightest flower in the pack",
+            "file": "sunflower.webp"
+        },
+        "poppy": {
+            "kind": "scenery",
+            "mood": [
+                "summer"
+            ],
+            "description": "a red poppy with a dark centre",
+            "file": "poppy.webp"
+        },
+        "daffodil": {
+            "kind": "scenery",
+            "mood": [
+                "spring"
+            ],
+            "description": "a cream daffodil with a mustard trumpet",
+            "file": "daffodil.webp"
+        },
+        "thistle": {
+            "kind": "scenery",
+            "mood": [
+                "spooky",
+                "neutral"
+            ],
+            "description": "a pink thistle head over spiked leaves",
+            "file": "thistle.webp"
+        },
+        "lily-of-the-valley": {
+            "kind": "scenery",
+            "mood": [
+                "spring",
+                "gentle"
+            ],
+            "description": "a stem of white bells over two leaves",
+            "file": "lily-of-the-valley.webp"
+        },
+        "bamboo": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "two bamboo canes with navy leaves, tall and narrow",
+            "file": "bamboo.webp"
+        },
+        "yucca": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a navy spiked rosette — sharper than `agave`, and darker",
+            "file": "yucca.webp"
+        },
+        "plant-spiky": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a spiky navy and mustard plant, radiating",
+            "file": "plant-spiky.webp"
+        },
+        "pitcher-plant": {
+            "kind": "scenery",
+            "mood": [
+                "spooky",
+                "odd"
+            ],
+            "description": "a red pitcher plant with a hooded lid",
+            "file": "pitcher-plant.webp"
+        },
+        "flytrap": {
+            "kind": "scenery",
+            "mood": [
+                "spooky",
+                "odd"
+            ],
+            "description": "two open flytrap jaws on a stem — the only plant in the troupe that bites",
+            "file": "flytrap.webp"
+        },
+        "lichen": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a green branching lichen tipped with pink",
+            "file": "lichen.webp"
+        },
+        "ginkgo": {
+            "kind": "scenery",
+            "mood": [
+                "autumn"
+            ],
+            "description": "a mustard ginkgo branch with fan leaves",
+            "file": "ginkgo.webp"
+        },
+        "leaf-monstera": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a single split monstera leaf, large",
+            "file": "leaf-monstera.webp"
+        },
+        "leaf-chestnut": {
+            "kind": "scenery",
+            "mood": [
+                "autumn"
+            ],
+            "description": "a five-fingered chestnut leaf",
+            "file": "leaf-chestnut.webp"
+        },
+        "leaf-veined": {
+            "kind": "scenery",
+            "mood": [
+                "autumn"
+            ],
+            "description": "a pale leaf with red veins",
+            "file": "leaf-veined.webp"
+        },
+        "geode-red": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a red geode opened to a pink crystal heart",
+            "file": "geode-red.webp"
+        },
+        "crystals-cream": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "bright"
+            ],
+            "description": "cream crystals rising from a mustard bed",
+            "file": "crystals-cream.webp"
+        },
+        "agate": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a banded agate slice, pink and green",
+            "file": "agate.webp"
+        },
+        "cairn": {
+            "kind": "scenery",
+            "mood": [
+                "ancient"
+            ],
+            "description": "four flat stones stacked — a marker, or a path sign",
+            "file": "cairn.webp"
+        },
+        "rock-strata": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "banded sandstone terraces, stepped",
+            "file": "rock-strata.webp"
+        },
+        "rock-veined": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "an angular navy rock cracked with red veins",
+            "file": "rock-veined.webp"
+        },
+        "rock-seamed": {
+            "kind": "scenery",
+            "mood": [
+                "desert"
+            ],
+            "description": "a red boulder with gold seams running through it",
+            "file": "rock-seamed.webp"
+        },
+        "rock-speckled": {
+            "kind": "scenery",
+            "mood": [
+                "night"
+            ],
+            "description": "a navy rock flecked with pale grains — reads as granite, or as a night sky",
+            "file": "rock-speckled.webp"
+        },
+        "rock-conglomerate": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a mustard rock studded with dark pebbles",
+            "file": "rock-conglomerate.webp"
+        },
+        "rock-mossy-pink": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a pink boulder patched with green moss",
+            "file": "rock-mossy-pink.webp"
         }
     }
 }

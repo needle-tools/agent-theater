@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
     AT_REST, BREATH_MS, DEFAULT_CAMERA_MS, DEFAULT_DURATION, MOVES, compose, keyframesFor,
-    plan as planScene, poseFor,
+    plan as planScene, poseFor, rideKeyframes,
     readingTime, restingPlaces, score, stateAt, type MoveName,
 } from "../src/lib/collage/perform.js";
 
@@ -473,5 +473,30 @@ describe("beats that happen at the same time", () => {
         const { plan } = planScene([{ id: "a", do: "surprised", say: "A star fell!" }]);
         expect(plan.beats[0].move).toBe("surprised");
         expect(plan.beats[0].say).toBe("A star fell!");
+    });
+});
+
+describe("take and drop", () => {
+    it("are beats in their own right", () => {
+        const { plan, problems } = planScene([
+            { id: "girl", take: "basket" },
+            { id: "girl", do: "walk", to: { x: 200 } },
+            { id: "girl", drop: "basket" },
+        ]);
+        expect(problems).toEqual([]);
+        expect(plan.beats[0].take).toBe("basket");
+        expect(plan.beats[2].drop).toBe("basket");
+    });
+
+    it("rides a holder's walk without the squash", () => {
+        // The basket goes where the hand goes, but it does not lean or squash
+        // with its carrier — a held cut-out is a rigid prop, and deforming it
+        // with the holder looks like jelly.
+        const frames = rideKeyframes("walk", { size: 200, dx: 300, dy: 0 }, { rotation: 10 });
+        const last = String(frames[frames.length - 1].transform);
+        expect(last).toContain("rotate(10.00deg)");
+        expect(last).toContain("scale(1, 1)");
+        // And it does travel: the translation is the holder's own.
+        expect(String(frames[0].transform)).toContain("translate(-300.00px");
     });
 });

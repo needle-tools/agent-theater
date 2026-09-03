@@ -14,6 +14,7 @@
      */
     import { onDestroy, onMount } from "svelte";
     import CollageCanvas from "$lib/collage/CollageCanvas.svelte";
+    import PackShelf from "$lib/collage/PackShelf.svelte";
     import EditPopover from "$lib/collage/EditPopover.svelte";
     import ShowOverlay from "$lib/collage/ShowOverlay.svelte";
     import StageBar from "$lib/collage/StageBar.svelte";
@@ -26,6 +27,7 @@
     import { prompter } from "$lib/collage/speech";
     import { boilFilterSvg, loadPainterly, PAINTERLY_CSS } from "$lib/collage/painted";
     import { TROUPE } from "$lib/collage/troupe";
+    import { idleSet } from "$lib/collage/idleSet";
 
     const studio = createStudio();
     const collage = studio.collage;
@@ -34,6 +36,8 @@
     let version = $state(0);
     let toolsRegistered = $state(false);
     let editOpen = $state(false);
+    /** The eraser is armed: clicking any sticker — canvas or strewn — removes it. */
+    let erasing = $state(false);
     let canvas = $state<CollageCanvas | null>(null);
     let fileInput: HTMLInputElement | null = $state(null);
     let restored = $state(false);
@@ -84,8 +88,11 @@
         // arrangement is fresh each visit without upsetting hydration.
         if (!collage.listAll().length && TROUPE.length) {
             scatter = strewn();
-            scheduleRestock();
         }
+        // Always ticking, not only when the page opened empty: the canvas can
+        // BECOME empty again (a clear, the agent's theater_clear), and the
+        // restock guards itself against a non-empty stage anyway.
+        scheduleRestock();
         // Wrapped once here rather than in each tool: an agent's work should be
         // visible, and that should not be fourteen call sites.
         const { notifyAgentActivity } = await import("$lib/room/activity");
@@ -299,7 +306,29 @@
         aspect?: number;
         /** ms before this prop makes its entrance. */
         enterAt?: number;
+        /**
+         * The person has had their hands on this one. A touched prop is an
+         * arrangement, not decoration, and the restock must not tidy it away.
+         */
+        touched?: boolean;
     }>>([]);
+
+    /*
+     * Mirror the scatter where the tools can read it. The strewn props are
+     * deliberately not document, so without this the agent starts every
+     * conversation describing an empty canvas at a person who just spent a
+     * minute arranging ferns.
+     */
+    $effect(() => {
+        idleSet.props = empty
+            ? scatter.map(prop => ({
+                piece: prop.id.split("#")[0],
+                x: Math.round(prop.x),
+                y: Math.round(prop.y),
+                touched: prop.touched ?? false,
+            }))
+            : [];
+    });
 
     /** The prop being dragged, and where the pointer last was. */
     let heldProp = $state<{ id: string; lastX: number; lastY: number } | null>(null);
@@ -406,7 +435,9 @@
 
     function swapOneProp() {
         if (!empty || heldProp || !scatter.length) return;
-        const quiet = scatter.filter(prop => !prop.say);
+        // Never a prop the person has touched: they put it there, and a page
+        // that swaps out something you placed is a page that undoes you.
+        const quiet = scatter.filter(prop => !prop.say && !prop.touched);
         if (!quiet.length) return;
         const used = new Set(scatter.map(prop => prop.file));
         const fresh = propPool().filter(piece => !used.has(piece.file));
@@ -455,6 +486,7 @@
             tilt: (Math.random() - 0.5) * 22,
             drift: 5 + Math.random() * 4,
             delay: Math.random() * 6,
+            touched: true,
         // Only the newcomer gives way: the pieces already on the floor are
         // where somebody put them, or at least where they have settled.
         }], new Set([key]));
@@ -469,8 +501,15 @@
         // a pan.
         event.stopPropagation();
         event.preventDefault();
+        // The armed eraser rubs out strewn props too — one tool, one meaning,
+        // whichever kind of sticker is under it.
+        if (erasing) {
+            scatter = scatter.filter(prop => prop.id !== id);
+            return;
+        }
         (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
         heldProp = { id, lastX: event.clientX, lastY: event.clientY };
+        scatter = scatter.map(prop => prop.id === id ? { ...prop, touched: true } : prop);
     }
 
     function dragProp(event: PointerEvent, id: string) {
@@ -493,6 +532,73 @@
     function dropProp() {
         heldProp = null;
     }
+
+    /**
+     * The idle arrangement is a starting point, not a screensaver.
+     *
+     * The moment real work begins — a sticker dragged from a pack, a photo
+     * dropped, the agent's first piece — the strewn props are ADOPTED: each
+     * becomes a real layer exactly where it stood, at the size it was seen.
+     * Nothing on the page blinks out because somebody started; the scene you
+     * were idly looking at IS the first draft of the canvas, and the agent
+     * can see it, the eraser can rub it out, and a scene can cast it.
+     *
+     * The speech bubbles do not come along — they were the page's copy, not
+     * the story's.
+     */
+    let adopting = false;
+
+    async function adoptScatter() {
+        if (adopting || !scatter.length) return;
+        adopting = true;
+        const props = scatter;
+        scatter = [];
+        try {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const zoom = canvas?.getView().zoom ?? 1;
+            for (const prop of props) {
+                const centre = canvas?.canvasPoint((prop.x / 100) * w, (prop.y / 100) * h);
+                if (!centre) continue;
+                // The same resolution the CSS performed: vmin with a 72px floor,
+                // then into canvas units so the piece keeps its SEEN size.
+                const width = Math.max(72, (prop.size / 100) * Math.min(w, h)) / zoom;
+                const height = width * (prop.aspect ?? 1);
+                await studio.addImage(prop.file, {
+                    label: prop.id.split("#")[0],
+                    removeBackground: false,
+                    slice: false,
+                    x: centre.x - width / 2,
+                    y: centre.y - height / 2,
+                    width,
+                    by: "human",
+                });
+            }
+            studio.save();
+        } finally {
+            adopting = false;
+        }
+    }
+
+    $effect(() => {
+        void version;
+        if (!empty && restored && scatter.length && !adopting) void adoptScatter();
+    });
+
+    /*
+     * And the other direction: a canvas that becomes empty again — cleared by
+     * the person or by the agent's theater_clear — gets a beat of genuinely
+     * bare stage and then a fresh random scatter wanders on. Cleared is not
+     * broken; it is the next starting point.
+     */
+    $effect(() => {
+        void version;
+        if (!empty || !restored || scatter.length || !TROUPE.length) return;
+        const timer = setTimeout(() => {
+            if (empty && !scatter.length) scatter = strewn();
+        }, 1400);
+        return () => clearTimeout(timer);
+    });
 
     function strewn() {
         // A ring around the middle, jittered — the middle belongs to the
@@ -876,14 +982,9 @@
         studio.setSelection([]);
         editOpen = false;
         toasts.push("Cleared.");
-        // The idle screen opens again: a beat of genuinely empty stage, then
-        // the props wander back on one after another, bubbles and all — the
-        // same welcome a first visit gets. Cleared is not broken, and an
-        // empty stage that stayed bare would read as broken.
+        // The refill is the $effect's job now — one mechanism for every way
+        // the canvas can empty. This only makes the stage bare RIGHT NOW.
         scatter = [];
-        setTimeout(() => {
-            if (empty && TROUPE.length) scatter = strewn();
-        }, 1400);
     }
 
     /*
@@ -943,6 +1044,7 @@
     <CollageCanvas
         bind:this={canvas}
         {studio}
+        {erasing}
         showPage={editOpen || studio.pagePreset !== FREE_PAGE}
     />
 
@@ -1023,11 +1125,16 @@
              position from the same state, so dragging carries them along.
 
              Each one is mounted from the start and invisible until `said`
-             marks it spoken. The old version staggered them on a fixed 700ms
-             ladder, which was a guess at how long a line takes to say; they
-             now wait for each other to actually finish saying it. Mounted
-             early rather than late on purpose — a bubble that laid itself out
-             in the same frame it popped would pop at the wrong size. -->
+             marks it spoken. Mounted early rather than late on purpose — a
+             bubble that laid itself out in the same frame it popped would pop
+             at the wrong size.
+
+             The 700ms ladder is the stagger these have always had, and it is
+             what they keep whenever nothing is going to be spoken: three
+             bubbles arriving over about two seconds. Where there ARE voices it
+             becomes a delay before joining the prompter's queue instead, and
+             the queue decides the rest — one line at a time, because two of
+             them at once is a noise rather than a page. -->
         <div class="strewn-bubbles" class:strewn--away={!empty}>
             {#each scatter.filter(prop => prop.say) as prop (prop.key)}
                 <div
@@ -1039,7 +1146,11 @@
                     style:--lean="{prop.sayTilt ?? 0}deg"
                     style:--swing-cycle="{prop.swingCycle ?? 8}s"
                     style:--swing-at="-{prop.swingAt ?? 0}s"
-                    use:said={{ voice: prop.sayVoice, after: (prop.enterAt ?? 0) + 500 }}
+                    use:said={{
+                        voice: prop.sayVoice,
+                        after: (prop.enterAt ?? 0) + 500 + (prop.sayOrder ?? 0) * 700,
+                        replay: true,
+                    }}
                 >{prop.say}</div>
             {/each}
         </div>
@@ -1070,6 +1181,24 @@
         </svg>
     </button>
 
+    <!-- The eraser, beside the menu. A mode, not an action: arm it and every
+         sticker you click is rubbed out — canvas pieces and strewn props
+         alike — until you click it again. -->
+    <button
+        class="trigger trigger--eraser"
+        class:trigger--erasing={erasing}
+        aria-label={erasing ? "Put the eraser down" : "Erase stickers"}
+        aria-pressed={erasing}
+        title={erasing ? "Click stickers to erase them — click here to stop" : "Eraser"}
+        onclick={() => (erasing = !erasing)}
+    >
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M11.3 4.6l4.1 4.1a1.4 1.4 0 0 1 0 2l-4.7 4.7H7.3l-3.2-3.2a1.4 1.4 0 0 1 0-2l5.2-5.6a1.4 1.4 0 0 1 2 0z" />
+            <path d="M8.4 7.7l3.9 3.9" />
+            <path d="M4.4 15.4h11.2" />
+        </svg>
+    </button>
+
     <!-- Said out loud, in the same voice that gave the instruction in the first
          place: this note is the next sentence of that one, and hearing it in a
          different voice would read as a different speaker interrupting. The
@@ -1091,6 +1220,14 @@
     <!-- Only draws itself once there are scenes, so the canvas is a canvas
          until somebody makes it a theatre. -->
     <StageBar {studio} />
+
+    <!-- The sticker drawers: every pack a little pile, one click from a fan
+         of everything in it. -->
+    <PackShelf
+        {studio}
+        toCanvas={(x, y) => canvas?.canvasPoint(x, y) ?? null}
+        zoom={() => canvas?.getView().zoom ?? 1}
+    />
 
     <Toasts items={toasts.items} onDismiss={toasts.dismiss} />
 
@@ -1356,7 +1493,16 @@
      * a bubble that never stops moving reads as a loading indicator. Cycle
      * length and phase are per bubble, so no two ever agree.
      */
-    .strewn__bubble[data-said="said"] {
+    /*
+     * :global() on the attribute half, and it is load-bearing. `data-said` is
+     * set at runtime by the `said` action — it never appears in the template —
+     * so Svelte's scoped-CSS pruning decided this selector could match nothing
+     * and deleted the whole rule. The compiler was told to reveal the bubbles
+     * by an attribute no surviving rule was watching: three bubbles, spoken,
+     * flipped to "said", and invisible forever. The warning was in
+     * svelte-check's output the entire time, filed under "unused CSS".
+     */
+    .strewn__bubble:global([data-said="said"]) {
         opacity: 1;
         animation:
             bubble-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
@@ -1572,6 +1718,18 @@
         stroke: currentColor;
         stroke-width: 1.75;
         stroke-linecap: round;
+    }
+
+    /* One button-width left of the menu: 16 + 42 + 8. */
+    .trigger--eraser {
+        right: 66px;
+    }
+
+    /* Armed reads as danger, not as "open" — it deletes what you touch. */
+    .trigger--erasing {
+        background: var(--accent-danger, #c4463c);
+        border-color: transparent;
+        color: #fff;
     }
 
     .file {

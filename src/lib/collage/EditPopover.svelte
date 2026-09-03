@@ -14,6 +14,10 @@
      */
     import type { CollageStudio } from "./studio.js";
     import { toolCalls, toolLogFile } from "./toolLog.js";
+    import {
+        clipFromSamples, clipName, clipToCss, deleteClip, listClips, recorder, saveClip,
+        type Clip, type ClipSample,
+    } from "./clips.js";
 
     interface Props {
         studio: CollageStudio;
@@ -47,6 +51,32 @@
 
     let copiedLog = $state(false);
 
+    /** The recorder's menu half: arming, the unnamed take, the drawer. */
+    let recording = $state(false);
+    let pendingTake = $state<Clip | null>(null);
+    let takeName = $state("");
+    let clips = $state(listClips());
+
+    function toggleRecorder() {
+        recording = !recording;
+        recorder.armed = recording;
+        recorder.onDone = (samples: ClipSample[], size: number) => {
+            recording = false;
+            // Named after it exists, because a name typed before the gesture
+            // is a plan and half of recording is discovering what came out.
+            pendingTake = clipFromSamples("take", samples, size);
+            takeName = "";
+        };
+    }
+
+    function keepTake() {
+        const name = clipName(takeName);
+        if (!pendingTake || !name) return;
+        saveClip({ ...pendingTake, name });
+        pendingTake = null;
+        clips = listClips();
+    }
+
     async function copyLog() {
         const file = toolLogFile({
             play: studio.collage.billing.title ?? null,
@@ -67,6 +97,10 @@
     onpointerdown={event => {
         if (!open || !panel) return;
         const target = event.target as Node;
+        // An armed recorder is ABOUT to click the canvas — that is the whole
+        // gesture — and the panel closing underneath it would lose the take's
+        // naming UI.
+        if (recorder.armed || pendingTake) return;
         if (!panel.contains(target) && !(target as HTMLElement).closest?.("[data-edit-trigger]")) onClose();
     }}
     onkeydown={event => { if (open && event.key === "Escape") onClose(); }}
@@ -86,7 +120,48 @@
             </p>
         </section>
 
-        <footer style:--i="1">
+        <section style:--i="1">
+            <h2>Motion clips</h2>
+            <!-- The recorder: perform a movement by dragging a piece, and it
+                 becomes a move any piece can replay. A clip named "talk"
+                 replaces the programmed talking wobble for every speaker —
+                 record the imperfection once, the company inherits it. -->
+            {#if pendingTake}
+                <p class="note">Recorded {pendingTake.seconds}s. Name it — "talk" replaces the built-in talking wobble.</p>
+                <div class="grid">
+                    <input
+                        class="clip-name"
+                        placeholder="e.g. talk, limp, shiver"
+                        bind:value={takeName}
+                        onkeydown={event => { if (event.key === "Enter") keepTake(); }}
+                    />
+                    <button class="strong" disabled={!clipName(takeName)} onclick={keepTake}>Keep</button>
+                </div>
+                <button class="quiet" onclick={() => (pendingTake = null)}>Discard the take</button>
+            {:else}
+                <button class="wide" class:strong={recording} onclick={toggleRecorder}>
+                    {recording ? "Recording — drag a piece, release to finish" : "Record a movement"}
+                </button>
+            {/if}
+            {#if clips.length}
+                <ul class="clips">
+                    {#each clips as clip (clip.name)}
+                        <li>
+                            <span class="clips__name">{clip.name} <small>{clip.seconds}s</small></span>
+                            <button class="clips__act" title="Copy as CSS keyframes"
+                                onclick={() => navigator.clipboard.writeText(clipToCss(clip))}>CSS</button>
+                            <button class="clips__act" title="Copy as JSON"
+                                onclick={() => navigator.clipboard.writeText(JSON.stringify(clip))}>JSON</button>
+                            <button class="clips__act" title="Delete"
+                                onclick={() => { deleteClip(clip.name); clips = listClips(); }}>✕</button>
+                        </li>
+                    {/each}
+                </ul>
+                <p class="note">Agents play these as <span class="num">do: "clip:name"</span> in a scene.</p>
+            {/if}
+        </section>
+
+        <footer style:--i="2">
             <p class="muted">
                 {toolsRegistered
                     ? "WebMCP tools are registered — an agent in this tab can put on a show with you, and can see what you change."
@@ -214,5 +289,55 @@
 
     footer {
         border-top: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
+    }
+
+    .wide {
+        width: 100%;
+    }
+
+    .clip-name {
+        min-height: 38px;
+        padding: 0 11px;
+        border-radius: 12px;
+        border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+        background: var(--surface-page-elevated, #fff);
+        color: var(--text-primary);
+        font: inherit;
+        font-size: var(--type-body-muted-size);
+    }
+
+    .clips {
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .clips li {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .clips__name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: var(--type-body-muted-size);
+    }
+
+    .clips__name small {
+        color: var(--text-muted);
+    }
+
+    .clips__act {
+        min-height: 26px;
+        padding: 0 7px;
+        border-radius: 8px;
+        font-size: var(--type-micro-label-size);
     }
 </style>

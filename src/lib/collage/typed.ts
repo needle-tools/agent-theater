@@ -98,7 +98,7 @@ export function typed(
 /**
  * A bubble that waits its turn, then types at the speed it is spoken.
  *
- * The node is marked `data-said="waiting"` until the prompter reaches it and
+ * The node is marked `data-said="waiting"` until it is reached and
  * `data-said="said"` from then on, which is where the appearing happens: the
  * component's own CSS hangs its entrance off that attribute. Doing it that way
  * rather than mounting the element late keeps the bubble's position, size and
@@ -108,10 +108,34 @@ export function typed(
  * `after` is a delay before it JOINS the queue, not before it is spoken. It is
  * for a bubble whose prop is still flying in: there is no point holding the
  * queue for scenery.
+ *
+ * **With nothing to be heard, it does not queue at all.** The queue exists to
+ * stop two voices landing on top of each other; where there are no voices there
+ * is nothing to stop, and making the bubbles wait for each other anyway is pure
+ * cost. It was a bad one: three lines held for their own reading times put the
+ * last of them twenty-two seconds into the visit, against about two before any
+ * of this existed. So a mute page types them on their own clocks, overlapping
+ * freely, exactly as it did when they were only ever text.
  */
 export function said(
     node: HTMLElement,
-    options: { voice?: string; strong?: string; after?: number; fallback?: number } = {},
+    options: {
+        voice?: string; strong?: string; after?: number; fallback?: number;
+        /**
+         * Say it again, aloud, once there is somebody to hear it.
+         *
+         * For the page's own bubbles, which are shown in the first seconds of a
+         * visit — before the voice model has arrived and, more absolutely,
+         * before anybody has touched the page, which every browser requires
+         * before it will make a sound. Without this they are silent on every
+         * first visit and there is no later moment at which they are not.
+         *
+         * The bubble is not held back waiting for that: it appears and is
+         * readable on its own clock, because it is the page's copy before it is
+         * anybody's line. This only adds the second pass.
+         */
+        replay?: boolean;
+    } = {},
 ) {
     const full = node.textContent ?? "";
     node.setAttribute("aria-label", full);
@@ -120,19 +144,80 @@ export function said(
     layOut(node, full, 0, strong);
 
     let gone = false;
+    let heard = false;
+    let stopWaiting: (() => void) | null = null;
+
+    const line = { text: full, voice: options.voice };
+    const say = () => prompter.speak(line, {
+        dropped: () => gone,
+        begin: (_ms, voiced) => {
+            heard = voiced;
+            node.dataset.said = "said";
+        },
+        show: progress => layOut(node, full, Math.round(full.length * progress), strong),
+        // Left standing and complete. These bubbles are not a scene's
+        // dialogue — they are the page talking about itself, and the words
+        // have to still be there for somebody who looked up late.
+        end: () => layOut(node, full, full.length, strong),
+        ...(typeof options.fallback === "number" ? { fallback: options.fallback } : {}),
+    });
+
+    /**
+     * Type it here, on this bubble's own clock, joining no queue.
+     *
+     * The same mechanism `typed` uses, and deliberately the same feel: this is
+     * what these bubbles did before they could ever be spoken, and it is what
+     * they should go back to whenever they cannot be.
+     */
+    let ticking: ReturnType<typeof setTimeout> | undefined;
+    const typeAlone = () => {
+        node.dataset.said = "said";
+        const perChar = 1000 / 45;
+        let at = 0;
+        const step = () => {
+            if (gone) return;
+            at++;
+            layOut(node, full, at, strong);
+            if (at >= full.length) return;
+            ticking = setTimeout(step, delayAfter(full[at - 1], perChar, 300));
+        };
+        ticking = setTimeout(step, perChar);
+    };
+
     const join = setTimeout(() => {
         if (gone) return;
-        void prompter.speak({ text: full, voice: options.voice }, {
-            dropped: () => gone,
-            begin: () => {
-                node.dataset.said = "said";
-            },
-            show: progress => layOut(node, full, Math.round(full.length * progress), strong),
-            // Left standing and complete. These bubbles are not a scene's
-            // dialogue — they are the page talking about itself, and the words
-            // have to still be there for somebody who looked up late.
-            end: () => layOut(node, full, full.length, strong),
-            ...(typeof options.fallback === "number" ? { fallback: options.fallback } : {}),
+        // Decided here rather than at mount: on a page that IS going to speak,
+        // the model is usually still loading at mount and `mute` only settles
+        // into its final answer a moment later.
+        if (prompter.mute) return typeAlone();
+        void say().then(() => {
+            if (gone || heard || !options.replay || !options.voice) return;
+            // Nothing is coming, so there is nothing to wait for. Without this
+            // the bubble would re-type itself in silence on the first click of
+            // every visit, which is a worse page than the one that simply does
+            // not talk.
+            if (prompter.mute) return;
+            stopWaiting = prompter.onTouch(() => {
+                /*
+                 * The line is synthesised BEFORE it is queued this time.
+                 *
+                 * On the first pass it was allowed to go ahead unspoken rather
+                 * than hold the page open for a download. There is no such
+                 * hurry now — the bubble has been read, the person is here, and
+                 * queueing before the audio exists would only produce a second
+                 * silent pass and the same problem one gesture later.
+                 */
+                const era = prompter.generation;
+                void prompter.expect([line]).then(() => {
+                    // Somebody was hushed while the model was working, which on
+                    // this page means the gesture that woke us was the click
+                    // that copies the prompt. That note is the answer to what
+                    // they just did; a prop reintroducing itself behind it is
+                    // the page talking over its own reply.
+                    if (gone || prompter.generation !== era) return;
+                    void say();
+                });
+            });
         });
     }, options.after ?? 0);
 
@@ -140,6 +225,8 @@ export function said(
         destroy() {
             gone = true;
             clearTimeout(join);
+            clearTimeout(ticking);
+            stopWaiting?.();
             node.textContent = full;
         },
     };

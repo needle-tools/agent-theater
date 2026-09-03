@@ -257,6 +257,55 @@ but nothing synchronises the two. If drift turns out to matter, the fix is for
 the show to emit beat-boundary events the agent can follow — which the event log
 already supports.
 
+**The cast now speaks, which changes what a timing IS.** Kokoro runs in the page
+and says the lines, so a beat with a line is as long as the saying takes rather
+than as long as reading it would. The order that follows is not negotiable and is
+why `show_play` is no longer instant: every line is synthesised first, and only
+then is the timetable worked out from what came back. A timetable of reading
+times for lines that will be spoken is a timetable the show cannot keep.
+
+One queue owns all of it (`speech.ts`), and it reaches past the show: the props
+on the empty stage and the copy note go through the same prompter, because three
+independent clocks were fine while all three were silent and became a noise the
+moment they were not. A bubble opens when its turn to be heard comes, never
+before — which means two `with` beats, written to be simultaneous, now take
+turns. That is a deliberate narrowing: simultaneous *movement* is what `with` was
+for, and two people talking at once is not a scene.
+
+**Speech is switched off, and the seam is what survives.** Kokoro worked —
+correct English at nine times real time on WebGPU, once the quantisation was
+right — but it never reached the ear reliably enough to keep on, and another
+speech system will probably replace it. `SPEECH_ENABLED` in `voice.ts` is false;
+the bundler then drops the library entirely, so nothing is downloaded and no
+build carries it.
+
+What is left standing is the part worth keeping. `Voices` is five small methods,
+and anything that can turn text into audio with a known length can implement it;
+nothing outside `voice.ts` knows which model is talking. Parts stay cast with
+their voices, so documents saved now will speak when something arrives to speak
+them. The prompter, the sequencing and the timetable-built-from-real-lengths all
+work the same way behind any engine.
+
+Two things learned in the process, both worth not relearning:
+
+- **Quantisation is not a free size dial.** q8 was 88MB and half of real time on
+  WebGPU, because int8 kernels mostly fall back to the CPU — and its output was
+  audibly not English. fp16 at 156MB was nine times real time and correct. The
+  cheap-looking option was not cheaper, it was broken.
+- **The queue is only worth its cost when there are voices.** Sequencing the
+  page's three ambient bubbles by reading time put the last of them twenty-two
+  seconds into the visit, against about two before. With nothing to be heard
+  there is nothing to take turns for, so a mute page types them on their own
+  clocks and the queue stands down. That rule is in `said`.
+
+**Still open: nobody can be heard before the first click.** Whenever speech comes
+back, this returns with it. A browser refuses audio until the page has been
+touched, so the props introducing themselves are silent on a first visit. The
+show has an answer — the "click anywhere to begin" card — and the empty stage
+does not. `said` has a `replay` option that re-says a line on the first gesture,
+which is most of an answer; whether the empty stage should ask outright is a
+question about the front page rather than about voices.
+
 ---
 
 # Reported, 2026-09-03

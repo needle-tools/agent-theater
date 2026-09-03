@@ -26,6 +26,7 @@
     import { parallaxOf } from "./stage.js";
     import { play, type Playing, type Stagehand } from "./player.js";
     import { createSpeaker } from "./audio.js";
+    import { clipKeyframes, findClip, recorder, TALK_CLIP } from "./clips.js";
     import { prompter } from "./speech.js";
 
     interface Props {
@@ -36,10 +37,12 @@
          * is worse than no indication at all.
          */
         showPage?: boolean;
+        /** The eraser is armed: clicking a sticker removes it. */
+        erasing?: boolean;
         onContextMenu?: (info: { x: number; y: number; layerId: string | null }) => void;
     }
 
-    let { studio, showPage = false, onContextMenu }: Props = $props();
+    let { studio, showPage = false, erasing = false, onContextMenu }: Props = $props();
 
     /**
      * Selection is the studio's, not this component's. An agent capturing "the
@@ -101,8 +104,20 @@
         return backdrop?.colors[0] ?? null;
     });
 
-    /** The stage rectangle while a show runs, for masking off the wings. */
-    const wings = $derived.by(() => (version, showing ? stageRect() : null));
+    /** Where the cast stands, when there is no backdrop to be the stage. */
+    function castBounds(): { x: number; y: number; width: number; height: number } | null {
+        if (!placed.length) return null;
+        const boxes = placed.map(layerBounds);
+        const minX = Math.min(...boxes.map(box => box.x));
+        const minY = Math.min(...boxes.map(box => box.y));
+        return {
+            x: minX,
+            y: minY,
+            width: Math.max(...boxes.map(box => box.x + box.width)) - minX,
+            height: Math.max(...boxes.map(box => box.y + box.height)) - minY,
+        };
+    }
+
 
     const placed = $derived.by(() => (version, studio.collage.list()));
 
@@ -160,7 +175,9 @@
 
     const layers = $derived.by(() => {
         if (!showing || !viewport) return dressed;
-        const floor = stageRect();
+        // A scene with no backdrop still has depth: the cast's own bounds
+        // stand in as the anchor, so parallax works on the open paper too.
+        const floor = stageRect() ?? castBounds();
         if (!floor) return dressed;
         // Measured from the middle of the stage, so a camera framing the scene
         // head-on has every plane exactly where it was placed.
@@ -370,6 +387,38 @@
         return said;
     });
 
+    /*
+     * A clip named "talk", if somebody has recorded one, replaces the
+     * programmed talking wobble for every speaker — the whole point of the
+     * recorder: perform the imperfection once, and the company inherits it.
+     * Runs on `translate`, same as the CSS it replaces, so it never fights a
+     * beat's transform; WAAPI outranks the CSS animation, so the class can
+     * stay as the fallback for browsers and pages without a recording.
+     */
+    let talking = new Map<string, Animation>();
+    $effect(() => {
+        const clip = showing ? findClip(TALK_CLIP) : null;
+        const now = new Set(clip ? [...spoken.keys()] : []);
+        for (const [id, animation] of talking) {
+            if (!now.has(id)) {
+                animation.cancel();
+                talking.delete(id);
+            }
+        }
+        if (!clip) return;
+        for (const id of now) {
+            if (talking.has(id)) continue;
+            const element = viewport?.querySelector(`[data-layer="${CSS.escape(id)}"]`);
+            const layer = studio.collage.get(id);
+            if (!element || !layer || typeof element.animate !== "function") continue;
+            talking.set(id, element.animate(clipKeyframes(clip, layer.height), {
+                duration: clip.seconds * 1000,
+                iterations: Infinity,
+                easing: "linear",
+            }));
+        }
+    });
+
     const speaker = createSpeaker();
 
     /*
@@ -476,6 +525,71 @@
             gone = next;
         },
         camera: (ids, tight, duration) => frame(ids, tight, duration),
+        riders(id) {
+            return studio.collage.activeStage?.cast
+                .filter(member => member.on === id)
+                .map(member => member.id) ?? [];
+        },
+        take(holder, item, duration) {
+            const stage = studio.collage.activeStage;
+            const one = studio.collage.list().find(layer => layer.id === holder);
+            const thing = studio.collage.list().find(layer => layer.id === item);
+            if (!stage || !one || !thing) {
+                return new Promise(resolve => setTimeout(resolve, duration));
+            }
+            /*
+             * The hand slot: at the holder's side, half way up — where a
+             * carried basket sits. On the flipped side when the holder is
+             * flipped, so the thing is in the leading hand, not dragged
+             * behind.
+             */
+            const slotX = one.x + one.width * (one.flip ? -0.18 : 0.68);
+            const slotY = one.y + one.height * 0.42 - thing.height / 2;
+            return moveThenAttach(stage.id, item, {
+                on: holder,
+                x: slotX - one.x,
+                y: slotY - one.y,
+            }, { x: slotX, y: slotY }, thing, duration, "take");
+        },
+        drop(holder, item, duration) {
+            void holder;
+            const stage = studio.collage.activeStage;
+            const thing = studio.collage.list().find(layer => layer.id === item);
+            if (!stage || !thing) {
+                return new Promise(resolve => setTimeout(resolve, duration));
+            }
+            // Dropped things land on the ground line, not where the hand was:
+            // gravity is the whole meaning of the beat.
+            const floor = stageRect();
+            const groundY = floor
+                ? floor.y + floor.height * 0.96 - thing.height
+                : thing.y + thing.height * 0.4;
+            return moveThenAttach(stage.id, item, {
+                on: undefined,
+                x: thing.x,
+                y: groundY,
+            }, { x: thing.x, y: groundY }, thing, duration, "drop");
+        },
+        gesture(id, name, duration) {
+            const clip = findClip(name);
+            const element = viewport?.querySelector(`[data-layer="${CSS.escape(id)}"]`);
+            const layer = studio.collage.get(id);
+            if (!clip || !element || !layer || typeof element.animate !== "function") {
+                // A missing clip still takes its time: narration written
+                // against the timetable must not arrive early because a
+                // browser had never recorded one.
+                return new Promise(resolve => setTimeout(resolve, duration));
+            }
+            const animation = element.animate(clipKeyframes(clip, layer.height), {
+                duration,
+                easing: "linear",
+                fill: "none",
+            });
+            gestures.add(animation);
+            return animation.finished.then(
+                () => void gestures.delete(animation),
+                () => void gestures.delete(animation));
+        },
         wear(id, becomes) {
             const next = new Map(worn);
             if (becomes) next.set(id, becomes);
@@ -625,9 +739,79 @@
         scene = null;
     }
 
+    /** Clip animations in flight, cancelled with the scene. */
+    const gestures = new Set<Animation>();
+
+    /**
+     * Commit an attachment (or a detachment) and animate the seam away.
+     *
+     * The document changes FIRST — the placement gets its new holder and
+     * offsets, so the resolved position jumps to the destination — and the
+     * element then animates from where it visually was back to zero. The
+     * same commit-then-animate-from-behind trick every travelling beat uses,
+     * for the same reason: no frame of flicker, and the document never
+     * disagrees with what the audience saw at the end.
+     *
+     * On the `translate` property, so it cannot fight the transform poses.
+     */
+    function moveThenAttach(
+        stageId: string,
+        item: string,
+        placement: { on: string | undefined; x: number; y: number },
+        destination: { x: number; y: number },
+        was: { x: number; y: number },
+        duration: number,
+        manner: "take" | "drop",
+    ): Promise<void> {
+        const stage = studio.collage.getStage(stageId);
+        if (!stage) return Promise.resolve();
+        studio.collage.updateStage(stageId, {
+            cast: stage.cast.map(member => member.id === item
+                ? {
+                    ...member,
+                    x: placement.x,
+                    y: placement.y,
+                    ...(placement.on ? { on: placement.on } : {}),
+                    ...(placement.on === undefined && member.on ? { on: undefined } : {}),
+                }
+                : member),
+        });
+
+        const element = viewport?.querySelector(`[data-layer="${CSS.escape(item)}"]`);
+        if (!element || typeof element.animate !== "function") {
+            return new Promise(resolve => setTimeout(resolve, duration));
+        }
+        const fromX = was.x - destination.x;
+        const fromY = was.y - destination.y;
+        // A reach is one smooth arc; a fall accelerates and lands with the
+        // smallest bounce a piece of paper deserves.
+        const frames = manner === "take"
+            ? [
+                { offset: 0, translate: `${fromX.toFixed(1)}px ${fromY.toFixed(1)}px` },
+                { offset: 1, translate: "0px 0px" },
+            ]
+            : [
+                { offset: 0, translate: `${fromX.toFixed(1)}px ${fromY.toFixed(1)}px`, easing: "cubic-bezier(0.5, 0, 0.9, 0.6)" },
+                { offset: 0.72, translate: "0px 0px", easing: "ease-out" },
+                { offset: 0.86, translate: `0px ${(-Math.abs(fromY) * 0.06 - 4).toFixed(1)}px`, easing: "ease-in" },
+                { offset: 1, translate: "0px 0px" },
+            ];
+        const animation = element.animate(frames, {
+            duration,
+            easing: manner === "take" ? "cubic-bezier(0.3, 0, 0.2, 1)" : "linear",
+            fill: "none",
+        });
+        gestures.add(animation);
+        return animation.finished.then(
+            () => void gestures.delete(animation),
+            () => void gestures.delete(animation));
+    }
+
     export function stopScene() {
         scene?.stop();
         scene = null;
+        for (const gesture of [...gestures]) gesture.cancel();
+        gestures.clear();
         // The player cancels animations; the prompter is the page's, not the
         // scene's, so it has to be told separately. Without this the lines of
         // an abandoned scene carry on being spoken over an empty stage — and
@@ -760,6 +944,40 @@
     }
     /** A drag that has not moved yet is a click; used to keep selection sane. */
     let moved = false;
+    /** The eraser is down and sweeping; ends with the pointer, saves once. */
+    let eraseSweep = false;
+    let erasedAny = false;
+
+    /**
+     * Rub out whatever the pointer is touching, with a little forgiveness.
+     *
+     * A radius rather than a pixel test, because an eraser is a blunt tool:
+     * sweeping along a row of stickers should catch them without having to
+     * cross every one dead-centre. The one refinement: deep INSIDE a large
+     * piece the mask gets a say, so sweeping across the transparent middle of
+     * a backdrop's bounding box does not silently delete the whole room.
+     */
+    function eraseAt(clientX: number, clientY: number) {
+        const point = toCanvas(clientX, clientY);
+        const radius = 16 / view.zoom;
+        for (const layer of [...layers]) {
+            const nearX = Math.max(layer.x, Math.min(point.x, layer.x + layer.width));
+            const nearY = Math.max(layer.y, Math.min(point.y, layer.y + layer.height));
+            if (Math.hypot(point.x - nearX, point.y - nearY) > radius) continue;
+            const inside =
+                point.x > layer.x + radius && point.x < layer.x + layer.width - radius &&
+                point.y > layer.y + radius && point.y < layer.y + layer.height - radius;
+            if (inside && layer.kind === "image") {
+                const loaded = studio.images.get(layer.id);
+                const hit = maskHit(loaded?.mask ?? null, layer.crop,
+                    (point.x - layer.x) / layer.width, (point.y - layer.y) / layer.height);
+                if (!hit) continue;
+            }
+            studio.collage.remove(layer.id);
+            erasedAny = true;
+        }
+        if (erasedAny) studio.setSelection([]);
+    }
     /** Last seen pointer position, so a paste can land where you are looking. */
     let pointer: { x: number; y: number } | null = null;
 
@@ -1172,6 +1390,18 @@
         } catch { /* carry on without capture */ }
         moved = false;
 
+        /*
+         * The armed eraser owns the whole gesture: press, sweep, release. It
+         * never pans and never selects — dragging across the canvas rubs out
+         * everything the pointer passes near, like an eraser and not like a
+         * scalpel. Panning while armed is middle-mouse or the wheel.
+         */
+        if (erasing && event.button === 0) {
+            eraseSweep = true;
+            eraseAt(event.clientX, event.clientY);
+            return;
+        }
+
         const target = event.target as HTMLElement;
         if (target.closest("[data-resize]") && selectedIds.length === 1) {
             const layer = studio.collage.get(selectedIds[0]);
@@ -1212,6 +1442,13 @@
                 return [id, { x: l.x, y: l.y }];
             }));
             drag = { mode: "move", id: layer.id, startX: event.clientX, startY: event.clientY, origins };
+            // An armed recorder samples this drag as a performance. Size is
+            // the piece's on-screen height, so the gesture is stored relative
+            // to the body that made it.
+            if (recorder.armed) {
+                recorder.samples = [{ at: performance.now(), x: event.clientX, y: event.clientY }];
+                recorder.size = layer.height * view.zoom;
+            }
             return;
         }
 
@@ -1228,6 +1465,10 @@
 
     function onPointerMove(event: PointerEvent) {
         pointer = { x: event.clientX, y: event.clientY };
+        if (eraseSweep) {
+            eraseAt(event.clientX, event.clientY);
+            return;
+        }
         // A camera still flying while you reach for something is a camera
         // fighting you.
         if (drag) stopFlight();
@@ -1243,6 +1484,9 @@
         if (drag.mode === "pan") {
             view = { ...view, x: drag.originX + (event.clientX - drag.startX), y: drag.originY + (event.clientY - drag.startY) };
         } else if (drag.mode === "move") {
+            if (recorder.armed && recorder.samples.length) {
+                recorder.samples.push({ at: performance.now(), x: event.clientX, y: event.clientY });
+            }
             for (const [id, origin] of drag.origins) {
                 studio.collage.update(id, { x: origin.x + dx, y: origin.y + dy });
             }
@@ -1278,9 +1522,108 @@
 
     let hoverId = $state<string | null>(null);
 
+    /**
+     * Dropping a piece onto another attaches it; dragging it off detaches.
+     *
+     * The rule is the CENTRE of the dragged piece over the target's actual
+     * pixels — not any overlap, because pieces on a stage overlap constantly
+     * and a rule that attached on touch would weld the whole scene together
+     * one accidental nudge at a time. Centre-over-pixels is a gesture you
+     * make on purpose.
+     */
+    function reparentByDrop(dropped: string) {
+        const stage = studio.collage.activeStage;
+        if (!stage) return;
+        const member = stage.cast.find(candidate => candidate.id === dropped);
+        const layer = layers.find(candidate => candidate.id === dropped);
+        if (!member || !layer) return;
+        // A holder cannot be handed to somebody else while loaded: one level,
+        // no chains, same rule the beats enforce.
+        if (stage.cast.some(candidate => candidate.on === dropped)) return;
+
+        const centreClient = {
+            x: (layer.x + layer.width / 2) * view.zoom + view.x,
+            y: (layer.y + layer.height / 2) * view.zoom + view.y,
+        };
+        const box = viewport?.getBoundingClientRect();
+        const under = box
+            ? layerUnder(centreClient.x + box.left, centreClient.y + box.top, dropped)
+            : null;
+        const holderId = under
+            ? (stage.cast.find(candidate => candidate.id === under.id)?.on ?? under.id)
+            : null;
+        const holder = holderId && holderId !== dropped && holderId !== stage.backdrop
+            ? stage.cast.find(candidate => candidate.id === holderId)
+            : null;
+
+        if (holder && member.on !== holder.id) {
+            studio.collage.updateStage(stage.id, {
+                cast: stage.cast.map(candidate => candidate.id === dropped
+                    ? { ...candidate, on: holder.id, x: layer.x - holder.x, y: layer.y - holder.y }
+                    : candidate),
+            });
+            studio.record("layer-moved",
+                `"${layer.label}" now rides "${studio.collage.get(holder.id)?.label ?? holder.id}".`);
+        } else if (!holder && member.on) {
+            // Dragged clear of everything: let go, and keep its feet.
+            studio.collage.updateStage(stage.id, {
+                cast: stage.cast.map(candidate => candidate.id === dropped
+                    ? { ...candidate, on: undefined, x: layer.x, y: layer.y }
+                    : candidate),
+            });
+            studio.record("layer-moved", `"${layer.label}" was set down.`);
+        }
+    }
+
+    /** The topmost layer whose pixels are under this point, skipping one. */
+    function layerUnder(clientX: number, clientY: number, skip: string): Layer | null {
+        const point = toCanvas(clientX, clientY);
+        for (let i = layers.length - 1; i >= 0; i--) {
+            const layer = layers[i];
+            if (layer.id === skip) continue;
+            const dx = point.x - (layer.x + layer.width / 2);
+            const dy = point.y - (layer.y + layer.height / 2);
+            const radians = (-layer.rotation * Math.PI) / 180;
+            const cos = Math.cos(radians);
+            const sin = Math.sin(radians);
+            let localX = dx * cos - dy * sin + layer.width / 2;
+            const localY = dx * sin + dy * cos + layer.height / 2;
+            if (layer.flip) localX = layer.width - localX;
+            if (localX < 0 || localY < 0 || localX > layer.width || localY > layer.height) continue;
+            if (layer.kind === "text") return layer;
+            const loaded = studio.images.get(layer.id);
+            if (maskHit(loaded?.mask ?? null, layer.crop, localX / layer.width, localY / layer.height)) {
+                return layer;
+            }
+        }
+        return null;
+    }
+
     function onPointerUp(event: PointerEvent) {
+        if (eraseSweep) {
+            // One save for the whole sweep, not one per casualty.
+            eraseSweep = false;
+            if (erasedAny) {
+                erasedAny = false;
+                studio.save();
+            }
+            return;
+        }
+        // A recorded take ends when the hand lets go. Handed to whoever armed
+        // the recorder — the menu, which owns naming and keeping it.
+        if (recorder.armed && recorder.samples.length > 3) {
+            recorder.armed = false;
+            recorder.onDone?.([...recorder.samples], recorder.size);
+            recorder.samples = [];
+        }
+
         // A watching agent should hear about a move that actually happened, not
         // about every click that selected something.
+        // A single piece released after a real drag may have been dropped onto
+        // somebody — or carried away from them.
+        if (moved && drag && drag.mode === "move" && drag.origins.size === 1) {
+            reparentByDrop(drag.id);
+        }
         if (moved && drag && (drag.mode === "move" || drag.mode === "resize")) {
             const layer = studio.collage.get(drag.id);
             if (layer) {
@@ -1484,11 +1827,20 @@
     }
 
     function imageStyle(layer: ImageLayer): string {
-        const indicator = indicatorFor(layer.id);
-        const own = alphaFilters(layer.style, pxUnit, outlineId(layer));
-        // Order matters: the indicator dilates whatever the layer already
-        // draws, so it wraps a sticker outline rather than hiding under it.
-        const filters = [own, indicator].filter(Boolean).join(" ");
+        /*
+         * No `filter` here, and that is the performance of the whole theatre.
+         *
+         * This element is the one that MOVES — the sway, the talk-wobble, the
+         * beats' Web Animations all run on it. A url(#…) SVG filter is not
+         * compositable, so an element carrying both falls off the compositor
+         * entirely: every frame of every animation re-rasterised the full
+         * chain — outline dilate, drop shadow, the painterly displacement —
+         * on the CPU, per layer. Twelve cut-outs swaying was a slideshow.
+         *
+         * The filters live on the child instead (filterOf, below), whose own
+         * properties change only when the boil steps — so the browser keeps a
+         * raster of the filtered artwork and this element just transforms it.
+         */
         return [
             `left: ${layer.x}px`,
             `top: ${layer.y}px`,
@@ -1496,9 +1848,41 @@
             `height: ${layer.height}px`,
             `transform: rotate(${layer.rotation}deg)${layer.flip ? " scale(-1, 1)" : ""}`,
             `z-index: ${layer.z}`,
-            filters ? `filter: ${filters}` : "",
             performedOpacity(layer, layer.style.opacity),
         ].filter(Boolean).join("; ");
+    }
+
+    /** The filter chain, for the static child the animated parent transforms. */
+    function filterOf(layer: ImageLayer): string {
+        const indicator = indicatorFor(layer.id);
+        const own = alphaFilters(layer.style, pxUnit, outlineId(layer));
+        // Order matters: the indicator dilates whatever the layer already
+        // draws, so it wraps a sticker outline rather than hiding under it.
+        const filters = [own, indicator, depthTreatment(layer)].filter(Boolean).join(" ");
+        return filters ? `; filter: ${filters}` : "";
+    }
+
+    /**
+     * Depth as a treatment, for scenes played in the open.
+     *
+     * A scene with a painted backdrop gets its depth from the art. A scene
+     * WITHOUT one — objects on the bare paper — gets it here instead: the
+     * back plane becomes distant silhouettes, dark and faded like paper at
+     * dusk, and the front plane dims just enough to read as nearer than the
+     * action. It costs no art, which is the point: depth stops being
+     * something you have to draw.
+     *
+     * Lives in the filter chain on the static child, so it re-rasterises on
+     * scene changes and never per frame.
+     */
+    function depthTreatment(layer: ImageLayer): string {
+        if (!showing) return "";
+        const stage = studio.collage.activeStage;
+        if (!stage || stage.backdrop) return "";
+        const plane = studio.collage.planeOf(layer.id);
+        if (plane === "back") return "brightness(0.35) saturate(0.4) opacity(0.55)";
+        if (plane === "front") return "brightness(0.7) saturate(0.75) opacity(0.92)";
+        return "";
     }
 
     /**
@@ -1661,6 +2045,7 @@
     class="viewport"
     class:viewport--over={!!hoverId && !drag}
     class:viewport--showing={showing}
+    class:viewport--erasing={erasing && !showing}
     style:--surround={surround
         ? `color-mix(in srgb, ${surround} 22%, #0E1013)`
         : "#14161a"}
@@ -1669,7 +2054,6 @@
     aria-label="Theater stage"
     tabindex="-1"
     style:background-position="{view.x}px {view.y}px"
-    style:background-size="{24 * view.zoom}px {24 * view.zoom}px"
     onwheel={onWheel}
     onpointerdown={onPointerDown}
     onpointermove={onPointerMove}
@@ -1680,25 +2064,6 @@
     ondblclick={onDoubleClick}
 >
     <div class="world" style:transform="translate({view.x}px, {view.y}px) scale({view.zoom})">
-        {#if wings}
-            <!-- Masks everything outside the stage while the show runs. An
-                 entrance is staged by standing somebody off the backdrop and
-                 walking them on, which only reads as an entrance if the
-                 audience cannot already see them standing there — and they
-                 could: the wolf waited in plain sight at the edge of the
-                 screen for the whole of the first scene.
-
-                 One element with an enormous shadow spread, rather than four
-                 panels: it is one box to keep aligned instead of four, and it
-                 covers whatever the view is, however far it pans. -->
-            <div
-                class="wings"
-                style:left="{wings.x}px"
-                style:top="{wings.y}px"
-                style:width="{wings.width}px"
-                style:height="{wings.height}px"
-            ></div>
-        {/if}
         {#if showPage}
             {#each frames as frame (frame.id)}
                 <!-- Drawn as an actual sheet, not just a rule. It is the edge
@@ -1740,9 +2105,9 @@
                     style={imageStyle(layer)}
                 >
                     {#if layer.style.silhouette}
-                        <span class={paintOf(layer)} role="img" aria-label={layer.label} style={croppedStyle(layer)}></span>
+                        <span class={paintOf(layer)} role="img" aria-label={layer.label} style="{croppedStyle(layer)}{filterOf(layer)}"></span>
                     {:else}
-                        <img class={paintOf(layer)} src={layer.src} alt={layer.label} style={croppedStyle(layer)} draggable="false" />
+                        <img class={paintOf(layer)} src={layer.src} alt={layer.label} style="{croppedStyle(layer)}{filterOf(layer)}" draggable="false" />
                     {/if}
                 </figure>
             {:else}
@@ -1862,6 +2227,21 @@
         -webkit-user-select: none;
         background-color: var(--surface-page);
         background-image: radial-gradient(circle, color-mix(in srgb, var(--border-subtle) 80%, transparent) 1px, transparent 1px);
+        /*
+         * The grid pans but does not zoom.
+         *
+         * It is painted on the viewport, which sits outside the scaled world,
+         * so the spacing had to be multiplied by the zoom to make it appear to
+         * scale — and a grid that scales is a grid that claims to measure
+         * something. This one does not: it is the texture of the table the work
+         * is lying on. Tied to the zoom it dissolved into a grey wash on the way
+         * in and spread into stripes on the way out, neither of which told you
+         * anything the work itself did not.
+         *
+         * The position still follows the pan, which is real feedback: the table
+         * moves under your hand.
+         */
+        background-size: 24px 24px;
     }
 
     /* Lifted on a dark canvas — a mid grey that reads as a mark against white
@@ -1909,6 +2289,13 @@
     .viewport--over,
     .viewport--over:active {
         cursor: move;
+    }
+
+    /* The armed eraser announces itself on every pixel, hit or miss. */
+    .viewport--erasing,
+    .viewport--erasing.viewport--over,
+    .viewport--erasing:active {
+        cursor: crosshair;
     }
 
     .world {
@@ -2110,28 +2497,6 @@
        line has been set. */
     .bubble__rest {
         visibility: hidden;
-    }
-
-    .wings {
-        position: absolute;
-        /* Above anything that can stand on a stage. Front-plane pieces sit at
-           z ≈ +100000, and at its old z of 6 the mask covered only the lowest
-           layers — a clock overhanging the stage stayed fully lit outside it.
-           Bubbles and the overlay still paint above this. */
-        z-index: 1000000;
-        pointer-events: none;
-        /* The same colour the viewport goes during a show, so the mask and the
-           surround are one continuous darkness rather than two greys — and a
-           soft inset of it along the inside edge, which beds the stage into the
-           room instead of leaving it cut out of it with scissors. */
-        box-shadow:
-            0 0 0 100000px var(--surround, #14161a),
-            inset 0 0 60px 10px color-mix(in srgb, var(--surround, #14161a) 55%, transparent);
-        transition: box-shadow 0.8s cubic-bezier(0.2, 0, 0, 1);
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        .wings { transition-duration: 0s; }
     }
 
     /*
