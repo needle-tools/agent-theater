@@ -79,11 +79,14 @@ function place() {
     const box = bubble.getBoundingClientRect();
     let x = pointer.x + AWAY_X;
     let y = pointer.y - box.height - AWAY_Y;
-    // Flip to the other side rather than let it run off the edge; the dots
-    // stay bottom-left either way, which is a small lie about where the
-    // thought came from and cheaper than mirroring them.
-    if (x + box.width > innerWidth - pad) x = pointer.x - box.width - AWAY_X;
-    if (y < pad) y = pointer.y + AWAY_Y;
+    // Flip below when there is no room above. The class also moves the thought
+    // dots to the top edge, so they still point back toward the hovered thing.
+    const left = x + box.width > innerWidth - pad;
+    bubble.classList.toggle("paper-hint--left", left);
+    if (left) x = pointer.x - box.width - AWAY_X;
+    const below = y < pad;
+    bubble.classList.toggle("paper-hint--below", below);
+    if (below) y = pointer.y + AWAY_Y;
     bubble.style.translate = `${Math.max(pad, x)}px ${Math.max(pad, y)}px`;
 }
 

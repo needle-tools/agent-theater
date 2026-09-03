@@ -430,6 +430,12 @@ export interface Billing {
     title?: string;
     /** The line under the title — "a play in two scenes", "after Grimm". */
     byline?: string;
+    /**
+     * The maker's lines, rolled after the cast: who wrote it, who directed,
+     * whose paper it is. Written by the agent — a play is made by somebody,
+     * and the credits are where it says so.
+     */
+    credits?: string[];
 }
 
 /** Edits of the same kind closer together than this undo as one step. */
@@ -736,6 +742,7 @@ export class Collage {
             ...this.billed,
             ...(patch.title !== undefined ? { title: patch.title } : {}),
             ...(patch.byline !== undefined ? { byline: patch.byline } : {}),
+            ...(patch.credits !== undefined ? { credits: [...patch.credits] } : {}),
         };
         this.emit();
         return this.billing;

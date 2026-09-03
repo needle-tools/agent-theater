@@ -2724,8 +2724,8 @@
         animation:
             bubble-in 0.44s cubic-bezier(0.34, 1.56, 0.64, 1),
             bubble-paper 0.42s step-end infinite;
-        --paint-wash-strength: 0.14;
-        --paint-scale: 1.8;
+        --paint-wash-strength: 1;
+        --paint-scale: 2.2;
     }
 
     :global(html.painterly) .bubble {

@@ -28,6 +28,7 @@ import { createTroupeTool } from "./troupeTool.js";
 import { TROUPE } from "./troupe.js";
 import { noteCall } from "./toolLog.js";
 import { idleSet } from "./idleSet.js";
+import { publishingTools } from "./publishing.js";
 
 export interface ToolResult {
     content: Array<
@@ -109,6 +110,7 @@ export function createCollageTools(studio: CollageStudio): WebMcpToolDef[] {
         ...buildTools(studio).filter(tool => THEATRE.has(tool.name)),
         ...(troupe ? [troupe] : []),
         ...createStageTools(studio),
+        ...publishingTools(studio),
     ];
     return [...tools, batchTool(studio, tools)].map(tool => reportChanges(studio, tool));
 }
@@ -179,6 +181,15 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
             const what = !theirs.length ? "" : theirs.length === 1
                 ? theirs[0].summary
                 : `${theirs.length} things happened, the last: ${theirs[theirs.length - 1].summary}`;
+            /*
+             * An ADD is not just news — it is direction. Somebody who drags a
+             * new sticker onto the stage mid-conversation is saying "this
+             * belongs in the story", the way somebody handing an actor a prop
+             * mid-rehearsal is. Said outright, because "meanwhile, an image
+             * was added" was read as a changelog and ignored.
+             */
+            const added = theirs.some(event =>
+                event.kind === "image-added" || event.kind === "text-added");
             return {
                 ...result,
                 content: [
@@ -194,7 +205,12 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
                     }] : []),
                     ...(theirs.length ? [{
                         type: "text" as const,
-                        text: `Meanwhile, the person was working: ${what}`,
+                        text: `Meanwhile, the person was working: ${what}` +
+                            (added
+                                ? ` THEY PUT NEW PIECES ON THE STAGE — that is direction, not decoration. ` +
+                                  `Look with piece_list or show_look, and work what they added into the ` +
+                                  `story: cast it in a chapter, give it a line, let the plot notice it.`
+                                : ""),
                     }] : []),
                 ],
             };
@@ -588,7 +604,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `     which is 25 pieces from one generation. A sheet also comes back looking like`,
                     `     one set, where 25 separate generations come back looking like 25 different books.`,
                     `  2. piece_sheet brings each sheet in, one piece per cell.`,
-                    `  3. show_title names the piece. It opens on a title card and heads the credits.`,
+                    `  3. show_title names the piece AND signs it: pass "credits" with the maker's`,
+                    `     lines — story, direction, whose paper — rolled after the cast at the end.`,
                     `  4. stage_create per scene, each at its own spot on the canvas, with its music.`,
                     `     The play stays on the open paper; the camera does the framing.`,
                     `  5. stage_cast for everybody in that chapter's stretch of the story. Casting does`,

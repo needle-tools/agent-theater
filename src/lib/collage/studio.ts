@@ -7,6 +7,7 @@
  * — no canvas, no IndexedDB, no image decoding — while everything that
  * genuinely needs a browser lives here behind one seam.
  */
+import { SWAY_CLIP, TALK_CLIP, findClip, hasOwnClip, saveClip, type Clip } from "./clips.js";
 import {
     Collage, bounds, overlaps,
     type AddFrameSpec, type Frame, type ImageLayer, type Layer, type Rect,
@@ -349,6 +350,11 @@ export interface CollageStudio {
     traceToSvg(id: string, options?: TraceOptions): Promise<TraceOutcome>;
     /** Restore the saved collage. Resolves to how many layers came back. */
     restore(): Promise<number>;
+    /** Replace the working canvas with a document fetched from the play library. */
+    loadPublished?(doc: StoredDoc): Promise<number>;
+    /** A portable snapshot and the browser-owned image bytes it references. */
+    storedDoc?(): StoredDoc;
+    storedAssets?(): Promise<Array<{ key: string; blob: Blob }>>;
     /** The whole collage as one openable picture. */
     saveFile(): Promise<{ blob: Blob; filename: string }>;
     /**
@@ -709,7 +715,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
      */
     const curtainCall = async (stages: Stage[]) => {
         const credits = creditsFor(stages, id => collage.get(id)?.label ?? null);
-        if (!credits.length) return;
+        const makers = (collage.billing.credits ?? []).map(line => line.trim()).filter(Boolean);
+        if (!credits.length && !makers.length) return;
 
         // Bowing happens on the last scene, because that is what is on screen.
         // Anybody not in it takes their bow in the roll instead: dragging the
@@ -731,7 +738,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
         // Started with the roll rather than after it, so the last thing that
         // happens is the music running out under the names — which is how a
         // film ends and the reason the fade is longer than a scene change's.
-        const lines = creditLines(credits);
+        // The cast first, then the makers — the order every roll uses: who
+        // was in it, then who made it.
+        const lines = [...creditLines(credits), ...makers];
         speaker.fadeMusic(Math.min(ENDING_FADE_MS, creditsDuration(lines.length)));
         await holdBillboard({
             kind: "credits",
@@ -1579,6 +1588,49 @@ export function createStudio(collage = new Collage()): CollageStudio {
             return restored.length;
         },
 
+        async loadPublished(doc) {
+            if (doc?.version !== 1 || !Array.isArray(doc.layers) || !Array.isArray(doc.frames)) {
+                throw new Error("That published play uses an unknown document format.");
+            }
+            await this.clear();
+            lastView = doc.view;
+            const layers = doc.layers.filter(layer => layer.kind !== "image" || !!layer.src);
+            collage.restore(layers, doc.frames.slice(0, 1), doc.stages ?? [], doc.billing ?? {});
+            for (const clip of doc.clips ?? []) {
+                if (!hasOwnClip(clip.name)) saveClip(clip);
+            }
+            await Promise.all(layers
+                .filter((layer): layer is ImageLayer => layer.kind === "image")
+                .map(layer => adopt(layer.id, layer.src).catch(() => undefined)));
+            scheduleSave();
+            record("opened", `Loaded published play${doc.billing?.title ? ` “${doc.billing.title}”` : ""}.`, "agent");
+            return layers.length;
+        },
+
+        storedDoc() {
+            return {
+                version: 1,
+                savedAt: Date.now(),
+                layers: collage.listAll().map(layer =>
+                    layer.kind === "image" && layer.storageKey ? { ...layer, src: "" } : layer),
+                frames: collage.listFrames(),
+                ...(collage.listStages().length ? { stages: collage.listStages() } : {}),
+                ...(Object.keys(collage.billing).length ? { billing: collage.billing } : {}),
+                ...(lastView ? { view: lastView } : {}),
+            };
+        },
+
+        async storedAssets() {
+            const keys = new Set(collage.listAll().flatMap(layer =>
+                layer.kind === "image" && layer.storageKey ? [layer.storageKey] : []));
+            const assets: Array<{ key: string; blob: Blob }> = [];
+            for (const key of keys) {
+                const blob = await getImage(key);
+                if (blob) assets.push({ key, blob });
+            }
+            return assets;
+        },
+
         async saveFile() {
             this.refitPage();
             const frame = pageFrame() ?? this.setPage(pagePreset);
@@ -1614,6 +1666,27 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 });
             }
 
+            /*
+             * The gestures the play performs travel WITH the play. Only the
+             * ones its scripts name — shipping the whole drawer would leak
+             * every private recording into every file — plus "talk" and
+             * "sway" when the drawer overrides them, because those replace
+             * built-ins for every speaker and the play was authored to them.
+             */
+            const wanted = new Set<string>();
+            for (const stage of collage.listStages()) {
+                for (const beat of stage.script) {
+                    if (typeof beat.do === "string" && beat.do.startsWith("clip:")) {
+                        wanted.add(beat.do.slice(5));
+                    }
+                }
+            }
+            if (hasOwnClip(TALK_CLIP)) wanted.add(TALK_CLIP);
+            if (hasOwnClip(SWAY_CLIP)) wanted.add(SWAY_CLIP);
+            const travelling = [...wanted]
+                .map(name => findClip(name))
+                .filter((clip): clip is Clip => !!clip);
+
             const doc: StoredDoc = {
                 version: 1,
                 savedAt: Date.now(),
@@ -1628,6 +1701,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 // and it is the part that cannot be reconstructed by looking.
                 ...(collage.listStages().length ? { stages: collage.listStages() } : {}),
                 ...(collage.billing.title || collage.billing.byline ? { billing: collage.billing } : {}),
+                ...(travelling.length ? { clips: travelling } : {}),
                 ...(lastView ? { view: lastView } : {}),
             };
 
@@ -1701,6 +1775,19 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 collage.update(layer.id, {
                     held: holder ? { ...layer.held, by: holder } : null,
                 });
+            }
+
+            /*
+             * The play's gestures join the drawer — but a LOCAL RECORDING
+             * WINS: a clip this browser performed under the same name is a
+             * hand, and a file must not overwrite a hand. Otherwise the
+             * file's version is kept whenever it differs from what this
+             * install would play, so the play replays as it was authored.
+             */
+            for (const clip of payload.doc.clips ?? []) {
+                if (hasOwnClip(clip.name)) continue;
+                const current = findClip(clip.name);
+                if (!current || JSON.stringify(current) !== JSON.stringify(clip)) saveClip(clip);
             }
 
             // The title is taken only by a canvas that has none. Overwriting

@@ -14,10 +14,6 @@
      */
     import type { CollageStudio } from "./studio.js";
     import { toolCalls, toolLogFile } from "./toolLog.js";
-    import {
-        clipFromSamples, clipName, clipToCss, deleteClip, listClips, recorder, saveClip,
-        type Clip, type ClipSample,
-    } from "./clips.js";
 
     interface Props {
         studio: CollageStudio;
@@ -51,32 +47,6 @@
 
     let copiedLog = $state(false);
 
-    /** The recorder's menu half: arming, the unnamed take, the drawer. */
-    let recording = $state(false);
-    let pendingTake = $state<Clip | null>(null);
-    let takeName = $state("");
-    let clips = $state(listClips());
-
-    function toggleRecorder() {
-        recording = !recording;
-        recorder.armed = recording;
-        recorder.onDone = (samples: ClipSample[], size: number) => {
-            recording = false;
-            // Named after it exists, because a name typed before the gesture
-            // is a plan and half of recording is discovering what came out.
-            pendingTake = clipFromSamples("take", samples, size);
-            takeName = "";
-        };
-    }
-
-    function keepTake() {
-        const name = clipName(takeName);
-        if (!pendingTake || !name) return;
-        saveClip({ ...pendingTake, name });
-        pendingTake = null;
-        clips = listClips();
-    }
-
     async function copyLog() {
         const file = toolLogFile({
             play: studio.collage.billing.title ?? null,
@@ -97,10 +67,6 @@
     onpointerdown={event => {
         if (!open || !panel) return;
         const target = event.target as Node;
-        // An armed recorder is ABOUT to click the canvas — that is the whole
-        // gesture — and the panel closing underneath it would lose the take's
-        // naming UI.
-        if (recorder.armed || pendingTake) return;
         if (!panel.contains(target) && !(target as HTMLElement).closest?.("[data-edit-trigger]")) onClose();
     }}
     onkeydown={event => { if (open && event.key === "Escape") onClose(); }}
@@ -114,68 +80,40 @@
                 <button class="strong" onclick={onLoad}>Load play</button>
             </div>
             <p class="note">
-                Saves as one picture holding everything — the pieces, the scenes, the script and the
-                title. Drop it back here, or load it, to carry on where you left off.
-                <span class="num">Ctrl</span> + <span class="num">S</span> does the same.
+                One picture keeps the whole play. <kbd>Ctrl S</kbd> to save.
             </p>
         </section>
 
         <section style:--i="1">
             <h2>Motion clips</h2>
-            <!-- The recorder: perform a movement by dragging a piece, and it
-                 becomes a move any piece can replay. A clip named "talk"
-                 replaces the programmed talking wobble for every speaker —
-                 record the imperfection once, the company inherits it. -->
-            {#if pendingTake}
-                <p class="note">Recorded {pendingTake.seconds}s. Name it — "talk" replaces the built-in talking wobble.</p>
-                <div class="grid">
-                    <input
-                        class="clip-name"
-                        placeholder="e.g. talk, limp, shiver"
-                        bind:value={takeName}
-                        onkeydown={event => { if (event.key === "Enter") keepTake(); }}
-                    />
-                    <button class="strong" disabled={!clipName(takeName)} onclick={keepTake}>Keep</button>
-                </div>
-                <button class="quiet" onclick={() => (pendingTake = null)}>Discard the take</button>
-            {:else}
-                <button class="wide" class:strong={recording} onclick={toggleRecorder}>
-                    {recording ? "Recording — drag a piece, release to finish" : "Record a movement"}
-                </button>
-            {/if}
-            {#if clips.length}
-                <ul class="clips">
-                    {#each clips as clip (clip.name)}
-                        <li>
-                            <span class="clips__name">{clip.name} <small>{clip.seconds}s</small></span>
-                            <button class="clips__act" title="Copy as CSS keyframes"
-                                onclick={() => navigator.clipboard.writeText(clipToCss(clip))}>CSS</button>
-                            <button class="clips__act" title="Copy as JSON"
-                                onclick={() => navigator.clipboard.writeText(JSON.stringify(clip))}>JSON</button>
-                            <button class="clips__act" title="Delete"
-                                onclick={() => { deleteClip(clip.name); clips = listClips(); }}>✕</button>
-                        </li>
-                    {/each}
-                </ul>
-                <p class="note">Agents play these as <span class="num">do: "clip:name"</span> in a scene.</p>
-            {/if}
+            <!-- The recorder moved to its own page: recording on the working
+                 canvas fought selection, panning and the eraser for the same
+                 drag, and eventually lost. A room of its own wins. -->
+            <a class="record-link" href="/record">
+                <span>Record movements</span>
+                <span aria-hidden="true">→</span>
+            </a>
+            <p class="note">
+                Reuse recorded gestures with <code>clip:name</code>.
+            </p>
         </section>
 
         <footer style:--i="2">
-            <p class="muted">
-                {toolsRegistered
-                    ? "WebMCP tools are registered — an agent in this tab can put on a show with you, and can see what you change."
-                    : "WebMCP is off in this browser. The stage works regardless."}
+            <p class="status" class:status--ready={toolsRegistered}>
+                <span class="status__dot" aria-hidden="true"></span>
+                {toolsRegistered ? "Agent tools ready" : "Agent tools unavailable"}
             </p>
             <!-- A debug affordance, and deliberately a plain one. The failures
                  worth reporting here are not crashes: they are an agent calling
                  the right tool with plausible arguments and getting a plausible
                  answer that is wrong, which leaves no trace anybody can hand
                  over afterwards. This is that trace. -->
-            <button class="quiet" disabled={!calls} onclick={copyLog}>
-                {copiedLog ? "Copied" : calls ? `Copy AI tool log (${calls})` : "No AI tool calls yet"}
-            </button>
-            <button class="quiet" onclick={onClear}>Clear the stage</button>
+            {#if calls}
+                <button class="quiet" onclick={copyLog}>
+                    {copiedLog ? "Copied" : `Copy agent log (${calls})`}
+                </button>
+            {/if}
+            <button class="quiet quiet--danger" onclick={onClear}>Clear stage</button>
         </footer>
     </div>
 {/if}
@@ -207,7 +145,7 @@
 
     /* Split and stagger: the panel arrives, then its contents settle. */
     section, footer {
-        padding: 10px;
+        padding: 10px 12px;
         animation: section-in 0.26s cubic-bezier(0.2, 0, 0, 1) backwards;
         animation-delay: calc(60ms + var(--i) * 40ms);
     }
@@ -259,23 +197,30 @@
         font-weight: 600;
     }
 
+    h2 {
+        margin: 0 0 8px;
+        font-size: var(--type-body-size);
+        line-height: 1.25;
+        text-wrap: balance;
+    }
+
     .quiet {
         width: 100%;
-        margin-top: 8px;
-        min-height: 34px;
+        margin-top: 4px;
+        min-height: 40px;
         border-color: transparent;
         background: none;
         color: var(--text-muted);
     }
 
-    .quiet:hover {
+    .quiet--danger:hover {
         /* Fallback because --accent-error only exists in brand.css's dark block. */
         color: var(--accent-error, #D93A62);
         background: color-mix(in srgb, var(--accent-error, #D93A62) 8%, transparent);
         border-color: transparent;
     }
 
-    .note, .muted {
+    .note {
         margin: 8px 0 0;
         color: var(--text-muted);
         font-size: var(--type-body-muted-size);
@@ -287,57 +232,67 @@
         font-variant-numeric: tabular-nums;
     }
 
+    kbd, code {
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--surface-panel-muted);
+        color: var(--text-primary);
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 0.88em;
+        white-space: nowrap;
+    }
+
     footer {
         border-top: 1px solid color-mix(in srgb, var(--border-subtle) 60%, transparent);
     }
 
-    .wide {
-        width: 100%;
-    }
-
-    .clip-name {
-        min-height: 38px;
-        padding: 0 11px;
+    .record-link {
+        min-height: 40px;
+        padding: 0 12px;
         border-radius: 12px;
         border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
         background: var(--surface-page-elevated, #fff);
         color: var(--text-primary);
-        font: inherit;
-        font-size: var(--type-body-muted-size);
-    }
-
-    .clips {
-        margin: 8px 0 0;
-        padding: 0;
-        list-style: none;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .clips li {
         display: flex;
         align-items: center;
-        gap: 4px;
+        justify-content: space-between;
+        gap: 12px;
+        font-weight: 600;
+        font-size: var(--type-body-muted-size);
+        text-decoration: none;
+        transition-property: background, border-color, scale;
+        transition-duration: 0.14s;
     }
 
-    .clips__name {
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    .record-link:hover {
+        border-color: var(--border-strong);
+        background: var(--surface-panel-muted);
+    }
+
+    .record-link:active {
+        scale: 0.96;
+    }
+
+    .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 4px;
+        color: var(--text-muted);
         font-size: var(--type-body-muted-size);
     }
 
-    .clips__name small {
-        color: var(--text-muted);
+    .status__dot {
+        width: 7px;
+        height: 7px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--text-muted);
+        opacity: 0.55;
     }
 
-    .clips__act {
-        min-height: 26px;
-        padding: 0 7px;
-        border-radius: 8px;
-        font-size: var(--type-micro-label-size);
+    .status--ready .status__dot {
+        background: #6f8c3a;
+        opacity: 1;
     }
 </style>

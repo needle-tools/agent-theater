@@ -27,6 +27,7 @@
     import { said } from "$lib/collage/typed";
     import { prompter } from "$lib/collage/speech";
     import { boilFilterSvg, loadPainterly, PAINTERLY_CSS } from "$lib/collage/painted";
+    import { hint } from "$lib/collage/hint";
     import { TROUPE } from "$lib/collage/troupe";
     import { idleSet } from "$lib/collage/idleSet";
     import { notifyAgentActivity } from "$lib/room/activity";
@@ -53,6 +54,38 @@
     let editOpen = $state(false);
     /** The eraser is armed: clicking any sticker — canvas or strewn — removes it. */
     let erasing = $state(false);
+
+    /*
+     * Picking the eraser up off its shelf.
+     *
+     * Where the drag started, while the pointer is still down on the sticker.
+     * Null the rest of the time, which is also how `armMove` knows the gesture
+     * is one it started rather than a pointer wandering across.
+     */
+    let armFrom: { x: number; y: number } | null = $state(null);
+    /** The drag already armed it, so the click that follows must not toggle. */
+    let armHandled = false;
+
+    function armDown(event: PointerEvent) {
+        if (event.button !== 0 || erasing) return;
+        armFrom = { x: event.clientX, y: event.clientY };
+    }
+
+    function armMove(event: PointerEvent) {
+        if (!armFrom || erasing) return;
+        // Far enough that a shaky click is not a drag. Once it is picked up
+        // the pointer belongs to the canvas, so nothing is captured here —
+        // capturing would send every later move back to a button that is no
+        // longer on screen.
+        if (Math.hypot(event.clientX - armFrom.x, event.clientY - armFrom.y) < 12) return;
+        armFrom = null;
+        armHandled = true;
+        erasing = true;
+    }
+
+    function armUp() {
+        armFrom = null;
+    }
     let canvas = $state<CollageCanvas | null>(null);
     let fileInput: HTMLInputElement | null = $state(null);
     let restored = $state(false);
@@ -79,6 +112,31 @@
     const frames = $derived.by(() => (version, collage.listFrames()));
     const empty = $derived(!layers.length && !frames.length);
 
+    /**
+     * House music for the idle menu: one of the menu-theatre beds, dealt
+     * once per visit so returning does not always open on the same bars.
+     * It waits for the first gesture (the browser refuses audio before one),
+     * plays only while the stage is idle, and lets itself down the moment
+     * real work appears — a show brings its own bed, and somebody arranging
+     * stickers deserves the room, not a loop.
+     */
+    const MENU_BED = `menu-theatre-${1 + Math.floor(Math.random() * 5)}`;
+    let menuMusic = false;
+    $effect(() => {
+        if (!restored) return;
+        if (empty && !menuMusic) {
+            const start = () => {
+                menuMusic = true;
+                studio.speaker.music(MENU_BED, "loop");
+            };
+            if (prompter.touched) start();
+            else return prompter.onTouch(start);
+        } else if (!empty && menuMusic) {
+            menuMusic = false;
+            studio.speaker.fadeMusic();
+        }
+    });
+
     onMount(async () => {
         prompt = invitation(location.origin);
 
@@ -97,6 +155,19 @@
             }
         } catch (error) {
             console.warn("[collage] could not restore the saved collage:", error);
+        }
+        const shared = new URL(location.href).searchParams.get("play");
+        if (shared) {
+            try {
+                const response = await fetch(`/api/plays/${encodeURIComponent(shared)}`);
+                const play = await response.json();
+                if (!response.ok) throw new Error(play.error || "The play could not be loaded.");
+                await studio.loadPublished!(play.doc);
+                toasts.push(`Opened “${play.title}”.`);
+                canvas?.fitAll();
+            } catch (error) {
+                toasts.push(error instanceof Error ? error.message : "The shared play could not be loaded.", "error");
+            }
         }
         restored = true;
         // Only onto a genuinely empty stage, and computed on the client so the
@@ -923,6 +994,7 @@
     aria-label="Theater"
     ondragover={e => e.preventDefault()}
     ondrop={onDrop}
+    oncontextmenu={e => e.preventDefault()}
 >
     <CollageCanvas
         bind:this={canvas}
@@ -1080,22 +1152,42 @@
         </svg>
     </button>
 
-    <!-- The eraser, beside the menu. A mode, not an action: arm it and every
-         sticker you click is rubbed out — canvas pieces and strewn props
-         alike — until you click it again. -->
+    <!--
+        The eraser, lying beside the menu as a sticker rather than sitting in a
+        button. You pick it up off the shelf and it becomes the pointer; put it
+        back and it stops. A mode either way, but one you can see in your hand.
+
+        Still a <button> underneath, for all that it does not look like one: a
+        div would take the keyboard away from anyone who cannot drag, and the
+        drag is a nicer way to do it rather than the only way. Enter arms it,
+        as does a plain click.
+
+        While it is armed the sticker is gone from the shelf — it is under the
+        pointer, drawn by PaperCursor — and its empty spot is what you drop it
+        back onto.
+    -->
     <button
-        class="trigger trigger--eraser"
-        class:trigger--erasing={erasing}
-        aria-label={erasing ? "Put the eraser down" : "Erase stickers"}
+        class="eraser"
+        class:eraser--armed={erasing}
+        aria-label={erasing ? "Put the eraser down" : "Pick up the eraser"}
         aria-pressed={erasing}
-        title={erasing ? "Click stickers to erase them — click here to stop" : "Eraser"}
-        onclick={() => (erasing = !erasing)}
+        use:hint={erasing
+            ? "Rubbing out. Drop me back on my spot // or press Escape"
+            : "Drag me onto the paper %wait0.6% and I will rub out whatever I touch"}
+        onpointerdown={armDown}
+        onpointermove={armMove}
+        onpointerup={armUp}
+        onpointercancel={() => (armFrom = null)}
+        onclick={event => {
+            // A drag has already decided; only a real click gets here to
+            // toggle. `armUp` clears armFrom when it handled the gesture.
+            if (armHandled) { armHandled = false; return; }
+            erasing = !erasing;
+        }}
     >
-        <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M11.3 4.6l4.1 4.1a1.4 1.4 0 0 1 0 2l-4.7 4.7H7.3l-3.2-3.2a1.4 1.4 0 0 1 0-2l5.2-5.6a1.4 1.4 0 0 1 2 0z" />
-            <path d="M8.4 7.7l3.9 3.9" />
-            <path d="M4.4 15.4h11.2" />
-        </svg>
+        {#if !erasing}
+            <img class="eraser__art painted" src="/cursors/eraser-64.png" alt="" draggable="false" />
+        {/if}
     </button>
 
     <!-- Said out loud, in the same voice that gave the instruction in the first
@@ -1366,8 +1458,8 @@
         line-height: 1.45;
         text-align: center;
         text-wrap: pretty;
-        --paint-wash-strength: 0.14;
-        --paint-scale: 1.8;
+        --paint-wash-strength: 1;
+        --paint-scale: 2.2;
     }
 
     :global(html.painterly) .strewn__bubble {
@@ -1617,16 +1709,75 @@
         stroke-linecap: round;
     }
 
-    /* One button-width left of the menu: 16 + 42 + 8. */
-    .trigger--eraser {
+    /*
+     * A sticker on the shelf, not a button on a bar.
+     *
+     * No circle, no fill, no border: the drawer below is stickers lying on
+     * paper and this is one of them, resting where the tools live. One
+     * button-width left of the menu, as the button was: 16 + 42 + 8.
+     */
+    .eraser {
+        position: absolute;
+        top: 16px;
         right: 66px;
+        z-index: 22;
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        padding: 0;
+        border: 0;
+        border-radius: 12px;
+        background: none;
+        cursor: grab;
+        /* The pointer is about to be dragged off this element; a browser
+           starting a native image drag or a scroll instead would eat it. */
+        touch-action: none;
+        transition-property: scale, translate;
+        transition-duration: 0.16s;
     }
 
-    /* Armed reads as danger, not as "open" — it deletes what you touch. */
-    .trigger--erasing {
-        background: var(--accent-danger, #c4463c);
-        border-color: transparent;
-        color: #fff;
+    .eraser:hover {
+        translate: 0 -2px;
+        scale: 1.06;
+    }
+
+    .eraser:active {
+        cursor: grabbing;
+        scale: 0.98;
+    }
+
+    .eraser__art {
+        width: 38px;
+        /* Painted like everything else made of paper; the marks are enlarged
+           for the same reason the strewn props enlarge theirs, a 38px drawing
+           being far too small for the default brush. */
+        --paint-scale: 2.2;
+        filter: var(--paint-warp, url("#paint-boil-0"))
+            drop-shadow(0 2px 3px rgba(20, 24, 18, 0.34));
+        pointer-events: none;
+    }
+
+    /*
+     * Armed: the sticker is not here, it is under the pointer. What is left is
+     * the dent it was lying in — somewhere to aim at to put it back, and the
+     * only thing on screen that says the tool is still in hand once the
+     * pointer has wandered off.
+     */
+    .eraser--armed {
+        cursor: pointer;
+        border: 1.5px dashed color-mix(in srgb, var(--accent-danger, #c4463c) 55%, transparent);
+        background: color-mix(in srgb, var(--accent-danger, #c4463c) 8%, transparent);
+    }
+
+    .eraser--armed:hover {
+        border-color: var(--accent-danger, #c4463c);
+        translate: 0;
+        scale: 1.04;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .eraser { transition: none; }
     }
 
     .file {

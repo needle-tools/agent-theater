@@ -84,6 +84,10 @@ function fakeStudio(options: FakeOptions = {}) {
             return { ok: true };
         },
         async restore() { return 0; },
+        // Publishing needs a real store; the fake only satisfies the shape.
+        async loadPublished() { return 0; },
+        storedDoc() { return { version: 1 as const, savedAt: 0, layers: [], frames: [] }; },
+        async storedAssets() { return []; },
         // Slicing and tracing need decoded pixels; the tools only see results.
         async addPieces() { throw new Error("the fake studio does not slice"); },
         async traceToSvg() { return { ok: false, reason: "the fake studio does not trace" }; },
@@ -767,7 +771,8 @@ describe("the surface an agent actually sees", () => {
             .filter(name => name !== "theater_troupe").sort();
         expect(names).toEqual([
             "piece_add", "piece_copy", "piece_list", "piece_move", "piece_remove", "piece_sheet", "piece_text",
-            "show_look", "show_play", "show_sounds", "show_stop", "show_title", "show_watch",
+            "show_list", "show_load", "show_look", "show_play", "show_publish", "show_save",
+            "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",
             "theater_art_prompt", "theater_batch", "theater_clear", "theater_start",
         ]);

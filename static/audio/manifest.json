@@ -81,6 +81,33 @@
 			"mood": ["friendly", "unhurried", "acoustic"],
 			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Fades to silence at the end, so it wants `fade` rather than `loop`."
 		},
+		"danger-close-1": {
+			"role": "bed",
+			"file": "/audio/music/danger-close-1.opus",
+			"seconds": 46.07,
+			"bpm": 50,
+			"take": "danger-close",
+			"mood": ["dark", "tense", "hovering"],
+			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The most eventful of the three: its level swings about 20 dB across the piece, so things happen in it rather than under it. Fades at the end, so it wants `fade` rather than `loop`."
+		},
+		"danger-close-2": {
+			"role": "bed",
+			"file": "/audio/music/danger-close-2.opus",
+			"seconds": 44.81,
+			"bpm": 50,
+			"take": "danger-close",
+			"mood": ["dark", "tense", "hovering"],
+			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The steadiest of the three and the one that behaves most like a bed, but also the loudest. Fades at the end, so it wants `fade` rather than `loop`."
+		},
+		"danger-close-3": {
+			"role": "bed",
+			"file": "/audio/music/danger-close-3.opus",
+			"seconds": 50.01,
+			"bpm": 50,
+			"take": "danger-close",
+			"mood": ["dark", "tense", "hovering"],
+			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The only one that came back at the full length asked for, and the quietest through the middle. Fades to silence at the end, so it wants `fade` rather than `loop`."
+		},
 		"fairy-tale-ambience": {
 			"role": "bed",
 			"hidden": true,
@@ -1377,6 +1404,66 @@
 			"mood": ["warm", "audience", "approving"],
 			"description": "Warm applause from a small theatre audience. Came out at 3s rather than the 5s asked for, so it wants a fade rather than a hard stop.",
 			"seam": "showEnd"
+		},
+		"boing": {
+			"role": "sfx",
+			"file": "/audio/sfx/boing.opus",
+			"seconds": 1.17,
+			"mood": ["springy", "comic", "hollow"],
+			"description": "A sprung boing with a long wobble, low and mid weighted with no top at all. Recorded rather than generated, so it has the room and the body the synthetic cues lack.",
+			"skill": "jump"
+		},
+		"boing-long": {
+			"role": "sfx",
+			"file": "/audio/sfx/boing-long.opus",
+			"seconds": 1.62,
+			"mood": ["springy", "comic", "hollow"],
+			"description": "The same sprung boing given half a second longer to wobble out. For a jump that needs to land later than `boing` does.",
+			"skill": "jump"
+		},
+		"drop": {
+			"role": "sfx",
+			"file": "/audio/sfx/drop.opus",
+			"seconds": 0.73,
+			"mood": ["weighty", "dull", "abrupt"],
+			"description": "Something heavy going down: low and mid weighted, no top, gone in three quarters of a second. The loudest of the recorded effects.",
+			"skill": "fall"
+		},
+		"plop": {
+			"role": "sfx",
+			"file": "/audio/sfx/plop.opus",
+			"seconds": 0.57,
+			"mood": ["small", "soft", "rounded"],
+			"description": "A small rounded plop, almost no low end under it. A lighter landing than `drop` and much quieter.",
+			"skill": "fall"
+		},
+		"phew": {
+			"role": "sfx",
+			"file": "/audio/sfx/phew.opus",
+			"seconds": 0.65,
+			"mood": ["breathy", "relieved", "warm"],
+			"description": "A breathed-out phew, mid and top with the breath audible in it. Relief after the danger has passed."
+		},
+		"spit": {
+			"role": "sfx",
+			"file": "/audio/sfx/spit.opus",
+			"seconds": 0.65,
+			"mood": ["sharp", "noisy", "bright"],
+			"description": "A short wet spit, broadband and bright — the only recorded effect with as much above 4 kHz as below it."
+		},
+		"swoosh-small": {
+			"role": "sfx",
+			"file": "/audio/sfx/swoosh-small.opus",
+			"seconds": 0.84,
+			"mood": ["airy", "light", "quick"],
+			"description": "A small breathed swoosh with a long thin decay, no weight underneath. Much smaller and quieter than `whoosh` — for something little moving, not something big."
+		},
+		"knock-dull": {
+			"role": "sfx",
+			"file": "/audio/sfx/knock-dull.opus",
+			"seconds": 0.43,
+			"mood": ["dull", "wooden", "abrupt"],
+			"description": "A single short knock: fast attack, dead by a third of a second, mid-weighted with almost no top. Duller and much shorter than `thud`. Came in clipping and 6 dB hotter than the rest of the library, so it is the one sound here that was turned down on the way in."
 		},
 		"laugh-cute": {
 			"role": "sfx",

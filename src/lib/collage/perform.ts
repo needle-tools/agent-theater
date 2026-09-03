@@ -140,22 +140,66 @@ const arc = (t: number) => Math.sin(Math.PI * clamp01(t));
  * `exit`, which leaves. That rule is what lets beats be layered and interrupted
  * without a layer slowly drifting away from where the document says it is.
  */
+/**
+ * The walk gait, RECORDED rather than computed.
+ *
+ * Performed by hand with the motion recorder — a piece walked across the
+ * table in four hops — and baked in as [t, dx, dy] in units of the walker's
+ * height. The sine-bob it replaces was even and therefore lifeless; this one
+ * has the uneven weight of an actual hand, which is the whole aesthetic of
+ * the theatre. It begins and ends at rest, so the beat's contract ("finishes
+ * exactly where the travel says") still holds.
+ */
+const WALK_GAIT: ReadonlyArray<readonly [number, number, number]> = [
+    [0, 0, 0], [0.021, 0, 0.001], [0.043, 0, 0.003], [0.064, -0.014, -0.122],
+    [0.085, -0.012, -0.242], [0.106, -0.01, -0.252], [0.128, -0.016, -0.244],
+    [0.149, -0.046, -0.146], [0.17, -0.046, -0.045], [0.191, -0.043, -0.026],
+    [0.213, -0.04, -0.019], [0.234, -0.035, -0.017], [0.255, -0.026, -0.02],
+    [0.277, -0.022, -0.082], [0.298, -0.041, -0.16], [0.319, -0.039, -0.183],
+    [0.34, -0.036, -0.191], [0.362, -0.033, -0.181], [0.383, -0.031, -0.167],
+    [0.404, -0.028, -0.082], [0.426, -0.026, -0.024], [0.447, -0.016, -0.009],
+    [0.468, -0.012, -0.006], [0.489, -0.008, -0.002], [0.511, 0, 0],
+    [0.532, 0.01, 0.002], [0.553, 0.033, -0.016], [0.574, 0.057, -0.104],
+    [0.596, 0.078, -0.175], [0.617, 0.081, -0.174], [0.638, 0.083, -0.165],
+    [0.66, 0.086, -0.155], [0.681, 0.094, -0.069], [0.702, 0.096, -0.008],
+    [0.723, 0.098, -0.005], [0.745, 0.099, -0.001], [0.766, 0.101, 0.003],
+    [0.787, 0.103, 0.007], [0.809, 0.104, 0.01], [0.83, 0.067, -0.049],
+    [0.851, 0.024, -0.134], [0.872, 0.017, -0.155], [0.894, 0.016, -0.152],
+    [0.915, -0.008, -0.111], [0.936, -0.013, -0.042], [0.957, -0.01, -0.012],
+    [0.979, -0.005, -0.006], [1, 0, 0],
+];
+
+/** The gait sampled at a normalised time, linearly between recorded frames. */
+function gaitAt(time: number): [number, number] {
+    const at = clamp01(time);
+    for (let i = 1; i < WALK_GAIT.length; i++) {
+        const [t1, x1, y1] = WALK_GAIT[i];
+        if (at > t1) continue;
+        const [t0, x0, y0] = WALK_GAIT[i - 1];
+        const span = Math.max(1e-6, t1 - t0);
+        const mix = (at - t0) / span;
+        return [x0 + (x1 - x0) * mix, y0 + (y1 - y0) * mix];
+    }
+    return [0, 0];
+}
+
 export function poseFor(move: MoveName, t: number, context: MoveContext): Pose {
     const time = clamp01(t);
     const { size, dx, dy } = context;
     switch (move) {
         case "walk": {
             const travelled = smooth(time);
-            // Bobbing and a slight lean, at a rate independent of the distance,
-            // so a long walk is more steps rather than bigger ones.
-            const steps = 4;
-            const bob = Math.abs(Math.sin(Math.PI * steps * time));
+            const [gaitX, gaitY] = gaitAt(time);
+            // The recorded gait rides ON TOP of the travel: four real hops
+            // with their own weight shifts, in units of the walker's height.
             return {
-                dx: dx * travelled,
-                dy: dy * travelled - bob * size * 0.035,
-                rotate: Math.sin(Math.PI * 2 * steps * time) * 2.2,
+                dx: dx * travelled + gaitX * size,
+                dy: dy * travelled + gaitY * size,
+                // The lean keeps its old cadence, which happens to be the
+                // gait's: four steps per beat.
+                rotate: Math.sin(Math.PI * 2 * 4 * time) * 2.2,
                 scaleX: 1,
-                scaleY: 1 + bob * 0.02,
+                scaleY: 1,
                 opacity: 1,
             };
         }

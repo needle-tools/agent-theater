@@ -2440,8 +2440,8 @@ Variables:
     scale: 0.96;
     transition: opacity 0.12s, scale 0.12s;
     will-change: translate;
-    --paint-wash-strength: 0.16;
-    --paint-scale: 1.8;
+    --paint-wash-strength: 1;
+    --paint-scale: 2.2;
 }
 
 /* A quietly re-laid paper surface. The plain background remains the fallback
@@ -2483,6 +2483,29 @@ Variables:
     height: 13px;
 }
 
+/* When the bubble has to sit below the pointer, its thought trail belongs on
+   the top edge and points back up at the thing being considered. */
+.paper-hint--below .paper-hint__dot {
+    top: -16px;
+    bottom: auto;
+}
+
+.paper-hint--below .paper-hint__dot--big {
+    top: -7px;
+    bottom: auto;
+}
+
+/* A bubble placed left of its target trails from the right-hand corner. */
+.paper-hint--left .paper-hint__dot {
+    right: 11px;
+    left: auto;
+}
+
+.paper-hint--left .paper-hint__dot--big {
+    right: 18px;
+    left: auto;
+}
+
 /* The caret while the text is still arriving. */
 .paper-hint__text::after {
     content: "";
@@ -2491,5 +2514,5 @@ Variables:
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .paper-hint { transition: none; }
+    .paper-hint { transition: none; animation: none; }
 }

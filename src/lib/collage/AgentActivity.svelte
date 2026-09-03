@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { onAgentActivity, type AgentActivity } from "$lib/room/activity";
+    import { clipKeyframes, findClip } from "$lib/collage/clips";
 
     interface Props {
         canvas: HTMLElement | null;
@@ -9,10 +10,14 @@
     let { canvas }: Props = $props();
     let visible = $state(false);
     let speaking = $state(false);
+    let sleeping = $state(false);
     let text = $state("");
+    let state = $state("working");
     let x = $state(0);
     let y = $state(0);
-    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    let figure: HTMLImageElement;
+    let motion: Animation | null = null;
+    let sleepTimer: ReturnType<typeof setTimeout> | null = null;
     let speechTimer: ReturnType<typeof setTimeout> | null = null;
 
     const WORDS: Record<string, string> = {
@@ -28,12 +33,49 @@
         show_watch: "Watching the stage…",
         show_title: "Lettering the title card…",
         show_export: "Preparing the finished play…",
+        show_save: "Saving the play…",
+        show_publish: "Publishing the play…",
+        show_list: "Looking through published plays…",
+        show_load: "Opening another play…",
     };
 
     function words(tool: string): string {
         if (WORDS[tool]) return WORDS[tool];
         const action = tool.replace(/^(piece|stage|show|theater)_/, "").replaceAll("_", " ");
         return `${action.charAt(0).toUpperCase()}${action.slice(1)}…`;
+    }
+
+    function iconState(tool: string): string {
+        if (tool === "piece_list") return "searching";
+        if (tool === "stage_describe") return "reading";
+        if (tool === "show_title") return "writing";
+        if (tool === "theater_clear") return "refreshing";
+        if (tool === "stage_cast") return "planning";
+        if (tool === "show_watch") return "listening";
+        if (tool === "stage_play" || tool === "show_play") return "delighted";
+        return "working";
+    }
+
+    function fly(firstArrival: boolean) {
+        motion?.cancel();
+        const clip = findClip(firstArrival ? "agent-flying" : "agent-flying-soft");
+        if (!clip || !figure || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        motion = figure.animate(clipKeyframes(clip, 24), {
+            duration: clip.seconds * 1000,
+            easing: "linear",
+            iterations: firstArrival ? 1 : Infinity,
+        });
+        if (firstArrival) {
+            void motion.finished.then(() => {
+                if (!sleeping) fly(false);
+            }, () => undefined);
+        }
+    }
+
+    function sleep() {
+        sleeping = true;
+        motion?.cancel();
+        motion = null;
     }
 
     function strings(value: unknown, found: string[] = []): string[] {
@@ -57,26 +99,34 @@
             };
         }
 
-        // Broad actions still happen somewhere tangible. The small hash keeps
-        // successive tools from piling the character on one exact pixel.
+        // Broad actions belong at the edge of the stage, not hovering over the
+        // actors in the middle of the play. Keep a little vertical variation
+        // between tools while giving the speech bubble room on the left.
         const hash = [...activity.tool].reduce((sum, char) => sum + char.charCodeAt(0), 0);
         return {
-            x: bounds.left + bounds.width * (0.38 + (hash % 25) / 100),
-            y: bounds.top + bounds.height * (0.35 + (hash % 19) / 100),
+            x: bounds.right - 54,
+            y: bounds.top + Math.min(118, Math.max(82, bounds.height * 0.16 + (hash % 3) * 12)),
         };
     }
 
     function show(activity: AgentActivity) {
+        const firstArrival = !visible;
         const next = destination(activity);
         x = next.x;
         y = next.y;
         text = words(activity.tool);
+        state = iconState(activity.tool);
         visible = true;
         speaking = true;
-        if (hideTimer) clearTimeout(hideTimer);
+        sleeping = false;
+        if (sleepTimer) clearTimeout(sleepTimer);
         if (speechTimer) clearTimeout(speechTimer);
         speechTimer = setTimeout(() => (speaking = false), 3500);
-        hideTimer = setTimeout(() => (visible = false), 4300);
+        // Once the agent has arrived it belongs to the stage. After a quiet
+        // spell it settles here instead of vanishing; a dedicated sleeping
+        // figure can replace the working image when those assets arrive.
+        sleepTimer = setTimeout(sleep, 30_000);
+        requestAnimationFrame(() => fly(firstArrival));
 
         // An add tool creates its target after this notification. Recheck once
         // Svelte has painted so the agent walks the last step to the new piece.
@@ -92,8 +142,9 @@
         const off = onAgentActivity(show);
         return () => {
             off();
-            if (hideTimer) clearTimeout(hideTimer);
+            if (sleepTimer) clearTimeout(sleepTimer);
             if (speechTimer) clearTimeout(speechTimer);
+            motion?.cancel();
         };
     });
 </script>
@@ -101,12 +152,18 @@
 <div
     class="agent"
     class:agent--visible={visible}
+    class:agent--sleeping={sleeping}
     style:left="{x}px"
     style:top="{y}px"
     aria-live="polite"
 >
     <div class="agent__bubble" class:agent__bubble--visible={speaking}>{text}</div>
-    <img class="agent__figure" src="/cursors/agent-working-64.png" alt="Agent" />
+    <img
+        bind:this={figure}
+        class="agent__figure"
+        src={sleeping ? "/agents/agent-sleeping.png" : `/agents/agent-${state}.png`}
+        alt={sleeping ? "Sleeping agent" : "Agent working"}
+    />
 </div>
 
 <style>
@@ -114,7 +171,7 @@
         position: fixed;
         z-index: 34;
         display: grid;
-        grid-template-columns: auto 58px;
+        grid-template-columns: auto 68px;
         align-items: end;
         gap: 8px;
         translate: -50% -55%;
@@ -133,11 +190,17 @@
     }
 
     .agent__figure {
-        width: 58px;
-        height: 58px;
+        width: 68px;
+        height: 68px;
         object-fit: contain;
         filter: drop-shadow(0 5px 7px rgba(31, 26, 19, 0.2));
-        animation: working 900ms ease-in-out infinite alternate;
+        transition: opacity 240ms ease, filter 240ms ease, scale 240ms ease;
+    }
+
+    .agent--sleeping .agent__figure {
+        opacity: 0.82;
+        scale: 0.94;
+        filter: grayscale(0.12) drop-shadow(0 4px 6px rgba(31, 26, 19, 0.16));
     }
 
     .agent__bubble {
@@ -182,14 +245,8 @@
         scale: 1;
     }
 
-    @keyframes working {
-        from { translate: 0 0; rotate: -2deg; }
-        to { translate: 0 -3px; rotate: 2deg; }
-    }
-
     @media (prefers-reduced-motion: reduce) {
         .agent { transition-duration: 0ms; }
-        .agent__figure { animation: none; }
         .agent__bubble { transition-duration: 0ms; }
     }
 </style>

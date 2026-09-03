@@ -163,7 +163,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "and the name heads the credits at the end. Worth doing: a play that starts by simply " +
                 "beginning is a canvas moving, and one that starts with its name on the screen is a play. " +
                 "The credits themselves are built from the cast — give each one an \"as\" in stage_cast and " +
-                "they are listed as \"grandmother — played by …\".",
+                "they are listed as \"grandmother — played by …\". And SIGN YOUR WORK: pass \"credits\" " +
+                "with the maker's lines — who wrote it, who directed, whose paper it is. A play was made " +
+                "by somebody, and the roll is where it says so.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -173,17 +175,30 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         description:
                             "The smaller line under it — 'a play in two scenes', 'after Grimm'. Optional.",
                     },
+                    credits: {
+                        type: "array",
+                        items: { type: "string" },
+                        description:
+                            "The maker's lines, rolled at the end after the cast: " +
+                            "'story and direction — <you, by name>', 'staged with <the person>', " +
+                            "'paper cut-outs — the woodland pack'. Credit yourself honestly and " +
+                            "credit your collaborators; pass [] to clear.",
+                    },
                 },
             },
-            async execute(args: { title?: string; byline?: string }) {
+            async execute(args: { title?: string; byline?: string; credits?: string[] }) {
                 const title = typeof args?.title === "string" ? args.title.trim() : undefined;
                 const byline = typeof args?.byline === "string" ? args.byline.trim() : undefined;
-                if (title === undefined && byline === undefined) {
+                const makers = Array.isArray(args?.credits)
+                    ? args.credits.map(str).filter(Boolean)
+                    : undefined;
+                if (title === undefined && byline === undefined && makers === undefined) {
                     return fail(`Pass "title" — what the piece is called.`);
                 }
                 const billing = collage.setBilling({
                     ...(title !== undefined ? { title } : {}),
                     ...(byline !== undefined ? { byline } : {}),
+                    ...(makers !== undefined ? { credits: makers } : {}),
                 });
                 studio.save();
                 studio.record("page-changed",

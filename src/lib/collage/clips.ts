@@ -15,6 +15,7 @@
  * clip composes with a beat instead of fighting it, and a talking clip can run
  * under a walk without either noticing the other.
  */
+import { SHIPPED_CLIPS } from "./clipLibrary.js";
 
 export interface ClipFrame {
     /** 0..1 through the clip. */
@@ -147,12 +148,28 @@ function write(clips: Clip[]) {
     }
 }
 
+/**
+ * Everything performable: this browser's own recordings FIRST (newest at the
+ * front — the take just performed is the one being looked for), then the
+ * shipped library behind them. A local recording with a shipped name WINS —
+ * the person's own take on "talk" beats the factory's, which is the entire
+ * point of having a recorder.
+ */
 export function listClips(): Clip[] {
-    return read();
+    const stored = read();
+    const own = new Set(stored.map(clip => clip.name));
+    return [...stored.slice().reverse(), ...SHIPPED_CLIPS.filter(clip => !own.has(clip.name))];
 }
 
 export function findClip(name: string): Clip | null {
-    return read().find(clip => clip.name === name) ?? null;
+    return read().find(clip => clip.name === name)
+        ?? SHIPPED_CLIPS.find(clip => clip.name === name)
+        ?? null;
+}
+
+/** Whether THIS browser recorded a clip by this name — shipped ones do not count. */
+export function hasOwnClip(name: string): boolean {
+    return read().some(clip => clip.name === name);
 }
 
 export function saveClip(clip: Clip): void {

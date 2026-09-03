@@ -27,18 +27,29 @@ function seedOf(text: string): number {
  * must resolve voices identically, or the plan is timed against a different
  * play than the one performed.
  */
+/**
+ * Push a draw away from the middle. Uniform draws cluster three characters
+ * around 0.5 often enough that a whole page of dealt voices sounded like one
+ * cautious person — the exponent thins the centre and fattens the edges, so
+ * dealt voices land DIFFERENT: squeaky next to gravelly, hurried next to
+ * unhurried. Still seeded, still the same voice every run.
+ */
+const polarized = (seed: number) =>
+    0.5 + Math.sign(seed - 0.5) * Math.pow(Math.abs(seed - 0.5) * 2, 0.55) / 2;
+
 export function autoVoiceFor(layer: { label: string; src?: string } | null): SubtitleVoice | null {
     if (!layer) return null;
+    // Actors keep the voice their artwork suggests — deliberately untouched
+    // by the aggressive deal below.
     const actor = actorForLayer(layer);
     if (actor) return voiceForActor(actor);
-    // Three independent draws from the name, kept inside the range where the
-    // synth sounds like a person rather than a prank: mid-wide age and tone,
-    // speed close to 1.
+    // Three independent draws from the name, spread WIDE across the synth's
+    // range. These are the voices nobody chose, and their job is variety.
     const name = layer.label.split("#")[0] || "somebody";
     return {
-        speed: clampSpeed(0.85 + seedOf(`${name}/speed`) * 0.4),
-        age: clamp(0.15 + seedOf(`${name}/age`) * 0.7),
-        tone: clamp(0.2 + seedOf(`${name}/tone`) * 0.6),
+        speed: clampSpeed(0.6 + polarized(seedOf(`${name}/speed`))),
+        age: clamp(polarized(seedOf(`${name}/age`))),
+        tone: clamp(polarized(seedOf(`${name}/tone`))),
     };
 }
 

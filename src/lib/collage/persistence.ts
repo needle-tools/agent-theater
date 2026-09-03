@@ -15,6 +15,7 @@
  * thrown from an unrelated line. So `src` is stripped on save for anything
  * IndexedDB owns, and rebuilt as a blob: URL on load.
  */
+import type { Clip } from "./clips.js";
 import type { Billing, Frame, Layer, Stage } from "./model.js";
 
 const DOC_KEY = "needle-collage/doc/v1";
@@ -37,6 +38,13 @@ export interface StoredDoc {
     stages?: Stage[];
     /** What the show is called, so a title card survives a reload. */
     billing?: Billing;
+    /**
+     * The recorded gestures this play's scripts perform (do: "clip:x").
+     * Carried in the FILE, because a play whose hero limps in a way somebody
+     * performed by hand should limp the same way on a machine that never met
+     * that hand.
+     */
+    clips?: Clip[];
     view?: StoredView;
 }
 
