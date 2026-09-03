@@ -2586,7 +2586,23 @@
            rather than as speech. Scaled from the tail, so it grows out of the
            speaker's head instead of out of its own middle. */
         transform-origin: bottom center;
-        animation: bubble-in 0.44s cubic-bezier(0.34, 1.56, 0.64, 1);
+        animation:
+            bubble-in 0.44s cubic-bezier(0.34, 1.56, 0.64, 1),
+            bubble-paper 0.42s step-end infinite;
+        --paint-wash-strength: 0.14;
+        --paint-scale: 1.8;
+    }
+
+    :global(html.painterly) .bubble {
+        background-image:
+            paint(painterly-wash),
+            linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
+    }
+
+    @keyframes bubble-paper {
+        0%, 100% { --paint-frame: 0; }
+        33.333% { --paint-frame: 1; }
+        66.666% { --paint-frame: 2; }
     }
 
     @keyframes bubble-in {
@@ -2600,7 +2616,7 @@
     .bubble--below {
         translate: -50% 0.7em;
         transform-origin: top center;
-        animation-name: bubble-in-below;
+        animation-name: bubble-in-below, bubble-paper;
     }
 
     @keyframes bubble-in-below {

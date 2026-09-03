@@ -2440,6 +2440,23 @@ Variables:
     scale: 0.96;
     transition: opacity 0.12s, scale 0.12s;
     will-change: translate;
+    --paint-wash-strength: 0.16;
+    --paint-scale: 1.8;
+}
+
+/* A quietly re-laid paper surface. The plain background remains the fallback
+   until the Houdini worklet has loaded and opens the painterly gate. */
+.painterly .paper-hint {
+    background-image:
+        paint(painterly-wash),
+        linear-gradient(var(--surface-panel, #fdfbf6), var(--surface-panel, #fdfbf6));
+    animation: hint-paper 0.42s step-end infinite;
+}
+
+@keyframes hint-paper {
+    0%, 100% { --paint-frame: 0; }
+    33.333% { --paint-frame: 1; }
+    66.666% { --paint-frame: 2; }
 }
 
 .paper-hint--on {
@@ -2450,8 +2467,8 @@ Variables:
 /* The two trailing dots are what make it a thought rather than speech. */
 .paper-hint__dot {
     position: absolute;
-    bottom: -22px;
-    left: 10px;
+    bottom: -16px;
+    left: 11px;
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -2460,7 +2477,7 @@ Variables:
 }
 
 .paper-hint__dot--big {
-    bottom: -11px;
+    bottom: -7px;
     left: 18px;
     width: 13px;
     height: 13px;

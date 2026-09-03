@@ -25,6 +25,8 @@ const GRACE_MS = 500;
 const TYPE_MS = 9;
 /** However long the text, typing is over by this point. */
 const TYPE_CAP_MS = 420;
+/** A held hover gets another thought after a quiet pause. */
+const THOUGHT_MS = 2400;
 
 let bubble: HTMLElement | null = null;
 let textNode: HTMLElement | null = null;
@@ -85,18 +87,18 @@ function place() {
     bubble.style.translate = `${Math.max(pad, x)}px ${Math.max(pad, y)}px`;
 }
 
-function type(text: string) {
+function type(text: string, prefix = "") {
     if (!textNode) return;
     clearInterval(typeTimer);
-    if (reduced()) { textNode.textContent = text; place(); return; }
+    if (reduced()) { textNode.textContent = prefix + text; place(); return; }
     // A fixed number of steps rather than one per character, so a long
     // description does not take four times as long as a short one to land.
     const step = Math.max(1, Math.ceil(text.length / (TYPE_CAP_MS / TYPE_MS)));
     let at = 0;
-    textNode.textContent = "";
+    textNode.textContent = prefix;
     typeTimer = window.setInterval(() => {
         at = Math.min(text.length, at + step);
-        textNode!.textContent = text.slice(0, at);
+        textNode!.textContent = prefix + text.slice(0, at);
         place();
         if (at >= text.length) clearInterval(typeTimer);
     }, TYPE_MS);
@@ -128,6 +130,8 @@ function hide(immediately = false) {
 
 /**
  * A Svelte action: `<button use:hint>` or `use:hint={"some text"}`.
+ * `//` separates rotating thoughts. `%wait5%` pauses for five seconds and
+ * then continues the current thought in the same bubble.
  *
  * With no argument it takes the element's `title`, or its `aria-label` if
  * there is no title. The title is removed either way — leaving it would mean
@@ -135,10 +139,49 @@ function hide(immediately = false) {
  */
 export function hint(element: HTMLElement, text?: string) {
     let label = "";
+    let thoughts: string[] = [];
+    let thoughtAt = 0;
+    let thoughtTimer = 0;
+
+    function stopThoughts() {
+        clearTimeout(thoughtTimer);
+        thoughtTimer = 0;
+    }
+
+    function typingTime(text: string): number {
+        return reduced() ? 0 : Math.min(TYPE_CAP_MS, text.length * TYPE_MS) + TYPE_MS;
+    }
+
+    function playThought(index: number) {
+        stopThoughts();
+        const parts = thoughts[index].split(/%wait([0-9]+(?:\.[0-9]+)?)%/i);
+        let segment = 0;
+        let written = "";
+
+        const next = () => {
+            if (owner !== element) return;
+            const addition = parts[segment]?.trim() ?? "";
+            type(addition, written ? `${written} ` : "");
+            written = written ? `${written} ${addition}` : addition;
+            const waitSeconds = Number(parts[segment + 1]);
+            segment += 2;
+            if (segment < parts.length) {
+                thoughtTimer = window.setTimeout(next, typingTime(addition) + waitSeconds * 1000);
+            } else if (thoughts.length > 1) {
+                thoughtTimer = window.setTimeout(() => {
+                    thoughtAt = (thoughtAt + 1) % thoughts.length;
+                    playThought(thoughtAt);
+                }, typingTime(addition) + THOUGHT_MS);
+            }
+        };
+        next();
+    }
 
     function read(next?: string) {
         const title = element.getAttribute("title");
         label = (next ?? title ?? element.getAttribute("aria-label") ?? "").trim();
+        thoughts = label.split("//").map(part => part.trim()).filter(Boolean);
+        thoughtAt = 0;
         if (title !== null) {
             element.removeAttribute("title");
             // Only if it has nothing better already: an author-written
@@ -151,7 +194,8 @@ export function hint(element: HTMLElement, text?: string) {
     const onEnter = (event: PointerEvent) => {
         if (!label || event.pointerType !== "mouse") return;
         pointer = { x: event.clientX, y: event.clientY };
-        show(element, label);
+        show(element, "");
+        playThought(0);
     };
     const onMove = (event: PointerEvent) => {
         if (owner !== element) return;
@@ -159,8 +203,14 @@ export function hint(element: HTMLElement, text?: string) {
         if (frame) return;
         frame = requestAnimationFrame(() => { frame = 0; place(); });
     };
-    const onLeave = () => { if (owner === element) hide(); };
-    const onDown = () => { if (owner === element) hide(true); };
+    const onLeave = () => {
+        stopThoughts();
+        if (owner === element) hide();
+    };
+    const onDown = () => {
+        stopThoughts();
+        if (owner === element) hide(true);
+    };
 
     element.addEventListener("pointerenter", onEnter);
     element.addEventListener("pointermove", onMove);
@@ -169,10 +219,14 @@ export function hint(element: HTMLElement, text?: string) {
 
     return {
         update(next?: string) {
+            stopThoughts();
             read(next);
-            if (owner === element && label) type(label);
+            if (owner === element && thoughts.length) {
+                playThought(0);
+            }
         },
         destroy() {
+            stopThoughts();
             element.removeEventListener("pointerenter", onEnter);
             element.removeEventListener("pointermove", onMove);
             element.removeEventListener("pointerleave", onLeave);

@@ -1504,6 +1504,14 @@
         line-height: 1.45;
         text-align: center;
         text-wrap: pretty;
+        --paint-wash-strength: 0.14;
+        --paint-scale: 1.8;
+    }
+
+    :global(html.painterly) .strewn__bubble {
+        background-image:
+            paint(painterly-wash),
+            linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
     }
 
     /*
@@ -1526,8 +1534,15 @@
         opacity: 1;
         animation:
             bubble-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
-            bubble-swing var(--swing-cycle, 8s) ease-in-out infinite;
-        animation-delay: 0ms, var(--swing-at, 0s);
+            bubble-swing var(--swing-cycle, 8s) ease-in-out infinite,
+            bubble-paper 0.42s step-end infinite;
+        animation-delay: 0ms, var(--swing-at, 0s), 0ms;
+    }
+
+    @keyframes bubble-paper {
+        0%, 100% { --paint-frame: 0; }
+        33.333% { --paint-frame: 1; }
+        66.666% { --paint-frame: 2; }
     }
 
     .strewn__bubble::after {
