@@ -510,3 +510,72 @@ localStorage, with a "copy settings" button that puts the JSON on the
 clipboard — so the person tunes by eye and hands the numbers back to be made
 the defaults. The knobs live in one `tempo` object that perform.ts reads
 instead of its constants.
+
+---
+
+# Wanted, 2026-09-03: looser stages, recorded motion, things holding things
+
+Three ideas from watching real plays get made. They share a theme: the stage
+is currently more formal than the toy it wants to be.
+
+## Looser stages — depth as a treatment, not a requirement
+
+A scene currently wants dedicated backdrop art before it feels like a place.
+The idea: let plays happen in the open — on the bare paper — with depth as a
+VISUAL TREATMENT instead of an art requirement. An object sent to the back
+plane gets pushed back visually: scaled down, desaturated, or rendered as a
+flat fill with transparency — a paper silhouette at dusk — and front-plane
+decoration likewise darkened or translucent. Then a play is just objects
+moving across the screen and the available space.
+
+Most of the machinery exists. The silhouette fill is already in LayerStyle
+and both renderers; the scene tint knows what colour the room is; planes
+already exist per placement. What is missing is the automatic treatment
+(plane + no backdrop → silhouette in the tint at some alpha) and loosening
+the camera and parallax, which both currently sit down when there is no
+backdrop: stageRect() should fall back to the cast's own bounds as anchor.
+
+## The motion recorder — imperfection you can perform
+
+Programmed easing is exactly too perfect, and that is why the wobbles read
+as software. The tool: press record, drag a piece around (or wiggle it, for
+a talking motion), stop, name it. The samples become keyframes — times and
+positions normalised, offsets stored relative to the piece's own size so a
+clip scales across scenes — playable through the same WAAPI path as the
+built-in moves.
+
+Two uses, and the second is the bigger one:
+- A clip becomes a move an agent can call: `do: "clip:limp"` alongside walk
+  and jump, listed in the stage_script enum like everything else.
+- A clip can REPLACE a built-in: record a hand-made talking wobble and an
+  idle sway once, and every character inherits the human imperfection.
+
+Clips live in localStorage with export-as-JSON (and export-as-CSS-keyframes
+for use outside), managed from a small record control in the menu's debug
+corner. Recording is a person's act; the agent only ever plays clips.
+
+## Parenting — hold, carry, sit, drop
+
+The agent needs things to belong to other things: a character holds a
+basket, sits on a vehicle, and they move together; later the basket is
+dropped and stays where it fell.
+
+Design decision to make early: children do NOT become DOM children. Nesting
+would make transforms compose for free and destroy z-ordering across planes
+(a rider must be able to paint on a different plane than the vehicle).
+Instead: `on: <parentId>` on the placement, `at` becoming parent-relative
+while attached, and the child riding the parent's beats by receiving the
+same translation keyframes — identical deltas, so a walk moves both as one.
+Rotating/scaling poses (jump squash) will not perfectly deform the child
+with the parent; accepted, cut-outs are rigid props in hands anyway.
+
+Beats: `take` (animate the object into the holder's slot over ~300ms, THEN
+set the parent — reparenting must read as a reach, not a teleport), `drop`
+(detach, small fall to the ground line, stays). stage_describe reports who
+holds what. Save format carries `on` through renamedIn like everything else.
+
+## Suggested order
+
+Recorder first (it feeds everything: better talk, better sway, custom moves
+for free), then parenting (biggest scene-vocabulary win), then loose stages
+(mostly treatment + two fallbacks). Each is buildable alone.
