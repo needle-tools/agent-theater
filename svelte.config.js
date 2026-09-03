@@ -1,17 +1,13 @@
-import adapter from '@sveltejs/adapter-static';
+import adapter from '@sveltejs/adapter-node';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
     preprocess: vitePreprocess(),
     kit: {
-        // Fully static output — Needle Cloud serves the dist folder as-is.
-        adapter: adapter({
-            pages: 'dist',
-            assets: 'dist',
-            fallback: null,
-            strict: true,
-        }),
+        // A Node server is required for health checks and the upcoming
+        // PostgreSQL/Backblaze publishing API. Static routes are still prerendered.
+        adapter: adapter(),
     },
 };
 

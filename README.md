@@ -103,8 +103,14 @@ The website is a [SvelteKit](https://svelte.dev/docs/kit) project on Vite 8, usi
 ```bash
 npm install
 npm run dev      # dev server on http://localhost:6277
-npm run build    # production build into ./dist
+npm run build    # production Node server build into ./build
 ```
+
+### Docker / Coolify
+
+The included [`Dockerfile`](Dockerfile) builds and runs the SvelteKit Node server on port 3000. In Coolify, create a Dockerfile application from this repository, expose port `3000`, and use `/api/health` as its health-check path.
+
+Copy the names from [`.env.example`](.env.example) into Coolify's environment settings. Set `ORIGIN` to the public application URL, use the connection string from the managed PostgreSQL service for `DATABASE_URL`, and keep the Backblaze application key server-side. `PUBLIC_ASSET_BASE_URL` is the public B2 or Cloudflare asset origin. Do not commit a populated `.env` file; all `.env*` files except the example are ignored.
 
 Pushes to `main` deploy automatically to Needle Cloud via [`deploy-to-needle-cloud-action`](https://github.com/needle-tools/deploy-to-needle-cloud-action) — see [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The deploy token lives in the repository's GitHub secrets (`NEEDLE_CLOUD_TOKEN`), never in the repo.
 
