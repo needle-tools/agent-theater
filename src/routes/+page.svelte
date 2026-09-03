@@ -55,7 +55,17 @@
                 : "Create short papercut theater pieces together with your AI agent. Made by Needle. Click to copy the starting prompt."}
         onclick={copyPrompt}
     >
-        <img src="/toolbar/questionmark.webp" alt="" draggable="false" />
+        <!-- Painted like everything else on the page: the same worklet, the
+             same three holds. A cut-out that sits perfectly still next to a
+             stage that boils reads as chrome bolted onto the set. `calm`
+             because it is a signpost, not a prop — it should breathe, not
+             wave. -->
+        <img
+            class="painted painted--calm painted--boil"
+            src="/toolbar/questionmark.webp"
+            alt=""
+            draggable="false"
+        />
     </button>
     <a
         class="record-trigger"
@@ -143,6 +153,25 @@
         height: 48px;
         object-fit: contain;
         pointer-events: none;
+    }
+
+    /*
+     * The brush, sized against a 48px cut-out.
+     *
+     * The worklet scales its marks to the object, so at the default a mark on
+     * something this small lands under a pixel wide — a dry brush that fine is
+     * not subtle, it is invisible. Same reasoning, and very nearly the same
+     * number, as the paper cursor.
+     *
+     * The negative `--paint-at` is the other half: the cursor and the props
+     * are all stepping through their own copy of the same three-frame loop,
+     * and anything that starts at zero ticks in lockstep with them, which
+     * reads as a strobe rather than as a hand.
+     */
+    .help-trigger img {
+        --paint-scale: 2.2;
+        --paint-seed: 23;
+        --paint-at: -0.21s;
     }
 
     /* No recorder on a phone: the gesture paddock needs a pointer and a
