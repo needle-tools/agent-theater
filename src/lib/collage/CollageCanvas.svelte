@@ -106,10 +106,21 @@
         return backdrop?.colors[0] ?? null;
     });
 
-    /** Where the cast stands, when there is no backdrop to be the stage. */
+    /**
+     * Where the ACTIVE SCENE'S cast stands — not the whole canvas.
+     *
+     * `placed` is every layer in the world now, and a camera or a parallax
+     * anchored to all of it frames the person's entire universe instead of
+     * the scene being played. Only the cast of the stage on screen counts.
+     */
     function castBounds(): { x: number; y: number; width: number; height: number } | null {
-        if (!placed.length) return null;
-        const boxes = placed.map(layerBounds);
+        const stage = studio.collage.activeStage;
+        if (!stage) return null;
+        const members = new Set(stage.cast
+            .filter(member => member.id !== stage.backdrop)
+            .map(member => member.id));
+        const boxes = placed.filter(layer => members.has(layer.id)).map(layerBounds);
+        if (!boxes.length) return null;
         const minX = Math.min(...boxes.map(box => box.x));
         const minY = Math.min(...boxes.map(box => box.y));
         return {
@@ -1079,11 +1090,25 @@
         lastFraming = { ids, tight, cover };
         const stage = stageRect();
 
-        // "Everything" means the stage, not every layer on the canvas. People
-        // waiting in the wings are placed outside it until their entrance, and
-        // framing them would point the camera at an empty margin and shrink the
-        // scene to fit somebody the audience is not supposed to see yet.
+        // "Everything" means the scene, NEVER every layer on the canvas: the
+        // world is one open sheet holding every scene and the whole
+        // arrangement, and a camera that framed all of it would show the
+        // person's universe as a postage-stamp mosaic at every scene change.
         if (ids === "all") {
+            /*
+             * With no stage rectangle — no page, no backdrop, which is the
+             * normal case on the open canvas — the scene IS its cast: frame
+             * the active stage's members, loosely. Loose on purpose: a
+             * cast-bounds rect hugs the artwork, and a cover-crop of it would
+             * take heads off. A touch of air instead, nothing exact — the
+             * free camera is framing a place, not measuring it.
+             */
+            if (!stage) {
+                const scene = castBounds();
+                if (!scene) return waitOut(duration);
+                fitted = true;
+                return frameRects([scene], Math.min(tight, 0.86), true, duration, false);
+            }
             /*
              * A cover shot frames the stage alone and lets its edges crop —
              * what a film does, and what kills the dark bars around a 21:9
@@ -1093,13 +1118,9 @@
              * accepted — so it takes the stage AND whoever stands on it, or a
              * figure taller than the backdrop loses their head.
              */
-            const rects = cover && stage
+            const rects = cover
                 ? [stage]
-                : [
-                    ...(stage ? [stage] : []),
-                    ...onStageOnly(layers.map(layerBounds), stage),
-                ];
-            if (!rects.length) return waitOut(duration);
+                : [stage, ...onStageOnly(layers.map(layerBounds), stage)];
             fitted = true;
             return frameRects(rects, tight, true, duration, cover);
         }

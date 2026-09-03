@@ -666,7 +666,18 @@ export class Collage {
          */
         const cast = castOf(stage, id => this.layers.get(id) ?? null);
         const inScene = new Set(cast.map(layer => layer.id));
-        const rest = [...this.layers.values()].filter(layer => !inScene.has(layer.id));
+        /*
+         * The scene outranks the rest of the canvas WHOLESALE. Cast members
+         * carry plane depths (back ≈ -100000, front ≈ +100000) while loose
+         * layers carry small document z values — merged raw, a bystander
+         * sticker interleaved with the mid plane and painted over the back
+         * of the scene being performed. So the rest keeps its own order but
+         * is pushed beneath everything the scene draws, backdrop included.
+         */
+        const rest = [...this.layers.values()]
+            .filter(layer => !inScene.has(layer.id))
+            .sort((a, b) => a.z - b.z)
+            .map((layer, at) => ({ ...layer, z: -2_000_000 + at }));
         return [...cast, ...rest].sort((a, b) => a.z - b.z);
     }
 

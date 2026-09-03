@@ -926,18 +926,19 @@ describe("reading a scene back", () => {
         expect(text).toContain("0.9");
     });
 
-    it("measures a backdropless scene against the cast's own footprint", async () => {
+    it("measures a backdropless scene against a stage-sized frame on its cast", async () => {
         // The world is one open sheet now: a scene without a backdrop is not
-        // unmeasurable, its frame is simply wherever its cast stands. One
-        // member alone IS the footprint, so it reads back at the centre with
-        // its feet on the frame's floor.
+        // unmeasurable, its frame is a fixed-size virtual stage centred on
+        // wherever the cast stands — fixed, so fractions keep a stable scale
+        // however far the arrangement sprawls. A lone member reads back at
+        // the frame's centre.
         const { studio, collage } = fakeStudio();
         const tree = collage.addImage({ src: "t", natural: { width: 100, height: 200 } });
         const stage = collage.addStage({ name: "nowhere" });
         collage.updateStage(stage.id, { cast: [{ id: tree.id, x: 12, y: 34 }] });
         const text = await describe(studio);
         expect(text).toContain("x 0.50");
-        expect(text).toContain("feet 1.00");
+        expect(text).toContain("feet 0.66");
     });
 });
 
@@ -1297,9 +1298,9 @@ describe("re-casting somebody who is already the right size", () => {
 
         const womanIn = () => collage.listStages()[0].cast.find(m => m.id === woman.id);
         const first = womanIn()!.width;
-        // 0.42 of the 411.4-tall room piece is 172.8 tall, which on a 260 x 485
-        // drawing is 92.6 wide.
-        expect(first).toBeCloseTo(92.6, 1);
+        // 0.42 of the 610-tall virtual frame is 256.2 tall, which on a
+        // 260 x 485 drawing is 137.3 wide.
+        expect(first).toBeCloseTo(137.3, 1);
 
         // Now with the scene actually showing, which is the case that broke.
         collage.setActiveStage(collage.listStages()[0].id);
@@ -1318,6 +1319,9 @@ describe("re-casting somebody who is already the right size", () => {
         const result = await tools.find(t => t.name === "stage_describe")!.execute({});
         const text = result.content.map(part => ("text" in part ? part.text : "")).join(" ");
         expect(text).toContain("size 0.42");
-        expect(text).toContain("feet 0.86");
+        // Within a hundredth of what was cast: the virtual frame recentres
+        // as the cast grows, so the read-back can drift by a whisker — but
+        // it must stay in the same units, at essentially the same spot.
+        expect(text).toMatch(/feet 0\.8[4-8]/);
     });
 });

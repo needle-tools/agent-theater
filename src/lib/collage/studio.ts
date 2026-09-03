@@ -665,10 +665,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
         void previous;
         if (hold && wanted) {
             // The pause between scenes of a play still being written: running
-            // stays set so the lights stay down and the wings stay masked, the
-            // bed keeps looping, and the last frame stands until the next call.
+            // stays set and the last frame stands until the next call — but
+            // the music lets go. A finished scene's bed looping into the
+            // silence of "what happens next is still being typed" reads as
+            // the page being stuck, not as an interval; the next scene brings
+            // its own bed when it starts.
             held = true;
             wanted = false;
+            speaker.fadeMusic();
             announceShow();
             return;
         }
