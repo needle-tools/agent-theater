@@ -1388,7 +1388,7 @@
            Grabbable decoration is the first taste of a canvas you can
            rearrange. */
         pointer-events: auto;
-        cursor: grab;
+        cursor: var(--cursor-grab, grab);
         touch-action: none;
         user-select: none;
         -webkit-user-select: none;
@@ -1413,7 +1413,7 @@
     }
 
     .strewn__prop--held {
-        cursor: grabbing;
+        cursor: var(--cursor-grabbing, grabbing);
         z-index: 4;
         /* Held things stop breathing — the drift fighting the hand felt like
            the prop trying to escape. */
@@ -1638,7 +1638,7 @@
         line-height: 1.5;
         text-wrap: pretty;
         pointer-events: auto;
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         transition: color 0.3s cubic-bezier(0.2, 0, 0, 1);
     }
 
@@ -1711,7 +1711,7 @@
         box-shadow:
             0 1px 2px rgba(34, 44, 32, 0.06),
             0 8px 22px rgba(34, 44, 32, 0.08);
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         transition-property: background, border-color, color, scale;
         transition-duration: 0.16s;
     }

@@ -19,6 +19,7 @@
      */
     import { alphaFilters, cssColor, outlineFilterSvg, pxUnit, textCss } from "./css.js";
     import { boilFilterSvg } from "./painted.js";
+    import { findEffect, particlesFor } from "./effects.js";
     import { TROUPE } from "./troupe.js";
     import PaperCursor from "./PaperCursor.svelte";
     import { maskHit } from "./imaging.js";
@@ -543,6 +544,12 @@
                 .filter(member => member.on === id)
                 .map(member => member.id) ?? [];
         },
+        effect(id, name, duration) {
+            playEffect(id, name);
+            // The beat's clock, not the particles': paper riding a line or a
+            // move must not stretch the beat, and the flock cleans itself up.
+            return new Promise(resolve => setTimeout(resolve, duration));
+        },
         take(holder, item, duration) {
             const stage = studio.collage.activeStage;
             const one = studio.collage.list().find(layer => layer.id === holder);
@@ -820,11 +827,78 @@
             () => void gestures.delete(animation));
     }
 
+    /** The particle flocks in flight, so a stop can sweep the paper up. */
+    const flocks = new Set<HTMLElement>();
+
+    /**
+     * Throw a canned effect over a cast member: a burst of little paper
+     * shapes, choreographed by effects.ts, animated here with WAAPI and
+     * swept up when the last bit lands. The flock lives in the world, in
+     * canvas units, so it pans and zooms with everything else.
+     */
+    function playEffect(id: string, name: string) {
+        const target = placed.find(layer => layer.id === id);
+        const world = viewport?.querySelector(".world");
+        const effect = findEffect(name);
+        if (!target || !world || !effect) return;
+
+        const flock = document.createElement("div");
+        flock.style.cssText =
+            `position: absolute; left: ${target.x}px; top: ${target.y}px; ` +
+            `width: ${target.width}px; height: ${target.height}px; ` +
+            `pointer-events: none; z-index: 1500000;`;
+        const total = effect.seconds * 1000;
+
+        for (const bit of particlesFor(name)) {
+            const size = Math.max(3, bit.size * target.height);
+            const piece = document.createElement("div");
+            const shape =
+                bit.shape === "star" ? `clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);` :
+                // A polygon, not path(): path() clips in raw pixels and these
+                // bits are a dozen pixels wide — percentages fit any of them.
+                bit.shape === "heart" ? `clip-path: polygon(50% 92%, 12% 55%, 4% 30%, 18% 10%, 38% 12%, 50% 28%, 62% 12%, 82% 10%, 96% 30%, 88% 55%);` :
+                bit.shape === "strip" ? "" :
+                bit.shape === "sliver" ? "border-radius: 45%;" :
+                "border-radius: 50%;";
+            const tall = bit.shape === "strip" || bit.shape === "sliver" ? size * 2.4 : size;
+            piece.style.cssText =
+                `position: absolute; left: ${(bit.x * 100).toFixed(1)}%; top: ${(bit.y * 100).toFixed(1)}%; ` +
+                `width: ${size.toFixed(1)}px; height: ${tall.toFixed(1)}px; ` +
+                `background: ${bit.color}; opacity: 0; ${shape}`;
+            flock.appendChild(piece);
+            const dx = bit.dx * target.width;
+            const dy = bit.dy * target.height;
+            piece.animate([
+                { offset: 0, opacity: 0, transform: "translate(0, 0) rotate(0deg) scale(0.4)" },
+                { offset: 0.12, opacity: 1, transform:
+                    `translate(${(dx * 0.15).toFixed(1)}px, ${(dy * 0.15).toFixed(1)}px) ` +
+                    `rotate(${(bit.spin * 0.15).toFixed(0)}deg) scale(1)` },
+                { offset: 1, opacity: 0, transform:
+                    `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) ` +
+                    `rotate(${bit.spin.toFixed(0)}deg) scale(0.7)` },
+            ], {
+                duration: total * bit.life,
+                delay: total * bit.delay,
+                easing: "cubic-bezier(0.3, 0, 0.6, 1)",
+                fill: "backwards",
+            });
+        }
+
+        world.appendChild(flock);
+        flocks.add(flock);
+        setTimeout(() => {
+            flock.remove();
+            flocks.delete(flock);
+        }, total + 80);
+    }
+
     export function stopScene() {
         scene?.stop();
         scene = null;
         for (const gesture of [...gestures]) gesture.cancel();
         gestures.clear();
+        for (const flock of [...flocks]) flock.remove();
+        flocks.clear();
         // The player cancels animations; the prompter is the page's, not the
         // scene's, so it has to be told separately. Without this the lines of
         // an abandoned scene carry on being spoken over an empty stage — and
@@ -2275,7 +2349,7 @@
         height: 100%;
         overflow: hidden;
         touch-action: none;
-        cursor: grab;
+        cursor: var(--cursor-grab, grab);
         /* A drag is a drag, never a text selection. Without this, panning across
            a frame label paints it with the selection colour. */
         user-select: none;
@@ -2318,7 +2392,7 @@
      * show ends.
      */
     .viewport--showing {
-        cursor: default;
+        cursor: var(--cursor-default, default);
     }
 
     .viewport--showing :is(.handles, .marquee, .page__label) {
@@ -2333,12 +2407,12 @@
     }
 
     .viewport:active {
-        cursor: grabbing;
+        cursor: var(--cursor-grabbing, grabbing);
     }
 
     .viewport--over,
     .viewport--over:active {
-        cursor: move;
+        cursor: var(--cursor-move, move);
     }
 
     /*
@@ -2453,7 +2527,7 @@
         pointer-events: auto;
         user-select: text;
         -webkit-user-select: text;
-        cursor: text;
+        cursor: var(--cursor-text, text);
         /* One thin mark. It sits alone — the handles box is suppressed while
            editing — so it does not need to shout. */
         outline: 1px solid var(--accent-brand);
@@ -2663,7 +2737,7 @@
         translate: 50% 50%;
         background: var(--surface-panel);
         border-color: var(--collage-select-mark);
-        cursor: nwse-resize;
+        cursor: var(--cursor-resize, nwse-resize);
     }
 
     /* Filled disc with a white ring: a solid dot is legible at any zoom and
@@ -2674,10 +2748,10 @@
         border-radius: 50%;
         background: var(--collage-select-mark);
         border-color: var(--surface-panel);
-        cursor: grab;
+        cursor: var(--cursor-grab, grab);
     }
 
     .handle--rotate:active {
-        cursor: grabbing;
+        cursor: var(--cursor-grabbing, grabbing);
     }
 </style>

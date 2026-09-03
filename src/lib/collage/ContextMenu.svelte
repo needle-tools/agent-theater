@@ -308,7 +308,7 @@
         font: inherit;
         font-size: var(--type-body-muted-size);
         text-align: left;
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         transition-property: background, color;
         transition-duration: 0.12s;
     }
@@ -325,7 +325,7 @@
 
     .item:disabled {
         color: var(--text-muted);
-        cursor: default;
+        cursor: var(--cursor-default, default);
     }
 
     .item:disabled .icon {

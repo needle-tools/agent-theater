@@ -331,7 +331,7 @@
         border: 1px solid transparent;
         border-radius: 12px;
         background: none;
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         transition-property: background, border-color, scale, translate;
         transition-duration: 0.16s;
     }
@@ -446,7 +446,7 @@
         margin: -10px -16px;
         rotate: var(--tilt, 0deg);
         translate: var(--dx, 0) var(--dy, 0);
-        cursor: grab;
+        cursor: var(--cursor-grab, grab);
         /* The pointer is about to be captured for the drag; the browser must
            not start a native image drag or a scroll instead. */
         touch-action: none;
@@ -473,7 +473,7 @@
     }
 
     .fan__sticker:active {
-        cursor: grabbing;
+        cursor: var(--cursor-grabbing, grabbing);
         scale: 1;
     }
 

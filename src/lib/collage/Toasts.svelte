@@ -139,7 +139,7 @@
         line-height: 1.35;
         text-align: left;
         text-wrap: pretty;
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         pointer-events: auto;
         /*
          * The soft shadow still goes through a filter rather than box-shadow,

@@ -168,7 +168,7 @@
         font: inherit;
         font-size: var(--type-micro-label-size);
         white-space: nowrap;
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         transition-property: background, color, scale;
         transition-duration: 0.14s;
     }
@@ -227,7 +227,7 @@
         border-radius: 10px;
         background: var(--accent-brand);
         color: #14200f;
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         transition-property: background, color, scale;
         transition-duration: 0.14s;
     }

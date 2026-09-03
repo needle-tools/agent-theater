@@ -236,7 +236,7 @@
         color: var(--text-primary);
         font: inherit;
         font-size: var(--type-body-muted-size);
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         transition-property: background, border-color, color, scale;
         transition-duration: 0.14s;
     }
@@ -252,7 +252,7 @@
 
     button:disabled {
         opacity: 0.4;
-        cursor: not-allowed;
+        cursor: var(--cursor-forbidden, not-allowed);
     }
 
     .strong {

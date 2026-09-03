@@ -16,6 +16,7 @@ import { linesOf, spokenBy } from "./show.js";
 import { findSound, soundCatalogue, soundNames } from "./audio.js";
 import { SPEECH_ENABLED, findVoice, voiceCatalogue, voiceNames } from "./voice.js";
 import { findClip, listClips } from "./clips.js";
+import { EFFECTS, effectNames, findEffect } from "./effects.js";
 import { prompter } from "./speech.js";
 import { ENTRANCES, PLANES, type Placement, type Stage } from "./stage.js";
 import type { Layer } from "./model.js";
@@ -534,7 +535,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "show — pass rehearse:false to write it without playing it now. " +
                 `Moves: ${MOVES.join(", ")}. "walk" and "jump" take a "to" and leave the layer there; ` +
                 "everything else finishes exactly where it started. A beat's \"take\" picks another " +
-                "cast member up — it rides along through every later move until a \"drop\" lets it fall.",
+                "cast member up — it rides along through every later move until a \"drop\" lets it fall. " +
+                "\"with\": true makes a beat run AT THE SAME TIME as the one before it, so two characters " +
+                "can move or speak together. \"walk\" and \"jump\" travel to any canvas point — a hero can " +
+                "cross the whole world, scene to scene, if the story sends them. An \"effect\" throws " +
+                `paper over a beat: ${effectNames().join(", ")}.`,
             inputSchema: {
                 type: "object",
                 properties: {
@@ -617,6 +622,16 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         },
                                     },
                                     required: ["on"],
+                                },
+                                effect: {
+                                    type: "string",
+                                    enum: effectNames(),
+                                    description:
+                                        "A canned particle effect thrown over this character as the " +
+                                        "beat runs — little paper shapes, in the style of the stage. " +
+                                        "Rides along with a move or a line; alone it takes its own " +
+                                        "moment. " +
+                                        EFFECTS.map(effect => `"${effect.id}": ${effect.description}`).join(" "),
                                 },
                                 take: {
                                     type: "string",
@@ -764,6 +779,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                 `beat ${index + 1}: "${target}" is itself holding something — ` +
                                 `one level only, no chains`);
                         }
+                    }
+                    const wantedEffect = str((beat as { effect?: unknown })?.effect);
+                    if (wantedEffect && !findEffect(wantedEffect)) {
+                        handErrors.push(
+                            `beat ${index + 1}: "${wantedEffect}" is not an effect. ` +
+                            `There is: ${effectNames().join(", ")}`);
                     }
                 }
                 if (handErrors.length) {

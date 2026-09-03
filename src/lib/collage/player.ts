@@ -71,6 +71,8 @@ export interface Stagehand {
     drop(holder: string, item: string, duration: number): Promise<void>;
     /** Who is attached to this cast member right now. */
     riders(id: string): string[];
+    /** Throw a canned particle effect over this cast member. */
+    effect(id: string, name: string, duration: number): Promise<void>;
     /**
      * Move the view to frame these layers over this long.
      *
@@ -149,6 +151,7 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         const doing: Array<Promise<void>> = [];
         if (beat.take) doing.push(hand.take(beat.id, beat.take, beat.duration));
         if (beat.drop) doing.push(hand.drop(beat.id, beat.drop, beat.duration));
+        if (beat.effect) doing.push(hand.effect(beat.id, beat.effect, beat.duration));
         if (beat.move) doing.push(act(beat));
         if (beat.say) doing.push(speak(beat));
         if (doing.length) {

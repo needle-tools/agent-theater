@@ -25,7 +25,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-const SRC = process.argv[2] ?? ".";
+const SRC = process.argv[2] ?? "static/cursors/source";
 const DST = "static/cursors";
 const MAGICK = "magick";
 
@@ -35,6 +35,15 @@ const ICONS = [
     { file: "paper-cursors-final_island2.webp", name: "text", hot: "centre", fallback: "text" },
     { file: "paper-cursors-final_island3.webp", name: "comment", hot: "bottom-left", fallback: "pointer" },
     { file: "pencil.webp", name: "pencil", hot: "bottom-tip", fallback: "crosshair" },
+    { file: "extra-cursors_island0.webp", name: "point", hot: "top-centre", fallback: "pointer" },
+    { file: "extra-cursors_island1.webp", name: "open", hot: "centre", fallback: "grab" },
+    { file: "extra-cursors_island2.webp", name: "closed", hot: "centre", fallback: "grabbing" },
+    { file: "extra-cursors_island3.webp", name: "move", hot: "centre", fallback: "move" },
+    { file: "extra-cursors_island4.webp", name: "resize", hot: "centre", fallback: "nwse-resize" },
+    { file: "extra-cursors_island5.webp", name: "forbidden", hot: "centre", fallback: "not-allowed" },
+    { file: "ai-agent-states_island0.webp", name: "agent-ready", hot: "centre", fallback: "default" },
+    { file: "ai-agent-states_island1.webp", name: "agent-thinking", hot: "centre", fallback: "wait" },
+    { file: "ai-agent-states_island2.webp", name: "agent-working", hot: "centre", fallback: "progress" },
 ];
 
 const run = (args) => execFileSync(MAGICK, args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
@@ -95,6 +104,7 @@ for (const icon of ICONS) {
     const small = join(DST, `${icon.name}-32.png`);
     const [w, h] = run([small, "-format", "%w %h", "info:"]).split(" ").map(Number);
     const hot = icon.hot === "centre" ? [Math.round(w / 2), Math.round(h / 2)]
+        : icon.hot === "top-centre" ? [Math.round(w / 2), 1]
         : icon.hot === "bottom-left" ? [3, h - 3]
             : icon.hot === "top-tip" ? topTip(small)
                 : bottomTip(small);
@@ -116,6 +126,16 @@ const css = [
     " * Every rule ends in a real keyword, so a browser that rejects the image -",
     " * or the size - still shows something sensible.",
     " */",
+    ":root {",
+    `    --cursor-default: image-set(url("/cursors/arrow-32.png") 1x, url("/cursors/arrow-64.png") 2x) ${rows[0].hot[0]} ${rows[0].hot[1]}, default;`,
+    `    --cursor-text: image-set(url("/cursors/text-32.png") 1x, url("/cursors/text-64.png") 2x) ${rows[2].hot[0]} ${rows[2].hot[1]}, text;`,
+    `    --cursor-pointer: image-set(url("/cursors/point-32.png") 1x, url("/cursors/point-64.png") 2x) ${rows[5].hot[0]} ${rows[5].hot[1]}, pointer;`,
+    `    --cursor-grab: image-set(url("/cursors/open-32.png") 1x, url("/cursors/open-64.png") 2x) ${rows[6].hot[0]} ${rows[6].hot[1]}, grab;`,
+    `    --cursor-grabbing: image-set(url("/cursors/closed-32.png") 1x, url("/cursors/closed-64.png") 2x) ${rows[7].hot[0]} ${rows[7].hot[1]}, grabbing;`,
+    `    --cursor-move: image-set(url("/cursors/move-32.png") 1x, url("/cursors/move-64.png") 2x) ${rows[8].hot[0]} ${rows[8].hot[1]}, move;`,
+    `    --cursor-resize: image-set(url("/cursors/resize-32.png") 1x, url("/cursors/resize-64.png") 2x) ${rows[9].hot[0]} ${rows[9].hot[1]}, nwse-resize;`,
+    `    --cursor-forbidden: image-set(url("/cursors/forbidden-32.png") 1x, url("/cursors/forbidden-64.png") 2x) ${rows[10].hot[0]} ${rows[10].hot[1]}, not-allowed;`,
+    "}",
     "",
     "/*",
     " * The arrow is the page's default, not a class you opt into.",
@@ -126,7 +146,18 @@ const css = [
     " */",
     ":where(html) {",
     `    cursor: url("/cursors/arrow-32.png") ${rows[0].hot[0]} ${rows[0].hot[1]}, default;`,
-    `    cursor: image-set(url("/cursors/arrow-32.png") 1x, url("/cursors/arrow-64.png") 2x) ${rows[0].hot[0]} ${rows[0].hot[1]}, default;`,
+    "    cursor: var(--cursor-default);",
+    "}",
+    "",
+    "/* Native controls otherwise bring the operating-system cursors back. */",
+    ":where(a[href], button:not(:disabled), [role=\"button\"], summary, select, label[for]) {",
+    "    cursor: var(--cursor-pointer);",
+    "}",
+    ":where(button:disabled, [aria-disabled=\"true\"]) {",
+    "    cursor: var(--cursor-forbidden);",
+    "}",
+    ":where(input, textarea, [contenteditable=\"true\"]) {",
+    "    cursor: var(--cursor-text);",
     "}",
     ...rows.flatMap(r => [
         "",

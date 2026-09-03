@@ -11,6 +11,16 @@
  * Every rule ends in a real keyword, so a browser that rejects the image -
  * or the size - still shows something sensible.
  */
+:root {
+    --cursor-default: image-set(url("/cursors/arrow-32.png") 1x, url("/cursors/arrow-64.png") 2x) 5 0, default;
+    --cursor-text: image-set(url("/cursors/text-32.png") 1x, url("/cursors/text-64.png") 2x) 16 16, text;
+    --cursor-pointer: image-set(url("/cursors/point-32.png") 1x, url("/cursors/point-64.png") 2x) 16 1, pointer;
+    --cursor-grab: image-set(url("/cursors/open-32.png") 1x, url("/cursors/open-64.png") 2x) 16 16, grab;
+    --cursor-grabbing: image-set(url("/cursors/closed-32.png") 1x, url("/cursors/closed-64.png") 2x) 16 16, grabbing;
+    --cursor-move: image-set(url("/cursors/move-32.png") 1x, url("/cursors/move-64.png") 2x) 16 16, move;
+    --cursor-resize: image-set(url("/cursors/resize-32.png") 1x, url("/cursors/resize-64.png") 2x) 16 16, nwse-resize;
+    --cursor-forbidden: image-set(url("/cursors/forbidden-32.png") 1x, url("/cursors/forbidden-64.png") 2x) 16 16, not-allowed;
+}
 
 /*
  * The arrow is the page's default, not a class you opt into.
@@ -21,7 +31,18 @@
  */
 :where(html) {
     cursor: url("/cursors/arrow-32.png") 5 0, default;
-    cursor: image-set(url("/cursors/arrow-32.png") 1x, url("/cursors/arrow-64.png") 2x) 5 0, default;
+    cursor: var(--cursor-default);
+}
+
+/* Native controls otherwise bring the operating-system cursors back. */
+:where(a[href], button:not(:disabled), [role="button"], summary, select, label[for]) {
+    cursor: var(--cursor-pointer);
+}
+:where(button:disabled, [aria-disabled="true"]) {
+    cursor: var(--cursor-forbidden);
+}
+:where(input, textarea, [contenteditable="true"]) {
+    cursor: var(--cursor-text);
 }
 
 .cursor-arrow {
@@ -47,4 +68,49 @@
 .cursor-pencil {
     cursor: url("/cursors/pencil-32.png") 16 31, crosshair;
     cursor: image-set(url("/cursors/pencil-32.png") 1x, url("/cursors/pencil-64.png") 2x) 16 31, crosshair;
+}
+
+.cursor-point {
+    cursor: url("/cursors/point-32.png") 16 1, pointer;
+    cursor: image-set(url("/cursors/point-32.png") 1x, url("/cursors/point-64.png") 2x) 16 1, pointer;
+}
+
+.cursor-open {
+    cursor: url("/cursors/open-32.png") 16 16, grab;
+    cursor: image-set(url("/cursors/open-32.png") 1x, url("/cursors/open-64.png") 2x) 16 16, grab;
+}
+
+.cursor-closed {
+    cursor: url("/cursors/closed-32.png") 16 16, grabbing;
+    cursor: image-set(url("/cursors/closed-32.png") 1x, url("/cursors/closed-64.png") 2x) 16 16, grabbing;
+}
+
+.cursor-move {
+    cursor: url("/cursors/move-32.png") 16 16, move;
+    cursor: image-set(url("/cursors/move-32.png") 1x, url("/cursors/move-64.png") 2x) 16 16, move;
+}
+
+.cursor-resize {
+    cursor: url("/cursors/resize-32.png") 16 16, nwse-resize;
+    cursor: image-set(url("/cursors/resize-32.png") 1x, url("/cursors/resize-64.png") 2x) 16 16, nwse-resize;
+}
+
+.cursor-forbidden {
+    cursor: url("/cursors/forbidden-32.png") 16 16, not-allowed;
+    cursor: image-set(url("/cursors/forbidden-32.png") 1x, url("/cursors/forbidden-64.png") 2x) 16 16, not-allowed;
+}
+
+.cursor-agent-ready {
+    cursor: url("/cursors/agent-ready-32.png") 16 16, default;
+    cursor: image-set(url("/cursors/agent-ready-32.png") 1x, url("/cursors/agent-ready-64.png") 2x) 16 16, default;
+}
+
+.cursor-agent-thinking {
+    cursor: url("/cursors/agent-thinking-32.png") 16 16, wait;
+    cursor: image-set(url("/cursors/agent-thinking-32.png") 1x, url("/cursors/agent-thinking-64.png") 2x) 16 16, wait;
+}
+
+.cursor-agent-working {
+    cursor: url("/cursors/agent-working-32.png") 16 16, progress;
+    cursor: image-set(url("/cursors/agent-working-32.png") 1x, url("/cursors/agent-working-64.png") 2x) 16 16, progress;
 }

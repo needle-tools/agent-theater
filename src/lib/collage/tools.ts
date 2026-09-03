@@ -94,7 +94,7 @@ async function within<T>(work: Promise<T>, waiting: () => ToolResult): Promise<T
  */
 const THEATRE = new Set([
     "theater_start", "theater_art_prompt",
-    "piece_list", "piece_add", "piece_sheet", "piece_text",
+    "piece_list", "piece_add", "piece_copy", "piece_sheet", "piece_text",
     "piece_move", "piece_remove", "show_look", "show_watch",
 ]);
 
@@ -620,6 +620,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  - Look before you judge. show_look returns a picture of the canvas — you are`,
                     `    staging something visual, and the ids alone will not tell you it looks wrong.`,
                     `  - theater_batch runs many calls at once when you already know what you want.`,
+                    `  - piece_copy clones any piece — a flock from one sheep, the hero appearing at`,
+                    `    three doors. A beat's "effect" throws paper over a moment (sparkles, poof,`,
+                    `    confetti, hearts, rain), and "with": true plays a beat simultaneously with the`,
+                    `    previous one, so two characters can act or speak at the same time.`,
                     ``,
                     `RIGHT NOW`,
                     `  This page: ${where.id}${where.hidden ? "  (NOT VISIBLE)" : ""}`,
@@ -1457,6 +1461,67 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 const layer = collage.update(found.layer.id, { style });
                 return ok(`Styled ${describeLayer(layer!)}.`, { layer });
+            },
+        },
+        {
+            name: "piece_copy",
+            title: "Clone a layer",
+            description:
+                "Duplicate an existing layer, sharing its picture — a crowd of the same sheep, three " +
+                "copies of the hero spawning at different doors, a forest from one tree. Each clone " +
+                "is its own layer with its own id: cast them at different spots, on different planes, " +
+                "in different scenes, and script them separately. Cheap — no generation, no cutting.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    id: { type: "string", description: "The layer to clone." },
+                    count: { type: "number", description: "How many clones, 1–12. Default 1." },
+                    at: {
+                        type: "array",
+                        description:
+                            "Where each clone goes, as {x, y} canvas coordinates (top-left). Fewer " +
+                            "entries than clones and the rest fan out beside the original.",
+                        items: {
+                            type: "object",
+                            properties: { x: { type: "number" }, y: { type: "number" } },
+                        },
+                    },
+                },
+                required: ["id"],
+            },
+            async execute(args: { id?: string; count?: number; at?: Array<{ x?: number; y?: number }> }) {
+                const found = requireLayer(args?.id);
+                if ("error" in found) return found.error;
+                const layer = found.layer;
+                if (layer.kind !== "image") {
+                    return fail(`"${layer.label}" is text — copy text by calling piece_text again.`);
+                }
+                const count = Math.max(1, Math.min(12, num(args?.count) ? args.count! : 1));
+                const spots = Array.isArray(args?.at) ? args.at : [];
+                const made = [];
+                for (let i = 0; i < count; i++) {
+                    const spot = spots[i];
+                    const clone = collage.addImage({
+                        // The same picture and the same stored bytes: clones
+                        // share their source, so a dozen sheep cost one image.
+                        src: layer.src,
+                        storageKey: layer.storageKey,
+                        natural: layer.natural,
+                        crop: layer.crop,
+                        label: layer.label,
+                        width: layer.width,
+                        rotation: layer.rotation,
+                        style: layer.style,
+                        x: spot && num(spot.x) ? spot.x : layer.x + (i + 1) * layer.width * 0.45,
+                        y: spot && num(spot.y) ? spot.y : layer.y + (i + 1) * layer.height * 0.12,
+                    });
+                    made.push(clone);
+                }
+                studio.save();
+                return ok(
+                    `Cloned "${layer.label}" ${count === 1 ? "once" : `${count} times`}: ` +
+                    `${made.map(clone => clone.id).join(", ")}. Cast and script each by its own id.`,
+                    { layers: made.map(clone => ({ id: clone.id, x: clone.x, y: clone.y })) });
             },
         },
         {

@@ -19,6 +19,9 @@
  * vocabulary can be asserted on in a test — what a jump does at its apex, that
  * a shake is centred, that every beat ends where it started.
  */
+// The one import, and it is as pure as this file: the effect catalogue is
+// data and arithmetic, needed only for how long a solo effect beat lasts.
+import { findEffect } from "./effects.js";
 
 /** What a beat does to a layer at one instant, on top of where the layer is. */
 export interface Pose {
@@ -647,6 +650,12 @@ export interface Beat {
     /** Put something down where it is: the id of a held cast member. */
     drop?: string;
     /**
+     * A canned particle effect played over this character as the beat runs:
+     * paper stars, a poof of dust, confetti, hearts, rain. Rides along with
+     * a move or a line; alone it takes its own moment.
+     */
+    effect?: string;
+    /**
      * Swap this character's picture for another one, at this beat.
      *
      * A costume change, and the only way a cut-out can do anything its drawing
@@ -672,6 +681,8 @@ export interface PlannedBeat {
     take: string | null;
     /** A held cast member this one lets go of. */
     drop: string | null;
+    /** A canned particle effect played over this character. */
+    effect: string | null;
     /** A built-in move, or "clip:<name>" routed to the gesture hand. */
     move: MoveName | (string & {}) | null;
     say: string | null;
@@ -761,15 +772,19 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
             : null;
         const take = typeof beat?.take === "string" && beat.take.trim() ? beat.take.trim() : null;
         const drop = typeof beat?.drop === "string" && beat.drop.trim() ? beat.drop.trim() : null;
+        // Whether the effect EXISTS is the tool layer's question, like clips.
+        const effect = typeof beat?.effect === "string" && beat.effect.trim()
+            ? beat.effect.trim()
+            : null;
         // Same string-boolean lesson as `rehearse`: agents send "true". The
         // first beat has nothing to ride along with, so it can never be `with`.
         const together = planned.length > 0 &&
             (beat?.with === true || String(beat?.with ?? "").trim().toLowerCase() === "true");
-        if (!move && !say && !sound && !camera && !wait && !becomes && !take && !drop) {
+        if (!move && !say && !sound && !camera && !wait && !becomes && !take && !drop && !effect) {
             problems.push({
                 index,
                 reason:
-                    `a beat must have a "do", a "say", a "sound", a "camera", a "wait" or a "becomes", a "take" or a "drop"`,
+                    `a beat must have a "do", a "say", a "sound", a "camera", a "wait", a "becomes", a "take", a "drop" or an "effect"`,
             });
             continue;
         }
@@ -782,6 +797,10 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
                     : move ? DEFAULT_DURATION[move as MoveName]
                     : take ? TAKE_MS
                     : drop ? DROP_MS
+                    // An effect that IS the beat gets its natural length; one
+                    // riding a move or a line takes that beat's time instead.
+                    : (!say && !camera && effect)
+                        ? Math.round((findEffect(effect)?.seconds ?? 1) * 1000)
                     // A spoken line is as long as the speaking takes; an unspoken
                     // one is as long as it takes to read.
                     : say ? timings?.saying(say, id) ?? readingTime(say)
@@ -804,14 +823,14 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
         // breath in front of one would push it out of the overlap it asked for.
         if (say && lastSpeaker && lastSpeaker !== id && !together) {
             planned.push({
-                id: "", with: false, becomes: null, take: null, drop: null, move: null,
-                say: null, sound: null, camera: null, travel: null, duration: BREATH_MS,
+                id: "", with: false, becomes: null, take: null, drop: null, effect: null,
+                move: null, say: null, sound: null, camera: null, travel: null, duration: BREATH_MS,
             });
         }
         if (say) lastSpeaker = id;
 
         planned.push({
-            id, with: together, becomes, take, drop, move, say, sound, camera, travel, duration,
+            id, with: together, becomes, take, drop, effect, move, say, sound, camera, travel, duration,
         });
     }
 

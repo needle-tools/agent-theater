@@ -137,7 +137,7 @@
         box-shadow:
             0 1px 2px rgba(34, 44, 32, 0.06),
             0 8px 22px rgba(34, 44, 32, 0.08);
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         transition-property: background, border-color, color, scale;
         transition-duration: 0.16s;
     }
@@ -235,7 +235,7 @@
         color: var(--text-secondary);
         font: inherit;
         font-size: var(--type-micro-label-size);
-        cursor: pointer;
+        cursor: var(--cursor-pointer, pointer);
         transition-property: background, border-color, color, scale;
         transition-duration: 0.14s;
     }
