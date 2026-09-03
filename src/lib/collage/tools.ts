@@ -29,7 +29,8 @@ import { TROUPE } from "./troupe.js";
 import { noteCall } from "./toolLog.js";
 import { idleSet } from "./idleSet.js";
 import { publishingTools } from "./publishing.js";
-import { setAgentAvatarSheet } from "./agentAvatar.js";
+import { DEFAULT_AGENT_AVATAR_SHEET, getAgentAvatarSheet, setAgentAvatarSheet } from "./agentAvatar.js";
+import { notifyAgentActivity } from "../room/activity.js";
 
 export interface ToolResult {
     content: Array<
@@ -285,18 +286,18 @@ let greeted = false;
  *    a second and a minute.
  *  - **One undo.** "Spread the heroes out" is one intention; it should come
  *    back in one step rather than being unpicked move by move.
- *  - **One animation.** The canvas eases a change it is told about, so a batch
- *    settles as a single motion instead of twenty overlapping ones.
+ *  - **One readable sequence.** The canvas deals steps 125ms apart, so several
+ *    changes stay quick but can still be followed by the person watching.
  */
 function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef {
     const byName = new Map(tools.map(tool => [tool.name, tool]));
     return {
         name: "theater_batch",
-        title: "Run several collage tools at once",
+        title: "Run several collage tools as one batch",
         description:
             "Run a list of collage tools in order, in one call. Use it whenever you know more than one step " +
             "in advance — moving six layers, styling a set, building a layout — because it is one round trip " +
-            "instead of six, it undoes as a single step, and the canvas animates it as one motion. Each step " +
+            "instead of six, it undoes as a single step, and the canvas deals the changes 125ms apart. Each step " +
             "is { tool, args } exactly as you would have called it. Steps see what earlier steps did, so ids " +
             "from a piece_add step are usable later in the same batch.",
         inputSchema: {
@@ -346,8 +347,14 @@ function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef
             studio.settle();
             const outcomes: Array<{ tool: string; ok: boolean; text: string }> = [];
             await studio.collage.batch(async () => {
-                for (const step of steps) {
+                for (let index = 0; index < steps.length; index++) {
+                    const step = steps[index];
+                    // Keep one network round trip and one undo entry, but deal
+                    // the visible changes one at a time so a batch reads as a
+                    // short sequence rather than everything popping at once.
+                    if (index) await new Promise(resolve => setTimeout(resolve, 125));
                     const tool = byName.get(str(step.tool))!;
+                    notifyAgentActivity(tool.name, step.args ?? {});
                     let result: ToolResult;
                     try {
                         result = await tool.execute(step.args ?? {});
@@ -450,6 +457,13 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 const stages = collage.listStages();
                 const billing = collage.billing;
                 const where = whichPage();
+                const avatar = getAgentAvatarSheet();
+                const avatarState = {
+                    name: avatar.name,
+                    columns: avatar.columns,
+                    rows: avatar.rows,
+                    default: avatar.src === DEFAULT_AGENT_AVATAR_SHEET.src,
+                };
 
                 const state = [
                     billing.title ? `The piece is called "${billing.title}".` : `The piece has no title yet.`,
@@ -547,6 +561,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `changed.`,
                     ``,
                     `YOUR FLOATING AVATAR`,
+                    `  Currently using ${avatar.name}${avatarState.default ? " (bundled default)" : " (the user's saved selection)"}.`,
                     `  If filesystem permissions allow, set the little agent on the stage to the user's`,
                     `  ACTUAL selected Codex pet with theater_avatar. Do not pick another installed pet.`,
                     `  Find selected-avatar-id in ~/.codex/config.toml. Its matching artwork is normally`,
@@ -668,6 +683,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     next,
                     page: where.id,
                     visible: !where.hidden,
+                    avatar: avatarState,
                 });
             },
         },

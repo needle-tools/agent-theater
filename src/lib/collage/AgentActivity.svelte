@@ -4,6 +4,8 @@
     import { clipKeyframes, findClip } from "$lib/collage/clips";
     import {
         avatarFrame,
+        avatarLookCell,
+        avatarLookDirection,
         onAgentAvatarSheet,
         type AgentAvatarSheet,
     } from "$lib/collage/agentAvatar";
@@ -20,42 +22,54 @@
     let state = $state("working");
     let x = $state(0);
     let y = $state(0);
-    let figure: HTMLElement;
+    let figure = $state<HTMLElement>();
     let motion: Animation | null = null;
     let sleepTimer: ReturnType<typeof setTimeout> | null = null;
     let sheet = $state<AgentAvatarSheet | null>(null);
     let phase = $state<AgentActivity["phase"]>("working");
     let frameColumn = $state(0);
     let frameRow = $state(0);
+    let currentActivity: AgentActivity | null = null;
     let speechTimer: ReturnType<typeof setTimeout> | null = null;
     let frameTimer: ReturnType<typeof setInterval> | null = null;
 
     const frame = $derived(sheet ? avatarFrame(sheet, frameColumn, frameRow) : { x: "0%", y: "0%" });
     const backgroundSize = $derived(sheet ? `${sheet.columns * 100}% ${sheet.rows * 100}%` : "auto");
 
-    const WORDS: Record<string, string> = {
-        piece_list: "Looking through the pieces…",
-        piece_add: "Bringing this onto the stage…",
-        theater_add: "Adding this to the stage…",
-        theater_clear: "Clearing the stage…",
-        stage_describe: "Taking a look at the scene…",
-        stage_cast: "Putting the cast in place…",
-        stage_create: "Setting the next scene…",
-        stage_play: "Starting the show…",
-        show_play: "Starting the show…",
-        show_watch: "Watching the stage…",
-        show_title: "Lettering the title card…",
-        show_export: "Preparing the finished play…",
-        show_save: "Saving the play…",
-        show_publish: "Publishing the play…",
-        show_list: "Looking through published plays…",
-        show_load: "Opening another play…",
+    const WORDS: Record<string, string[]> = {
+        theater_batch: ["One thing at a time…", "Let me sort these out…", "A few little changes…"],
+        theater_start: ["Let's see what we have…", "Checking it out…", "Oh, this is nice."],
+        theater_clear: ["A fresh start…", "Tidying everything away…", "Clearing some room…"],
+        theater_avatar: ["Trying on a new look…", "This feels more like me…"],
+        piece_list: ["Let's see what we have…", "Checking it out…", "Taking it all in…"],
+        piece_add: ["Here this goes…", "Making room for this…", "This belongs right here…"],
+        piece_copy: ["And one more…", "A twin for the stage…", "Making another…"],
+        piece_move: ["Just over here…", "A little this way…", "Finding the right spot…"],
+        piece_remove: ["Away this goes…", "Tidying this up…", "We won't need this…"],
+        piece_text: ["Adding a few words…", "Let's write this down…"],
+        piece_set_text: ["A small rewrite…", "That reads better…"],
+        piece_style: ["A little finishing touch…", "Making this feel right…"],
+        piece_sheet: ["Opening the whole bundle…", "Let's see who's in here…"],
+        stage_describe: ["Checking it out…", "This is coming together…", "Having a closer look…"],
+        stage_cast: ["Everyone, places…", "Gathering the cast…", "Who's in this scene?"],
+        stage_create: ["A new scene…", "Setting the next moment…", "Let's make a place for this…"],
+        stage_script: ["Bringing it to life…", "Now, let's make it move…", "This should be fun…"],
+        stage_remove: ["Closing this chapter…", "We can let this scene go…"],
+        show_play: ["Here we go…", "Curtain up…", "Enjoy the show!"],
+        show_stop: ["And, scene…", "Holding right there…"],
+        show_watch: ["Let's see what's new…", "Having another look…", "Checking it out…"],
+        show_look: ["Taking it all in…", "This is nice…", "Let's have a look…"],
+        show_title: ["Every story needs a name…", "Putting a name on it…"],
+        show_export: ["Wrapping it up nicely…", "Getting it ready for you…"],
+        show_save: ["Keeping this safe…", "Saving our place…"],
+        show_publish: ["Sending it out into the world…", "Ready to share…"],
+        show_list: ["What shall we watch?", "Looking through the playbill…"],
+        show_load: ["Opening the curtain again…", "Let's return to this one…"],
     };
 
-    function words(tool: string): string {
-        if (WORDS[tool]) return WORDS[tool];
-        const action = tool.replace(/^(piece|stage|show|theater)_/, "").replaceAll("_", " ");
-        return `${action.charAt(0).toUpperCase()}${action.slice(1)}…`;
+    function words(activity: AgentActivity): string {
+        const choices = WORDS[activity.tool] ?? ["Just a moment…", "On it…", "Let's see…"];
+        return choices[activity.id % choices.length];
     }
 
     function iconState(tool: string): string {
@@ -98,32 +112,43 @@
         return found;
     }
 
+    function onScreen(x: number, y: number, width: number, height: number): { x: number; y: number } {
+        const side = 48;
+        const top = 96;
+        return {
+            x: Math.max(side, Math.min(Math.max(side, width - side), x)),
+            y: Math.max(top, Math.min(Math.max(top, height - side), y)),
+        };
+    }
+
     function destination(activity: AgentActivity): { x: number; y: number; look: number } {
         const bounds = canvas?.getBoundingClientRect();
-        if (!bounds) return { x: innerWidth / 2, y: innerHeight / 2, look: 8 };
+        if (!bounds) return { x: 72, y: 96, look: 8 };
 
         for (const value of strings(activity.args)) {
             const layer = canvas?.querySelector<HTMLElement>(`[data-layer="${CSS.escape(value)}"]`);
             if (!layer) continue;
             const box = layer.getBoundingClientRect();
-            const focusX = box.left + box.width / 2;
-            const focusY = box.top + box.height / 2;
-            const standRight = focusX < bounds.left + bounds.width / 2;
-            const atX = Math.max(bounds.left + 42, Math.min(bounds.right - 42,
-                focusX + (standRight ? 1 : -1) * Math.min(54, box.width * 0.38 + 20)));
-            const atY = Math.max(bounds.top + 72, Math.min(bounds.bottom - 42, focusY - 18));
-            const angle = Math.atan2(focusY - atY, focusX - atX);
-            const look = Math.round(((angle + Math.PI) / (Math.PI * 2)) * 15) % 16;
+            const focusX = box.left - bounds.left + box.width / 2;
+            const focusY = box.top - bounds.top + box.height / 2;
+            const standRight = focusX < bounds.width / 2;
+            const point = onScreen(
+                focusX + (standRight ? 1 : -1) * Math.min(54, box.width * 0.38 + 20),
+                focusY - 18,
+                bounds.width,
+                bounds.height,
+            );
+            const atX = point.x;
+            const atY = point.y;
+            const look = avatarLookDirection(focusX - atX, focusY - atY, sheet?.columns ?? 8);
             return { x: atX, y: atY, look };
         }
 
-        // Broad actions belong at the edge of the stage, not hovering over the
-        // actors in the middle of the play. Keep a little vertical variation
-        // between tools while giving the speech bubble room on the left.
+        // Broad actions park at a viewport-fixed inset, like the menu and
+        // eraser, rather than following the potentially enormous canvas.
         const hash = [...activity.tool].reduce((sum, char) => sum + char.charCodeAt(0), 0);
         return {
-            x: bounds.right - 54,
-            y: bounds.top + Math.min(118, Math.max(82, bounds.height * 0.16 + (hash % 3) * 12)),
+            ...onScreen(bounds.width - 72, 96 + (hash % 3) * 12, bounds.width, bounds.height),
             look: hash % 16,
         };
     }
@@ -148,25 +173,30 @@
     function lookingFrame(index: number) {
         stopFrames();
         if (!sheet) return;
-        const step = Math.max(0, Math.min(15, index));
-        frameRow = sheet.rows - (step < 8 ? 2 : 1);
-        frameColumn = step < 8 ? step : 15 - step;
+        const cell = avatarLookCell(sheet, index);
+        frameRow = cell.row;
+        frameColumn = cell.column;
     }
 
     function lookAtPointer(event: PointerEvent) {
         if (!visible || phase === "thinking" || !sheet) return;
         if (event.pointerType && event.pointerType !== "mouse") return;
-        const angle = Math.atan2(event.clientY - y, event.clientX - x);
-        lookingFrame(Math.round(((angle + Math.PI) / (Math.PI * 2)) * 15) % 16);
+        const bounds = canvas?.getBoundingClientRect();
+        lookingFrame(avatarLookDirection(
+            event.clientX - (bounds?.left ?? 0) - x,
+            event.clientY - (bounds?.top ?? 0) - y,
+            sheet.columns,
+        ));
     }
 
     function show(activity: AgentActivity) {
+        currentActivity = activity;
         const firstArrival = !visible;
         const next = destination(activity);
         x = next.x;
         y = next.y;
         phase = activity.phase;
-        text = words(activity.tool);
+        text = words(activity);
         state = iconState(activity.tool);
         visible = true;
         speaking = true;
@@ -197,6 +227,14 @@
         }, 120);
     }
 
+    function keepPositionOnScreen() {
+        if (!currentActivity) return;
+        const next = destination(currentActivity);
+        x = next.x;
+        y = next.y;
+        if (phase !== "thinking") lookingFrame(next.look);
+    }
+
     onMount(() => {
         const off = onAgentActivity(show);
         const offAvatar = onAgentAvatarSheet(value => {
@@ -216,7 +254,7 @@
     });
 </script>
 
-<svelte:window onpointermove={lookAtPointer} />
+<svelte:window onpointermove={lookAtPointer} onresize={keepPositionOnScreen} />
 
 <div
     class="agent"
@@ -226,7 +264,11 @@
     style:top="{y}px"
     aria-live="polite"
 >
-    <div class="agent__bubble" class:agent__bubble--visible={speaking}>{text}</div>
+    <div
+        class="agent__bubble"
+        class:agent__bubble--visible={speaking}
+        class:agent__bubble--right={x < 300}
+    >{text}</div>
     {#if sheet}
         <div
             bind:this={figure}
@@ -249,12 +291,10 @@
 
 <style>
     .agent {
-        position: fixed;
+        position: absolute;
         z-index: 34;
-        display: grid;
-        grid-template-columns: auto 68px;
-        align-items: end;
-        gap: 8px;
+        width: 68px;
+        height: 68px;
         translate: -50% -55%;
         opacity: 0;
         scale: 0.8;
@@ -295,9 +335,11 @@
     }
 
     .agent__bubble {
-        position: relative;
+        position: absolute;
+        right: calc(100% + 8px);
+        bottom: 31px;
+        width: max-content;
         max-width: min(250px, 42vw);
-        margin-bottom: 37px;
         padding: 9px 13px;
         border: 2px solid color-mix(in srgb, var(--accent-tertiary) 55%, transparent);
         border-radius: 15px;
@@ -334,6 +376,18 @@
         opacity: 1;
         translate: 0 0;
         scale: 1;
+    }
+
+    .agent__bubble--right {
+        right: auto;
+        left: calc(100% + 8px);
+        transform-origin: left bottom;
+    }
+
+    .agent__bubble--right::after {
+        right: auto;
+        left: -7px;
+        rotate: 135deg;
     }
 
     @media (prefers-reduced-motion: reduce) {

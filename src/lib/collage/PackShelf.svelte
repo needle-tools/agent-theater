@@ -2,8 +2,9 @@
     /**
      * The sticker drawers, sitting where you can reach them.
      *
-     * Each troupe pack is a little pile of stickers at the bottom edge. Drag a
-     * pile onto the canvas and it deals one random sticker from that pack.
+     * Each configured shelf group is a little pile of stickers at the bottom
+     * edge. Drag a pile onto the canvas and it deals one random sticker from
+     * that group. The root troupe manifest owns the order and the theme list.
      * The pieces arrive as real layers — the same ones theater_troupe deals —
      * so an agent looking at the canvas sees exactly what was arranged.
      *
@@ -13,10 +14,10 @@
      * status bar rather than as a place to take things from. The agent's
      * controls float above it; the help button still holds the right corner.
      *
-     * There are deliberately no more than eight piles, always in one row. The
-     * shelf is a quick source of surprises rather than a catalogue to browse.
+     * There are deliberately only a few piles, always in one row. The shelf is
+     * a quick source of surprises rather than a catalogue to browse.
      */
-    import { TROUPE, TROUPE_PACKS, type TroupePiece } from "./troupe.js";
+    import { TROUPE, TROUPE_SHELF, type TroupePiece } from "./troupe.js";
     import { STAGE_WIDTH, type CollageStudio } from "./studio.js";
     import { idleSet } from "./idleSet.js";
     import { tamedWidth } from "./placement.js";
@@ -44,10 +45,14 @@
         return studio.onShowChanged(() => (showing = !!studio.showing));
     });
 
-    const packs = TROUPE_PACKS
-        .map(pack => ({ ...pack, pieces: TROUPE.filter(piece => piece.pack === pack.id) }))
-        .filter(pack => pack.pieces.some(piece => piece.kind === "scenery" || piece.kind === "actor"))
-        .slice(0, 8);
+    let shelfMode = $state<"assorted" | "themes">("assorted");
+    const packs = $derived.by(() => TROUPE_SHELF[shelfMode]
+        .map(group => ({
+            ...group,
+            pieces: TROUPE.filter(piece =>
+                group.packs.includes(piece.pack) && group.kinds.includes(piece.kind)),
+        }))
+        .filter(group => group.pieces.length));
 
     const PACK_THOUGHTS: Record<string, string> = {
         animals: "What if a creature wandered in? %wait5% Maybe it knows the way home... // Or perhaps it has something to say.",
@@ -235,11 +240,25 @@
         role="group"
         aria-label="Sticker packs"
     >
+        {#if false}
+            <div class="shelf__modes" role="group" aria-label="Sort sticker piles">
+                <button
+                    class:active={shelfMode === "assorted"}
+                    aria-pressed={shelfMode === "assorted"}
+                    onclick={() => (shelfMode = "assorted")}
+                >Assorted</button>
+                <button
+                    class:active={shelfMode === "themes"}
+                    aria-pressed={shelfMode === "themes"}
+                    onclick={() => (shelfMode = "themes")}
+                >Themes</button>
+            </div>
+        {/if}
         <div class="piles">
             {#each packs as pack (pack.id)}
                 <button
                     class="pile"
-                    aria-label="Drag for a random {pack.id} sticker"
+                    aria-label="Drag for a random {pack.label} sticker"
                     use:hint={PACK_THOUGHTS[pack.id] ?? "What story could this begin?"}
                     onpointerdown={event => startPackDrag(event, pack.pieces)}
                     onpointermove={moveDrag}
@@ -259,6 +278,7 @@
                                 style:--lean="{(at - 1) * 9}deg" style:z-index={3 - at} />
                         {/each}
                     </span>
+                    <span class="pile__label">{pack.label}</span>
                 </button>
             {/each}
         </div>
@@ -285,7 +305,7 @@
         right: 0;
         margin-inline: auto;
         width: fit-content;
-        bottom: 12px;
+        bottom: 62px;
         z-index: 26;
         display: flex;
         flex-direction: column;
@@ -311,6 +331,32 @@
         gap: 4px 10px;
         max-width: 100%;
         padding: 4px;
+    }
+
+    .shelf__modes {
+        display: flex;
+        padding: 2px;
+        border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--surface-panel) 84%, transparent);
+        box-shadow: 0 2px 8px rgba(31, 26, 19, 0.08);
+    }
+
+    .shelf__modes button {
+        padding: 4px 10px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: 11px;
+        cursor: var(--cursor-pointer, pointer);
+    }
+
+    .shelf__modes button.active {
+        background: var(--surface-panel);
+        color: var(--text-primary);
+        box-shadow: 0 1px 4px rgba(31, 26, 19, 0.13);
     }
 
     /*
@@ -359,6 +405,17 @@
         rotate: var(--lean, 0deg);
         filter: drop-shadow(0 1px 1.5px rgba(20, 24, 18, 0.35));
         transition: filter 0.16s;
+    }
+
+    .pile__label {
+        max-width: 84px;
+        overflow: hidden;
+        color: var(--text-secondary);
+        font-size: 10px;
+        line-height: 1.1;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     /*

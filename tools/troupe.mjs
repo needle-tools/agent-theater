@@ -28,6 +28,10 @@ const FACINGS = new Set(["front", "left", "right"]);
 const pieces = [];
 const sheets = [];
 const packs = [];
+const cataloguePath = join(ROOT, "manifest.json");
+const catalogue = existsSync(cataloguePath)
+    ? JSON.parse(readFileSync(cataloguePath, "utf8").replace(/^﻿/, ""))
+    : {};
 
 if (existsSync(ROOT)) {
     for (const entry of readdirSync(ROOT)) {
@@ -108,6 +112,35 @@ pieces.sort((a, b) => a.pack.localeCompare(b.pack) || a.kind.localeCompare(b.kin
 packs.sort((a, b) => a.id.localeCompare(b.id));
 sheets.sort((a, b) => a.id.localeCompare(b.id));
 
+const packIds = new Set(packs.map(pack => pack.id));
+const shelf = {
+    assorted: (catalogue.shelf?.assorted ?? []).map(group => {
+        if (!group.id || !group.label || !Array.isArray(group.packs) || !group.packs.length) {
+            throw new Error(`static/troupe/manifest.json: each assorted shelf group needs id, label and packs`);
+        }
+        for (const pack of group.packs) {
+            if (!packIds.has(pack)) throw new Error(`static/troupe/manifest.json: unknown pack ${JSON.stringify(pack)}`);
+        }
+        const kinds = group.kinds ?? ["actor", "scenery"];
+        for (const kind of kinds) {
+            if (!KINDS.has(kind)) throw new Error(`static/troupe/manifest.json: unknown kind ${JSON.stringify(kind)}`);
+        }
+        return { id: group.id, label: group.label, packs: group.packs, kinds };
+    }),
+    themes: (catalogue.shelf?.themes ?? []).map(theme => {
+        if (!theme.pack || !theme.label || !packIds.has(theme.pack)) {
+            throw new Error(`static/troupe/manifest.json: each theme needs a label and an installed pack`);
+        }
+        for (const kind of ["actor", "scenery"]) {
+            if (!pieces.some(piece => piece.pack === theme.pack && piece.kind === kind)) {
+                throw new Error(
+                    `static/troupe/manifest.json: theme ${JSON.stringify(theme.pack)} has no ${kind} pieces`);
+            }
+        }
+        return { id: theme.pack, label: theme.label, packs: [theme.pack], kinds: ["actor", "scenery"] };
+    }),
+};
+
 const pieceLine = (p) => {
     const parts = [
         `id: ${JSON.stringify(p.id)}`,
@@ -166,6 +199,14 @@ export interface TroupePack {
     stylePrompt?: string;
 }
 
+/** A labelled pile on the human-facing shelf, configured in the root manifest. */
+export interface TroupeShelfGroup {
+    id: string;
+    label: string;
+    packs: string[];
+    kinds: TroupeKind[];
+}
+
 export const TROUPE_PACKS: TroupePack[] = [
 ${packs.map(pack => {
     const parts = [
@@ -176,6 +217,8 @@ ${packs.map(pack => {
     return `    { ${parts.join(", ")} },`;
 }).join("\n") || "    // No packs installed."}
 ];
+
+export const TROUPE_SHELF: { assorted: TroupeShelfGroup[]; themes: TroupeShelfGroup[] } = ${JSON.stringify(shelf, null, 4)};
 
 export const TROUPE: TroupePiece[] = [
 ${pieces.map(pieceLine).join("\n") || "    // No packs installed. static/troupe/README.md says how to add one."}

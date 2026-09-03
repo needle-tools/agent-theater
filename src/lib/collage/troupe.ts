@@ -38,6 +38,14 @@ export interface TroupePack {
     stylePrompt?: string;
 }
 
+/** A labelled pile on the human-facing shelf, configured in the root manifest. */
+export interface TroupeShelfGroup {
+    id: string;
+    label: string;
+    packs: string[];
+    kinds: TroupeKind[];
+}
+
 export const TROUPE_PACKS: TroupePack[] = [
     { id: "animals", description: "A cast of animals in felt and paper. These are actors, not scenery — they are the ones that walk, jump and speak. `facing` says which way a piece is drawn: side-on ones read best walking across the stage, front-on ones read best standing and talking.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is a cast of animals — one animal per cell, all different species.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE character on a PLAIN WHITE background, cut-out style, with no shadow, no ground, no scenery and no base beneath them. Full body, facing the viewer, standing upright with their feet visible and their arms clear of their sides — they will be animated walking, jumping and bowing, so nothing may be cropped and nothing may merge into the background. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
     { id: "birthday-party", description: "A wonderfully unruly birthday party with guests, cake-loving creatures, presents, decorations and table props.", stylePrompt: "Torn and cut paper collage in a cheerful muted palette of navy, moss green, brick red, mustard, cream and dusty pink. Every shape is visibly hand-cut or torn, with deckled edges, paper grain and dry speckled texture; tiny details are fine black ink. Flat, straight-on puppet-theatre silhouettes with no perspective, lighting, gradients, shadows, white outlines or 3D rendering. Full isolated party guests, cake creatures, presents, decorations and table props on transparent backgrounds." },
@@ -59,6 +67,149 @@ export const TROUPE_PACKS: TroupePack[] = [
     { id: "weapons", description: "What a hero carries. TWO TONES IN ONE PACK, and the difference matters when choosing: fifteen pieces are storybook — sword, shield, bow, axe, spear — and belong in a fairy tale; five are modern firearms (`pistol`, `shotgun`, `rifle`, `rifle-sniper`, `submachine-gun`) drawn realistically enough to change what a scene is about; the rest are toys (`ray-gun`, `blaster`, `bazooka`). Filter on the `mood` tag: `storybook` for a play with animals and witches in it, `modern` or `firearm` only when the story is deliberately not one.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, buckles, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: the weapons and gear a hero carries. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT character, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it and nothing else in the cell. Draw the whole object, not a part of a scene. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
     { id: "whimsical-kingdom", description: "A cheerfully impossible little kingdom of paper royalty, walking household things, garden props and heraldic oddities.", stylePrompt: "Torn and cut paper collage in a muted mid-century palette of navy, moss green, brick red, mustard, cream and dusty pink. Every shape is visibly hand-cut or torn, with deckled edges, paper grain and dry speckled texture; tiny details are fine black ink. Flat, straight-on puppet-theatre silhouettes with no perspective, lighting, gradients, shadows, white outlines or 3D rendering. Full isolated whimsical royal characters, animated household objects and garden props on transparent backgrounds." },
 ];
+
+export const TROUPE_SHELF: { assorted: TroupeShelfGroup[]; themes: TroupeShelfGroup[] } = {
+    "assorted": [
+        {
+            "id": "animal-actors",
+            "label": "Animal actors",
+            "packs": [
+                "animals"
+            ],
+            "kinds": [
+                "actor"
+            ]
+        },
+        {
+            "id": "story-actors",
+            "label": "Story actors",
+            "packs": [
+                "fairy-tale",
+                "people"
+            ],
+            "kinds": [
+                "actor"
+            ]
+        },
+        {
+            "id": "food-props",
+            "label": "Food props",
+            "packs": [
+                "food"
+            ],
+            "kinds": [
+                "scenery"
+            ]
+        },
+        {
+            "id": "forest-pieces",
+            "label": "Forest",
+            "packs": [
+                "forest"
+            ],
+            "kinds": [
+                "scenery"
+            ]
+        },
+        {
+            "id": "home-props",
+            "label": "Home props",
+            "packs": [
+                "home"
+            ],
+            "kinds": [
+                "scenery"
+            ]
+        },
+        {
+            "id": "landscape-pieces",
+            "label": "Landscape",
+            "packs": [
+                "landscape"
+            ],
+            "kinds": [
+                "scenery"
+            ]
+        },
+        {
+            "id": "ocean-props",
+            "label": "Ocean props",
+            "packs": [
+                "ocean"
+            ],
+            "kinds": [
+                "scenery"
+            ]
+        },
+        {
+            "id": "office-props",
+            "label": "Office props",
+            "packs": [
+                "office"
+            ],
+            "kinds": [
+                "scenery"
+            ]
+        }
+    ],
+    "themes": [
+        {
+            "id": "birthday-party",
+            "label": "Birthday party",
+            "packs": [
+                "birthday-party"
+            ],
+            "kinds": [
+                "actor",
+                "scenery"
+            ]
+        },
+        {
+            "id": "lost-and-found",
+            "label": "Lost & found",
+            "packs": [
+                "lost-and-found"
+            ],
+            "kinds": [
+                "actor",
+                "scenery"
+            ]
+        },
+        {
+            "id": "moon-magic",
+            "label": "Moon magic",
+            "packs": [
+                "moon-magic"
+            ],
+            "kinds": [
+                "actor",
+                "scenery"
+            ]
+        },
+        {
+            "id": "pirate-cove",
+            "label": "Pirate cove",
+            "packs": [
+                "pirate-cove"
+            ],
+            "kinds": [
+                "actor",
+                "scenery"
+            ]
+        },
+        {
+            "id": "whimsical-kingdom",
+            "label": "Whimsical kingdom",
+            "packs": [
+                "whimsical-kingdom"
+            ],
+            "kinds": [
+                "actor",
+                "scenery"
+            ]
+        }
+    ]
+};
 
 export const TROUPE: TroupePiece[] = [
     { id: "animals/bat", pack: "animals", kind: "actor", file: "/troupe/animals/bat.webp", mood: ["night","spooky"], description: "a small bat with its wings spread — hangs high rather than stands", facing: "front" },

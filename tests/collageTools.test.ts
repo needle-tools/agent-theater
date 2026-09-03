@@ -10,6 +10,7 @@ import type { LoadedImage } from "../src/lib/collage/imaging.js";
 import type { Plan } from "../src/lib/collage/perform.js";
 import { SILENT } from "../src/lib/collage/audio.js";
 import { onAgentAvatarSheet, setAgentAvatarSheet } from "../src/lib/collage/agentAvatar.js";
+import { onAgentActivity } from "../src/lib/room/activity.js";
 
 /**
  * The tools are the agent's whole surface onto the collage, so what is tested
@@ -672,6 +673,23 @@ describe("running several tools at once", () => {
         expect([layer.x, layer.y, layer.rotation, layer.text]).toEqual([100, 50, 15, "Goodbye"]);
     });
 
+    it("deals visible batch steps 125ms apart", async () => {
+        const { batch, id } = await withText();
+        const seen: Array<{ tool: string; at: number }> = [];
+        const off = onAgentActivity(activity => seen.push(activity));
+        await batch.execute({
+            steps: [
+                { tool: "piece_move", args: { id, x: 100 } },
+                { tool: "piece_move", args: { id, y: 100 } },
+            ],
+        });
+        off();
+
+        const moves = seen.filter(activity => activity.tool === "piece_move").slice(-2);
+        expect(moves).toHaveLength(2);
+        expect(moves[1].at - moves[0].at).toBeGreaterThanOrEqual(120);
+    });
+
     it("undoes the whole batch as one step", async () => {
         const { batch, collage, id } = await withText();
         const before = collage.get(id)!;
@@ -817,6 +835,13 @@ describe("the floating agent's selected pet", () => {
         expect(local.isError).toBeFalsy();
         expect(local.structuredContent).toMatchObject({ name: "Seedy", columns: 8, rows: 11 });
         expect(seen.at(-1)).toBe("Seedy");
+
+        const start = createCollageTools(studio).find(t => t.name === "theater_start")!;
+        const started = await start.execute({});
+        expect(started.structuredContent).toMatchObject({
+            avatar: { name: "Seedy", columns: 8, rows: 11, default: false },
+        });
+        expect(textOf(started)).toContain("Currently using Seedy");
 
         const fallback = await avatar.execute({ url: "default" });
         expect(fallback.isError).toBeFalsy();

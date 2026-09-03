@@ -91,3 +91,11 @@ node tools/troupe.mjs
 
 regenerates `src/lib/collage/troupe.ts`, which is what the page actually
 reads. Commit both.
+
+## The shelf
+
+`static/troupe/manifest.json` controls the small human-facing shelf without
+changing the packs themselves. `shelf.assorted` defines the ordered everyday
+piles and may combine packs or select only particular `kinds` (useful for a
+clearly labelled actor pile). `shelf.themes` lists only packs complete enough
+to offer as a whole themed set. Run the generator after editing it too.
