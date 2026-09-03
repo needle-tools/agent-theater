@@ -39,7 +39,8 @@ const ICONS = [
     { file: "extra-cursors_island1.webp", name: "open", hot: "centre", fallback: "grab" },
     { file: "extra-cursors_island2.webp", name: "closed", hot: "centre", fallback: "grabbing" },
     { file: "extra-cursors_island3.webp", name: "move", hot: "centre", fallback: "move" },
-    { file: "extra-cursors_island4.webp", name: "resize", hot: "centre", fallback: "nwse-resize" },
+    // The supplied arrow slopes /; a bottom-right handle grows on the \ axis.
+    { file: "extra-cursors_island4.webp", name: "resize", hot: "centre", fallback: "nwse-resize", flop: true },
     { file: "extra-cursors_island5.webp", name: "forbidden", hot: "centre", fallback: "not-allowed" },
     { file: "ai-agent-states_island0.webp", name: "agent-ready", hot: "centre", fallback: "default" },
     { file: "ai-agent-states_island1.webp", name: "agent-thinking", hot: "centre", fallback: "wait" },
@@ -96,7 +97,7 @@ const rows = [];
 for (const icon of ICONS) {
     const from = join(SRC, icon.file);
     for (const size of [32, 64]) {
-        run([from, "-trim", "+repage", "-resize", `${size}x${size}`,
+        run([from, ...(icon.flop ? ["-flop"] : []), "-trim", "+repage", "-resize", `${size}x${size}`,
             "-background", "none", "-gravity", "center", "-extent", `${size}x${size}`,
             join(DST, `${icon.name}-${size}.png`)]);
     }
