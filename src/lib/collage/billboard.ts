@@ -14,6 +14,7 @@ import type { Stage } from "./stage.js";
 /** What is on the screen instead of the scene. */
 export type Billboard =
     | { kind: "waiting"; title?: string; duration: number }
+    | { kind: "blackout"; duration: number }
     | { kind: "title"; title: string; byline?: string; duration: number }
     | { kind: "credits"; title?: string; lines: string[]; duration: number };
 
@@ -48,6 +49,16 @@ export const TITLE_MS = 3600;
  * no show at all.
  */
 export const WAIT_FOR_AUDIENCE_MS = 30_000;
+
+/**
+ * The fade between scenes, end to end.
+ *
+ * Darkness rises over the old scene, the set is swapped behind it, and it
+ * lifts off the new one. It replaced individual exits — every character
+ * animating out one by one took longer than the scene and looked like a
+ * fire drill.
+ */
+export const BLACKOUT_MS = 900;
 
 /** Per credit line, plus a moment at each end to start and finish reading. */
 export const CREDIT_LINE_MS = 900;

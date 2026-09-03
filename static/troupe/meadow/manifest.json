@@ -1,0 +1,34 @@
+{
+    "name": "meadow",
+    "description": "Open country in torn paper, as three depth planes: sky, rolling hills, and a flowering bank in front. Layers only — dress it with the `stones-and-plants` and `forest` packs.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another. ABSOLUTELY NOT: digital painting, watercolour, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe theme is: a meadow under an open sky. All three strips are the same place, at the same time of day.\n\nDraw ONE sheet: 3 separate pictures stacked in a SINGLE COLUMN, one above the other, each a full-width strip. They are NOT side by side and NOT a grid. Each strip is 21:9 — an ultra-wide panorama, MUCH wider than it is tall. These three strips are the three depth planes of one stage set, layered on top of each other with characters between them and slid past each other when the camera pans.\n\nSTRIP 1 — THE FAR BACKDROP. Fills its strip completely, no transparency. Hard limit: AT MOST FIVE separate shapes on top of one or two plain fields of colour. Distant shapes are plain silhouettes with no detail inside them. The ground is a plain horizontal band across the bottom. Low contrast, nothing that competes with a figure in front of it.\n\nSTRIP 2 — THE MIDDLE BAND. A horizontal band of furniture across the lower half. Everything ABOVE it is PLAIN WHITE and empty, because that white becomes transparent and the backdrop shows through. Give the top edge a clear, readable, uneven silhouette.\n\nSTRIP 3 — THE FOREGROUND FRAME. Content sits ONLY at the left edge, the right edge and along the very bottom. THE ENTIRE MIDDLE OF THIS STRIP IS PLAIN WHITE AND COMPLETELY EMPTY: that is where the actors stand, and anything drawn there will cover them. Roughly the middle two thirds must be untouched white. Darkest and most detailed of the three.\n\nThen cut it at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), split the sheet into its three strips but do NOT auto-slice islands inside a strip — each strip stays ONE image. Remove the white from strips 2 and 3; strip 1 keeps its background. fastcut_download as a ZIP.",
+    "pieces": {
+        "backdrop": {
+            "kind": "backdrop",
+            "file": "backdrop.webp",
+            "mood": [
+                "day",
+                "gentle"
+            ],
+            "description": "a pink sky with one cream cloud over olive hills. Opaque and full-bleed, 21:9 — the emptiest backdrop in the troupe, and the easiest to put anything in front of"
+        },
+        "midground": {
+            "kind": "midground",
+            "file": "midground.webp",
+            "mood": [
+                "day",
+                "gentle"
+            ],
+            "description": "the hill line: layered green slopes and bushes across the lower half, transparent above"
+        },
+        "foreground": {
+            "kind": "foreground",
+            "file": "foreground.webp",
+            "mood": [
+                "day",
+                "gentle"
+            ],
+            "description": "the nearest plane: a navy trunk with leaves down the left, foliage down the right, and a band of grass and yellow flowers along the bottom. The middle is empty on purpose"
+        }
+    }
+}

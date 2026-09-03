@@ -105,7 +105,12 @@ export function sceneBeats(stage: Stage, sizeOf: (id: string) => number): BuildU
     const built = buildUp(stage, sizeOf);
     return {
         approach: built.approach,
-        beats: [...built.beats, ...filmed(stage.script), ...handOff(stage)],
+        // No handOff exits any more: a scene used to end with every character
+        // animating out one after another, which took longer than the scene's
+        // own goodbye and looked like a fire drill. The show fades between
+        // scenes instead, and the cast is simply there in the next one — or
+        // still standing for the bows after the last.
+        beats: [...built.beats, ...filmed(stage.script)],
         hidden: entering(stage),
     };
 }

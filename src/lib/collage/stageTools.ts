@@ -893,7 +893,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 for (const [index, member] of wanted.entries()) {
                     const id = str(member?.id);
                     if (!id) continue;
-                    const layer = collage.get(id)!;
+                    // The layer's own size, never its placed size: this whole
+                    // block decides what the placement should say, and asking
+                    // `get` would answer with what the placement already says.
+                    const layer = collage.own(id)!;
                     const at = cast.findIndex(existing => existing.id === id);
                     const previous = at >= 0 ? cast[at] : null;
 

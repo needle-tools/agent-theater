@@ -1215,3 +1215,66 @@ describe("how big a cast member ends up", () => {
         expect(collage.getStage(stage.id)!.cast[0].width).toBeCloseTo(50);
     });
 });
+
+describe("re-casting somebody who is already the right size", () => {
+    /**
+     * The bug this pins cost a scene its whole layout, and looked like the
+     * agent placing things badly.
+     *
+     * `collage.get` answers as the active stage — a cast member comes back at
+     * its placement, which is the point of the abstraction. But stage_cast is
+     * deciding what the placement should SAY, so asking `get` meant comparing
+     * the width it had just computed against the width the layer appeared to
+     * have *because of that very placement*. Equal, therefore "nothing to
+     * store", therefore the placement lost its width and the piece snapped
+     * back to the size it was cut at — while x and y stayed where they were,
+     * so everybody was the wrong size and off their mark at once.
+     *
+     * It only bit while a scene was being shown, and only on the second cast,
+     * which is why a play looked right as it was built and wrong ever after.
+     */
+    const bedroom = () => {
+        const { studio, collage } = fakeStudio();
+        const floor = collage.addImage({
+            src: "backdrop", natural: { width: 1260, height: 540 }, width: 960, x: -420, y: -206,
+        });
+        const woman = collage.addImage({
+            src: "woman", natural: { width: 260, height: 485 }, width: 260, x: -114, y: -429,
+        });
+        return { studio, collage, floor, woman, tools: createCollageTools(studio) };
+    };
+
+    const castOnce = (tools: any, woman: string) =>
+        tools.find((t: any) => t.name === "stage_cast")!.execute({
+            cast: [{ id: woman, as: "gran", at: { x: 0.32, y: 0.86 }, size: 0.42 }],
+        });
+
+    it("keeps the width it was given the first time", async () => {
+        const { collage, floor, woman, tools } = bedroom();
+        await tools.find(t => t.name === "stage_create")!.execute({ name: "bedroom", backdrop: floor.id });
+        await castOnce(tools, woman.id);
+
+        const first = collage.listStages()[0].cast[0].width;
+        // 0.42 of a 411.4-tall backdrop is 172.8 tall, which on a 260 x 485
+        // drawing is 92.6 wide.
+        expect(first).toBeCloseTo(92.6, 1);
+
+        // Now with the scene actually showing, which is the case that broke.
+        collage.setActiveStage(collage.listStages()[0].id);
+        await castOnce(tools, woman.id);
+        expect(collage.listStages()[0].cast[0].width).toBeCloseTo(first!, 6);
+    });
+
+    it("still reads the scene back in the units it was cast in", async () => {
+        const { collage, floor, woman, tools } = bedroom();
+        await tools.find(t => t.name === "stage_create")!.execute({ name: "bedroom", backdrop: floor.id });
+        await castOnce(tools, woman.id);
+        collage.setActiveStage(collage.listStages()[0].id);
+        await castOnce(tools, woman.id);
+
+        const result = await tools.find(t => t.name === "stage_describe")!.execute({});
+        const text = result.content.map(part => ("text" in part ? part.text : "")).join(" ");
+        expect(text).toContain("size 0.42");
+        expect(text).toContain("feet 0.86");
+    });
+});

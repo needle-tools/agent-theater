@@ -1,0 +1,211 @@
+{
+    "name": "food",
+    "description": "Things to eat, as hand props. All drawn at the same cell scale, so a watermelon slice and a cracker arrive the same size — the stage has to set the sizes, the files will not tell it.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: food — fruit, vegetables, bread, and things on a plate. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "watermelon-slice": {
+            "kind": "scenery",
+            "mood": [
+                "bright",
+                "summer"
+            ],
+            "description": "a red wedge with navy pips — the most colourful piece in the pack",
+            "file": "watermelon-slice.webp"
+        },
+        "pineapple": {
+            "kind": "scenery",
+            "mood": [
+                "bright"
+            ],
+            "description": "a crosshatched mustard pineapple with a navy crown",
+            "file": "pineapple.webp"
+        },
+        "grapes": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a pink bunch on a stem with two leaves",
+            "file": "grapes.webp"
+        },
+        "pear": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a green pear with one leaf",
+            "file": "pear.webp"
+        },
+        "pomegranate": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a red pomegranate cut open to its seeds",
+            "file": "pomegranate.webp"
+        },
+        "carrot": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a red carrot with a green top — the rabbit's prop",
+            "file": "carrot.webp"
+        },
+        "broccoli": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a head of broccoli, green over cream",
+            "file": "broccoli.webp"
+        },
+        "corn-cob": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a mustard cob in its green husk",
+            "file": "corn-cob.webp"
+        },
+        "aubergine": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a navy aubergine with a green cap",
+            "file": "aubergine.webp"
+        },
+        "radish": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a pink radish with its leaves and root",
+            "file": "radish.webp"
+        },
+        "chilli": {
+            "kind": "scenery",
+            "mood": [
+                "bright"
+            ],
+            "description": "a red chilli with a navy stalk",
+            "file": "chilli.webp"
+        },
+        "baguette": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a slashed mustard loaf, long and low",
+            "file": "baguette.webp"
+        },
+        "croissant": {
+            "kind": "scenery",
+            "mood": [
+                "cosy"
+            ],
+            "description": "a banded pink and mustard croissant",
+            "file": "croissant.webp"
+        },
+        "pretzel": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a salted red pretzel, knotted",
+            "file": "pretzel.webp"
+        },
+        "cracker": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a square cracker with a red centre",
+            "file": "cracker.webp"
+        },
+        "cheese-wedge": {
+            "kind": "scenery",
+            "mood": [
+                "comic"
+            ],
+            "description": "a mustard wedge with holes — the cartoon cheese",
+            "file": "cheese-wedge.webp"
+        },
+        "fried-egg": {
+            "kind": "scenery",
+            "mood": [
+                "cosy"
+            ],
+            "description": "a fried egg, cream with a mustard yolk",
+            "file": "fried-egg.webp"
+        },
+        "pancakes": {
+            "kind": "scenery",
+            "mood": [
+                "cosy",
+                "friendly"
+            ],
+            "description": "a stack of pancakes topped with a berry",
+            "file": "pancakes.webp"
+        },
+        "pizza-slice": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a triangular slice with pepperoni",
+            "file": "pizza-slice.webp"
+        },
+        "sushi-roll": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a single roll seen end-on",
+            "file": "sushi-roll.webp"
+        },
+        "dumpling": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a pleated half-moon dumpling",
+            "file": "dumpling.webp"
+        },
+        "fish-fillet": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a pink fillet with pale striping — raw, not cooked",
+            "file": "fish-fillet.webp"
+        },
+        "cupcake": {
+            "kind": "scenery",
+            "mood": [
+                "friendly",
+                "storybook"
+            ],
+            "description": "a cupcake in a navy case with a cherry on top",
+            "file": "cupcake.webp"
+        },
+        "ice-cream-cone": {
+            "kind": "scenery",
+            "mood": [
+                "friendly",
+                "summer"
+            ],
+            "description": "a pink scoop on a waffle cone — melts, so it says the scene is warm",
+            "file": "ice-cream-cone.webp"
+        },
+        "chocolate-bar": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a red bar half out of its navy wrapper",
+            "file": "chocolate-bar.webp"
+        }
+    }
+}

@@ -31,8 +31,8 @@ import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
 import { renamedIn } from "./stage.js";
 import { cellPixels, gridCells, paperBox } from "./sheet.js";
 import {
-    creditLines, creditsDuration, creditsFor, performers, TITLE_MS, WAIT_FOR_AUDIENCE_MS,
-    type Billboard,
+    BLACKOUT_MS, creditLines, creditsDuration, creditsFor, performers, TITLE_MS,
+    WAIT_FOR_AUDIENCE_MS, type Billboard,
 } from "./billboard.js";
 import { plan as planScene, type Plan } from "./perform.js";
 import { DEFAULT_HOLD, MIN_SCENE_MS, sceneBeats, type ShowTiming } from "./show.js";
@@ -341,7 +341,7 @@ export interface CollageStudio {
      * Open a collage file onto the canvas, alongside whatever is already there.
      * Resolves to how many layers arrived, or 0 if the file holds no collage.
      */
-    openFile(file: Blob): Promise<number>;
+    openFile(file: Blob, options?: { replace?: boolean }): Promise<number>;
     save(view?: StoredView): void;
     clear(): Promise<void>;
     /** The decoded images, for the canvas component to draw with. */
@@ -573,8 +573,17 @@ export function createStudio(collage = new Collage()): CollageStudio {
             });
         }
 
+        // The first scene of a fresh show is revealed by the lights coming
+        // up; every later boundary — including continuing a held show — fades
+        // through darkness, with the set swapped while nobody can see it.
+        let opening = !resuming;
         for (const stage of stages) {
             if (!wanted) break;
+            if (!opening) {
+                billboard = { kind: "blackout", duration: BLACKOUT_MS };
+                announceShow();
+                await new Promise(resolve => setTimeout(resolve, BLACKOUT_MS * 0.45));
+            }
             setRunning(stage.id);
             collage.setActiveStage(stage.id);
             // Started with the scene rather than with its first beat, so the
@@ -594,6 +603,13 @@ export function createStudio(collage = new Collage()): CollageStudio {
                     }
                 });
             }
+
+            if (!opening) {
+                await new Promise(resolve => setTimeout(resolve, BLACKOUT_MS * 0.55));
+                billboard = null;
+                announceShow();
+            }
+            opening = false;
 
             const { plan } = planScene(beats);
             const began = Date.now();
@@ -1573,9 +1589,17 @@ export function createStudio(collage = new Collage()): CollageStudio {
             };
         },
 
-        async openFile(file) {
+        async openFile(file, options) {
             const payload = readCollage(new Uint8Array(await file.arrayBuffer()));
             if (!payload) return 0;
+
+            // Opening a play replaces the stage when asked to. The old
+            // always-add behaviour protected work in progress from a stray
+            // drop, and then loading a play onto a half-built one produced
+            // exactly the two-half-plays mess it was protecting against.
+            // Cleared only after the file has parsed, so a corrupt file
+            // cannot cost the work it failed to replace.
+            if (options?.replace) await this.clear();
 
             // Keys are re-minted rather than reused. Two files made in the same
             // browser can hold the same key for different bytes, and opening

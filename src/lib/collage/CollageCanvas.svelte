@@ -287,7 +287,7 @@
         void version;
         const said: Array<{
             id: string; text: string; shown: string;
-            x: number; y: number; size: number; width: number; below: boolean;
+            x: number; y: number; size: number; below: boolean;
         }> = [];
         const seen = visibleRect();
         const zoom = view.zoom;
@@ -315,18 +315,27 @@
             const onScreenHeight = layer.height * zoom;
             const sizePx = Math.max(15, Math.min(30, onScreenHeight * 0.075));
 
-            // Wide enough for a real sentence, and never wider than the window.
-            const roomPx = viewport ? viewport.clientWidth * 0.74 : 560;
-            const widthPx = Math.max(sizePx * 12, Math.min(560, roomPx));
-
-            // Roughly what the words will occupy, so a three-word line is not
-            // treated as a paragraph when it comes to centring.
-            const likelyPx = Math.min(widthPx, Math.max(sizePx * 6, state.line.length * sizePx * 0.5));
-            const lines = Math.max(1, Math.ceil(likelyPx / widthPx));
-            const heightPx = lines * sizePx * 1.3 + sizePx * 1.4;
+            /*
+             * The box itself is CSS: `width: max-content` up to a `max-width`
+             * in ch, which scales with the font by definition. The JS width
+             * had already broken once without anyone touching it — removing
+             * the ghost layer for stable typing left an absolutely-positioned
+             * box inside the zero-width world, which shrinks to min-content:
+             * one word per line, in letters an inch tall. max-content ignores
+             * the containing block entirely, so that whole class of bug goes.
+             *
+             * What stays here is only what CSS cannot know: roughly where the
+             * edges will land, for the on-screen clamp, and how much headroom
+             * the bubble needs. Estimates — 0.55em a character, the same
+             * measure the max-width uses — and estimates are fine for clamps.
+             */
+            const perCharPx = sizePx * 0.55;
+            const maxLinePx = sizePx * 0.55 * 34;
+            const likelyPx = Math.min(maxLinePx, Math.max(sizePx * 6, state.line.length * perCharPx));
+            const lines = Math.max(1, Math.ceil((state.line.length * perCharPx) / maxLinePx));
+            const heightPx = lines * sizePx * 1.45 + sizePx * 1.4;
 
             const size = sizePx / zoom;
-            const width = widthPx / zoom;
 
             // Kept on the screen, not merely on the stage: the camera is often
             // somewhere other than squarely on the scene, and a bubble
@@ -354,7 +363,6 @@
                 x,
                 y: below ? layer.y + layer.height : layer.y,
                 size,
-                width,
                 below,
             });
         }
@@ -537,7 +545,7 @@
         if (!stage) return;
         let cancelled = false;
         const timer = setTimeout(() => {
-            if (!cancelled) frame("all", 1, SCENE_FRAMING_MS);
+            if (!cancelled) frame("all", 1, SCENE_FRAMING_MS, true);
         }, 60);
         return () => {
             cancelled = true;
@@ -779,12 +787,25 @@
      * and does not know where they are standing — and by the time the beat
      * runs they may have walked.
      */
+    /**
+     * What the camera was last asked to look at.
+     *
+     * Remembered so a resize can re-ask the same question. The naive fix —
+     * refit the whole scene when the window changes — would yank a deliberate
+     * close-up back out to a wide shot the moment somebody went fullscreen;
+     * re-framing the SAME subjects at the new size keeps the shot the
+     * director chose.
+     */
+    let lastFraming: { ids: string[] | "all"; tight: number; cover: boolean } | null = null;
+
     export function frame(
         ids: string[] | "all",
         tight = 1,
         duration = 1400,
+        cover = false,
     ): Promise<void> {
         if (!viewport) return Promise.resolve();
+        lastFraming = { ids, tight, cover };
         const stage = stageRect();
 
         // "Everything" means the stage, not every layer on the canvas. People
@@ -792,18 +813,24 @@
         // framing them would point the camera at an empty margin and shrink the
         // scene to fit somebody the audience is not supposed to see yet.
         if (ids === "all") {
-            // The stage AND whoever is standing on it, not one or the other.
-            // The stage alone is what a set designer means by the scene; it is
-            // not what the audience needs to see, because a figure taller than
-            // the backdrop hangs off the top and a figure standing at its edge
-            // hangs off the side — which is exactly what happened.
-            const rects = [
-                ...(stage ? [stage] : []),
-                ...onStageOnly(layers.map(layerBounds), stage),
-            ];
+            /*
+             * A cover shot frames the stage alone and lets its edges crop —
+             * what a film does, and what kills the dark bars around a 21:9
+             * backdrop in a squarer window; including the cast's overhang
+             * would zoom out to swallow it and bring the bars back. A
+             * containing shot is the opposite deal — everything visible, bars
+             * accepted — so it takes the stage AND whoever stands on it, or a
+             * figure taller than the backdrop loses their head.
+             */
+            const rects = cover && stage
+                ? [stage]
+                : [
+                    ...(stage ? [stage] : []),
+                    ...onStageOnly(layers.map(layerBounds), stage),
+                ];
             if (!rects.length) return waitOut(duration);
             fitted = true;
-            return frameRects(rects, tight, true, duration);
+            return frameRects(rects, tight, true, duration, cover);
         }
 
         const wanted = onStageOnly(
@@ -891,6 +918,7 @@
         tight: number,
         animate: boolean,
         duration?: number,
+        cover = false,
     ): Promise<void> {
         if (!viewport) return Promise.resolve();
         const minX = Math.min(...rects.map(r => r.x));
@@ -899,12 +927,14 @@
         const maxY = Math.max(...rects.map(r => r.y + r.height));
         // Tighter than it was, and allowed to go closer. The old margin and cap
         // were set for editing, where you want to see what is around the thing;
-        // watching wants the thing.
-        const margin = 48;
-        const zoom = Math.min(
+        // watching wants the thing. A cover shot has no margin at all: the
+        // point is that nothing but scene reaches the window's edge.
+        const margin = cover ? 0 : 48;
+        const fit = cover ? Math.max : Math.min;
+        const zoom = Math.min(2.6, fit(
             (viewport.clientWidth - margin * 2) / Math.max(1, maxX - minX),
             (viewport.clientHeight - margin * 2) / Math.max(1, maxY - minY),
-            2.6) * Math.max(0.05, tight);
+        )) * Math.max(0.05, tight);
         return moveTo({
             zoom,
             x: viewport.clientWidth / 2 - ((minX + maxX) / 2) * zoom,
@@ -1227,6 +1257,29 @@
         onContextMenu?.({ x: event.clientX, y: event.clientY, layerId: layer?.id ?? null });
     }
 
+    /**
+     * Going fullscreen mid-show keeps the shot.
+     *
+     * The camera's position and zoom are in viewport pixels, so a resize —
+     * fullscreen most of all, which can double both dimensions at once —
+     * leaves the stage sitting small in a corner of the new window. Outside a
+     * show the view belongs to the person and is left exactly where they put
+     * it; during one, the last framing is asked again at the new size.
+     * Debounced, because fullscreen transitions fire a flurry of resizes and
+     * the camera should move once, at the end.
+     */
+    let reframe: ReturnType<typeof setTimeout> | null = null;
+
+    function onViewportResize() {
+        if (!showing || !lastFraming) return;
+        if (reframe) clearTimeout(reframe);
+        reframe = setTimeout(() => {
+            if (showing && lastFraming) {
+                frame(lastFraming.ids, lastFraming.tight, 350, lastFraming.cover);
+            }
+        }, 140);
+    }
+
     function onKeyDown(event: KeyboardEvent) {
         // Not every keydown target is an element — it can be the document
         // itself when nothing has focus, and Document has no .matches(). Calling
@@ -1435,8 +1488,18 @@
      *   cast without  scenery. The same idea, quieter: a bush should breathe,
      *                 not act.
      *
-     * Only while a stage is up. A free canvas of dropped photographs is not a
-     * play, and a hand-painted boil on a photograph reads as a broken decoder.
+     * Read from every scene, not from the one being shown.
+     *
+     * The obvious version asked `activeStage`, and it was wrong in the case
+     * that matters most: a reloaded document has scenes but no *active* one —
+     * the canvas comes back showing everything — so a whole restored play
+     * arrived unpainted, and only started breathing once somebody happened to
+     * select a scene. Casting is a property of the document, not of what the
+     * canvas is currently pointed at, so this asks the document.
+     *
+     * A picture nothing has cast stays plain, which keeps the line that
+     * matters: a free canvas of dropped photographs is not a play, and a
+     * hand-painted boil on a photograph reads as a broken decoder.
      *
      * The two treatments land on different elements, and that split is forced:
      * `.painted` rocks `rotate` and `translate`, which is exactly what the sway
@@ -1447,17 +1510,26 @@
      * on the figure because it needs a pseudo-element and an <img> cannot have
      * one. Neither is animated, so neither collides.
      */
+    function isBackdrop(id: string): boolean {
+        return studio.collage.listStages().some(stage => stage.backdrop === id);
+    }
+
     function grainOf(layer: Layer): string {
-        const stage = studio.collage.activeStage;
-        return stage && stage.backdrop === layer.id ? "grained" : "";
+        void version;
+        return isBackdrop(layer.id) ? "grained" : "";
     }
 
     function paintOf(layer: Layer): string {
-        const stage = studio.collage.activeStage;
-        if (!stage || stage.backdrop === layer.id) return "";
-        const member = stage.cast.find(part => part.id === layer.id);
-        if (!member) return "";
-        return member.as
+        void version;
+        if (isBackdrop(layer.id)) return "";
+        // The first casting wins. A picture playing somebody in one scene and
+        // standing in as furniture in another is still a performer, and the
+        // alternative — changing temperament as scenes are selected — would
+        // read as the drawing losing interest.
+        const parts = studio.collage.listStages()
+            .flatMap(stage => stage.cast.filter(part => part.id === layer.id));
+        if (!parts.length) return "";
+        return parts.some(part => part.as)
             ? "painted painted--boil"
             : "painted painted--boil painted--calm";
     }
@@ -1532,7 +1604,7 @@
         (version, selectedIds.length > 1 ? studio.collage.contentBounds(selectedIds) : null));
 </script>
 
-<svelte:window onkeydown={onKeyDown} />
+<svelte:window onkeydown={onKeyDown} onresize={onViewportResize} />
 
 <div
     class="viewport"
@@ -1678,7 +1750,6 @@
                 style:left="{line.x}px"
                 style:top="{line.y}px"
                 style:font-size="{line.size}px"
-                style:max-width="{line.width}px"
             >
                 <!-- The full text is present but invisible, so the bubble is
                      the size it will end at and does not grow a word at a time
@@ -1908,6 +1979,12 @@
         position: absolute;
         z-index: 2147483000;
         translate: -50% calc(-100% - 0.7em);
+        /* Sized by its own text: as wide as the line wants, wrapping at a
+           reading measure. max-content is load-bearing — an absolute box in
+           the zero-width world otherwise shrinks to min-content, one word a
+           line. ch scales with the font, so no script has to keep up. */
+        width: max-content;
+        max-width: 34ch;
         padding: 0.55em 0.8em;
         border: 0.09em solid var(--text-primary);
         border-radius: 0.9em;

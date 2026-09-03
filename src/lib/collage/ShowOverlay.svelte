@@ -35,7 +35,12 @@
     <div class="overlay" aria-hidden="true">
         <div class="vignette"></div>
 
-        {#if billboard?.kind === "waiting"}
+        {#if billboard?.kind === "blackout"}
+            <!-- The between-scenes dark: rises, holds while the set is swapped
+                 behind it, lifts. The studio holds the billboard for exactly
+                 the animation's length, so neither can outlive the other. -->
+            <div class="blackout" style:--blackout="{billboard.duration}ms"></div>
+        {:else if billboard?.kind === "waiting"}
             <!-- The one card that is asking for something rather than showing
                  something. It says why, because "click to continue" with no
                  reason reads as a nag. -->
@@ -119,6 +124,19 @@
 
     .card {
         animation: card-in 0.7s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .blackout {
+        position: absolute;
+        inset: 0;
+        background: #0b0d11;
+        animation: blackout var(--blackout, 900ms) ease-in-out forwards;
+    }
+
+    @keyframes blackout {
+        0% { opacity: 0; }
+        45%, 60% { opacity: 1; }
+        100% { opacity: 0; }
     }
 
     @keyframes card-in {

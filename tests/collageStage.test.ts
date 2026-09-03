@@ -276,12 +276,16 @@ describe("putting the show on", () => {
         expect(handOff(stage).every(b => b.do === "exit")).toBe(true);
     });
 
-    it("puts the script between the arriving and the leaving", () => {
+    it("arrives, acts, and does NOT file out at the end", () => {
+        // Exits between scenes are gone: every character animating out one
+        // after another took longer than the scene and looked like a fire
+        // drill. The show fades between scenes instead, so a scene ends on
+        // its last real beat and the cast is simply there in the next one —
+        // or still standing for the bows.
         const stage = scene([{ id: "a", entrance: "fade" }], [{ id: "a", say: "hello" }]);
         const { beats } = sceneBeats(stage, sizeOf);
-        // The camera beats are added by `filmed`, which is tested on its own.
         expect(beats.filter(b => !b.camera).map(b => b.do ?? "say"))
-            .toEqual(["enter", "say", "exit"]);
+            .toEqual(["enter", "say"]);
     });
 
     it("is just the script, plus a camera, when nobody has an entrance", () => {

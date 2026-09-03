@@ -225,6 +225,8 @@
         titleCard?: boolean;
         /** The image's rendered height, measured on load, to anchor a bubble. */
         h?: number;
+        /** ms before this prop makes its entrance. */
+        enterAt?: number;
     }>>([]);
 
     /** The prop being dragged, and where the pointer last was. */
@@ -432,6 +434,10 @@
             const angle = (index / picked.length) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
             return {
                 key: `prop-${++propSeq}`,
+                // One after another, not as a wall: each prop arrives a beat
+                // after the last, the way stagehands would actually set a
+                // stage. First visit and post-clear alike.
+                enterAt: 150 + index * 220,
                 id: piece.id,
                 file: piece.file,
                 x: clamp(50 + Math.cos(angle) * (33 + Math.random() * 11), 5, 90),
@@ -554,7 +560,7 @@
             }
             let opened = 0;
             try {
-                opened = await studio.openFile(file);
+                opened = await studio.openFile(file, { replace: true });
             } catch (error) {
                 // A file that IS one of ours but will not open has to say so.
                 // Swallowing it and adding a flat picture of the collage
@@ -798,6 +804,14 @@
         studio.setSelection([]);
         editOpen = false;
         toasts.push("Cleared.");
+        // The idle screen opens again: a beat of genuinely empty stage, then
+        // the props wander back on one after another, bubbles and all — the
+        // same welcome a first visit gets. Cleared is not broken, and an
+        // empty stage that stayed bare would read as broken.
+        scatter = [];
+        setTimeout(() => {
+            if (empty && TROUPE.length) scatter = strewn();
+        }, 1400);
     }
 
     /*
@@ -888,6 +902,7 @@
                     style:--tilt="{prop.tilt}deg"
                     style:--drift="{prop.drift}s"
                     style:--drift-at="-{prop.delay}s"
+                    style:--enter="{prop.enterAt ?? 0}ms"
                     onpointerdown={event => grabProp(event, prop.id)}
                     onpointermove={event => dragProp(event, prop.id)}
                     onpointerup={dropProp}
@@ -938,7 +953,7 @@
                     style:top="{prop.y}%"
                     style:--rise="{(prop.h ?? prop.size) / 2 + 14}px"
                     style:--lean="{prop.sayTilt ?? 0}deg"
-                    style:--pop-at="{450 + (prop.sayOrder ?? 0) * 700}ms"
+                    style:--pop-at="{(prop.enterAt ?? 0) + 500 + (prop.sayOrder ?? 0) * 700}ms"
                     style:--swing-cycle="{prop.swingCycle ?? 8}s"
                     style:--swing-at="-{prop.swingAt ?? 0}s"
                 >{prop.say}</div>
@@ -1138,7 +1153,7 @@
         animation:
             prop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
             strewn-drift var(--drift, 6s) ease-in-out infinite alternate;
-        animation-delay: 0s, var(--drift-at, 0s);
+        animation-delay: var(--enter, 0ms), var(--drift-at, 0s);
     }
 
     @keyframes prop-in {

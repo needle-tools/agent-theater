@@ -664,6 +664,22 @@ export class Collage {
         return [...this.layers.values()].sort((a, b) => a.z - b.z);
     }
 
+    /**
+     * The layer itself, not where some scene has it standing.
+     *
+     * `get` deliberately answers as the active stage — that is the whole point
+     * of the abstraction — but anything *editing* a placement has to compare
+     * against the layer's own size, or it compares a value with itself. The
+     * cast tool did exactly that: it worked out a stage-relative width, found
+     * it equal to the width the layer already appeared to have (because the
+     * layer appeared to have it *from that very placement*), decided there was
+     * nothing to store, and deleted the placement's width. Everything then fell
+     * back to the size the piece was cut at.
+     */
+    own(id: string): Layer | null {
+        return this.layers.get(id) ?? null;
+    }
+
     get(id: string): Layer | null {
         const layer = this.layers.get(id);
         if (!layer) return null;
