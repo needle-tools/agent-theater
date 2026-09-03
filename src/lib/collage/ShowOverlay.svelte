@@ -11,7 +11,10 @@
      * timed itself would drift out of step with the scenes it sits between.
      */
     import type { CollageStudio } from "./studio";
-    import { CREDIT_LINE_MS, type Billboard } from "./billboard";
+    import {
+        CREDIT_END_HOLD_MS, CREDIT_FADE_MS, CREDIT_HOUSE_ROWS, CREDIT_LINE_MS,
+        creditsDuration, type Billboard,
+    } from "./billboard";
     import { TROUPE } from "./troupe.js";
     import { avatarFrame, getAgentAvatarSheet } from "./agentAvatar.js";
 
@@ -40,6 +43,8 @@
                 kind: "title",
                 title: pinned || "The Moon Who Ate Tuesday",
                 byline: "a pinned card, via ?titlecard",
+                entries: TROUPE.filter(piece => piece.kind === "actor").slice(0, 5)
+                    .map(piece => ({ role: null, actor: piece.id, src: piece.file })),
                 duration: 0,
             };
             return;
@@ -55,7 +60,8 @@
                     src: piece.file,
                 })),
                 lines: ["directed by a browser agent", "staged with Marcel"],
-                duration: 14_000,
+                // The REAL formula, so tuning the preview tunes the show.
+                duration: creditsDuration(5 + 2 + CREDIT_HOUSE_ROWS),
             };
             return;
         }
@@ -108,9 +114,35 @@
                 {#if billboard.byline}
                     <p class="byline">{billboard.byline}</p>
                 {/if}
+                {#if billboard.entries?.length}
+                    <!-- The company, fanned under the name like a playbill
+                         poster — each with its dealt lean, arriving a beat
+                         after the words. -->
+                    <div class="poster">
+                        {#each billboard.entries as entry, index (entry.actor + index)}
+                            {#if entry.src}
+                                <img
+                                    class="poster__piece"
+                                    src={entry.src}
+                                    alt=""
+                                    draggable="false"
+                                    style:rotate="{((index * 137) % 17) - 8}deg"
+                                    style:animation-delay="{380 + index * 140}ms"
+                                />
+                            {/if}
+                        {/each}
+                    </div>
+                {/if}
             </div>
         {:else if billboard?.kind === "credits"}
-            <div class="roll" style:--roll="{billboard.duration}ms">
+            <!-- The travel stops before the duration does: the roll eases in,
+                 holds its last card for a breath, and the curtain fades. -->
+            <div
+                class="roll"
+                style:--travel="{Math.max(1500, billboard.duration - CREDIT_END_HOLD_MS - CREDIT_FADE_MS)}ms"
+                style:--fade-at="{Math.max(0, billboard.duration - CREDIT_FADE_MS)}ms"
+                style:--fade="{CREDIT_FADE_MS}ms"
+            >
                 <div class="roll__inner">
                     {#if billboard.title}
                         <h2 class="roll__title">{billboard.title}</h2>
@@ -300,6 +332,26 @@
         to { opacity: 1; translate: 0 0; }
     }
 
+    /* The company on the poster: a loose row under the byline, each piece
+       with its own lean, walking on one after another. */
+    .poster {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 1.6rem;
+        margin-top: 3.2rem;
+        max-width: min(52rem, 90vw);
+        flex-wrap: wrap;
+    }
+
+    .poster__piece {
+        height: clamp(84px, 15vh, 150px);
+        max-width: 22vw;
+        object-fit: contain;
+        filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+        animation: rise 0.7s cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
     /*
      * The roll.
      *
@@ -312,7 +364,18 @@
         flex-direction: column;
         align-items: center;
         gap: 0.85rem;
-        animation: roll var(--roll, 8s) linear both;
+        /* Near-linear through the middle, easing off at the end — the roll
+           slows into its last card rather than stopping dead. */
+        animation: roll var(--travel, 8s) cubic-bezier(0.35, 0.35, 0.25, 1) both;
+    }
+
+    /* After the hold, the whole curtain — veil, names, cactus — fades. */
+    .roll {
+        animation: curtain-fade var(--fade, 900ms) ease-in var(--fade-at, 9999s) both;
+    }
+
+    @keyframes curtain-fade {
+        to { opacity: 0; }
     }
 
     @keyframes roll {
@@ -447,7 +510,8 @@
         .credit-row,
         .roll__maker,
         .roll__house,
-        .roll__thanks {
+        .roll__thanks,
+        .poster__piece {
             animation-duration: 0.01ms;
             animation-delay: 0ms;
         }

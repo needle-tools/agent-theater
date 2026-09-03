@@ -33,7 +33,7 @@ import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
 import { renamedIn } from "./stage.js";
 import { cellPixels, gridCells, paperBox } from "./sheet.js";
 import {
-    BLACKOUT_MS, creditsDuration, creditsFor, performers, TITLE_MS,
+    BLACKOUT_MS, CREDIT_HOUSE_ROWS, creditsDuration, creditsFor, performers, TITLE_MS,
     WAIT_FOR_AUDIENCE_MS, type Billboard,
 } from "./billboard.js";
 
@@ -610,10 +610,24 @@ export function createStudio(collage = new Collage()): CollageStudio {
         // willing to look at text instead of at the play.
         const billing = collage.billing;
         if (billing.title && !resuming) {
+            // The poster: a few of the cast under the name, so the card sells
+            // the company before a single line is spoken.
+            const poster = creditsFor(stages, id => collage.get(id)?.label ?? null)
+                .map(credit => {
+                    const layer = collage.get(credit.id);
+                    return {
+                        role: credit.role,
+                        actor: credit.actor,
+                        src: layer?.kind === "image" && layer.src ? layer.src : null,
+                    };
+                })
+                .filter(entry => entry.src)
+                .slice(0, 5);
             await holdBillboard({
                 kind: "title",
                 title: billing.title,
                 ...(billing.byline ? { byline: billing.byline } : {}),
+                ...(poster.length ? { entries: poster } : {}),
                 duration: TITLE_MS,
             });
         }
@@ -774,7 +788,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 src: layer?.kind === "image" && layer.src ? layer.src : null,
             };
         });
-        const rows = entries.length + makers.length;
+        const rows = entries.length + makers.length + CREDIT_HOUSE_ROWS;
         speaker.fadeMusic(Math.min(ENDING_FADE_MS, creditsDuration(rows)));
         await holdBillboard({
             kind: "credits",

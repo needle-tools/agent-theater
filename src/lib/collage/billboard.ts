@@ -25,7 +25,14 @@ export interface CreditEntry {
 export type Billboard =
     | { kind: "waiting"; title?: string; duration: number }
     | { kind: "blackout"; duration: number }
-    | { kind: "title"; title: string; byline?: string; duration: number }
+    | {
+        kind: "title";
+        title: string;
+        byline?: string;
+        /** A few of the cast, fanned under the name like a playbill poster. */
+        entries?: CreditEntry[];
+        duration: number;
+    }
     | {
         kind: "credits";
         title?: string;
@@ -84,8 +91,17 @@ export const BLACKOUT_MS = 900;
  *  Trimmed from the original 900: pictures read faster than sentences, and
  *  the roll now travels its full height, so the same time moves twice the
  *  distance. */
-export const CREDIT_LINE_MS = 450;
-export const CREDIT_PAD_MS = 1400;
+export const CREDIT_LINE_MS = 650;
+export const CREDIT_PAD_MS = 1800;
+
+/**
+ * The rows the page adds to every roll uninvited: the director's portrait,
+ * the house cactus, its line, and the thank-you. They are content like any
+ * other and the roll has to travel past them — leaving them out of the
+ * duration made real rolls noticeably faster than the ?credits preview,
+ * which counted the same rows nobody was counting.
+ */
+export const CREDIT_HOUSE_ROWS = 4;
 
 /**
  * Who acted, as opposed to who was on stage.
@@ -163,7 +179,15 @@ export function creditLines(credits: Credit[]): string[] {
         credit.role ? `${credit.role} — played by ${credit.actor}` : credit.actor);
 }
 
-/** How long a roll of this length needs to be readable. */
+/**
+ * The ending: the roll eases to a stop, the last card holds still for a
+ * breath, and then the whole curtain fades. Part of the duration, so the
+ * billboard is not snatched away mid-fade.
+ */
+export const CREDIT_END_HOLD_MS = 2000;
+export const CREDIT_FADE_MS = 900;
+
+/** How long a roll of this length needs: travel, then the hold, then the fade. */
 export function creditsDuration(lines: number): number {
-    return CREDIT_PAD_MS + lines * CREDIT_LINE_MS;
+    return CREDIT_PAD_MS + lines * CREDIT_LINE_MS + CREDIT_END_HOLD_MS + CREDIT_FADE_MS;
 }
