@@ -31,6 +31,7 @@
     import { createSpeaker } from "./audio.js";
     import { clipKeyframes, findClip, recorder, TALK_CLIP } from "./clips.js";
     import { prompter } from "./speech.js";
+    import SubtitleVoiceMenu from "../subtitleVoice/SubtitleVoiceMenu.svelte";
 
     interface Props {
         studio: CollageStudio;
@@ -455,7 +456,7 @@
      * second run. Undefined for anybody not cast with a voice, which the
      * prompter takes as "sequence this bubble but say nothing".
      */
-    function voiceFor(id: string): string | undefined {
+    function voiceFor(id: string) {
         const active = studio.collage.activeStageId;
         const stage = active ? studio.collage.getStage(active) : null;
         return stage?.cast.find(member => member.id === id)?.voice;
@@ -2336,6 +2337,7 @@
                      they were typed. Invisible-in-place cannot re-wrap,
                      because nothing about the layout ever changes. -->
                 <span>{line.shown}</span><span class="bubble__rest" aria-hidden="true">{line.text.slice(line.shown.length)}</span>
+                <SubtitleVoiceMenu text={line.text} voiceKey={line.id} />
             </div>
         {/each}
     </div>

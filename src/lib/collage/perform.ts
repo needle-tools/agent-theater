@@ -712,14 +712,9 @@ export interface Plan {
  * Where a line's real length comes from, when somebody is going to speak it.
  *
  * Reading time is a guess — a good one, but a guess about an eye rather than a
- * measurement of a mouth. Once a line has been synthesised its length is a
- * fact, and the timetable an agent narrates against is only worth having if it
- * is built from facts. So the planner asks, and falls back to the guess for
- * every line nobody has a voice for.
- *
- * Synchronous, and it has to be: planning happens in the middle of building a
- * show and cannot wait for anything. Whoever supplies this is responsible for
- * having the lines ready first.
+ * measurement of a mouth. The lightweight voice has a deterministic timing
+ * plan, so the timetable can use that same plan before playback and fall back
+ * to reading time only for silent parts.
  */
 export interface Timings {
     /** Milliseconds this line takes aloud, or null if it will not be spoken. */

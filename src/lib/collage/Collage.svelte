@@ -30,6 +30,8 @@
     import { TROUPE } from "$lib/collage/troupe";
     import { idleSet } from "$lib/collage/idleSet";
     import { notifyAgentActivity } from "$lib/room/activity";
+    import SubtitleVoiceMenu from "$lib/subtitleVoice/SubtitleVoiceMenu.svelte";
+    import type { SubtitleVoice } from "$lib/subtitleVoice";
 
     const studio = createStudio();
     const collage = studio.collage;
@@ -130,16 +132,10 @@
      * it. The feedback appears where the hand is, in the same bubble language
      * everything else on this stage speaks.
      */
-    /**
-     * The note itself, named rather than written into the markup.
-     *
-     * It has to be synthesised BEFORE anybody clicks — a voice that started
-     * arriving at the moment of the click would miss it entirely — and
-     * preloading a string means having the string.
-     */
+    /** The note itself, named rather than written into the markup. */
     const COPIED_NOTE =
         "Copied! Now paste it into ChatGPT — or any AI agent in your browser — and the show begins.";
-    const COPIED_VOICE = "af_heart";
+    const COPIED_VOICE: SubtitleVoice = { speed: 1, age: 0.5, tone: 0.5 };
 
     /**
      * Three lines, three voices, and they wait for each other.
@@ -152,42 +148,23 @@
      * bubbles in one voice would demonstrate the opposite of what the whole
      * page is claiming.
      *
-     * Out here rather than inside the scatter, so they can be handed to the
-     * prompter to synthesise before the props have even been placed.
+     * Defined together so each line and its three-parameter voice stay paired.
      */
     const PAGE_LINES: Array<{
-        say: string; voice: string; titleCard?: boolean; band: number; aside: boolean;
+        say: string; voice: SubtitleVoice; titleCard?: boolean; band: number; aside: boolean;
     }> = [
-        { say: "Agent Theater", voice: "bm_fable", titleCard: true, band: 25, aside: true },
+        { say: "Agent Theater", voice: { speed: 0.8, age: 0.72, tone: 0.32 }, titleCard: true, band: 25, aside: true },
         {
             say: "Hand your browser's AI agent the line below — click it to copy. " +
                 "It will ask what your play should be about, then build the set and " +
                 "put the show on.",
-            voice: "af_heart", band: 47, aside: true,
+            voice: { speed: 1, age: 0.5, tone: 0.58 }, band: 47, aside: true,
         },
         {
             say: "We come already cut out. Drag me somewhere.",
-            voice: "am_puck", band: 78, aside: false,
+            voice: { speed: 1.15, age: 0.18, tone: 0.7 }, band: 78, aside: false,
         },
     ];
-
-    /*
-     * Start fetching the voices the moment the page opens.
-     *
-     * Everything here is a line somebody is going to hear in the next few
-     * seconds — three props introducing themselves, and the note that answers
-     * the click they are asking for. Not awaited and nothing waits on it: on a
-     * first visit the model is still arriving when the first bubble is due, and
-     * the bubble goes ahead silently on reading time. On every later visit the
-     * model is in the browser's cache and this is quick enough that the props
-     * actually speak.
-     */
-    $effect(() => {
-        void prompter.expect([
-            ...PAGE_LINES.map(line => ({ text: line.say, voice: line.voice })),
-            { text: COPIED_NOTE, voice: COPIED_VOICE },
-        ]);
-    });
 
     let copied = $state<Array<{ id: number; x: number; y: number; tilt: number }>>([]);
     let copiedSeq = 0;
@@ -272,7 +249,7 @@
         /** A line this prop speaks. The page's copy, worn by the scenery. */
         say?: string;
         /** Which voice actually says it out loud. */
-        sayVoice?: string;
+        sayVoice?: SubtitleVoice;
         sayTilt?: number;
         /** Position in the entrance queue: bubbles appear one after another. */
         sayOrder?: number;
@@ -1155,7 +1132,10 @@
                         after: (prop.enterAt ?? 0) + 500 + (prop.sayOrder ?? 0) * 700,
                         replay: true,
                     }}
-                >{prop.say}</div>
+                >
+                    {prop.say}
+                    <SubtitleVoiceMenu text={prop.say ?? ""} voiceKey={prop.id} />
+                </div>
             {/each}
         </div>
     {/if}

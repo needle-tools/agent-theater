@@ -43,7 +43,7 @@ import {
 const TRAVEL_MS = 950;
 import { plan as planScene, type Plan } from "./perform.js";
 import {
-    DEFAULT_HOLD, linesOf, MIN_SCENE_MS, sceneBeats, spokenBy, type ShowTiming,
+    DEFAULT_HOLD, MIN_SCENE_MS, sceneBeats, spokenBy, type ShowTiming,
 } from "./show.js";
 import { prompter } from "./speech.js";
 import { ENDING_FADE_MS, SILENT, type Speaker } from "./audio.js";
@@ -268,11 +268,8 @@ export interface CollageStudio {
      * that somebody narrates over it — a call that blocked for the length of
      * the play would be the one thing the agent could not talk during.
      *
-     * Not instant, though. Every line anybody has a voice for is synthesised
-     * before the first scene runs, because a spoken line is exactly as long as
-     * it is and the timetable has to be built from the real lengths. The wait
-     * is the price of the timetable being true, and it is paid once — the
-     * lines are cached, so continuing a held show does not pay it again.
+     * Voice timings are deterministic and available immediately, so the
+     * returned timetable is the same one the WebAudio speech will follow.
      */
     playShow(
         stageIds?: string[],
@@ -532,7 +529,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
     let speaker: Speaker = SILENT;
 
     /** How long this scene's lines take, given what has been synthesised. */
-    const timingsFor = (stage: Stage) => spokenBy(stage, prompter.voices);
+    const timingsFor = (stage: Stage) => spokenBy(stage);
 
     /**
      * The show itself.
@@ -1805,21 +1802,6 @@ export function createStudio(collage = new Collage()): CollageStudio {
             const wanted = stageIds?.length
                 ? stageIds.map(id => collage.getStage(id)).filter((s): s is Stage => !!s)
                 : collage.listStages();
-
-            /*
-             * Learn the lines before working out when anything happens.
-             *
-             * Order matters and is the whole reason this is async. A spoken
-             * line's length is not knowable until it has been spoken, so a
-             * timetable built first would be a timetable of reading times that
-             * the show then failed to keep — and the agent narrating from it
-             * would drift further behind with every line.
-             *
-             * All the scenes at once rather than scene by scene, because the
-             * model is loaded once and the marginal cost of the fortieth line
-             * is nothing next to the first.
-             */
-            await prompter.expect(wanted.flatMap(linesOf));
 
             // The plan is worked out for every scene before the first one runs,
             // so the agent gets the whole timetable in the reply rather than

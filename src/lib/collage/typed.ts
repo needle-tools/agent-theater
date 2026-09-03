@@ -16,6 +16,7 @@
  * only way a bubble and a voice can be the same sentence.
  */
 import { prompter } from "./speech.js";
+import type { SubtitleVoice } from "../subtitleVoice/index.js";
 
 /** Characters that earn a breath after they are typed. */
 const PAUSE_AFTER = new Set([".", "-", "—", "!", "?"]);
@@ -33,6 +34,11 @@ export function delayAfter(written: string, perChar: number, pause: number): num
  * as it arrives.
  */
 function layOut(node: HTMLElement, full: string, upTo: number, strong: string): void {
+    // Inline controls are not part of the sentence and must survive the text
+    // nodes being rebuilt on every tick. Detaching retains component state and
+    // listeners; appending puts them back above the freshly laid-out words.
+    const staticChildren = [...node.children]
+        .filter(child => child.hasAttribute("data-said-static"));
     node.textContent = "";
     const split = (parent: HTMLElement, text: string, offset: number) => {
         const shown = Math.max(0, Math.min(text.length, upTo - offset));
@@ -51,6 +57,7 @@ function layOut(node: HTMLElement, full: string, upTo: number, strong: string): 
         node.append(bold);
     }
     split(node, full.slice(strong.length), strong.length);
+    node.append(...staticChildren);
 }
 
 /**
@@ -90,7 +97,7 @@ export function typed(
     return {
         destroy() {
             clearTimeout(timer);
-            node.textContent = full;
+            layOut(node, full, full.length, strong);
         },
     };
 }
@@ -120,7 +127,7 @@ export function typed(
 export function said(
     node: HTMLElement,
     options: {
-        voice?: string; strong?: string; after?: number; fallback?: number;
+        voice?: SubtitleVoice; strong?: string; after?: number; fallback?: number;
         /**
          * Say it again, aloud, once there is somebody to hear it.
          *
@@ -198,25 +205,9 @@ export function said(
             // not talk.
             if (prompter.mute) return;
             stopWaiting = prompter.onTouch(() => {
-                /*
-                 * The line is synthesised BEFORE it is queued this time.
-                 *
-                 * On the first pass it was allowed to go ahead unspoken rather
-                 * than hold the page open for a download. There is no such
-                 * hurry now — the bubble has been read, the person is here, and
-                 * queueing before the audio exists would only produce a second
-                 * silent pass and the same problem one gesture later.
-                 */
                 const era = prompter.generation;
-                void prompter.expect([line]).then(() => {
-                    // Somebody was hushed while the model was working, which on
-                    // this page means the gesture that woke us was the click
-                    // that copies the prompt. That note is the answer to what
-                    // they just did; a prop reintroducing itself behind it is
-                    // the page talking over its own reply.
-                    if (gone || prompter.generation !== era) return;
-                    void say();
-                });
+                if (gone || prompter.generation !== era) return;
+                void say();
             });
         });
     }, options.after ?? 0);
@@ -227,7 +218,7 @@ export function said(
             clearTimeout(join);
             clearTimeout(ticking);
             stopWaiting?.();
-            node.textContent = full;
+            layOut(node, full, full.length, strong);
         },
     };
 }

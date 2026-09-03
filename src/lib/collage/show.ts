@@ -18,7 +18,7 @@
  */
 import type { Beat, Timings } from "./perform.js";
 import { spokenLength } from "./speech.js";
-import type { Voices } from "./voice.js";
+import { isSubtitleVoice, normalizeSubtitleVoice, type SubtitleVoice } from "../subtitleVoice/index.js";
 import type { EntranceName, Stage } from "./stage.js";
 
 /**
@@ -180,51 +180,25 @@ export function entering(stage: Stage): string[] {
  * in a bubble and is still timed by reading time, so it must not be looked up
  * as though a voice might turn up for it later.
  */
-export function voicesOf(stage: Stage): Map<string, string> {
-    return new Map(stage.cast
-        .filter(member => member.voice)
-        .map(member => [member.id, member.voice!]));
-}
-
-/** A line this scene will say aloud, and who says it. */
-export interface SpokenLine {
-    text: string;
-    voice: string;
-}
-
-/**
- * Every line in the scene that somebody has a voice for.
- *
- * The list a scene hands over to be synthesised before it plays. Built from the
- * script rather than from the built-up beats because the build-up is entrances
- * and camera moves — nobody says anything while walking on.
- */
-export function linesOf(stage: Stage): SpokenLine[] {
-    const cast = voicesOf(stage);
-    const lines: SpokenLine[] = [];
-    for (const beat of stage.script) {
-        const text = typeof beat.say === "string" ? beat.say.trim() : "";
-        if (!text || !beat.id) continue;
-        const voice = cast.get(beat.id);
-        if (voice) lines.push({ text, voice });
-    }
-    return lines;
+export function voicesOf(stage: Stage): Map<string, SubtitleVoice> {
+    return new Map(stage.cast.flatMap(member =>
+        isSubtitleVoice(member.voice)
+            ? [[member.id, normalizeSubtitleVoice(member.voice)] as const]
+            : []));
 }
 
 /**
  * What this scene's lines really take, for the planner.
  *
- * Answers only for parts cast with a voice AND whose line has already been
- * synthesised. Everything else comes back null and falls to reading time, which
- * covers the two cases that matter: a deliberately silent part, and a scene
- * planned before the model finished arriving.
+ * The lightweight voice duration is deterministic, so this can answer before
+ * playback. Silent parts still fall back to reading time.
  */
-export function spokenBy(stage: Stage, voices: Voices): Timings {
+export function spokenBy(stage: Stage): Timings {
     const cast = voicesOf(stage);
     return {
         saying(text, id) {
             const voice = cast.get(id);
-            return voice ? spokenLength(voices, { text, voice }) : null;
+            return voice ? spokenLength({ text, voice }) : null;
         },
     };
 }

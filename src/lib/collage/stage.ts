@@ -17,6 +17,7 @@
  */
 import type { Beat } from "./perform.js";
 import type { Layer } from "./model.js";
+import type { SubtitleVoice } from "../subtitleVoice/index.js";
 
 /**
  * How far away something is standing.
@@ -92,7 +93,7 @@ export interface Placement {
      * voice". A play where every unnamed part quietly acquired a narrator's
      * voice would be a play nobody chose the sound of.
      */
-    voice?: string;
+    voice?: SubtitleVoice;
     /** Which depth plane it stands on. Defaults to the middle. */
     plane?: PlaneName;
     /**

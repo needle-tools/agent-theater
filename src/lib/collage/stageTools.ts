@@ -12,12 +12,12 @@
  */
 import { MOVES, plan as planScene, type Beat } from "./perform.js";
 import { creditsFor } from "./billboard.js";
-import { linesOf, spokenBy } from "./show.js";
+import { spokenBy } from "./show.js";
 import { findSound, soundCatalogue, soundNames } from "./audio.js";
-import { SPEECH_ENABLED, findVoice, voiceCatalogue, voiceNames } from "./voice.js";
 import { findClip, listClips } from "./clips.js";
 import { EFFECTS, effectNames, findEffect } from "./effects.js";
 import { prompter } from "./speech.js";
+import { isSubtitleVoice, normalizeSubtitleVoice, type SubtitleVoice } from "../subtitleVoice/index.js";
 import { ENTRANCES, PLANES, type Placement, type Stage } from "./stage.js";
 import type { Layer } from "./model.js";
 import type { CollageStudio } from "./studio.js";
@@ -32,6 +32,8 @@ const fail = (text: string, structured?: object): ToolResult => ({ ...ok(text, s
 
 const str = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
 const num = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const voice = (value: unknown): SubtitleVoice | null =>
+    isSubtitleVoice(value) ? normalizeSubtitleVoice(value) : null;
 
 /**
  * A boolean from an agent, which is not always a boolean.
@@ -94,7 +96,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             // Said either way. "Silent" is the more useful half: a part whose
             // lines only ever appear in a bubble is the thing an agent needs
             // told, and it is invisible in every other reply.
-            `${placement.voice ? ` (voice ${placement.voice})` : " (silent)"}`;
+            `${placement.voice
+                ? ` (voice speed ${placement.voice.speed}, age ${placement.voice.age}, tone ${placement.voice.tone})`
+                : " (silent)"}`;
     };
 
     return [
@@ -270,10 +274,6 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 }
 
                 const hold = bool(args?.hold, false);
-                // Awaited: the lines are synthesised before the timetable is
-                // worked out, because a spoken line's length is not knowable
-                // until it has been spoken. Usually instant — stage_script
-                // learned them when it was written.
                 const { timings, duration } = await studio.playShow(
                     wanted.length ? wanted : undefined, { hold });
                 if (!timings.length) return fail(`Nothing to play.`);
@@ -308,8 +308,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 // build that has no speech would be asking for work that cannot
                 // pay off, and calling it a failure would send it looking for a
                 // fault that does not exist.
-                const speechOff = prompter.voices.state === "off";
-                const brokenVoices = voiced && prompter.voices.state === "unavailable";
+                const speechOff = prompter.mute;
                 return ok(
                     [`The show is running — ${timings.length} scene(s), ${(duration / 1000).toFixed(1)}s. ` +
                      `Narrate along with it; do not wait for it.`,
@@ -335,12 +334,6 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             `will be heard. Give each part a "voice" in stage_cast — different voices ` +
                             `for different parts — and the page speaks the lines itself. Until then, ` +
                             `do not narrate as though the characters are audible.`]
-                         : []),
-                     ...(brokenVoices
-                         ? [`THE VOICES FAILED TO LOAD: parts are cast with voices but the speech model ` +
-                            `could not start${prompter.voices.trouble ? ` — ${prompter.voices.trouble}` : ""}. ` +
-                            `The show runs with bubbles and no speech. Nothing to retry; report it plainly ` +
-                            `rather than narrating lines nobody can hear.`]
                          : []),
                      ...(silent
                          ? [`NO SOUND YET: the browser refuses audio until the person has clicked or ` +
@@ -664,9 +657,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 });
 
                 const scripted: Stage = { ...stage, script: timed };
-                await prompter.expect(linesOf(scripted));
-
-                const { plan, problems } = planScene(timed, spokenBy(scripted, prompter.voices));
+                const { plan, problems } = planScene(timed, spokenBy(scripted));
                 if (problems.length) {
                     return fail(["The scene has problems:", ...problems.map(
                         p => (p.index >= 0 ? `beat ${p.index + 1}: ${p.reason}` : p.reason))].join("\n"));
@@ -918,25 +909,26 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "so cast everybody who should be thanked.",
                                 },
                                 voice: {
-                                    type: "string",
-                                    enum: voiceNames(),
-                                    description: SPEECH_ENABLED
-                                        ? "Which voice speaks this part's lines aloud, in the page itself. " +
-                                          "Leave it out and the part is silent — its lines still appear in " +
-                                          "a bubble. GIVE DIFFERENT PARTS DIFFERENT VOICES: a whole cast on " +
-                                          "one voice is a table read, not a play. Pick by what the part is, " +
-                                          "not by what is first in the list:\n" +
-                                          voiceCatalogue().map(line => `  ${line}`).join("\n")
-                                        // Said plainly rather than by removing the field. The casting is
-                                        // still worth recording — it is part of who the character is, it
-                                        // survives a save, and it will be heard the day a speech engine
-                                        // lands — but an agent told a part will be "spoken aloud" when
-                                        // nothing will be is an agent that narrates a silent play.
-                                        : "Which voice WOULD say this part's lines. NOTHING IS SPOKEN ALOUD " +
-                                          "in this build: every line appears in a bubble and is read. Setting " +
-                                          "this is optional and costs nothing — it is remembered with the " +
-                                          "casting — but it changes nothing you or the audience can hear, so " +
-                                          "do not narrate as though the characters have voices.",
+                                    type: "object",
+                                    additionalProperties: false,
+                                    properties: {
+                                        speed: {
+                                            type: "number", minimum: 0, maximum: 2,
+                                            description: "0 is 1×, 1 is the default 1.7×, 2 is 2×.",
+                                        },
+                                        age: {
+                                            type: "number", minimum: 0, maximum: 1,
+                                            description: "0 young, 0.5 medium, 1 old.",
+                                        },
+                                        tone: {
+                                            type: "number", minimum: 0, maximum: 1,
+                                            description: "0 low, 0.5 medium, 1 high.",
+                                        },
+                                    },
+                                    required: ["speed", "age", "tone"],
+                                    description:
+                                        "The character's complete voice: exactly speed, age and tone. " +
+                                        "Leave it out and the part is silent. Vary age and tone across the cast.",
                                 },
                             },
                             required: ["id"],
@@ -1009,10 +1001,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             : previous?.entrance ? { entrance: previous.entrance } : {}),
                         ...(str(member.as) ? { as: str(member.as) }
                             : previous?.as ? { as: previous.as } : {}),
-                        // An unknown voice name is dropped rather than stored.
-                        // Keeping it would mean a part that looks cast and is
-                        // silent, which is the hardest kind of wrong to notice.
-                        ...(findVoice(str(member.voice)) ? { voice: str(member.voice) }
+                        ...(voice(member.voice) ? { voice: voice(member.voice)! }
                             : previous?.voice ? { voice: previous.voice } : {}),
                     };
                     if (at >= 0) cast[at] = placement;
@@ -1023,17 +1012,6 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 studio.save();
                 studio.record("page-changed",
                     `"${next.name}" now has ${next.cast.length} in it.`, "agent", { stage: next.id });
-
-                /*
-                 * Casting a voice is the first moment anybody says this play
-                 * intends to be heard, and it is minutes before the show — the
-                 * set still has to be built and the scene still has to be
-                 * written. So the model starts downloading now, on the one
-                 * signal that is both honest and early. Not awaited: nothing
-                 * here needs it, and a hundred and fifty megabytes is not something a
-                 * casting call should block on.
-                 */
-                if (next.cast.some(member => member.voice)) prompter.voices.warm();
 
                 return ok(
                     `"${next.name}": ` +

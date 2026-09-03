@@ -19,7 +19,6 @@
   "dependencies": {
     "@needle-tools/engine": "6.0.0-canary.1788016117.fresh-leaf.c23278827",
     "@sveltejs/adapter-node": "^5.5.7",
-    "kokoro-js": "^1.2.1",
     "three": "npm:@needle-tools/three@0.185.2-alpha.1"
   },
   "devDependencies": {
