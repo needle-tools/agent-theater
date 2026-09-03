@@ -50,10 +50,23 @@ describe("the prompt", () => {
     it("tells the model the things the cutter depends on", () => {
         // Every one of these is a rule the cut needs, not a preference: touching
         // subjects cannot be separated at all.
+        //
+        // Separation is asserted, being inside the grid is not. Both cutters
+        // need the first; only piece_sheet needs the second, and demanding it
+        // as well came back as art filling 82–92% of its cell for no gain.
         const written = artPrompt({ kind: "actors" });
-        for (const rule of ["gap between cells", "may touch", "reading order", "no text"]) {
+        for (const rule of ["separation", "may touch", "reading order", "no text"]) {
             expect(written.prompt.toLowerCase()).toContain(rule.toLowerCase());
         }
+    });
+
+    it("tells the model to fill the cell rather than sit politely inside it", () => {
+        // The regression this guards: asking for a gap AND for the subject to
+        // stay well inside its cell shrinks the art twice, and the second
+        // demand buys nothing a separated sheet does not already have.
+        const written = artPrompt({ kind: "scenery" });
+        expect(written.prompt).toContain("Fill each cell as fully as the subject can");
+        expect(written.prompt).not.toContain("well inside its own cell");
     });
 
     it("asks for backdrops with nothing in front, because the front is separate", () => {

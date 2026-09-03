@@ -631,21 +631,32 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 "full body with their feet visible. Do NOT ask for a finished-looking scene: a painting " +
                 "with the trees already in it cannot be stood in front of, animated, or parallaxed, and " +
                 "it is the single most common way a show ends up flat. " +
-                "All three are written in one house style so the cast and the set match. Brand and " +
+                "'layers' is the fourth, and the one that gives a scene depth: 25 SEGMENTS of a " +
+                "midground band and a foreground band, each with open ragged ends so copies butt " +
+                "together into a band as wide as the camera ever travels. Ask for these rather than " +
+                "a full-width painted midground — a fixed-width strip has two hard edges, and a pan " +
+                "or a pull-back reveals them. " +
+                "All are written in one house style so the cast and the set match. Brand and " +
                 "studio names in your topic are replaced with what they actually describe, and the " +
                 "reply says which. " +
                 "Ask for a FULL SHEET each time — 5 × 5 for actors and scenery, which is 25 pieces in " +
                 "one go. A set is made of a lot of small things, and generating them one at a time is " +
-                "the slowest possible way to build one.",
+                "the slowest possible way to build one. " +
+                "The exception is a sheet of BIG things — a throne, a door, a wall, a tree meant to " +
+                "fill the stage. Cells share the sheet's pixels, so 25 of them land around 250px each " +
+                "and look soft the moment one is drawn large; ask for columns 3, rows 3 and each piece " +
+                "gets two thirds again the size. Keep 5 × 5 for anything played small.",
             inputSchema: {
                 type: "object",
                 properties: {
                     kind: {
                         type: "string",
-                        enum: ["actors", "backgrounds", "scenery"],
+                        enum: ["actors", "backgrounds", "scenery", "layers"],
                         description:
-                            "The far backdrop, the cut-out scenery that stands in front of it, or the " +
-                            "cast. A scene is built from all three.",
+                            "The far backdrop, the cut-out scenery that stands in front of it, the " +
+                            "cast, or 'layers' — segments of a midground and a foreground band, made " +
+                            "to be repeated side by side. A scene is built from a backdrop, layers " +
+                            "for depth, scenery for detail and actors to play it.",
                     },
                     topic: {
                         type: "string",

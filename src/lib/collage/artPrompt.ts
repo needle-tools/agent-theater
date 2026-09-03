@@ -30,7 +30,7 @@
  * So the backdrop is asked for nearly empty, and the things in front of it are
  * asked for separately, and the scene is assembled here out of both.
  */
-export type ArtKind = "actors" | "backgrounds" | "scenery";
+export type ArtKind = "actors" | "backgrounds" | "scenery" | "layers";
 
 /** The shape of one cell, which is the shape of one stage. */
 export type ArtShape = "wide" | "square" | "tall";
@@ -120,6 +120,55 @@ const BACKDROP_STYLE = [
     "No trees in the foreground, no bushes, no plants, no flowers, no furniture, no props, no",
     "leaves overhead, no branches framing the edges: every one of those is drawn on its own",
     "sheet and laid on top afterwards. If it would be nice to look at on its own, it is wrong.",
+    // The camera rule. A backdrop that exactly covers the stage has nowhere to
+    // go: the first pan runs off the end of the picture and the audience sees
+    // the void behind it. Overscan cannot be asked for — the model returns the
+    // ratio it returns — but dead margin can, and dead margin is what makes a
+    // crop at any camera position safe.
+    "CRITICAL — THE CAMERA MOVES ACROSS THIS. Keep the outer fifth of every edge — left, right,",
+    "top and bottom — plain and empty: a continuation of the sky and the ground band, nothing",
+    "else. No feature, no shape and no change of horizon may sit near an edge, because the edges",
+    "are cropped at some camera positions and revealed at others. The sky colour must run all the",
+    "way to the top edge and to both side edges, so that a camera passing the picture still finds",
+    "sky rather than a hole.",
+].join(" ");
+
+/**
+ * Why the layers are parts and not a picture.
+ *
+ * The first design asked for the midground and foreground as full-width strips,
+ * one per row of a sheet. It looked right at rest and broke the moment the
+ * camera moved: a strip is a fixed-width rectangle, so it has two hard vertical
+ * edges, and any pan or pull-back reveals them. A band assembled from segments
+ * has no width and no edges — the page lays down as many as the shot needs.
+ *
+ * All of which rests on one property the model has to be argued into: a piece
+ * whose left and right edges are OPEN. Asked for a bush, an image model draws a
+ * complete, closed, handsome bush, because that is what looks good on its own —
+ * and two of them side by side read as two bushes rather than as hedge. Hence
+ * the wording about being torn out of the middle of something longer, and hence
+ * making it declare the edges of all 25 before it draws any.
+ */
+const LAYER_STYLE = [
+    "These pieces are THE PARTS OF TWO SCENERY BANDS, not separate objects. They are laid side by",
+    "side, repeated and overlapped, to build a band as wide as the stage needs — so each one is a",
+    "SEGMENT of a band, never a thing standing on its own.",
+    "THE RULE THAT MATTERS: every piece must sit next to a copy of itself without a seam showing.",
+    "So the LEFT and RIGHT edges of each piece are ragged, uneven and open — foliage that carries",
+    "on, grass that keeps going, rock that continues — never a straight vertical cut, never a tidy",
+    "silhouette that closes itself off. Think of each piece as torn out of the middle of a longer",
+    "band. The TOP edge is the readable silhouette against the sky. The BOTTOM edge runs flat and",
+    "level, so that pieces line up on a shared ground line.",
+    "Draw the MIDGROUND pieces — the band that sits BEHIND the actors — distant, low contrast,",
+    "simpler and flatter: a run of treetops, a stretch of hedge, a line of low roofs, a bank of",
+    "bushes, a rise of ground. Between a third and a half of the cell height, sitting on the",
+    "bottom edge, empty space above.",
+    "Draw the FOREGROUND pieces — the band NEAREST the audience, which the actors walk behind —",
+    "darker, larger, more detailed, higher contrast: tall grass and flower clumps, a heavy bush, a",
+    "rock with undergrowth, a low branch reaching in from one side. Taller than the midground",
+    "pieces, up to three quarters of the cell, still sitting on the bottom edge.",
+    "Every piece sits on a PLAIN WHITE background, cut-out style, with no shadow, no ground line",
+    "drawn under it, no sky behind it and nothing else in the cell.",
 ].join(" ");
 
 /**
@@ -231,6 +280,16 @@ const DEFAULTS: Record<ArtKind, { columns: number; rows: number; shape: ArtShape
     backgrounds: { columns: 1, rows: 3, shape: "wide" },
     actors: { columns: 5, rows: 5, shape: "square" },
     scenery: { columns: 5, rows: 5, shape: "square" },
+    /*
+     * Square cells, like scenery, even though what comes out of them is a band.
+     *
+     * A wide cell would seem the obvious shape for a segment of hedge, and it is
+     * a trap: a 5 × 5 of wide cells is a sheet of letterbox slots, and the
+     * foreground pieces need height — a branch reaching in, a clump of grass
+     * taller than it is broad. The band is made by placing pieces next to each
+     * other, not by drawing them pre-stretched.
+     */
+    layers: { columns: 5, rows: 5, shape: "square" },
 };
 
 /**
@@ -290,6 +349,41 @@ function fallbackSubjects(kind: ArtKind, count: number): string[] {
             "a wooden table", "a wooden chair", "a stool",
             "a barrel", "a basket", "a hanging lantern",
         ],
+        /*
+         * Thirteen behind, twelve in front, and the order is load-bearing: the
+         * agent passes this same list to piece_sheet as labels, so midground
+         * pieces must come first and stay together or the two bands arrive
+         * interleaved and have to be sorted out by eye.
+         */
+        layers: [
+            // 13 midground — behind the actors, low contrast, half-height.
+            "MIDGROUND: a run of distant treetops, edges open both sides",
+            "MIDGROUND: a second run of treetops, a different skyline",
+            "MIDGROUND: a stretch of low hedge, edges open both sides",
+            "MIDGROUND: a bank of round bushes",
+            "MIDGROUND: a rise of open ground, no plants",
+            "MIDGROUND: a dip in the ground, lower in the middle",
+            "MIDGROUND: a line of distant pines",
+            "MIDGROUND: a run of low rocks",
+            "MIDGROUND: a stretch of tall reeds",
+            "MIDGROUND: a bank of low flowering shrubs",
+            "MIDGROUND: a hedge with a gap in it",
+            "MIDGROUND: a run of bare winter branches",
+            "MIDGROUND: a low stone wall, edges open both sides",
+            // 12 foreground — in front of the actors, darker and taller.
+            "FOREGROUND: a clump of tall grass, edges open both sides",
+            "FOREGROUND: a second clump of tall grass, different shape",
+            "FOREGROUND: a heavy dark bush",
+            "FOREGROUND: a clump of tall flowers",
+            "FOREGROUND: a rock with undergrowth around its foot",
+            "FOREGROUND: a low branch reaching in from the left",
+            "FOREGROUND: a low branch reaching in from the right",
+            "FOREGROUND: a spray of ferns",
+            "FOREGROUND: a tangle of brambles",
+            "FOREGROUND: a fallen log with grass growing over it",
+            "FOREGROUND: a stand of tall reeds, darker than the midground ones",
+            "FOREGROUND: a mound of leaf litter and twigs",
+        ],
     };
     const list = lists[kind];
     return Array.from({ length: count }, (_, i) => list[i % list.length]);
@@ -306,7 +400,8 @@ function fallbackSubjects(kind: ArtKind, count: number): string[] {
 export function artPrompt(request: ArtRequest): ArtPrompt {
     const kind: ArtKind = request.kind === "backgrounds" ? "backgrounds"
         : request.kind === "scenery" ? "scenery"
-            : "actors";
+            : request.kind === "layers" ? "layers"
+                : "actors";
     const defaults = DEFAULTS[kind];
     const columns = clampCount(request.columns ?? defaults.columns);
     const rows = clampCount(request.rows ?? defaults.rows);
@@ -323,9 +418,28 @@ export function artPrompt(request: ArtRequest): ArtPrompt {
         ? `The play is about: ${scrubbed.topic}. Everything on the sheet belongs to that story.`
         : `The play is a simple folk tale.`;
 
-    // The rules the cutter depends on. Stated as rules rather than preferences
-    // because an image model treats a preference as a suggestion, and a sheet
-    // with its subjects touching cannot be cut into separate pieces at all.
+    /*
+     * The rules the cutter depends on. Stated as rules rather than preferences
+     * because an image model treats a preference as a suggestion, and a sheet
+     * with its subjects touching cannot be cut into separate pieces at all.
+     *
+     * Separation is the rule; being inside the grid is not. Two cutters read
+     * these sheets and they want different things. piece_sheet divides the
+     * image by columns × rows, so it needs the grid to be real. FastCut finds
+     * connected regions of non-background pixels and never learns a grid
+     * exists — all it needs is that no two subjects touch.
+     *
+     * An earlier draft asked for both a gap between cells AND every subject
+     * "well inside its own cell", which shrank the art twice: measured across
+     * seven finished packs the pieces came back filling 82–92% of their cell.
+     * The second demand bought nothing — several packs already overflow the
+     * nominal cell (animals to 122%, sky to 117%) and cut 25/25 regardless,
+     * because they were separated. So: fill the cell, never touch a neighbour.
+     *
+     * Worth knowing which way the failure falls. A piece drawn 15% small is a
+     * piece 15% small; two pieces touching merge into one island and cost a
+     * whole subject. Hence separation stated as the ONE hard rule.
+     */
     const sheet = [
         columns === 1
             ? `Draw ONE sheet: ${cells} separate pictures stacked in a single column, each one a full-width`
@@ -334,8 +448,10 @@ export function artPrompt(request: ArtRequest): ArtPrompt {
         `Each cell is ${ASPECT[shape]}.`,
         `The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge,`,
         `in reading order (left to right, then down).`,
-        `Leave a clear even gap between cells and keep every subject well inside its own cell —`,
-        `nothing may touch or cross a cell edge, and nothing may overlap a neighbour.`,
+        // Separation, not inscription. See the comment above the sheet block.
+        `Fill each cell as fully as the subject can: draw it large, right out to the cell's edges.`,
+        `The ONE hard rule is separation — no subject may touch, overlap or connect to a subject in`,
+        `a neighbouring cell, and there must be clear empty background between every pair of them.`,
         `No grid lines, no borders, no frames, no numbers, no captions, no text of any kind,`,
         `no watermark, no signature.`,
     ].join(" ");
@@ -364,7 +480,23 @@ export function artPrompt(request: ArtRequest): ArtPrompt {
         `the edge of the paper it is cut from. NO OUTLINES.`,
     ].join(" ");
 
-    const distinct = cells < 4 ? "" : [
+    /*
+     * Layers get their own version of the check.
+     *
+     * "Completely different object" is the wrong instruction for a band: two
+     * segments of the same hedge SHOULD look alike, and being told not to
+     * repeat produces twenty-five unrelated clumps that will not sit next to
+     * each other. What has to be checked instead is the property the band
+     * depends on — that the left and right edges are open — and making it say
+     * so per piece before drawing is the only thing that reliably lands it.
+     */
+    const distinct = cells < 4 ? "" : kind === "layers" ? [
+        `Before you draw anything, write out all ${cells} descriptions and check them:`,
+        `each must be a genuinely different SEGMENT rather than the same clump nudged,`,
+        `and for each one say whether its left and right edges are open and ragged.`,
+        `A piece whose silhouette closes itself off cannot sit next to a copy of itself,`,
+        `and is wasted. Then draw.`,
+    ].join(" ") : [
         `Before you draw anything, write out all ${cells} descriptions and check them:`,
         `every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour.`,
         `No two cells may share a shape, a pose, a silhouette or a colour scheme.`,
@@ -384,7 +516,9 @@ export function artPrompt(request: ArtRequest): ArtPrompt {
             `top and the far edges, low contrast, nothing that competes with a figure placed on top.`,
             `No characters and no people. Fill each cell to its edges.`,
         ].join(" ")
-        : kind === "scenery"
+        : kind === "layers"
+            ? LAYER_STYLE
+            : kind === "scenery"
             ? [
                 `Each cell holds ONE piece of scenery — a tree, a bush, a rock, a door, a table — on a`,
                 `PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind`,

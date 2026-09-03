@@ -1,24 +1,33 @@
 {
     "name": "living-room",
     "description": "A living room in felt and paper, as three depth planes. Layers only — the loose props that dress it are in the `home` pack.",
-    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another. ABSOLUTELY NOT: digital painting, watercolour, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe theme is: a living room. All three strips are the same room, at the same time of day.\n\nDraw ONE sheet: 3 separate pictures stacked in a SINGLE COLUMN, one above the other, each a full-width strip. They are NOT side by side and NOT a grid. Each strip is 21:9 — an ultra-wide panorama, MUCH wider than it is tall. These three strips are the three depth planes of one stage set, layered on top of each other with characters between them and slid past each other when the camera pans.\n\nSTRIP 1 — THE FAR BACKDROP. Fills its strip completely, no transparency. Hard limit: AT MOST FIVE separate shapes on top of one or two plain fields of colour. Distant shapes are plain silhouettes with no detail inside them. The ground is a plain horizontal band across the bottom. Low contrast, nothing that competes with a figure in front of it.\n\nSTRIP 2 — THE MIDDLE BAND. A horizontal band of furniture across the lower half. Everything ABOVE it is PLAIN WHITE and empty, because that white becomes transparent and the backdrop shows through. Give the top edge a clear, readable, uneven silhouette.\n\nSTRIP 3 — THE FOREGROUND FRAME. Content sits ONLY at the left edge, the right edge and along the very bottom. THE ENTIRE MIDDLE OF THIS STRIP IS PLAIN WHITE AND COMPLETELY EMPTY: that is where the actors stand, and anything drawn there will cover them. Roughly the middle two thirds must be untouched white. Darkest and most detailed of the three.\n\nThen cut it at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), split the sheet into its three strips but do NOT auto-slice islands inside a strip — each strip stays ONE image. Remove the white from strips 2 and 3; strip 1 keeps its background. fastcut_download as a ZIP.",
+    "stylePrompt": "NOTE — THIS PACK WAS MADE THE OLD WAY. Its midground and foreground are full-width strips, which have two hard vertical edges and show them the moment the camera pans or pulls back. Do not generate more layers like this. New layers are SEGMENTS of a band: ask theater_art_prompt for kind \"layers\", which returns 25 pieces with open ragged ends that butt together into a band of any width. The backdrop below is still made as one wide picture, but with this rule added:\n\n\n\nCRITICAL — THE CAMERA MOVES ACROSS THIS. Keep the outer fifth of every edge — left, right, top and bottom — plain and empty: a continuation of the sky and the ground band, nothing else. No feature, no shape and no change of horizon may sit near an edge, because the edges are cropped at some camera positions and revealed at others. The sky colour must run all the way to the top edge and to both side edges, so that a camera passing the picture still finds sky rather than a hole.\n\n\n\nSTYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another. ABSOLUTELY NOT: digital painting, watercolour, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe theme is: a living room. All three strips are the same room, at the same time of day.",
     "pieces": {
         "backdrop": {
             "kind": "backdrop",
             "file": "backdrop.webp",
-            "mood": ["day", "cosy"],
+            "mood": [
+                "day",
+                "cosy"
+            ],
             "description": "the far wall: dusty red, a large cream panel, a smaller pink one, a navy floor band. Opaque and full-bleed, 21:9"
         },
         "midground": {
             "kind": "midground",
             "file": "midground.webp",
-            "mood": ["day", "cosy"],
+            "mood": [
+                "day",
+                "cosy"
+            ],
             "description": "the furniture line: a long olive sofa with cushions centre, a low table left, transparent above. Sits between the wall and the actors"
         },
         "foreground": {
             "kind": "foreground",
             "file": "foreground.webp",
-            "mood": ["day", "cosy"],
+            "mood": [
+                "day",
+                "cosy"
+            ],
             "description": "the nearest plane: a tied navy curtain down the left, a filled bookcase and a monstera down the right, floor along the bottom. The middle is empty on purpose — that is where the actors stand"
         }
     }

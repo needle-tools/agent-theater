@@ -1,0 +1,210 @@
+{
+    "name": "street",
+    "description": "Pavement furniture: what a town street has standing on it. Dresses a village or city scene the way `stones-and-plants` dresses a wild one. Two pieces lie flat on the ground (`manhole-cover`, `drain-grate`) and one hangs (`hanging-basket`).",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: the street — the fittings and furniture of a town pavement. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "street-lamp": {
+            "kind": "scenery",
+            "mood": [
+                "evening",
+                "cosy"
+            ],
+            "description": "a navy lamp post with a lit lantern — tall and narrow, good at a stage edge",
+            "file": "street-lamp.webp"
+        },
+        "traffic-light": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "a three-lamp signal on a pale post",
+            "file": "traffic-light.webp"
+        },
+        "street-clock": {
+            "kind": "scenery",
+            "mood": [
+                "proud"
+            ],
+            "description": "a red pillar clock on a navy base — says a town has money",
+            "file": "street-clock.webp"
+        },
+        "post-box": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a pink pillar post box with a slot",
+            "file": "post-box.webp"
+        },
+        "mailbox-cluster": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "a navy bank of mailboxes with a pink panel",
+            "file": "mailbox-cluster.webp"
+        },
+        "utility-cabinet": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "a red street cabinet with vents and a handle",
+            "file": "utility-cabinet.webp"
+        },
+        "parking-meter": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "an olive meter head on a red post",
+            "file": "parking-meter.webp"
+        },
+        "bollard": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a mustard bollard with a navy band, short and stout",
+            "file": "bollard.webp"
+        },
+        "traffic-cone": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "a banded cone — the clearest sign that something is going on",
+            "file": "traffic-cone.webp"
+        },
+        "road-barrier": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "a striped trestle barrier on mustard legs",
+            "file": "road-barrier.webp"
+        },
+        "litter-bin": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a slatted green bin with a pink lid",
+            "file": "litter-bin.webp"
+        },
+        "drain-grate": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a slotted grate, flat — lies on the ground rather than standing",
+            "file": "drain-grate.webp"
+        },
+        "manhole-cover": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a spoked navy and mustard cover, flat — lies on the ground",
+            "file": "manhole-cover.webp"
+        },
+        "drinking-fountain": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a pedestal fountain with a tap",
+            "file": "drinking-fountain.webp"
+        },
+        "park-bench": {
+            "kind": "scenery",
+            "mood": [
+                "cosy",
+                "friendly"
+            ],
+            "description": "a green slatted bench on navy legs, somewhere for two to sit",
+            "file": "park-bench.webp"
+        },
+        "street-tree": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a round pink-crowned tree with a pale trunk — a street tree, not a forest one",
+            "file": "street-tree.webp"
+        },
+        "hanging-basket": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a basket of red flowers on a hanger — hangs from a lamp post, does not stand",
+            "file": "hanging-basket.webp"
+        },
+        "picket-fence": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a run of cream pickets — the one piece here made to repeat side by side",
+            "file": "picket-fence.webp"
+        },
+        "market-stall": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a trestle stall with a red awning, wide and low",
+            "file": "market-stall.webp"
+        },
+        "a-board": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a blank pavement sign — write the shop name on it, or leave it empty",
+            "file": "a-board.webp"
+        },
+        "bus-stop-sign": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "a navy sign with a bus on it, on a pink post",
+            "file": "bus-stop-sign.webp"
+        },
+        "storage-box": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "an olive box with a mustard lid, low and wide",
+            "file": "storage-box.webp"
+        },
+        "bicycle": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a red bicycle in profile — smaller and plainer than vehicles/bicycle",
+            "file": "bicycle.webp"
+        },
+        "kick-scooter": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a mustard kick scooter with red wheels",
+            "file": "kick-scooter.webp"
+        },
+        "fire-hydrant": {
+            "kind": "scenery",
+            "file": "fire-hydrant.webp",
+            "mood": [
+                "modern",
+                "bright"
+            ],
+            "description": "a red hydrant with mustard caps — short, and the brightest thing on the pavement"
+        }
+    }
+}
