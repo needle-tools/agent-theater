@@ -2,11 +2,10 @@
     /**
      * The collage page.
      *
-     * Two ways in, one document. A person drops images, drags them around and
-     * right-clicks to change them; an agent calls the WebMCP tools. Neither is
-     * a wrapper around the other — they both mutate the same `Collage`, so an
-     * agent can arrange what a person dropped, and a person can fix what an
-     * agent arranged.
+     * Two ways in, one document. A person chooses pieces from the troupe,
+     * drags them around and right-clicks to change them; an agent calls the
+     * WebMCP tools. Neither is a wrapper around the other — they both mutate
+     * the same `Collage`, so each can continue what the other arranged.
      *
      * The page itself is almost nothing: a canvas, a right-click menu, and one
      * button in the corner. Everything that acts on a single picture is at the
@@ -107,19 +106,6 @@
             },
         })));
     });
-
-    /** Where the next batch of images should land, if somewhere was pointed at. */
-    let dropPoint: { x: number; y: number } | null = null;
-
-    /**
-     * Ask for the scene behind the objects as well, when a photo splits.
-     *
-     * Off by default and deliberately a choice: it downloads a second model of
-     * about 28 MB and adds a slow pass, which is not a price to charge someone
-     * who only wanted a sticker. For a photo of things on a table it is the
-     * difference between one flat picture and a background with things on it.
-     */
-    let fillBackground = $state(false);
 
     // The page's own sentence, shown on the empty stage. Same string the help
     // panel offers, from the same place, so they cannot say different things.
@@ -674,7 +660,7 @@
     /** Save the whole collage as a picture that opens again. */
     async function saveToFile() {
         if (!collage.list().length) {
-            toasts.push("Nothing to save yet — drop some photos in.");
+            toasts.push("Nothing to save yet — begin with a troupe piece or ask an agent to stage a story.");
             return;
         }
         const toast = toasts.push("Packing it up…", "busy");
@@ -682,7 +668,7 @@
             const { blob, filename } = await studio.saveFile();
             download(blob, filename);
             toast.close();
-            toasts.push(`Saved ${filename} — drop it back here to keep working.`);
+            toasts.push(`Saved ${filename} — open it from Theater options to keep working.`);
         } catch (error) {
             toast.close();
             toasts.push(`Could not save that — ${message(error)}`, "error");
@@ -690,9 +676,9 @@
     }
 
     /**
-     * A dropped file might be a saved collage rather than a picture to add.
-     * Checked before anything else, because a collage file is also a valid PNG
-     * and would otherwise be pasted in as a flat image of itself.
+     * A saved play is a PNG that carries the editable document inside it.
+     * Ordinary PNGs are not accepted here: artwork comes from the troupe,
+     * while this path exists only to restore a whole play.
      */
     async function openCollageFiles(files: File[]): Promise<File[]> {
         const rest: File[] = [];
@@ -708,6 +694,15 @@
             }
             let opened = 0;
             try {
+                /*
+                 * A loaded play replaces the stage WHOLESALE — and that
+                 * includes the strewn welcome props. Cleared before the file
+                 * opens, or the adoption effect would fold nine random
+                 * stickers into somebody's finished story the moment its
+                 * first layer arrived. If the file turns out not to be a
+                 * play, the idle page simply deals a fresh scatter.
+                 */
+                scatter = [];
                 opened = await studio.openFile(file, { replace: true });
             } catch (error) {
                 // A file that IS one of ours but will not open has to say so.
@@ -721,10 +716,10 @@
                 // a file that has been through something that re-encodes PNGs
                 // and dropped the chunk. Say that, rather than quietly adding a
                 // flat picture of the collage it used to be.
-                if (/\.collage\.png$/i.test(file.name)) {
+                if (/\.(?:collage|play)\.png$/i.test(file.name)) {
                     toasts.push(
-                        `${file.name} has no collage inside it any more — something re-saved the image and ` +
-                        `stripped it. Adding it as a picture instead.`, "error");
+                        `${file.name} has no editable play inside it any more — something re-saved the image and ` +
+                        `stripped its story data.`, "error");
                 }
                 rest.push(file);
                 continue;
@@ -734,108 +729,23 @@
             // collage that loaded off-screen is indistinguishable from one that
             // did not load at all.
             canvas?.fitAll();
-            toasts.push(`Opened a saved collage — ${opened} pieces.`);
+            toasts.push(`Opened a saved play — ${opened} pieces.`);
         }
         return rest;
     }
 
     async function addFiles(files: FileList | File[]) {
-        // Collage files are looked at first, and on everything — filtering by
-        // MIME type beforehand is how one got thrown away unopened.
+        // Do not filter by MIME type before looking inside: a play is also a
+        // perfectly valid PNG, and some filesystems omit its type entirely.
         const rest = await openCollageFiles([...files]);
-        const images = rest.filter(f => f.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|avif)$/i.test(f.name));
-        if (!images.length) return;
-        const near = dropPoint;
-        dropPoint = null;
-        const many = images.length > 1;
-        const toast = toasts.push(many ? `Cutting out ${images.length} images…` : "Cutting it out…", "busy");
-        let cut = 0;
-        let separated = 0;
-        let healed = false;
-        let failed: string | null = null;
-        try {
-            for (const [index, file] of images.entries()) {
-                if (many) toast.update(`Cutting out ${index + 1} of ${images.length}…`, "busy");
-                const url = await readAsDataUrl(file);
-                const { background, pieces } = await studio.addImage(url, {
-                    label: file.name.replace(/\.[^.]+$/, ""),
-                    // Land where they were dropped; several fan out from there.
-                    near: near ?? undefined,
-                    // The whole point of dropping a photo here is the cut-out.
-                    removeBackground: true,
-                    // A photo of things on a surface becomes the things and
-                    // the surface, when asked.
-                    heal: fillBackground,
-                    onProgress: progress => {
-                        // The model is tens of megabytes on first use; silence
-                        // would read as a hang.
-                        if (progress.total) {
-                            const pct = Math.round((progress.loaded ?? 0) / progress.total * 100);
-                            toast.update(`Fetching the background remover… ${pct}%`, "busy");
-                        }
-                    },
-                });
-                if (background.ok) cut++;
-                else if (!background.skipped && !failed) failed = background.reason ?? null;
-                // A photo that held several things becomes several layers, and
-                // saying "added 1" for six stickers is the kind of small lie
-                // that makes people distrust the rest of the message.
-                // Not counting the backplate: "6 pieces" for five stickers
-                // and a desk is a small lie that makes the rest of the
-                // message untrustworthy.
-                if (pieces && pieces.length > 1) {
-                    separated += pieces.length - (background.backplate ? 1 : 0);
-                    if (background.backplate) healed = true;
-                }
-            }
-            toast.close();
-            if (failed) {
-                console.warn("[collage] background removal unavailable:", failed);
-                toasts.push(`Added ${images.length}. ${shortFailure(failed)}`, "error");
-            } else {
-                toasts.push(separated
-                    ? separated === 1
-                        ? `Cut it out${healed ? ", and kept the scene behind it" : ""}.`
-                        : `Cut out ${separated} separate pieces${healed ? ", and painted in the scene behind them" : ""}.`
-                    : cut
-                        ? `${cut === 1 ? "Cut it out" : `Cut out ${cut}`} and added.`
-                        : `Added ${images.length}.`);
-            }
-            if (!collage.list().length || !frames.length) canvas?.fitAll();
-        } catch (error) {
-            toast.close();
-            toasts.push(`Could not read that — ${message(error)}`, "error");
+        if (rest.length) {
+            toasts.push("Images cannot be dropped onto the stage. Choose pieces from the troupe instead.", "error");
         }
-    }
-
-    /**
-     * One sentence a person can act on.
-     *
-     * The underlying reasons are written for an agent — they name module URLs
-     * and fetch errors so it can route around the problem. Shown to a person
-     * they are just a wall of text where a bubble should be.
-     */
-    function shortFailure(reason: string | null): string {
-        if (reason && /could not load|unavailable|fetch/i.test(reason)) {
-            return "Background removal is not available right now — the images went in as they are.";
-        }
-        return "The background could not be removed — the images went in as they are.";
-    }
-
-    function readAsDataUrl(file: File): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () => reject(new Error(`${file.name} could not be read.`));
-            reader.readAsDataURL(file);
-        });
     }
 
     function onDrop(event: DragEvent) {
         event.preventDefault();
-        dragging = false;
         if (!event.dataTransfer?.files.length) return;
-        dropPoint = canvas?.canvasPoint(event.clientX, event.clientY) ?? null;
         void addFiles(event.dataTransfer.files);
     }
 
@@ -844,30 +754,15 @@
      * tell them apart, because it is the only place the clipboard's contents
      * are readable.
      *
-     * An image from outside wins when there is one: putting a screenshot on the
-     * clipboard is a deliberate act aimed at this canvas, where copied layers
-     * are also reachable through Ctrl+D. Either way it lands where you are
-     * looking rather than at the origin of an infinite canvas.
+     * Only the theatre's own copied layers are accepted. External images are
+     * deliberately not an authoring path; the shared troupe is the art source.
      */
     function onPaste(event: ClipboardEvent) {
         const target = event.target;
         if (target instanceof Element && target.matches("input, textarea, select, [contenteditable]")) return;
 
-        const files = [...(event.clipboardData?.items ?? [])]
-            .filter(item => item.kind === "file" && item.type.startsWith("image/"))
-            .map(item => item.getAsFile())
-            .filter((f): f is File => !!f);
-
-        if (files.length) {
-            event.preventDefault();
-            dropPoint = canvas?.pastePoint() ?? null;
-            void addFiles(files);
-            return;
-        }
         if (canvas?.pasteClipboard()) event.preventDefault();
     }
-
-    let dragging = $state(false);
 
     function setPage(presetId: string) {
         studio.setPage(presetId);
@@ -1009,12 +904,10 @@
 
 <div
     class="page"
-    class:page--dropping={dragging}
     bind:this={pageEl}
     role="region"
     aria-label="Theater"
-    ondragover={e => { e.preventDefault(); dragging = true; }}
-    ondragleave={e => { if (e.currentTarget === e.target) dragging = false; }}
+    ondragover={e => e.preventDefault()}
     ondrop={onDrop}
 >
     <CollageCanvas
@@ -1158,7 +1051,15 @@
         data-edit-trigger
         aria-label="Theater options"
         aria-expanded={editOpen}
-        onclick={() => (editOpen = !editOpen)}
+        onclick={() => {
+            editOpen = !editOpen;
+            // Opening the menu means attention has left the play: bring the
+            // house lights up. The show stops (music fading out with it) and
+            // the world returns to its curtain-up arrangement — play is one
+            // press away, and a show running behind a menu is a show playing
+            // to the back of somebody's head.
+            if (editOpen && studio.showing) studio.stopShow();
+        }}
     >
         <svg viewBox="0 0 20 20" aria-hidden="true">
             <path d="M4 6h12M4 10h12M4 14h7" />
@@ -1222,10 +1123,6 @@
         {toolsRegistered}
         onSave={saveToFile}
         onLoad={() => {
-            // The same input the canvas uses: a saved play and a photo arrive
-            // the same way, and addFiles already tells them apart by looking
-            // inside rather than by trusting the extension.
-            dropPoint = null;
             fileInput?.click();
         }}
         onClear={clearCanvas}
@@ -1235,8 +1132,7 @@
     <input
         class="file"
         type="file"
-        accept="image/*"
-        multiple
+        accept=".play.png,.collage.png,image/png"
         bind:this={fileInput}
         onchange={e => {
             const input = e.currentTarget as HTMLInputElement;
@@ -1259,19 +1155,6 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-    }
-
-    /* A ring rather than an overlay: it says "this is the target" without
-       hiding the thing you are aiming at. */
-    .page--dropping::after {
-        content: "";
-        position: absolute;
-        inset: 8px;
-        border-radius: 18px;
-        outline: 2px dashed var(--accent-brand);
-        outline-offset: -2px;
-        background: color-mix(in srgb, var(--accent-brand) 6%, transparent);
-        pointer-events: none;
     }
 
     /*

@@ -689,8 +689,11 @@ export async function playGibberish(
         if (stopped) return;
         stopped = true;
         if (finishTimer) clearTimeout(finishTimer);
+        // The lib types put cancelAndHoldAtTime on every AudioParam, so the
+        // guard narrows the else branch to `never` — but Firefox still ships
+        // without it at runtime, which is the whole reason the guard exists.
         if ("cancelAndHoldAtTime" in master.gain) master.gain.cancelAndHoldAtTime(ctx.currentTime);
-        else master.gain.cancelScheduledValues(ctx.currentTime);
+        else (master.gain as AudioParam).cancelScheduledValues(ctx.currentTime);
         master.gain.setTargetAtTime(0, ctx.currentTime, 0.012);
         const stopAt = ctx.currentTime + 0.05;
         for (const source of sources) {

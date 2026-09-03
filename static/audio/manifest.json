@@ -197,6 +197,42 @@
 			"mood": ["gentle", "opening", "storybook"],
 			"description": "Music box figure over a soft string swell, single harp roll, light chime, warm hall. An alternative to `fairy-tale-ambience` for opening a light show."
 		},
+		"menu-theatre-1": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-1.opus",
+			"seconds": 50.01,
+			"bpm": 75,
+			"take": "menu-theatre",
+			"mood": ["curious", "handcrafted", "gentle", "theatrical"],
+			"description": "Subtle menu music with felt piano, soft pizzicato strings, delicate music-box tones and a faint analog ambient bed. Warm, playful and unobtrusive."
+		},
+		"menu-theatre-2": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-2.opus",
+			"seconds": 50.01,
+			"bpm": 75,
+			"take": "menu-theatre",
+			"mood": ["curious", "handcrafted", "gentle", "theatrical"],
+			"description": "Subtle menu music with felt piano, soft pizzicato strings, delicate music-box tones and a faint analog ambient bed. Warm, playful and unobtrusive."
+		},
+		"menu-theatre-3": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-3.opus",
+			"seconds": 50.01,
+			"bpm": 75,
+			"take": "menu-theatre",
+			"mood": ["curious", "handcrafted", "gentle", "theatrical"],
+			"description": "Subtle menu music with felt piano, soft pizzicato strings, delicate music-box tones and a faint analog ambient bed. Warm, playful and unobtrusive."
+		},
+		"menu-theatre-4": {
+			"role": "bed",
+			"file": "/audio/music/menu-theatre-4.opus",
+			"seconds": 50.01,
+			"bpm": 75,
+			"take": "menu-theatre",
+			"mood": ["curious", "handcrafted", "gentle", "theatrical"],
+			"description": "Subtle menu music with felt piano, soft pizzicato strings, delicate music-box tones and a faint analog ambient bed. Warm, playful and unobtrusive."
+		},
 		"cosy-folk-1": {
 			"role": "bed",
 			"hidden": true,

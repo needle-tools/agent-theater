@@ -20,7 +20,7 @@ import { prompter } from "./speech.js";
 import { isSubtitleVoice, normalizeSubtitleVoice, type SubtitleVoice } from "../subtitleVoice/index.js";
 import { ENTRANCES, PLANES, type Placement, type Stage } from "./stage.js";
 import type { Layer } from "./model.js";
-import { actorForLayer, voiceForActor } from "./characterVoice.js";
+import { actorForLayer, autoVoiceFor, voiceForActor } from "./characterVoice.js";
 import type { CollageStudio } from "./studio.js";
 import type { ToolResult, WebMcpToolDef } from "./tools.js";
 
@@ -94,12 +94,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             : `(layer missing)`;
         return `${name} ${at}` +
             `${placement.entrance ? ` (enters ${placement.entrance})` : ""}` +
-            // Said either way. "Silent" is the more useful half: a part whose
-            // lines only ever appear in a bubble is the thing an agent needs
-            // told, and it is invisible in every other reply.
+            // Nobody is silent any more: a part with no cast voice speaks in
+            // one dealt from its own name, so the honest label is "auto".
             `${placement.voice
                 ? ` (voice speed ${placement.voice.speed}, age ${placement.voice.age}, tone ${placement.voice.tone})`
-                : " (silent)"}`;
+                : " (auto voice)"}`;
     };
 
     return [
@@ -658,7 +657,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 });
 
                 const scripted: Stage = { ...stage, script: timed };
-                const { plan, problems } = planScene(timed, spokenBy(scripted));
+                const { plan, problems } = planScene(timed,
+                    spokenBy(scripted, id => autoVoiceFor(collage.own(id))));
                 if (problems.length) {
                     return fail(["The scene has problems:", ...problems.map(
                         p => (p.index >= 0 ? `beat ${p.index + 1}: ${p.reason}` : p.reason))].join("\n"));

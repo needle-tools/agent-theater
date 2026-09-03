@@ -89,9 +89,9 @@ describe("subtitle voice timing", () => {
         const byWord = Object.fromEntries(timings.map(token => [token.text.trim().replace(/[!?]/g, "").toLowerCase(), token]));
         const duration = (word: string) => byWord[word].end - byWord[word].start;
 
-        expect(byWord.world.prominence).toBeGreaterThan(byWord.hello.prominence);
-        expect(byWord.help.prominence).toBeGreaterThan(byWord.can.prominence);
-        expect(byWord.help.prominence).toBeGreaterThan(byWord.you.prominence);
+        expect(byWord.world.prominence).toBeGreaterThan(byWord.hello.prominence ?? 0);
+        expect(byWord.help.prominence).toBeGreaterThan(byWord.can.prominence ?? 0);
+        expect(byWord.help.prominence).toBeGreaterThan(byWord.you.prominence ?? 0);
         expect(duration("help")).toBeGreaterThan(duration("can"));
         expect(timings.at(-1)?.end).toBeLessThan(estimateSubtitleTextDuration(text));
     });

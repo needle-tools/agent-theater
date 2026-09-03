@@ -127,7 +127,9 @@ function rulePronunciation(word: string): SpeechPhone[] {
 
         const character = word[index];
         if (index + 2 === silentFinalE && /[aeiou]/.test(character)) {
-            emit(({ a: "EY1", e: "IY1", i: "AY1", o: "OW1", u: "UW1" } as const)[character]);
+            // The regex above guarantees the key; the cast tells TypeScript so.
+            emit(({ a: "EY1", e: "IY1", i: "AY1", o: "OW1", u: "UW1" } as const)[
+                character as "a" | "e" | "i" | "o" | "u"]);
         } else if (character === "y" && index === word.length - 1) emit("IY0");
         else if (character === "a") emit("AE1");
         else if (character === "e") emit("EH1");

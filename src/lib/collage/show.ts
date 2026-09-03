@@ -175,26 +175,35 @@ export function entering(stage: Stage): string[] {
 /**
  * Which voice each part in this scene is cast with.
  *
- * Only the parts that HAVE one. A missing entry means a silent part, and the
- * distinction matters everywhere downstream: a silent part's line still appears
- * in a bubble and is still timed by reading time, so it must not be looked up
- * as though a voice might turn up for it later.
+ * The membership's own voice first. Failing that, `fallback` may supply one
+ * (the automatic per-actor voice) — passed in rather than derived here, so
+ * this file stays free of the troupe. A part with neither speaks in bubbles
+ * alone, timed by reading time, and must not be looked up as though a voice
+ * might turn up for it later.
  */
-export function voicesOf(stage: Stage): Map<string, SubtitleVoice> {
-    return new Map(stage.cast.flatMap(member =>
-        isSubtitleVoice(member.voice)
-            ? [[member.id, normalizeSubtitleVoice(member.voice)] as const]
-            : []));
+export function voicesOf(
+    stage: Stage,
+    fallback?: (id: string) => SubtitleVoice | null,
+): Map<string, SubtitleVoice> {
+    return new Map(stage.cast.flatMap(member => {
+        if (isSubtitleVoice(member.voice)) {
+            return [[member.id, normalizeSubtitleVoice(member.voice)] as const];
+        }
+        const auto = fallback?.(member.id);
+        return auto ? [[member.id, auto] as const] : [];
+    }));
 }
 
 /**
  * What this scene's lines really take, for the planner.
  *
  * The lightweight voice duration is deterministic, so this can answer before
- * playback. Silent parts still fall back to reading time.
+ * playback. Silent parts still fall back to reading time. The fallback MUST
+ * be the same one playback uses, or the plan is timed against a different
+ * play than the one performed.
  */
-export function spokenBy(stage: Stage): Timings {
-    const cast = voicesOf(stage);
+export function spokenBy(stage: Stage, fallback?: (id: string) => SubtitleVoice | null): Timings {
+    const cast = voicesOf(stage, fallback);
     return {
         saying(text, id) {
             const voice = cast.get(id);

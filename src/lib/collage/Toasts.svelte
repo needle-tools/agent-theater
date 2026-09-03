@@ -114,6 +114,12 @@
         pointer-events: none;
     }
 
+    /*
+     * The SAME bubble the props speak in. These are lines the page says, and
+     * for a while they wore panel-chip styling — tinted pills that read as
+     * notifications from some other app. Ink border, paper fill, a drawn
+     * beak: one speech-bubble language everywhere on this stage.
+     */
     .bubble {
         position: relative;
         display: flex;
@@ -122,39 +128,39 @@
         /* Narrow enough that a long message wraps into a bubble rather than
            stretching into a banner across the whole canvas. */
         max-width: min(320px, calc(100vw - 32px));
-        padding: 9px 13px;
-        /*
-         * A real border, not a ring of drop-shadows. Chained filters compound —
-         * each stamp dilates the result of the last — so the "outline" came out
-         * heavy on two sides and thin on the others. A border is the same width
-         * everywhere by construction.
-         */
-        border: 2px solid var(--edge);
-        border-radius: 15px;
-        /* A whisper of Needle green rather than a plain white chip. */
-        background: color-mix(in srgb, var(--accent-brand) 13%, var(--surface-panel));
+        padding: 0.5em 0.8em;
+        --edge: var(--text-primary);
+        border: 1.5px solid var(--edge);
+        border-radius: 0.9em;
+        background: var(--surface-page-elevated, #fff);
         color: var(--text-primary);
         font: inherit;
         font-size: var(--type-body-muted-size);
-        line-height: 1.35;
+        line-height: 1.4;
         text-align: left;
         text-wrap: pretty;
         cursor: var(--cursor-pointer, pointer);
         pointer-events: auto;
         /*
-         * The soft shadow still goes through a filter rather than box-shadow,
+         * The soft shadow goes through a filter rather than box-shadow,
          * because a filter traces the rendered silhouette — bubble and beak
          * together — where box-shadow would trace the border box and leave the
          * beak floating without one.
          */
-        --edge: color-mix(in srgb, var(--accent-brand-deep) 60%, transparent);
         filter: drop-shadow(0 4px 10px rgba(34, 44, 32, 0.12));
         transition-property: background, scale;
         transition-duration: 0.14s;
     }
 
+    /* The paper wash the strewn bubbles wear, when the worklet is home. */
+    :global(html.painterly) .bubble {
+        background-image:
+            paint(painterly-wash),
+            linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
+    }
+
     .bubble:hover {
-        background: color-mix(in srgb, var(--accent-brand) 22%, var(--surface-panel));
+        background-color: color-mix(in srgb, var(--surface-page-elevated, #fff) 92%, var(--text-primary));
     }
 
     .bubble:active {
@@ -170,7 +176,7 @@
     .bubble::after {
         content: "";
         position: absolute;
-        left: -7px;
+        left: -6px;
         /* Centred on the left edge. `translate` and `rotate` are separate
            properties and compose in that order, so the shift is applied about
            the beak's own box before it is turned — which is what keeps it
@@ -178,41 +184,24 @@
         top: 50%;
         translate: 0 -50%;
         rotate: 45deg;
-        width: 12px;
-        height: 12px;
+        width: 11px;
+        height: 11px;
         background: inherit;
-        border-left: 2px solid var(--edge);
-        border-bottom: 2px solid var(--edge);
+        border-left: 1.5px solid var(--edge);
+        border-bottom: 1.5px solid var(--edge);
         border-bottom-left-radius: 3px;
     }
 
-    /* Each tone carries its own edge, so the outline belongs to the bubble
-       rather than looking painted on.
-
-       --accent-error is declared only in brand.css's dark block, so in light
-       mode it resolves to nothing — and an invalid color-mix takes the whole
-       declaration with it, which left error bubbles as bare text on the canvas.
-       The fallback is the light-mode counterpart of the dark #FF6B8F. */
+    /* Tones live in the INK, not in the paper: a red-inked bubble is still a
+       bubble. --accent-error is declared only in brand.css's dark block; the
+       fallback is the light-mode counterpart of the dark #FF6B8F. */
     .bubble--error {
-        --error: var(--accent-error, #D93A62);
-        --edge: color-mix(in srgb, var(--error) 55%, transparent);
-        background: color-mix(in srgb, var(--error) 13%, var(--surface-panel));
+        --edge: var(--accent-error, #D93A62);
+        color: var(--accent-error, #D93A62);
     }
 
-    .bubble--error:hover {
-        background: color-mix(in srgb, var(--error) 20%, var(--surface-panel));
-    }
-
-    /* A different hue for the agent, so who did what is legible at a glance
-       without reading the words. */
-    .bubble--agent {
-        --edge: color-mix(in srgb, var(--accent-tertiary) 50%, transparent);
-        background: color-mix(in srgb, var(--accent-tertiary) 11%, var(--surface-panel));
-    }
-
-    .bubble--agent:hover {
-        background: color-mix(in srgb, var(--accent-tertiary) 18%, var(--surface-panel));
-    }
+    /* The agent's bubbles are told apart by the pulsing dot alone — same
+       paper, same ink, different speaker. */
 
     .pulse {
         flex: none;
@@ -228,14 +217,7 @@
         50% { opacity: 0.3; }
     }
 
-    .bubble--busy {
-        --edge: color-mix(in srgb, var(--accent-secondary) 50%, transparent);
-        background: color-mix(in srgb, var(--accent-secondary) 12%, var(--surface-panel));
-    }
-
-    .bubble--busy:hover {
-        background: color-mix(in srgb, var(--accent-secondary) 18%, var(--surface-panel));
-    }
+    /* Busy is told by its spinner; the paper stays paper. */
 
     .text {
         min-width: 0;

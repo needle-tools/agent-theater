@@ -45,6 +45,7 @@ import { plan as planScene, type Plan } from "./perform.js";
 import {
     DEFAULT_HOLD, MIN_SCENE_MS, sceneBeats, spokenBy, type ShowTiming,
 } from "./show.js";
+import { autoVoiceFor } from "./characterVoice.js";
 import { prompter } from "./speech.js";
 import { ENDING_FADE_MS, SILENT, type Speaker } from "./audio.js";
 
@@ -529,7 +530,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
     let speaker: Speaker = SILENT;
 
     /** How long this scene's lines take, given what has been synthesised. */
-    const timingsFor = (stage: Stage) => spokenBy(stage);
+    // The auto actor voice is part of the timing: a line the player will
+    // voice automatically must be planned at its voiced length.
+    const timingsFor = (stage: Stage) =>
+        spokenBy(stage, id => autoVoiceFor(collage.own(id)));
 
     /**
      * The show itself.

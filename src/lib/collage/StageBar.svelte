@@ -1,6 +1,6 @@
 <script lang="ts">
     /**
-     * The house controls.
+     * The house controls: a playbill in the top-left corner.
      *
      * Everything about the theatre could be driven by the agent, and for a
      * while all of it was — which meant the person who had just spent an hour
@@ -8,9 +8,12 @@
      * press play. That is the wrong way round: the agent is a collaborator
      * here, not the projectionist.
      *
-     * So: the scenes as chips, and one button. It appears only once there is
-     * something to play, because a transport control over an empty canvas is a
-     * promise the page cannot keep.
+     * It reads as a table of contents, not as a toolbar: chapter names
+     * stacked one under another on the bare paper, no panel behind them —
+     * the world is the surface, and chrome floating on it should weigh as
+     * little as possible. The chapter on screen (or playing) is simply BOLD,
+     * the way the current chapter is in any book. Past five chapters the
+     * list fades out at its bottom edge and scrolls.
      */
     import type { CollageStudio } from "./studio";
 
@@ -40,36 +43,12 @@
 
     const stages = $derived.by(() => (version, collage.listStages()));
     const activeId = $derived.by(() => (version, collage.activeStageId));
+    /** The chapter to print in bold: the one playing, else the one selected. */
+    const current = $derived(showing ?? activeId);
 </script>
 
 {#if stages.length}
-    <div class="bar" class:bar--showing={!!showing} role="group" aria-label="Scenes">
-        {#if !showing}
-            <div class="scenes">
-                {#each stages as stage (stage.id)}
-                    <button
-                        class="scene"
-                        class:scene--active={stage.id === activeId}
-                        class:scene--busy={stage.id === busy}
-                        aria-pressed={stage.id === activeId}
-                        onclick={() => collage.setActiveStage(stage.id)}
-                    >
-                        <!-- A pulsing dot on whichever scene the agent is
-                             touching. An agent building four scenes edits three
-                             of them out of sight, and without this the page
-                             either sits still or changes with no clue why. -->
-                        {#if stage.id === busy}<span class="pip" aria-label="being worked on"></span>{/if}
-                        {stage.name}
-                    </button>
-                {/each}
-            </div>
-        {:else}
-            <!-- During the show the bar says only what is playing. Naming it
-                 matters more than the chips do: the canvas is dimmed and the
-                 scene is the only thing left to orient by. -->
-            <span class="now">{stages.find(stage => stage.id === showing)?.name ?? "Playing"}</span>
-        {/if}
-
+    <div class="bar" class:bar--showing={!!showing} role="group" aria-label="Chapters">
         <button
             class="play"
             class:play--stop={!!showing}
@@ -90,37 +69,53 @@
                 </svg>
             {/if}
         </button>
+
+        <!-- The playbill stays up during the show, dimmed and untouchable,
+             with the playing chapter bold — it is the audience's place in the
+             programme, not a control any more. -->
+        <div class="chapters" class:chapters--tall={stages.length > 5} class:chapters--watching={!!showing}>
+            {#each stages as stage (stage.id)}
+                <button
+                    class="chapter"
+                    class:chapter--current={stage.id === current}
+                    class:chapter--busy={stage.id === busy}
+                    aria-pressed={stage.id === current}
+                    tabindex={showing ? -1 : 0}
+                    onclick={() => {
+                        if (!showing) collage.setActiveStage(stage.id);
+                    }}
+                >
+                    <!-- A pulsing dot on whichever chapter the agent is
+                         touching. An agent building four chapters edits three
+                         of them out of sight, and without this the page
+                         either sits still or changes with no clue why. -->
+                    {#if stage.id === busy}<span class="pip" aria-label="being worked on"></span>{/if}
+                    {stage.name}
+                </button>
+            {/each}
+        </div>
     </div>
 {/if}
 
 <style>
     /*
-     * Along the top, in the middle.
+     * Top LEFT, stacked. The bottom edge belongs to the sticker shelf and the
+     * browser agent's own controls; the top right holds the eraser and the
+     * menu. This corner was the empty one, and a vertical list wants a
+     * corner, not a centre.
      *
-     * The whole bottom edge belongs to the browser's agent now: ChatGPT puts
-     * its voice control in the middle of it and its activity bubbles at the
-     * left, and this bar was underneath both in turn. The top edge is ours —
-     * the wordmark takes a corner, the menu button the other, and the span
-     * between them is empty.
+     * No background on purpose: the names sit straight on the paper.
      */
     .bar {
         position: absolute;
-        left: 50%;
-        top: 14px;
+        left: 16px;
+        top: 16px;
         z-index: 25;
-        translate: -50% 0;
         display: flex;
-        align-items: center;
-        gap: 6px;
-        /* Outer 16 = inner 10 + 6 padding. */
-        border-radius: 16px;
-        padding: 6px;
-        background: var(--surface-panel);
-        box-shadow:
-            0 0 0 1px color-mix(in srgb, var(--border-subtle) 60%, transparent),
-            0 1px 2px rgba(34, 44, 32, 0.06),
-            0 10px 26px rgba(34, 44, 32, 0.10);
-        transition-property: opacity, background, box-shadow;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        transition-property: opacity;
         transition-duration: 0.4s;
         transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
     }
@@ -128,12 +123,10 @@
     /*
      * Nearly out of the way while the show runs, and back the moment the
      * pointer looks for it. A control that vanished completely would leave no
-     * way to stop the thing; one that stayed lit would be the brightest object
-     * on a deliberately darkened canvas.
+     * way to stop the thing.
      */
     .bar--showing {
         opacity: 0.35;
-        background: color-mix(in srgb, var(--surface-panel) 55%, #10131a);
     }
 
     .bar--showing:hover,
@@ -141,54 +134,67 @@
         opacity: 1;
     }
 
-    .scenes {
+    .chapters {
         display: flex;
-        align-items: center;
-        gap: 4px;
-        max-width: min(38vw, 26rem);
-        overflow-x: auto;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1px;
+        overflow-y: auto;
         scrollbar-width: none;
     }
 
-    .scenes::-webkit-scrollbar {
+    .chapters::-webkit-scrollbar {
         display: none;
     }
 
-    .scene {
-        flex: none;
+    /* Past five chapters the programme fades off its own bottom edge and
+       scrolls — the fade says "there is more" better than a scrollbar. */
+    .chapters--tall {
+        max-height: 158px;
+        mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
+    }
+
+    .chapters--watching {
+        pointer-events: none;
+    }
+
+    .chapter {
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
-        min-height: 32px;
-        padding: 0 0.7rem;
+        min-height: 30px;
+        max-width: min(34vw, 240px);
+        padding: 0 0.2rem;
         border: 0;
-        border-radius: 10px;
         background: transparent;
         color: var(--text-secondary);
         font: inherit;
         font-size: var(--type-micro-label-size);
+        text-align: left;
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
         cursor: var(--cursor-pointer, pointer);
-        transition-property: background, color, scale;
+        transition-property: color, scale;
         transition-duration: 0.14s;
     }
 
-    .scene:hover {
-        background: var(--surface-panel-muted);
+    .chapter:hover {
         color: var(--text-primary);
     }
 
-    .scene:active {
+    .chapter:active {
         scale: 0.96;
     }
 
-    .scene--active {
-        background: var(--surface-panel-strong, var(--surface-panel-muted));
+    /* The current chapter is bold, the way it is in any book's contents. */
+    .chapter--current {
         color: var(--text-primary);
-        font-weight: 600;
+        font-weight: 700;
     }
 
-    .scene--busy {
+    .chapter--busy {
         color: var(--text-primary);
     }
 
@@ -209,13 +215,6 @@
         .pip { animation: none; opacity: 1; }
     }
 
-    .now {
-        padding: 0 0.7rem;
-        color: var(--text-secondary);
-        font-size: var(--type-micro-label-size);
-        white-space: nowrap;
-    }
-
     .play {
         flex: none;
         display: flex;
@@ -224,10 +223,13 @@
         width: 40px;
         height: 40px;
         border: 0;
-        border-radius: 10px;
+        border-radius: 12px;
         background: var(--accent-brand);
         color: #14200f;
         cursor: var(--cursor-pointer, pointer);
+        box-shadow:
+            0 1px 2px rgba(34, 44, 32, 0.08),
+            0 6px 16px rgba(34, 44, 32, 0.10);
         transition-property: background, color, scale;
         transition-duration: 0.14s;
     }
@@ -253,7 +255,7 @@
 
     @media (prefers-reduced-motion: reduce) {
         .bar,
-        .scene,
+        .chapter,
         .play {
             transition-duration: 0s;
         }

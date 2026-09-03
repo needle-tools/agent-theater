@@ -20,6 +20,8 @@
     import { alphaFilters, cssColor, outlineFilterSvg, pxUnit, textCss } from "./css.js";
     import { boilFilterSvg } from "./painted.js";
     import { findEffect, particlesFor } from "./effects.js";
+    import { autoVoiceFor } from "./characterVoice.js";
+    import { isSubtitleVoice, normalizeSubtitleVoice } from "../subtitleVoice/index.js";
     import { TROUPE } from "./troupe.js";
     import PaperCursor from "./PaperCursor.svelte";
     import { maskHit } from "./imaging.js";
@@ -459,9 +461,18 @@
      * prompter takes as "sequence this bubble but say nothing".
      */
     function voiceFor(id: string) {
+        /*
+         * The chapter's cast voice first — normalized, because an old save
+         * can carry a legacy string id here, and handing that to the synth
+         * is a silent play with no error. Failing that, the actor's own
+         * automatic voice: the SAME fallback the planner times lines with,
+         * so what is planned is what is heard.
+         */
         const active = studio.collage.activeStageId;
         const stage = active ? studio.collage.getStage(active) : null;
-        return stage?.cast.find(member => member.id === id)?.voice;
+        const cast = stage?.cast.find(member => member.id === id)?.voice;
+        if (isSubtitleVoice(cast)) return normalizeSubtitleVoice(cast);
+        return autoVoiceFor(studio.collage.own(id)) ?? undefined;
     }
 
     /*
