@@ -225,21 +225,21 @@ const SWITCHED_OFF: Voices = { ...MUTE, state: "off" };
  *
  * Off, and off deliberately rather than by neglect. Kokoro works — it
  * synthesises correct English at nine times real time on WebGPU — but it never
- * reached the ear reliably enough to keep switched on, and another speech system
- * is likely to replace it. Rather than delete a working implementation on the
- * strength of "probably", it is turned off here, in one place, with everything
- * around it left standing.
+ * reached the ear reliably enough to keep switched on, and speech is going to
+ * arrive from a REMOTE service instead of an in-page model. Rather than delete
+ * a working implementation before its replacement exists, it is turned off
+ * here, in one place, with everything around it left standing.
  *
  * What still works with this false: every bubble on the page, sequenced through
  * the one prompter, timed by reading time. That was always the fallback path and
  * it is the only path now. Nothing is downloaded, nothing is inferred, and no
  * console has anything to say about ONNX.
  *
- * To turn it back on, set this true. To put a different engine behind it,
- * implement `Voices` — five methods, all of them small — and return it from
- * `createVoices`; nothing outside this file knows or cares which model is
- * talking. Parts stay cast with their voices in the meantime, so a document
- * saved today speaks when a voice system arrives.
+ * The remote engine plugs in HERE: implement `Voices` — five methods, all of
+ * them small, `learn` doing the fetching instead of the inferring — return it
+ * from `createVoices`, and set this true. Nothing outside this file knows or
+ * cares which model is talking. Parts stay cast with their voices in the
+ * meantime, so a document saved today speaks when the service arrives.
  */
 export const SPEECH_ENABLED = false;
 

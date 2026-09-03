@@ -93,7 +93,7 @@ async function within<T>(work: Promise<T>, waiting: () => ToolResult): Promise<T
  * picker — and none of them is a thing an agent needs in order to stage a play.
  */
 const THEATRE = new Set([
-    "theater_start", "theater_art_prompt",
+    "theater_start", "theater_art_prompt", "theater_clear",
     "piece_list", "piece_add", "piece_copy", "piece_sheet", "piece_text",
     "piece_move", "piece_remove", "show_look", "show_watch",
 ]);
@@ -458,13 +458,6 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                  * picks the easiest rather than the first.
                  */
                 const emptyStages = stages.filter(stage => !stage.cast.length);
-                // A scene where everybody stands on the middle plane is a
-                // backdrop with figures on it. That is where every one of these
-                // has stopped so far, because nothing was asking for the layer
-                // that makes it a place rather than a picture.
-                const flat = stages.filter(stage =>
-                    stage.cast.length &&
-                    !stage.cast.some(member => member.plane === "back" || member.plane === "front"));
                 const unscripted = stages.filter(stage => stage.cast.length && !stage.script.length);
                 // Every scene can name its own bed and they end up with one
                 // between them, because nothing ever said otherwise. Only worth
@@ -513,16 +506,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     : emptyStages.length
                         ? `NEXT: ${emptyStages.map(stage => `"${stage.name}"`).join(" and ")} ` +
                           `${emptyStages.length === 1 ? "has" : "have"} nobody in ` +
-                          `${emptyStages.length === 1 ? "it" : "them"} and will play as a still picture of ` +
-                          `the backdrop. Call stage_cast — the scenery and the cast both go in this way, ` +
-                          `each with a plane and an "at".`
-                    : flat.length
-                        ? `NEXT: ${flat.map(stage => `"${stage.name}"`).join(" and ")} ` +
-                          `${flat.length === 1 ? "is" : "are"} a backdrop with figures standing on ` +
-                          `${flat.length === 1 ? "it" : "them"} and nothing else — which is a picture, ` +
-                          `not a set. Get a "scenery" sheet from theater_art_prompt and cast a few ` +
-                          `pieces onto the "back" and "front" planes: a tree behind them, a bush in ` +
-                          `front. That is what the parallax has to work with.`
+                          `${emptyStages.length === 1 ? "it" : "them"} and will play as a still picture. ` +
+                          `Call stage_cast with who is in that stretch of the story — the pieces already ` +
+                          `stand where the person arranged them, so usually ids and "as" are all it takes.`
                     : unscripted.length
                         ? `NEXT: ${unscripted.map(stage => `"${stage.name}"`).join(" and ")} ` +
                           `${unscripted.length === 1 ? "has" : "have"} a cast but nothing to do. Call ` +
@@ -550,12 +536,11 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  anything as the camera pans. It is a photograph of a set.`,
                     `  Ask instead for separate cut-outs and assemble them here:`,
                     `    - scenery as separate cut-outs — a tree, a bush, a door, a rock, one per cell;`,
-                    `    - the cast as separate cut-outs, full body, feet visible;`,
-                    `  There are NO backdrop panels. The play happens in the open, on the paper itself:`,
-                    `  the canvas IS the world, and whatever is already arranged on it is the set.`,
-                    `  Spread the scenery over the "back", "mid" and "front" planes with stage_cast. They`,
-                    `  paint in that order and slide by different amounts when the camera moves, and that`,
-                    `  is what turns flat pieces into a place with depth in it.`,
+                    `    - the cast as separate cut-outs, full body, feet visible.`,
+                    `  There are NO backdrop panels and NO depth planes. The play happens in the open, on`,
+                    `  the paper itself: the canvas IS the world, whatever is arranged on it is the set,`,
+                    `  and the stacking order on the paper is the paint order. Depth is a thing you`,
+                    `  compose — a bush drawn over the path, a tree behind the house — not a setting.`,
                     ``,
                     `THIS STAGE IS FLAT, AND THAT IS THE POINT`,
                     `  It is a paper theatre seen from the front, not a 3D world. Everything is drawn`,
@@ -606,11 +591,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  3. show_title names the piece. It opens on a title card and heads the credits.`,
                     `  4. stage_create per scene, each at its own spot on the canvas, with its music.`,
                     `     The play stays on the open paper; the camera does the framing.`,
-                    `  5. stage_cast for everybody in it — scenery included. Say where with "at" (fractions`,
-                    `     of the scene's frame, y is where the FEET go) or with free x/y canvas units,`,
-                    `     which piece_list reads back. Let pieces hang over the backdrop's edges — a tree`,
-                    `     off the side, a moon on the open paper above — that overflow reads as handmade.`,
-                    `     Give each a plane, an entrance, and an "as" naming who they play.`,
+                    `  5. stage_cast for everybody in that chapter's stretch of the story. Casting does`,
+                    `     not move anybody — the arrangement on the paper IS the blocking; pass x/y only`,
+                    `     to also rearrange the world. Give each an entrance and an "as" naming who they`,
+                    `     play.`,
                     `  6. stage_script — moves, lines, sounds and camera moves, in order.`,
                     `  7. show_play. It returns at once with the timings; narrate over the top of it.`,
                     ``,
@@ -1348,8 +1332,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     id: { type: "string" },
                     x: { type: "number" },
                     y: { type: "number" },
-                    width: { type: "number", description: "Exact canvas width. Height follows the aspect ratio." },
-                    scale: { type: "number", description: "Multiply the current size, 0.05–20. Ignored if width is given." },
+                    width: { type: "number", description: "Exact canvas width. Height follows the aspect ratio. Clamped to 0.5–1.5× the current width — big jumps in size are how worlds get monsters." },
+                    scale: { type: "number", description: "Multiply the current size, clamped to 0.5–1.5 per call. Ignored if width is given." },
                     rotation: { type: "number", description: "Degrees, clockwise. 0 is straight." },
                     order: { type: "string", enum: ["front", "back"], description: "Move it in front of or behind everything." },
                 },
@@ -1362,8 +1346,19 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 for (const key of ["x", "y", "width", "rotation"] as const) {
                     if (num((args as any)[key])) patch[key] = (args as any)[key];
                 }
+                /*
+                 * Resizes are clamped to half-to-half-again per call, for the
+                 * hand and the agent alike. Every giant in every play so far
+                 * was one unchecked width; a size that needs to change more
+                 * than that is almost always a mistake, and the rare tree
+                 * that really must double can be asked for twice.
+                 */
+                if (num(patch.width)) {
+                    patch.width = Math.min(found.layer.width * 1.5,
+                        Math.max(found.layer.width * 0.5, patch.width));
+                }
                 if (patch.width === undefined && num(args?.scale)) {
-                    const factor = Math.min(20, Math.max(0.05, args.scale));
+                    const factor = Math.min(1.5, Math.max(0.5, args.scale));
                     // Scaling about the centre, so a layer grows in place rather
                     // than creeping down and to the right.
                     const layer = found.layer;

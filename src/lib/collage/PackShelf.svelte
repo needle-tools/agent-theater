@@ -19,6 +19,7 @@
     import { TROUPE, TROUPE_PACKS, type TroupePiece } from "./troupe.js";
     import { STAGE_WIDTH, type CollageStudio } from "./studio.js";
     import { idleSet } from "./idleSet.js";
+    import { tamedWidth } from "./placement.js";
     import { hint } from "./hint.js";
 
     interface Props {
@@ -130,7 +131,8 @@
 
     async function addPiece(piece: TroupePiece, near?: { x: number; y: number } | null) {
         const width = widthFor(piece);
-        await studio.addImage(piece.file, {
+        const world = studio.collage.listAll();
+        const { layer } = await studio.addImage(piece.file, {
             label: piece.id,
             // Cut before it was shipped; a remover pass would only find
             // things to wrongly remove.
@@ -140,6 +142,9 @@
             ...(near ? { near: freeSpot(near, width) } : {}),
             by: "human",
         });
+        // Widths match, heights may not: a pencil at sheep-width is a tower.
+        const tamed = tamedWidth(layer, world);
+        if (tamed !== null) studio.collage.update(layer.id, { width: tamed });
         studio.save();
     }
 

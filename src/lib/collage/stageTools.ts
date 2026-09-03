@@ -75,177 +75,27 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
     };
 
     /**
-     * The rectangle a scene's fractions refer to.
+     * One member, said in the units the world speaks.
      *
-     * The backdrop when there is one. Without one the scene still needs a
-     * frame to be relative to — the world is one open sheet and scenes play
-     * on the bare paper — so the cast's own footprint stands in: "0.5
-     * across" means the middle of where this scene already is. A scene with
-     * neither backdrop nor cast has no frame yet, and raw coordinates are
-     * all there is.
+     * There is no frame and no fraction any more: a chapter does not place
+     * anybody, so the only honest position is the layer's own — the same
+     * numbers piece_list reports and stage_cast accepts, so an agent can
+     * read its own work back without a translation table.
      */
-    /*
-     * NOT the cast's bounding box. That was the first fallback, and it fed a
-     * monster: pieces strewn across the world made a frame thousands of
-     * units tall, so "size 0.31" produced a bush the size of the sky. A
-     * frame must have a stable scale for fractions to mean anything, so the
-     * open-canvas frame is a FIXED-SIZE virtual stage — proportioned like a
-     * room, big enough that 0.5 is a person among these stickers — centred
-     * on wherever the scene's cast is standing.
-     */
-    const FRAME_WIDTH = 1080;
-    const FRAME_HEIGHT = 610;
-
-    const groundOf = (stage: { backdrop?: string | null; cast: Placement[] }): Layer | null => {
-        const backdrop = stage.backdrop ? collage.get(stage.backdrop) : null;
-        if (backdrop) return backdrop;
-        const standing = stage.cast
-            .filter(member => !member.on)
-            .map(member => ({ member, layer: collage.own(member.id) }))
-            .filter(entry => entry.layer !== null);
-        if (!standing.length) return null;
-        const boxes = standing.map(({ member, layer }) => {
-            const width = member.width ?? layer!.width;
-            const height = layer!.width > 0 ? (width / layer!.width) * layer!.height : layer!.height;
-            return { x: member.x, y: member.y, width, height };
-        });
-        const minX = Math.min(...boxes.map(box => box.x));
-        const minY = Math.min(...boxes.map(box => box.y));
-        const centreX = (minX + Math.max(...boxes.map(box => box.x + box.width))) / 2;
-        const centreY = (minY + Math.max(...boxes.map(box => box.y + box.height))) / 2;
-        return {
-            x: centreX - FRAME_WIDTH / 2,
-            y: centreY - FRAME_HEIGHT / 2,
-            width: FRAME_WIDTH,
-            height: FRAME_HEIGHT,
-        } as Layer;
-    };
-
-    /**
-     * A fraction of the scene's frame, in canvas coordinates.
-     *
-     * `at.y` is where the FEET go, not the top of the picture, because that is
-     * what somebody placing an actor means: "standing on the ground" is a
-     * statement about the bottom of them. Getting this backwards puts a tall
-     * character's head where their boots should be and hangs the rest off the
-     * bottom of the set.
-     *
-     * With no backdrop there is nothing to be a fraction of, and the honest
-     * answer is none rather than a number relative to the whole canvas.
-     */
-    const placeOn = (
-        floor: Layer | null,
-        at: { x?: number; y?: number } | undefined,
-        width: number,
-        height: number,
-        spread: { index: number; of: number } | null,
-    ): { x: number; y: number } | null => {
-        if (!floor) return null;
-        const across = num(at?.x) ? at!.x!
-            // Spread evenly along the ground: two actors at a third and two
-            // thirds, one in the middle. Better than a pile in the corner, and
-            // better than the canvas position they arrived with.
-            : spread ? (spread.index + 1) / (spread.of + 1)
-                : null;
-        const up = num(at?.y) ? at!.y! : spread ? 0.92 : null;
-        if (across === null || up === null) return null;
-        return {
-            x: floor.x + floor.width * across - width / 2,
-            y: floor.y + floor.height * up - height,
-        };
-    };
-
-    /**
-     * A width that makes this piece the right height for the stage.
-     *
-     * Given as a fraction of the backdrop's height, because that is the only
-     * measurement in the scene an agent can reason about: "half as tall as the
-     * set" is a thing you can picture, and "two hundred and twenty canvas
-     * units" is not.
-     *
-     * The default is a person's share of a stage. It is applied whenever nobody
-     * has said otherwise, including to scenery — a tree at half the height of
-     * the backdrop is wrong but sane, where a tree at its cut size is a tree
-     * standing in front of the entire theatre.
-     */
-    const sizedToStage = (
-        floor: Layer | null,
-        layer: Layer,
-        share: number | undefined,
-    ): number | null => {
-        if (!floor || layer.height <= 0) return null;
-        // A piece as wide as the stage is a scene layer — a midground or
-        // foreground slice — and slices keep the stage's width unless told
-        // otherwise: sized "like a person" they would shrink to half a room.
-        if (!num(share) && Math.abs(layer.width - floor.width) < 2) return null;
-        const wanted = floor.height * (num(share) ? Math.max(0.02, Math.min(3, share!)) : 0.5);
-        return (wanted / layer.height) * layer.width;
-    };
-
-    /**
-     * Where a cast member stands, in the units it was placed with.
-     *
-     * The reason this exists is a bug that looked like the agent being stupid
-     * and was not. It placed everybody in fractions of the backdrop — the units
-     * stage_cast asks for — and then read the scene back in raw canvas
-     * coordinates, which are the units nothing accepts. It could not check its
-     * own work, so it stopped trusting the fractions and went back to guessing
-     * absolute numbers, which is exactly what those fractions were introduced
-     * to replace.
-     *
-     * Say it back in the language it was said in.
-     */
-    const relativeTo = (
-        placement: Placement,
-        floor: Layer | null,
-    ): { x: number; feet: number; size: number } | null => {
-        if (!floor || floor.width <= 0 || floor.height <= 0) return null;
-        const layer = collage.get(placement.id);
-        if (!layer) return null;
-        const width = placement.width ?? layer.width;
-        const height = layer.width > 0 ? (width / layer.width) * layer.height : layer.height;
-        return {
-            x: (placement.x + width / 2 - floor.x) / floor.width,
-            // Feet, not the top: it is what "at" means, and the difference is
-            // the whole of a tall thing.
-            feet: (placement.y + height - floor.y) / floor.height,
-            size: height / floor.height,
-        };
-    };
-
-    const describeMember = (placement: Placement, floor: Layer | null): string => {
-        // A held thing's x/y are offsets from its holder, and reporting them
-        // as stage fractions would be reporting nonsense with confidence.
-        if (placement.on) {
-            return `${placement.id}${placement.as ? ` as ${placement.as}` : ""} ` +
-                `(held by ${placement.on})`;
-        }
-        const where = relativeTo(placement, floor);
+    const describeMember = (placement: Placement): string => {
         const name = `${placement.id}${placement.as ? ` as ${placement.as}` : ""}`;
-        const at = where
-            ? `at x ${where.x.toFixed(2)}, feet ${where.feet.toFixed(2)}, size ${where.size.toFixed(2)}`
-            // No backdrop, nothing to be a fraction of. Raw units are all there
-            // is, and saying so is better than implying they mean something.
-            : `at ${Math.round(placement.x)}, ${Math.round(placement.y)} (no backdrop to measure against)`;
+        const layer = collage.own(placement.id);
+        if (layer?.held) return `${name} (held by ${layer.held.by})`;
+        const at = layer
+            ? `at ${Math.round(layer.x)}, ${Math.round(layer.y)} (${Math.round(layer.width)} wide)`
+            : `(layer missing)`;
         return `${name} ${at}` +
-            `${placement.flip ? " (flipped)" : ""}` +
-            `${placement.plane && placement.plane !== "mid" ? ` [${placement.plane}]` : ""}` +
             `${placement.entrance ? ` (enters ${placement.entrance})` : ""}` +
             // Said either way. "Silent" is the more useful half: a part whose
             // lines only ever appear in a bubble is the thing an agent needs
             // told, and it is invisible in every other reply.
             `${placement.voice ? ` (voice ${placement.voice})` : " (silent)"}`;
     };
-
-    /** Does any of this placement land on the backdrop at all? */
-    const overlapsFloor = (
-        placement: Placement,
-        width: number,
-        height: number,
-        floor: Layer,
-    ): boolean =>
-        placement.x < floor.x + floor.width && placement.x + width > floor.x &&
-        placement.y < floor.y + floor.height && placement.y + height > floor.y;
 
     return [
         {
@@ -766,15 +616,13 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                  * them by name is the whole cost of a paragraph.
                  */
                 const handErrors: string[] = [];
-                const inCast = new Set(stage.cast.map(member => member.id));
                 for (const [index, beat] of beats.entries()) {
                     for (const [field, target] of [["take", str(beat?.take)], ["drop", str(beat?.drop)]] as const) {
                         if (!target) continue;
-                        if (!inCast.has(target)) {
-                            handErrors.push(`beat ${index + 1}: "${target}" is not in this scene's cast`);
-                        } else if (target === stage.backdrop) {
-                            handErrors.push(`beat ${index + 1}: the backdrop is the room, not a prop`);
-                        } else if (field === "take" && stage.cast.some(member => member.on === target)) {
+                        if (!collage.own(target)) {
+                            handErrors.push(`beat ${index + 1}: there is no piece "${target}" — call piece_list`);
+                        } else if (field === "take" &&
+                            collage.listAll().some(layer => layer.held?.by === target)) {
                             handErrors.push(
                                 `beat ${index + 1}: "${target}" is itself holding something — ` +
                                 `one level only, no chains`);
@@ -915,13 +763,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "stage_create",
             title: "Make a scene",
             description:
-                "Create a stage: a named scene with a cast. A stage does not own its layers — " +
-                "it records where they stand while it plays — so one character can appear in two scenes at " +
-                "different places without being duplicated, and restyling it changes it in both. Pass an " +
-                "existing id to rename a stage or change its backdrop. Scenes live at their own sections of " +
-                "one infinite canvas: showing a stage places its cast and points the camera there, while " +
-                "everything else stays put on the paper — so build each scene at its own spot, and a " +
-                "show becomes the camera travelling from one to the next.",
+                "Create a chapter: a named stretch of the story, with its own cast, script and music. " +
+                "Chapters do not own or move anything — the canvas is one continuous world, and a show " +
+                "is the camera following the story across it: chapter one leaves the hero at the forest's " +
+                "edge and chapter two picks her up exactly there. Walks and jumps really move the pieces; " +
+                "when the show ends, the arrangement is put back the way it was at curtain-up. Pass an " +
+                "existing id to rename a chapter.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -1015,16 +862,13 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "stage_cast",
             title: "Put layers in a scene",
             description:
-                "Say who is in a scene and where they stand. Positions belong to THIS scene only — the same " +
-                "layer stands somewhere else in another. Anyone already in it is moved; anyone new is added. " +
-                "Give each one an \"as\" — who they are playing — and they are credited by name at the end. " +
-                "The canvas is one flat world seen from above — orthographic, no perspective — and a scene " +
-                "is a place on it. The composition does not stop at the backdrop's edge: a willow may hang " +
-                "over it, a web may float on the open paper beside it, and that overflow is what makes it " +
-                "look made by hand. Say how big with \"size\" and where with \"at\" (fractions of the " +
-                "scene's frame), or place freely with raw x/y — piece_list reads those same units back. " +
-                "Someone left out of a scene is not deleted, only absent from it. A layer keeps the position " +
-                "it already has unless you give it one, so adding somebody does not fling them to the corner.",
+                "Say who is IN a chapter — who they play, which voice, how they arrive. Casting does not " +
+                "move anybody: the canvas is one continuous world, every piece stands exactly where it " +
+                "stands, and the arrangement on the paper IS the blocking. Pass x/y/width only to also " +
+                "move or resize the piece in the world (same units piece_list reports); leave them out to " +
+                "cast things right where they are. Give each an \"as\" — who they are playing — and they " +
+                "are credited by name at the end. Someone left out of a chapter is not deleted, only " +
+                "absent from its story.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -1036,42 +880,21 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             type: "object",
                             properties: {
                                 id: { type: "string", description: "The layer." },
-                                at: {
-                                    type: "object",
-                                    description:
-                                        "Where they stand as fractions of the scene's frame — the backdrop " +
-                                        "if it has one, otherwise the cast's own footprint. x: 0 is the " +
-                                        "left edge, 0.5 the middle, 1 the right; going a little past 0–1 " +
-                                        "deliberately hangs a piece over the edge, which good compositions " +
-                                        "do. y is where their FEET are: 0.9 standing on the ground, 0.5 " +
-                                        "halfway up, 0 the top edge.",
-                                    properties: {
-                                        x: { type: "number", description: "Across, 0–1." },
-                                        y: { type: "number", description: "Feet, 0–1 from the top." },
-                                    },
-                                },
                                 x: {
                                     type: "number",
                                     description:
-                                        "Raw canvas x (top-left corner). Free placement anywhere on the " +
-                                        "paper, on or off any backdrop — piece_list reports these same " +
-                                        "units, so you can read your own work back.",
+                                        "Move them here (canvas x, top-left corner) while casting — the " +
+                                        "same world units piece_list reports and piece_move takes. LEAVE " +
+                                        "IT OUT to cast them exactly where they stand: the arrangement on " +
+                                        "the canvas usually IS the blocking.",
                                 },
-                                y: { type: "number", description: "Raw canvas y (top-left corner)." },
-                                size: {
-                                    type: "number",
-                                    description:
-                                        "How TALL they are as a fraction of the scene's frame (the " +
-                                        "backdrop, or the cast's footprint without one). 0.5 is half " +
-                                        "its height, which is about right for a person; 0.15 for a " +
-                                        "mushroom; 0.9 for a big tree. USE THIS rather than width — a " +
-                                        "piece arrives at whatever size it was cut at, which has nothing " +
-                                        "to do with the scene it is going into.",
-                                },
+                                y: { type: "number", description: "Canvas y (top-left corner). Leave out to keep their spot." },
                                 width: {
                                     type: "number",
                                     description:
-                                        "Raw canvas width; height follows its shape. Prefer \"size\".",
+                                        "Resize them while casting (canvas units; height follows their " +
+                                        "shape). Clamped to 0.5–1.5× the current width per call. Leave " +
+                                        "out to keep their size — compare against piece_list's widths.",
                                 },
                                 rotation: { type: "number", description: "Degrees, clockwise." },
                                 entrance: {
@@ -1086,16 +909,6 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "whichever way it was drawn — look with show_look to see which — " +
                                         "and two people in conversation should face each other. The " +
                                         "\"turn\" move flips somebody mid-scene.",
-                                },
-                                plane: {
-                                    type: "string",
-                                    enum: [...PLANES],
-                                    description:
-                                        "How far back it stands: 'back', 'mid' (the default) or 'front'. " +
-                                        "They paint in that order, and they slide by different amounts " +
-                                        "when the camera moves — which is what makes a flat set look " +
-                                        "deep. Trees and buildings at the back, the people in the middle, " +
-                                        "a bush or a rock at the front.",
                                 },
                                 as: {
                                     type: "string",
@@ -1138,7 +951,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             },
             async execute(args: {
                 stage?: string;
-                cast?: Array<Placement & { at?: { x?: number; y?: number }; size?: number }>;
+                cast?: Array<Placement>;
                 remove?: string[];
             }) {
                 const found = resolve(str(args?.stage));
@@ -1148,10 +961,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 const wanted = Array.isArray(args?.cast) ? args.cast : [];
                 const dropped = new Set((Array.isArray(args?.remove) ? args.remove : []).map(str).filter(Boolean));
                 if (!wanted.length && !dropped.size) {
-                    return fail(`Nothing to do — pass "cast" to put layers in the scene, or "remove" to take them out.`);
+                    return fail(`Nothing to do — pass "cast" to put layers in the chapter, or "remove" to take them out.`);
                 }
 
-                const missing = wanted.map(m => str(m?.id)).filter(id => id && !collage.get(id));
+                const missing = wanted.map(m => str(m?.id)).filter(id => id && !collage.own(id));
                 if (missing.length) {
                     return fail(
                         `No layer called ${missing.map(id => `"${id}"`).join(", ")}. Call piece_list for ` +
@@ -1159,66 +972,38 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 }
 
                 const cast = stage.cast.filter(member => !dropped.has(member.id));
-                const floor = groundOf(stage);
-                const offStage: string[] = [];
 
-                for (const [index, member] of wanted.entries()) {
+                for (const member of wanted) {
                     const id = str(member?.id);
                     if (!id) continue;
-                    // The layer's own size, never its placed size: this whole
-                    // block decides what the placement should say, and asking
-                    // `get` would answer with what the placement already says.
-                    const layer = collage.own(id)!;
                     const at = cast.findIndex(existing => existing.id === id);
                     const previous = at >= 0 ? cast[at] : null;
 
                     /*
-                     * Sized before it is placed, because "standing on the
-                     * ground" is a statement about where the FEET are, and the
-                     * feet are one height below the top.
-                     *
-                     * And sized against the backdrop, not against whatever the
-                     * piece happened to be cut at. Every cell of a sheet comes
-                     * in at the same width, so a 16:9 backdrop and a standing
-                     * figure arrive the same width and therefore wildly
-                     * different heights — the figure ends up three times taller
-                     * than the stage it is meant to be standing on. It looked
-                     * exactly as wrong as it sounds.
+                     * Casting is MEMBERSHIP — who they play, which plane, how
+                     * they arrive. Where they stand is the world's business:
+                     * any x/y/width/rotation/flip passed here is a courtesy
+                     * edit applied straight to the layer, in the same units
+                     * piece_move uses, and leaving them out means "where they
+                     * already are", which is usually the right answer — the
+                     * person's arrangement is the blocking.
                      */
-                    const width = num(member.width) ? member.width
-                        // A piece already in the scene keeps the size it was
-                        // given, unless this call says otherwise: re-casting
-                        // somebody to change their entrance must not silently
-                        // resize them back to the default.
-                        : (previous && !num(member.size)) ? previous.width ?? layer.width
-                            : sizedToStage(floor, layer, member.size) ?? previous?.width ?? layer.width;
-                    const height = layer.width > 0 ? (width / layer.width) * layer.height : layer.height;
-
-                    const spot = placeOn(floor, member.at, width, height,
-                        // Nobody said where, and nobody has said before: spread
-                        // them along the ground rather than leaving them
-                        // wherever they happened to be lying on the canvas,
-                        // which is how a cast ends up standing off the set.
-                        previous ? null : { index, of: wanted.length });
+                    const layerPatch: Record<string, number | boolean> = {};
+                    if (num(member.x)) layerPatch.x = member.x!;
+                    if (num(member.y)) layerPatch.y = member.y!;
+                    if (num(member.width)) {
+                        // Half to half-again per call, like piece_move: every
+                        // giant in every play so far was one unchecked width.
+                        const own = collage.own(id)!;
+                        layerPatch.width = Math.min(own.width * 1.5,
+                            Math.max(own.width * 0.5, member.width!));
+                    }
+                    if (num(member.rotation)) layerPatch.rotation = member.rotation!;
+                    if (typeof member.flip === "boolean") layerPatch.flip = member.flip;
+                    if (Object.keys(layerPatch).length) collage.update(id, layerPatch);
 
                     const placement: Placement = {
                         id,
-                        x: num(member.x) ? member.x : spot?.x ?? previous?.x ?? layer.x,
-                        y: num(member.y) ? member.y : spot?.y ?? previous?.y ?? layer.y,
-                        /*
-                         * The width that was actually computed — which may be
-                         * the stage-relative default. The first version stored
-                         * only what the CALLER passed, so the sizedToStage
-                         * default was computed, used to place the feet, and
-                         * then thrown away: every piece cast without an
-                         * explicit size stood at whatever width it arrived at.
-                         * A play staged entirely from the troupe had lamps the
-                         * size of monuments, and nobody had made an error.
-                         */
-                        ...(width !== layer.width ? { width } : {}),
-                        ...(num(member.rotation)
-                            ? { rotation: member.rotation }
-                            : previous?.rotation !== undefined ? { rotation: previous.rotation } : {}),
                         ...(member.entrance && (ENTRANCES as readonly string[]).includes(member.entrance)
                             ? { entrance: member.entrance }
                             : previous?.entrance ? { entrance: previous.entrance } : {}),
@@ -1229,19 +1014,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         // silent, which is the hardest kind of wrong to notice.
                         ...(findVoice(str(member.voice)) ? { voice: str(member.voice) }
                             : previous?.voice ? { voice: previous.voice } : {}),
-                        ...(member.plane && (PLANES as readonly string[]).includes(member.plane)
-                            ? { plane: member.plane }
-                            : previous?.plane ? { plane: previous.plane } : {}),
-                        ...(typeof member.flip === "boolean" ? { flip: member.flip }
-                            : previous?.flip ? { flip: previous.flip } : {}),
                     };
                     if (at >= 0) cast[at] = placement;
                     else cast.push(placement);
-
-                    // Said rather than corrected. Somebody deliberately in the
-                    // wings is a real thing to want; somebody there by accident
-                    // is invisible, and the difference is not ours to guess.
-                    if (floor && !overlapsFloor(placement, width, height, floor)) offStage.push(id);
                 }
 
                 const next = collage.updateStage(stage.id, { cast })!;
@@ -1260,19 +1035,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                  */
                 if (next.cast.some(member => member.voice)) prompter.voices.warm();
 
-                const floorNow = next.backdrop ? collage.get(next.backdrop) : null;
                 return ok(
                     `"${next.name}": ` +
-                    `${next.cast.map(m => describeMember(m, floorNow)).join("; ")}\n` +
+                    `${next.cast.map(m => describeMember(m)).join("; ")}` +
                     `${dropped.size ? `, ${dropped.size} taken out` : ""}. ` +
-                    (offStage.length
-                        ? `WARNING: ${offStage.map(id => `"${id}"`).join(", ")} ` +
-                          `${offStage.length === 1 ? "is" : "are"} standing off the backdrop entirely and ` +
-                          `will not be seen. Place with "at" — fractions of the backdrop, x 0–1 across and ` +
-                          `y where the feet go — rather than raw canvas coordinates. `
-                        : "") +
                     (collage.activeStageId === next.id
-                        ? `It is the scene on screen — look with show_look.`
+                        ? `It is the chapter on screen — look with show_look.`
                         : `Show it with stage_describe show:"${next.id}".`),
                     { stage: next });
             },
@@ -1282,9 +1050,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             title: "The scenes",
             annotations: { readOnlyHint: true },
             description:
-                "Every scene, who is in it and where they stand, and which one the canvas is showing. Comes " +
-                "before changing a scene, the way piece_list comes before changing the canvas. Pass " +
-                "'show' to switch scenes, or 'none' to see the whole canvas again.",
+                "Every chapter, who is in it, and which one is selected. Comes before changing a chapter, " +
+                "the way piece_list comes before changing the canvas. Pass 'show' to point the canvas at " +
+                "a chapter, or 'none' to stand back — the world stays visible either way.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -1313,42 +1081,25 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 const showing = collage.activeStageId;
                 const lines = stages.map(stage => {
-                    const floor = groundOf(stage);
                     const who = stage.cast.length
-                        ? stage.cast.map(m => describeMember(m, floor)).join("; ")
+                        ? stage.cast.map(m => describeMember(m)).join("; ")
                         : "nobody yet";
                     return `${stage.id} — "${stage.name}"${stage.id === showing ? "  [on screen]" : ""}` +
-                        `${stage.backdrop ? `, backdrop ${stage.backdrop}` : ""}\n    ${who}`;
-                });
-                const floating = stages.flatMap(stage => {
-                    const floor = groundOf(stage);
-                    if (!floor) return [];
-                    return stage.cast
-                        .filter(m => m.id !== stage.backdrop && !m.on)
-                        .filter(m => {
-                            const where = relativeTo(m, floor);
-                            return where && (where.feet < 0.6 || where.feet > 1.15);
-                        })
-                        .map(m => `${m.as || m.id} in "${stage.name}"`);
+                        `\n    ${who}`;
                 });
                 const billing = collage.billing;
                 return ok(
                     [
                         billing.title
                             ? `"${billing.title}"${billing.byline ? ` — ${billing.byline}` : ""}, ` +
-                              `${stages.length} scene(s):`
-                            : `${stages.length} scene(s). The show has no title yet — show_title gives it ` +
+                              `${stages.length} chapter(s):`
+                            : `${stages.length} chapter(s). The show has no title yet — show_title gives it ` +
                               `an opening card and heads the credits.`,
                         ...lines,
-                        ...(floating.length
-                            ? [`Standing in mid-air or through the floor: ${floating.join(", ")} — ` +
-                               `their feet are in the top half of the backdrop, or below its bottom ` +
-                               `edge. Unless that is deliberate, give them an "at" with y around 0.9.`]
-                            : []),
                         showing
-                            ? `The canvas is showing "${collage.activeStage?.name}", so piece_list and ` +
-                              `show_look answer about that scene alone.`
-                            : `The canvas is showing everything rather than one scene.`,
+                            ? `"${collage.activeStage?.name}" is the chapter on screen: its cast stands on ` +
+                              `its planes, and the whole world stays visible around it.`
+                            : `No chapter is selected; the canvas shows the world as it is.`,
                     ].join("\n"),
                     { stages, showing, billing });
             },

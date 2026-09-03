@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Collage, type ImageLayer } from "../src/lib/collage/model.js";
-import { castOf, placed, renamedIn, type EntranceName, type Stage } from "../src/lib/collage/stage.js";
+import { castOf, renamedIn, type EntranceName, type Stage } from "../src/lib/collage/stage.js";
 import { buildUp, entering, filmed, handOff, sceneBeats } from "../src/lib/collage/show.js";
 import { plan as planBeats, type Beat } from "../src/lib/collage/perform.js";
 import { SOUNDS, findSound, soundCatalogue, soundNames } from "../src/lib/collage/audio.js";
@@ -33,79 +33,66 @@ function canvasWith(count: number) {
     return { collage, layers };
 }
 
-describe("a stage holds placements, not layers", () => {
-    it("puts the same layer in two scenes at different places", () => {
+describe("a chapter holds memberships, not positions", () => {
+    it("never moves anybody: the world is one arrangement", () => {
+        // The whole point of the chapter model. Selecting a chapter tells the
+        // page who matters; it does not teleport anything anywhere.
         const { collage, layers } = canvasWith(1);
         const hero = layers[0].id;
-        const one = collage.addStage({ name: "rooftop", cast: [{ id: hero, x: 10, y: 20 }] });
-        const two = collage.addStage({ name: "alley", cast: [{ id: hero, x: 900, y: 400 }] });
+        const home = collage.own(hero)!;
+        const one = collage.addStage({ name: "rooftop", cast: [{ id: hero }] });
+        const two = collage.addStage({ name: "alley", cast: [{ id: hero }] });
 
         collage.setActiveStage(one.id);
-        expect(collage.get(hero)).toMatchObject({ x: 10, y: 20 });
+        expect(collage.get(hero)).toMatchObject({ x: home.x, y: home.y });
         collage.setActiveStage(two.id);
-        expect(collage.get(hero)).toMatchObject({ x: 900, y: 400 });
+        expect(collage.get(hero)).toMatchObject({ x: home.x, y: home.y });
+        void one;
+        void two;
     });
 
-    it("shares everything that is not a position", () => {
-        // Recolouring a character in one scene recolours it in the other,
-        // which is the whole reason not to duplicate it.
+    it("shares everything, position included", () => {
+        // Recolouring a character in one chapter recolours it in the other,
+        // and moving it moves it everywhere — there is only one of it.
         const { collage, layers } = canvasWith(1);
         const hero = layers[0].id;
-        const one = collage.addStage({ cast: [{ id: hero, x: 0, y: 0 }] });
-        const two = collage.addStage({ cast: [{ id: hero, x: 500, y: 0 }] });
+        const one = collage.addStage({ cast: [{ id: hero }] });
+        const two = collage.addStage({ cast: [{ id: hero }] });
 
         collage.setActiveStage(one.id);
-        collage.update(hero, { style: { silhouette: "#222" } });
+        collage.update(hero, { style: { silhouette: "#222" }, x: 500 });
 
         collage.setActiveStage(two.id);
         expect((collage.get(hero) as ImageLayer).style.silhouette).toBe("#222");
         expect(collage.get(hero)!.x).toBe(500);
     });
 
-    it("keeps the whole canvas visible while a scene is up", () => {
-        // Scenes live at their own sections of one canvas: showing one places
-        // its cast and points the camera, it does not make the world vanish.
+    it("keeps the whole canvas visible while a chapter is up", () => {
         const { collage, layers } = canvasWith(4);
-        const stage = collage.addStage({ cast: [{ id: layers[0].id, x: 0, y: 0 }, { id: layers[2].id, x: 50, y: 0 }] });
+        const stage = collage.addStage({ cast: [{ id: layers[0].id }, { id: layers[2].id }] });
 
         expect(collage.list()).toHaveLength(4);
         collage.setActiveStage(stage.id);
         expect(collage.list()).toHaveLength(4);
-        // The cast stands where the scene says...
-        expect(collage.list().find(l => l.id === layers[2].id)!.x).toBe(50);
-        // ...and the bystanders where they always were.
+        // Members and bystanders alike stand where they always were.
+        expect(collage.list().find(l => l.id === layers[2].id)!.x)
+            .toBe(collage.own(layers[2].id)!.x);
         expect(collage.list().find(l => l.id === layers[1].id)!.x)
             .toBe(collage.own(layers[1].id)!.x);
         collage.setActiveStage(null);
         expect(collage.list()).toHaveLength(4);
     });
 
-    it("draws the backdrop behind everyone", () => {
-        // A scene with its room painted over its people is not a scene.
-        const { collage, layers } = canvasWith(3);
-        const stage = collage.addStage({
-            backdrop: layers[2].id,
-            cast: [{ id: layers[0].id, x: 0, y: 0 }, { id: layers[1].id, x: 10, y: 0 }],
-        });
-        collage.setActiveStage(stage.id);
-        expect(collage.list()[0].id).toBe(layers[2].id);
-    });
-
     it("skips a cast member that has been deleted", () => {
-        // A deleted layer should vanish from every scene, not leave a hole with
-        // a name in it.
+        // A deleted layer should vanish from every chapter, not leave a hole
+        // with a name in it.
         const { collage, layers } = canvasWith(2);
         const stage = collage.addStage({
-            cast: [{ id: layers[0].id, x: 0, y: 0 }, { id: layers[1].id, x: 100, y: 0 }],
+            cast: [{ id: layers[0].id }, { id: layers[1].id }],
         });
         collage.remove(layers[1].id);
         collage.setActiveStage(stage.id);
         expect(collage.list()).toHaveLength(1);
-    });
-
-    it("resizes by width, letting height follow the layer's own shape", () => {
-        const layer = { width: 200, height: 100 } as ImageLayer;
-        expect(placed(layer, { id: "x", x: 0, y: 0, width: 400 }, 0)).toMatchObject({ width: 400, height: 200 });
     });
 
     it("falls back to the order given when a placement has no z", () => {
@@ -113,43 +100,42 @@ describe("a stage holds placements, not layers", () => {
             { id: "a", width: 10, height: 10, z: 99 },
             { id: "b", width: 10, height: 10, z: 1 },
         ] as ImageLayer[];
-        const stage = { id: "s", name: "s", backdrop: null, script: [], cast: [{ id: "b", x: 0, y: 0 }, { id: "a", x: 0, y: 0 }] };
+        const stage = { id: "s", name: "s", backdrop: null, script: [], cast: [{ id: "b" }, { id: "a" }] };
         const order = castOf(stage, id => layers.find(l => l.id === id) ?? null).map(l => l.id);
         expect(order).toEqual(["b", "a"]);
     });
 });
 
-describe("editing while a scene is showing", () => {
-    it("moves the character in this scene and no other", () => {
-        // The trap this design invites: blocking one scene silently re-blocking
-        // every other scene the same character is in.
+describe("editing while a chapter is showing", () => {
+    it("moves the one and only character, for every chapter at once", () => {
+        // There is one world: an edit made while a chapter shows is an edit
+        // to the world, and every chapter sees it.
         const { collage, layers } = canvasWith(1);
         const hero = layers[0].id;
-        const one = collage.addStage({ cast: [{ id: hero, x: 0, y: 0 }] });
-        const two = collage.addStage({ cast: [{ id: hero, x: 500, y: 0 }] });
+        const one = collage.addStage({ cast: [{ id: hero }] });
+        const two = collage.addStage({ cast: [{ id: hero }] });
 
         collage.setActiveStage(one.id);
         collage.update(hero, { x: 250, y: 60 });
 
         expect(collage.get(hero)).toMatchObject({ x: 250, y: 60 });
         collage.setActiveStage(two.id);
-        expect(collage.get(hero)).toMatchObject({ x: 500, y: 0 });
-        // And the layer's own position is untouched by either.
+        expect(collage.get(hero)).toMatchObject({ x: 250, y: 60 });
         collage.setActiveStage(null);
-        expect(collage.get(hero)!.x).toBe(0);
+        expect(collage.get(hero)!.x).toBe(250);
     });
 
-    it("sends a style change to the layer even in the same call as a move", () => {
+    it("sends a whole edit — move and restyle — to the layer in one call", () => {
         const { collage, layers } = canvasWith(1);
         const hero = layers[0].id;
-        const stage = collage.addStage({ cast: [{ id: hero, x: 0, y: 0 }] });
+        const stage = collage.addStage({ cast: [{ id: hero }] });
         collage.setActiveStage(stage.id);
 
         collage.update(hero, { x: 40, label: "the hero" });
 
         expect(collage.get(hero)).toMatchObject({ x: 40, label: "the hero" });
         collage.setActiveStage(null);
-        expect(collage.get(hero)).toMatchObject({ x: 0, label: "the hero" });
+        expect(collage.get(hero)).toMatchObject({ x: 40, label: "the hero" });
     });
 
     it("edits the layer itself for someone who is not in the scene", () => {
@@ -546,51 +532,38 @@ describe("who is on stage when the scene starts", () => {
 });
 
 describe("facing", () => {
-    it("is part of where somebody stands, so it is per scene", () => {
-        // The same wolf faces left in the forest and right outside the
-        // cottage. If flip lived on the layer alone, turning him in one scene
-        // would turn him in all of them.
+    it("is world state: the wolf faces the way the story last turned him", () => {
+        // One continuous world means one facing. A turn really turns him,
+        // and the next chapter meets him the way the last one left him.
         const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
         const wolf = collage.addImage({ src: "w", natural: { width: 100, height: 200 } });
-        const stage = collage.addStage({ name: "the wood", cast: [{ id: wolf.id, x: 0, y: 0, flip: true }] });
-        collage.setActiveStage(stage.id);
-        expect(collage.list().find(l => l.id === wolf.id)?.flip).toBe(true);
-        collage.setActiveStage(null);
-        expect(collage.list().find(l => l.id === wolf.id)?.flip).toBeUndefined();
-    });
-
-    it("routes a flip edit to the placement while a scene is showing", () => {
-        // What the turn move commits mid-performance. If this wrote to the
-        // layer instead, a turn in scene three would about-face scene one.
-        const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
-        const wolf = collage.addImage({ src: "w", natural: { width: 100, height: 200 } });
-        const stage = collage.addStage({ name: "the wood", cast: [{ id: wolf.id, x: 0, y: 0 }] });
+        const stage = collage.addStage({ name: "the wood", cast: [{ id: wolf.id }] });
         collage.setActiveStage(stage.id);
         collage.update(wolf.id, { flip: true });
-        expect(collage.getStage(stage.id)?.cast[0].flip).toBe(true);
+        expect(collage.list().find(l => l.id === wolf.id)?.flip).toBe(true);
         collage.setActiveStage(null);
-        expect(collage.get(wolf.id)?.flip).toBeUndefined();
+        expect(collage.get(wolf.id)?.flip).toBe(true);
     });
 });
 
 describe("things holding things", () => {
-    it("resolves a held placement as offsets from its holder", () => {
-        // While attached, x and y are OFFSETS — so a walk moves both as one
-        // and nothing has to keep them in step.
+    it("resolves a held layer as offsets from its holder's hand", () => {
+        // Holding is WORLD state on the layer: no chapter needed, and a
+        // lantern taken in chapter one is still in the hand in chapter two.
         const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
-        const girl = collage.addImage({ src: "g", natural: { width: 100, height: 200 } });
+        const girl = collage.addImage({ src: "g", natural: { width: 100, height: 200 }, x: 300, y: 100 });
         const basket = collage.addImage({ src: "b", natural: { width: 50, height: 50 } });
-        const stage = collage.addStage({
-            name: "the path",
-            cast: [
-                { id: girl.id, x: 300, y: 100 },
-                { id: basket.id, x: 40, y: 60, on: girl.id },
-            ],
-        });
-        collage.setActiveStage(stage.id);
+        collage.update(basket.id, { held: { by: girl.id, x: 40, y: 60 } });
+
         const seen = collage.list().find(layer => layer.id === basket.id)!;
         expect(seen.x).toBe(340);
         expect(seen.y).toBe(160);
+
+        // And it rides through every chapter alike, because there is only
+        // one world for it to be held in.
+        const stage = collage.addStage({ name: "the path", cast: [{ id: girl.id }] });
+        collage.setActiveStage(stage.id);
+        expect(collage.get(basket.id)!.x).toBe(340);
     });
 
     it("routes a drag of a held thing back into its offset", () => {
@@ -598,53 +571,52 @@ describe("things holding things", () => {
         // ARE — so the door has to translate, or dragging a held basket would
         // teleport it by the holder's whole position.
         const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
-        const girl = collage.addImage({ src: "g", natural: { width: 100, height: 200 } });
+        const girl = collage.addImage({ src: "g", natural: { width: 100, height: 200 }, x: 300, y: 100 });
         const basket = collage.addImage({ src: "b", natural: { width: 50, height: 50 } });
-        const stage = collage.addStage({
-            name: "the path",
-            cast: [
-                { id: girl.id, x: 300, y: 100 },
-                { id: basket.id, x: 40, y: 60, on: girl.id },
-            ],
-        });
-        collage.setActiveStage(stage.id);
+        collage.update(basket.id, { held: { by: girl.id, x: 40, y: 60 } });
+
         collage.update(basket.id, { x: 350, y: 170 });
-        const member = collage.getStage(stage.id)!.cast[1];
-        expect(member.x).toBe(50);
-        expect(member.y).toBe(70);
-        expect(member.on).toBe(girl.id);
+        const held = collage.own(basket.id)!.held!;
+        expect(held.x).toBe(50);
+        expect(held.y).toBe(70);
+        expect(held.by).toBe(girl.id);
     });
 
-    it("lets a held thing keep its feet when its holder does not survive a move", () => {
-        // renamedIn drops anyone whose picture did not arrive. A held thing
-        // whose holder vanished must not keep offsets pretending to be
-        // positions — it lands exactly where it stood.
-        const stage: Stage = {
-            id: "s1", name: "the path", backdrop: null,
-            cast: [
-                { id: "girl", x: 300, y: 100 },
-                { id: "basket", x: 40, y: 60, on: "girl" },
-            ],
-            script: [],
-        };
-        const moved = renamedIn(stage, new Map([["basket", "basket2"]]));
-        expect(moved.cast).toHaveLength(1);
-        expect(moved.cast[0].on).toBeUndefined();
-        expect(moved.cast[0].x).toBe(340);
-        expect(moved.cast[0].y).toBe(160);
+    it("follows the holder wherever the story walks them", () => {
+        // The whole point of offsets: move the girl, the basket comes along
+        // without anything keeping them in step.
+        const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
+        const girl = collage.addImage({ src: "g", natural: { width: 100, height: 200 }, x: 300, y: 100 });
+        const basket = collage.addImage({ src: "b", natural: { width: 50, height: 50 } });
+        collage.update(basket.id, { held: { by: girl.id, x: 40, y: 60 } });
+
+        collage.update(girl.id, { x: 1300 });
+        expect(collage.get(basket.id)!.x).toBe(1340);
     });
 
-    it("carries the attachment through a rename when both survive", () => {
-        const stage: Stage = {
-            id: "s1", name: "the path", backdrop: null,
-            cast: [
-                { id: "girl", x: 300, y: 100 },
-                { id: "basket", x: 40, y: 60, on: "girl" },
-            ],
-            script: [],
-        };
-        const moved = renamedIn(stage, new Map([["girl", "g2"], ["basket", "b2"]]));
-        expect(moved.cast[1].on).toBe("g2");
-        expect(moved.cast[1].x).toBe(40);
+    it("keeps its last spot when the holder is deleted", () => {
+        // Offsets from nobody are not a position: a vanished holder leaves
+        // the held thing standing at its own last committed coordinates.
+        const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
+        const girl = collage.addImage({ src: "g", natural: { width: 100, height: 200 }, x: 300, y: 100 });
+        const basket = collage.addImage({ src: "b", natural: { width: 50, height: 50 }, x: 20, y: 30 });
+        collage.update(basket.id, { held: { by: girl.id, x: 40, y: 60 } });
+
+        collage.remove(girl.id);
+        expect(collage.get(basket.id)).toMatchObject({ x: 20, y: 30 });
+    });
+
+    it("lets a drop write the landing spot instead of new offsets", () => {
+        // A drop passes held:null plus where it landed; routing that spot
+        // into offsets from a hand that is opening would obey the old state
+        // over the edit.
+        const collage = new Collage({ newId: p => `${p}-${Math.random()}` });
+        const girl = collage.addImage({ src: "g", natural: { width: 100, height: 200 }, x: 300, y: 100 });
+        const basket = collage.addImage({ src: "b", natural: { width: 50, height: 50 } });
+        collage.update(basket.id, { held: { by: girl.id, x: 40, y: 60 } });
+
+        collage.update(basket.id, { held: null, x: 500, y: 250 });
+        expect(collage.own(basket.id)!.held).toBeUndefined();
+        expect(collage.get(basket.id)).toMatchObject({ x: 500, y: 250 });
     });
 });

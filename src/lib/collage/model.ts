@@ -16,7 +16,6 @@
  */
 
 import {
-    castOf, placed, placeWith, withoutPlacement,
     type Placement, type PlaneName, type Stage, type StageSpec,
 } from "./stage.js";
 export type { EntranceName, Placement, PlaneName, Stage, StageSpec } from "./stage.js";
@@ -87,6 +86,16 @@ interface LayerBase {
      * artwork is mirrored", and whoever sets it has looked at the picture.
      */
     flip?: boolean;
+    /**
+     * Held by, riding on, sitting in: WORLD state, on the layer itself, so a
+     * lantern taken in chapter one is still in the hand when chapter two
+     * opens. `x`/`y` are offsets from the holder's layer; while held, the
+     * layer's own x/y are dormant and come back when it is put down.
+     *
+     * One level only — a thing held by a held thing is a chain nobody can
+     * reason about, and the tools refuse it.
+     */
+    held?: { by: string; x: number; y: number };
 }
 
 export interface ImageLayer extends LayerBase {
@@ -389,6 +398,8 @@ export interface LayerPatch {
     fontWeight?: number;
     align?: "left" | "center" | "right";
     style?: Partial<LayerStyle>;
+    /** Attach to another layer's hand (offsets from it), or null to let go. */
+    held?: { by: string; x: number; y: number } | null;
 }
 
 export interface CollageOptions {
@@ -419,35 +430,6 @@ export interface Billing {
     title?: string;
     /** The line under the title — "a play in two scenes", "after Grimm". */
     byline?: string;
-}
-
-/** Does this edit say where something stands, rather than what it is? */
-function isPlacement(patch: LayerPatch): boolean {
-    // flip is here because facing is part of where somebody stands: the same
-    // character faces left in scene one and right in scene three.
-    return ["x", "y", "width", "height", "rotation", "z", "flip"].some(key => key in patch);
-}
-
-/**
- * A placement edit, with height folded into width.
- *
- * A placement stores one dimension because the other follows the layer's own
- * shape; an edit that gave only a height would otherwise be silently dropped.
- */
-function sizedPatch(patch: LayerPatch, layer: Layer) {
-    const width = typeof patch.width === "number" && patch.width > 0
-        ? patch.width
-        : typeof patch.height === "number" && patch.height > 0 && layer.height > 0
-            ? (patch.height / layer.height) * layer.width
-            : undefined;
-    return {
-        ...(typeof patch.x === "number" ? { x: patch.x } : {}),
-        ...(typeof patch.y === "number" ? { y: patch.y } : {}),
-        ...(typeof patch.flip === "boolean" ? { flip: patch.flip } : {}),
-        ...(width !== undefined ? { width } : {}),
-        ...(typeof patch.rotation === "number" ? { rotation: patch.rotation } : {}),
-        ...(typeof patch.z === "number" ? { z: patch.z } : {}),
-    };
 }
 
 /** Edits of the same kind closer together than this undo as one step. */
@@ -653,32 +635,27 @@ export class Collage {
         this.emit();
     }
 
+    /**
+     * A layer as it stands in the world: held things ride their holder.
+     * Non-recursive on purpose — attachments are one level deep by rule.
+     */
+    private standing(layer: Layer): Layer {
+        if (!layer.held) return layer;
+        const holder = this.layers.get(layer.held.by);
+        // A vanished holder means the hand opened: the layer keeps its own
+        // (last committed) position rather than offsets from nobody.
+        if (!holder) return layer;
+        return { ...layer, x: holder.x + layer.held.x, y: holder.y + layer.held.y };
+    }
+
     list(): Layer[] {
-        const stage = this.activeStage;
-        if (!stage) return [...this.layers.values()].sort((a, b) => a.z - b.z);
         /*
-         * The scene, ON the canvas — not instead of it. Scenes live at their
-         * own sections of one infinite sheet of paper: the cast stands where
-         * the scene places it, and everything else stays exactly where it is,
-         * so the camera can travel from one scene to the next and the world
-         * keeps existing between them. Hiding the rest used to be this
-         * method's whole job; now the camera does the focusing.
+         * One world, always. A chapter neither moves nor hides anything, so
+         * the listing is the same whichever chapter is selected: every piece
+         * where it stands, held things in their holders' hands.
          */
-        const cast = castOf(stage, id => this.layers.get(id) ?? null);
-        const inScene = new Set(cast.map(layer => layer.id));
-        /*
-         * The scene outranks the rest of the canvas WHOLESALE. Cast members
-         * carry plane depths (back ≈ -100000, front ≈ +100000) while loose
-         * layers carry small document z values — merged raw, a bystander
-         * sticker interleaved with the mid plane and painted over the back
-         * of the scene being performed. So the rest keeps its own order but
-         * is pushed beneath everything the scene draws, backdrop included.
-         */
-        const rest = [...this.layers.values()]
-            .filter(layer => !inScene.has(layer.id))
-            .sort((a, b) => a.z - b.z)
-            .map((layer, at) => ({ ...layer, z: -2_000_000 + at }));
-        return [...cast, ...rest].sort((a, b) => a.z - b.z);
+        return [...this.layers.values()].map(layer => this.standing(layer))
+            .sort((a, b) => a.z - b.z);
     }
 
     /** Every layer, whatever stage is showing. For anything that edits the cast. */
@@ -704,12 +681,7 @@ export class Collage {
 
     get(id: string): Layer | null {
         const layer = this.layers.get(id);
-        if (!layer) return null;
-        const stage = this.activeStage;
-        if (!stage) return layer;
-        const index = stage.cast.findIndex(member => member.id === id);
-        if (index < 0) return stage.backdrop === id ? { ...layer, z: -1_000_000 } : layer;
-        return placed(layer, stage.cast[index], index);
+        return layer ? this.standing(layer) : null;
     }
 
     // ── Stages ──────────────────────────────────────────────────────────────
@@ -746,7 +718,11 @@ export class Collage {
      * that behaves exactly as a flat canvas always has.
      */
     planeOf(id: string): PlaneName {
-        return this.activeStage?.cast.find(member => member.id === id)?.plane ?? "mid";
+        // Planes are retired: the world has one stacking order, the person's.
+        // The middle is the plane that behaves exactly as a flat canvas
+        // always has, so everything stands on it.
+        void id;
+        return "mid";
     }
 
     /** What the show is called. Empty until somebody names it. */
@@ -989,42 +965,25 @@ export class Collage {
         const current = this.layers.get(id);
         if (!current) return null;
 
-        // While a stage is showing, where something stands is the stage's
-        // business and everything else is the layer's. Routing it here rather
-        // than at every call site is what lets dragging, arranging and the
-        // agent's own transforms all do the right thing without knowing that
-        // stages exist — and stops a scene's blocking leaking into the others
-        // the same character appears in.
-        const stage = this.activeStage;
-        if (stage && isPlacement(patch)) {
-            const index = stage.cast.findIndex(member => member.id === id);
-            if (index >= 0) {
-                this.remember(`place-${Object.keys(patch).sort().join(",")}-${id}`);
-                const cast = [...stage.cast];
-                /*
-                 * The canvas edits in world coordinates — it can only see
-                 * where things ARE — but an attached placement stores offsets
-                 * from its holder. Translate at the door, or dragging a held
-                 * basket would teleport it by the holder's whole position.
-                 */
-                const sized = sizedPatch(patch, current);
-                const holder = cast[index].on
-                    ? cast.find(member => member.id === cast[index].on)
-                    : null;
-                if (holder) {
-                    if (typeof sized.x === "number") sized.x -= holder.x;
-                    if (typeof sized.y === "number") sized.y -= holder.y;
-                }
-                cast[index] = placeWith(cast[index], sized);
-                this.stages.set(stage.id, { ...stage, cast });
-                const rest = withoutPlacement(patch);
-                if (Object.keys(rest).length) {
-                    // Anything that is not about position still belongs to the
-                    // layer, so one call can move a character and recolour it.
-                    this.applyToLayer(id, rest as LayerPatch);
-                }
-                this.emit();
-                return this.get(id);
+        /*
+         * The world is one arrangement: edits go to the layer. The single
+         * exception is moving something that is currently HELD — its position
+         * is offsets from its holder's hand, so a world-coordinate move
+         * translates into offsets at the door, or dragging a held basket
+         * would teleport it by the holder's whole position.
+         */
+        // Not when the patch SPEAKS about holding: a drop passes held:null
+        // plus the landing spot, and routing that spot into offsets from a
+        // hand that is opening would be obeying the old state over the edit.
+        if (current.held && !("held" in patch)
+            && (typeof patch.x === "number" || typeof patch.y === "number")) {
+            const holder = this.layers.get(current.held.by);
+            if (holder) {
+                const next: LayerPatch = { ...patch };
+                const held = { ...current.held };
+                if (typeof next.x === "number") { held.x = next.x - holder.x; delete next.x; }
+                if (typeof next.y === "number") { held.y = next.y - holder.y; delete next.y; }
+                return this.applyToLayer(id, { ...next, held });
             }
         }
         return this.applyToLayer(id, patch);
@@ -1044,6 +1003,10 @@ export class Collage {
         if (typeof patch.z === "number") next.z = patch.z;
         if (typeof patch.flip === "boolean") next.flip = patch.flip;
         if (typeof patch.label === "string") next.label = patch.label;
+        if ("held" in patch) {
+            if (patch.held) next.held = { ...patch.held };
+            else delete next.held;
+        }
 
         // Resizing keeps the aspect ratio unless both dimensions are given —
         // the aspect is a property of the pixels, not of the layout.

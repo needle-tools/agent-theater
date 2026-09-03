@@ -769,7 +769,7 @@ describe("the surface an agent actually sees", () => {
             "piece_add", "piece_copy", "piece_list", "piece_move", "piece_remove", "piece_sheet", "piece_text",
             "show_look", "show_play", "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",
-            "theater_art_prompt", "theater_batch", "theater_start",
+            "theater_art_prompt", "theater_batch", "theater_clear", "theater_start",
         ]);
     });
 
@@ -829,17 +829,16 @@ describe("the guide", () => {
         expect(data.stages[0].cast).toBe(0);
     });
 
-    it("asks for scenery when a scene is a backdrop with figures on it", async () => {
-        // Where every attempt so far has stopped: a backdrop, one character
-        // standing on it, and nothing on the other two planes — which is a
-        // picture rather than a set, and leaves the parallax nothing to do.
+    it("asks for a script once a chapter has somebody in it", async () => {
+        // Planes are retired: a chapter with a cast and no script is simply
+        // waiting for its story, and that is the next thing to say.
         const { studio, collage } = fakeStudio();
         const layer = collage.addImage({ src: "a", natural: { width: 100, height: 100 } });
         const stage = collage.addStage({ name: "Der Waldweg" });
-        collage.updateStage(stage.id, { cast: [{ id: layer.id, x: 0, y: 0 }] });
+        collage.updateStage(stage.id, { cast: [{ id: layer.id }] });
         const { text } = await guideOf(studio);
-        expect(text).toContain("not a set");
-        expect(text).toContain("scenery");
+        expect(text).toContain("nothing to do");
+        expect(text).toContain("stage_script");
     });
 
     it("moves on to the script once the scene has depth in it", async () => {
@@ -870,29 +869,21 @@ describe("the guide", () => {
     });
 });
 
-describe("reading a scene back", () => {
-    /**
-     * The bug this exists to catch looked like the agent being careless and was
-     * not. It placed everybody in fractions of the backdrop — the units
-     * stage_cast asks for — and then read the scene back in raw canvas
-     * coordinates, which are the units nothing accepts. Unable to check its own
-     * work, it stopped trusting the fractions and went back to guessing
-     * absolute numbers, which is precisely what the fractions replaced.
+describe("reading a chapter back", () => {
+    /*
+     * The rule the old fraction system existed to enforce still holds, just
+     * without the fractions: what stage_describe SAYS must be what stage_cast
+     * and piece_move ACCEPT — the layer's own world units — or the agent
+     * cannot check its own work.
      */
-    const sceneWith = (placement: Record<string, unknown>) => {
+    const sceneWith = (spot: { x: number; y: number; width: number }) => {
         const { studio, collage } = fakeStudio();
-        // A 1000 x 500 backdrop at the origin, so the arithmetic is readable.
-        const floor = collage.addImage({
-            src: "sky", natural: { width: 1000, height: 500 }, width: 1000, x: 0, y: 0,
-        });
         const tree = collage.addImage({
-            src: "tree", natural: { width: 100, height: 200 }, width: 100, x: 0, y: 0,
+            src: "tree", natural: { width: 100, height: 200 }, ...spot,
         });
-        const stage = collage.addStage({ name: "the wood", backdrop: floor.id });
-        collage.updateStage(stage.id, {
-            cast: [{ id: tree.id, x: 0, y: 0, ...placement }],
-        });
-        return { studio, ids: { floor: floor.id, tree: tree.id } };
+        const stage = collage.addStage({ name: "the wood" });
+        collage.updateStage(stage.id, { cast: [{ id: tree.id, as: "the old tree" }] });
+        return { studio, collage, ids: { tree: tree.id } };
     };
 
     const describe = async (studio: any) => {
@@ -901,44 +892,20 @@ describe("reading a scene back", () => {
         return result.content.map((c: any) => c.text).join("\n");
     };
 
-    it("answers in the units the placement was made in", async () => {
-        // Half across, feet on the ground, a fifth of the height of the set:
-        // width 100 and height 200 on a 500-tall backdrop is size 0.40.
+    it("answers in world units — the same numbers piece_list speaks", async () => {
         const { studio } = sceneWith({ x: 450, y: 250, width: 100 });
         const text = await describe(studio);
-        expect(text).toContain("x 0.50");
-        expect(text).toContain("feet 0.90");
-        expect(text).toContain("size 0.40");
-        // And not in the units nothing accepts.
-        expect(text).not.toContain("at 450, 250");
+        expect(text).toContain("at 450, 250");
+        expect(text).toContain("100 wide");
+        expect(text).toContain("as the old tree");
     });
 
-    it("measures the feet rather than the top, which is the whole of a tall thing", async () => {
-        const { studio } = sceneWith({ x: 450, y: 0, width: 100 });
-        // Top at 0, height 200, so the feet are at 200 of 500.
-        expect(await describe(studio)).toContain("feet 0.40");
-    });
-
-    it("says plainly when somebody is standing in mid-air", async () => {
-        const { studio } = sceneWith({ x: 450, y: 0, width: 100 });
-        const text = await describe(studio);
-        expect(text).toContain("mid-air");
-        expect(text).toContain("0.9");
-    });
-
-    it("measures a backdropless scene against a stage-sized frame on its cast", async () => {
-        // The world is one open sheet now: a scene without a backdrop is not
-        // unmeasurable, its frame is a fixed-size virtual stage centred on
-        // wherever the cast stands — fixed, so fractions keep a stable scale
-        // however far the arrangement sprawls. A lone member reads back at
-        // the frame's centre.
-        const { studio, collage } = fakeStudio();
-        const tree = collage.addImage({ src: "t", natural: { width: 100, height: 200 } });
-        const stage = collage.addStage({ name: "nowhere" });
-        collage.updateStage(stage.id, { cast: [{ id: tree.id, x: 12, y: 34 }] });
-        const text = await describe(studio);
-        expect(text).toContain("x 0.50");
-        expect(text).toContain("feet 0.66");
+    it("reports where the piece actually stands, not where anything placed it", async () => {
+        // Casting never moved it; a later world edit is what the readback
+        // must reflect.
+        const { studio, collage, ids } = sceneWith({ x: 450, y: 250, width: 100 });
+        collage.update(ids.tree, { x: 1200 });
+        expect(await describe(studio)).toContain("at 1200, 250");
     });
 });
 
@@ -1199,129 +1166,63 @@ describe("the troupe drawer", () => {
     });
 });
 
-describe("how big a cast member ends up", () => {
-    /**
-     * The bug this pins: stage_cast COMPUTED a stage-relative width for pieces
-     * cast without a size — and never stored it. Used for the feet math, then
-     * thrown away. Every piece cast from the troupe without an explicit size
-     * stood at its drawer arrival width, which is how a play got a floor lamp
-     * the size of a monument, with nobody having made an error anywhere.
+describe("casting touches the world only when asked", () => {
+    /*
+     * Chapters do not size or place anybody. The world's arrangement is the
+     * blocking; x/y/width on a cast entry are a courtesy edit to the LAYER,
+     * in world units, and leaving them out means "exactly as they stand".
      */
     const staged = () => {
         const { studio, collage } = fakeStudio();
-        const floor = collage.addImage({
-            src: "sky", natural: { width: 1000, height: 500 }, width: 1000, x: 0, y: 0,
-        });
-        const stage = collage.addStage({ name: "the wood", backdrop: floor.id });
+        const stage = collage.addStage({ name: "the wood" });
         collage.setActiveStage(stage.id);
         const cast = createCollageTools(studio).find(t => t.name === "stage_cast")!;
         return { studio, collage, stage, cast };
     };
 
-    it("stores the stage-relative default, not just the caller's number", async () => {
+    it("leaves a piece exactly where and how big it stands", async () => {
         const { collage, stage, cast } = staged();
-        // 100 × 200 at drawer size; half the 500-tall stage is 250 tall → 125 wide.
+        const tree = collage.addImage({
+            src: "tree", natural: { width: 100, height: 200 }, width: 100, x: 320, y: 45,
+        });
+        await cast.execute({ stage: stage.id, cast: [{ id: tree.id, as: "the tree" }] });
+
+        const layer = collage.own(tree.id)!;
+        expect(layer).toMatchObject({ x: 320, y: 45, width: 100 });
+        // And the membership records no position at all.
+        const member = collage.getStage(stage.id)!.cast[0];
+        expect(member.x).toBeUndefined();
+        expect(member.width).toBeUndefined();
+    });
+
+    it("moves and resizes the layer itself when coordinates are passed", async () => {
+        const { collage, stage, cast } = staged();
         const tree = collage.addImage({
             src: "tree", natural: { width: 100, height: 200 }, width: 100, x: 0, y: 0,
         });
-        await cast.execute({ stage: stage.id, cast: [{ id: tree.id, at: { x: 0.5, y: 0.9 } }] });
-        expect(collage.getStage(stage.id)!.cast[0].width).toBeCloseTo(125);
+        await cast.execute({
+            stage: stage.id,
+            cast: [{ id: tree.id, x: 700, y: -80, width: 140 }],
+        });
+
+        // The edit landed in the world — visible to every chapter and to
+        // piece_list — not in some scene-private ledger.
+        collage.setActiveStage(null);
+        expect(collage.own(tree.id)).toMatchObject({ x: 700, y: -80, width: 140 });
     });
 
-    it("leaves a scene layer at stage width instead of shrinking it to a person", async () => {
-        // A midground slice is as wide as the stage by construction. Sized
-        // "like a person" it would become half a room floating in the room.
+    it("survives a re-cast without drifting", async () => {
+        // Re-casting somebody to change their entrance must not move or
+        // resize them: membership edits are membership edits.
         const { collage, stage, cast } = staged();
-        const slice = collage.addImage({
-            src: "mid", natural: { width: 1000, height: 500 }, width: 1000, x: 0, y: 0,
+        const tree = collage.addImage({
+            src: "tree", natural: { width: 100, height: 200 }, width: 100, x: 320, y: 45,
         });
-        await cast.execute({ stage: stage.id, cast: [{ id: slice.id, plane: "front" }] });
-        expect(collage.getStage(stage.id)!.cast[0].width).toBeUndefined();
-    });
+        await cast.execute({ stage: stage.id, cast: [{ id: tree.id, x: 500, width: 120 }] });
+        await cast.execute({ stage: stage.id, cast: [{ id: tree.id, entrance: "fade" }] });
 
-    it("still honours an explicit size over the default", async () => {
-        const { collage, stage, cast } = staged();
-        const bug = collage.addImage({
-            src: "bug", natural: { width: 100, height: 100 }, width: 100, x: 0, y: 0,
-        });
-        await cast.execute({ stage: stage.id, cast: [{ id: bug.id, size: 0.1 }] });
-        expect(collage.getStage(stage.id)!.cast[0].width).toBeCloseTo(50);
-    });
-});
-
-describe("re-casting somebody who is already the right size", () => {
-    /**
-     * The bug this pins cost a scene its whole layout, and looked like the
-     * agent placing things badly.
-     *
-     * `collage.get` answers as the active stage — a cast member comes back at
-     * its placement, which is the point of the abstraction. But stage_cast is
-     * deciding what the placement should SAY, so asking `get` meant comparing
-     * the width it had just computed against the width the layer appeared to
-     * have *because of that very placement*. Equal, therefore "nothing to
-     * store", therefore the placement lost its width and the piece snapped
-     * back to the size it was cut at — while x and y stayed where they were,
-     * so everybody was the wrong size and off their mark at once.
-     *
-     * It only bit while a scene was being shown, and only on the second cast,
-     * which is why a play looked right as it was built and wrong ever after.
-     */
-    // No backdrop panels any more: the big room piece is ordinary scenery on
-    // the back plane, and its footprint is the frame the fractions refer to —
-    // the same box the backdrop used to be, so the numbers are unchanged.
-    const bedroom = () => {
-        const { studio, collage } = fakeStudio();
-        const floor = collage.addImage({
-            src: "room", natural: { width: 1260, height: 540 }, width: 960, x: -420, y: -206,
-        });
-        const woman = collage.addImage({
-            src: "woman", natural: { width: 260, height: 485 }, width: 260, x: -114, y: -429,
-        });
-        return { studio, collage, floor, woman, tools: createCollageTools(studio) };
-    };
-
-    const dress = (tools: any, floor: string) =>
-        tools.find((t: any) => t.name === "stage_cast")!.execute({
-            cast: [{ id: floor, x: -420, y: -206, width: 960, plane: "back" }],
-        });
-
-    const castOnce = (tools: any, woman: string) =>
-        tools.find((t: any) => t.name === "stage_cast")!.execute({
-            cast: [{ id: woman, as: "gran", at: { x: 0.32, y: 0.86 }, size: 0.42 }],
-        });
-
-    it("keeps the width it was given the first time", async () => {
-        const { collage, floor, woman, tools } = bedroom();
-        await tools.find(t => t.name === "stage_create")!.execute({ name: "bedroom" });
-        await dress(tools, floor.id);
-        await castOnce(tools, woman.id);
-
-        const womanIn = () => collage.listStages()[0].cast.find(m => m.id === woman.id);
-        const first = womanIn()!.width;
-        // 0.42 of the 610-tall virtual frame is 256.2 tall, which on a
-        // 260 x 485 drawing is 137.3 wide.
-        expect(first).toBeCloseTo(137.3, 1);
-
-        // Now with the scene actually showing, which is the case that broke.
-        collage.setActiveStage(collage.listStages()[0].id);
-        await castOnce(tools, woman.id);
-        expect(womanIn()!.width).toBeCloseTo(first!, 6);
-    });
-
-    it("still reads the scene back in the units it was cast in", async () => {
-        const { collage, floor, woman, tools } = bedroom();
-        await tools.find(t => t.name === "stage_create")!.execute({ name: "bedroom" });
-        await dress(tools, floor.id);
-        await castOnce(tools, woman.id);
-        collage.setActiveStage(collage.listStages()[0].id);
-        await castOnce(tools, woman.id);
-
-        const result = await tools.find(t => t.name === "stage_describe")!.execute({});
-        const text = result.content.map(part => ("text" in part ? part.text : "")).join(" ");
-        expect(text).toContain("size 0.42");
-        // Within a hundredth of what was cast: the virtual frame recentres
-        // as the cast grows, so the read-back can drift by a whisker — but
-        // it must stay in the same units, at essentially the same spot.
-        expect(text).toMatch(/feet 0\.8[4-8]/);
+        expect(collage.own(tree.id)).toMatchObject({ x: 500, width: 120 });
+        const member = collage.getStage(stage.id)!.cast[0];
+        expect(member.entrance).toBe("fade");
     });
 });

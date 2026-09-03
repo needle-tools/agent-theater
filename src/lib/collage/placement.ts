@@ -53,6 +53,30 @@ export function clearSpot(
     return near;
 }
 
+/**
+ * A width that reins a newcomer's HEIGHT in line with its peers.
+ *
+ * Sizing by width alone is how a pencil towers over a sheep: same width,
+ * four times the height. What the eye compares is how TALL things stand, so
+ * a piece whose height lands far outside the median of the arrangement is
+ * scaled back toward it. Returns null when the piece already fits in.
+ */
+export function tamedWidth(
+    piece: { width: number; height: number },
+    peers: Layer[],
+    fallbackHeight = 240,
+): number | null {
+    if (piece.height <= 0 || piece.width <= 0) return null;
+    const heights = peers
+        .filter(layer => layer.kind === "image" && layer.width < 900)
+        .map(layer => layer.height)
+        .sort((a, b) => a - b);
+    const median = heights.length ? heights[Math.floor(heights.length / 2)] : fallbackHeight;
+    if (piece.height <= median * 1.35 && piece.height >= median * 0.45) return null;
+    const clamped = Math.min(median * 1.35, Math.max(median * 0.6, piece.height));
+    return Math.round(piece.width * (clamped / piece.height));
+}
+
 /** The middle of everything on the canvas — where the arrangement lives. */
 export function arrangementCentre(layers: Layer[]): { x: number; y: number } {
     if (!layers.length) return { x: 0, y: 0 };

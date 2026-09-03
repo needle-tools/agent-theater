@@ -183,6 +183,7 @@
         },
         "bicycle": {
             "kind": "scenery",
+            "facing": "right",
             "mood": [
                 "friendly"
             ],
@@ -191,6 +192,7 @@
         },
         "kick-scooter": {
             "kind": "scenery",
+            "facing": "left",
             "mood": [
                 "friendly"
             ],
@@ -208,6 +210,7 @@
         },
         "bus": {
             "kind": "scenery",
+            "facing": "right",
             "mood": [
                 "friendly",
                 "modern"
@@ -217,6 +220,7 @@
         },
         "train-engine": {
             "kind": "scenery",
+            "facing": "left",
             "mood": [
                 "storybook"
             ],
@@ -225,6 +229,7 @@
         },
         "sailboat": {
             "kind": "scenery",
+            "facing": "right",
             "mood": [
                 "day",
                 "gentle"
@@ -234,6 +239,7 @@
         },
         "helicopter": {
             "kind": "scenery",
+            "facing": "left",
             "mood": [
                 "modern"
             ],
@@ -242,6 +248,7 @@
         },
         "scooter": {
             "kind": "scenery",
+            "facing": "right",
             "mood": [
                 "friendly"
             ],
@@ -250,6 +257,7 @@
         },
         "bicycle-large": {
             "kind": "scenery",
+            "facing": "right",
             "file": "bicycle-large.webp",
             "mood": [
                 "friendly"

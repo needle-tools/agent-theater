@@ -16,7 +16,7 @@
         "elephant": {
             "kind": "actor",
             "file": "elephant.webp",
-            "facing": "side",
+            "facing": "right",
             "mood": [
                 "calm",
                 "large"
@@ -35,7 +35,7 @@
         "kangaroo": {
             "kind": "actor",
             "file": "kangaroo.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "springy"
             ],
@@ -64,7 +64,7 @@
         "hedgehog": {
             "kind": "actor",
             "file": "hedgehog.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "timid"
             ],
@@ -73,7 +73,7 @@
         "dog-dachshund": {
             "kind": "actor",
             "file": "dog-dachshund.webp",
-            "facing": "side",
+            "facing": "right",
             "mood": [
                 "friendly",
                 "comic"
@@ -83,7 +83,7 @@
         "crocodile": {
             "kind": "actor",
             "file": "crocodile.webp",
-            "facing": "side",
+            "facing": "right",
             "mood": [
                 "menacing",
                 "comic"
@@ -113,7 +113,7 @@
         "flamingo": {
             "kind": "actor",
             "file": "flamingo.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "elegant"
             ],
@@ -131,7 +131,7 @@
         "toucan": {
             "kind": "actor",
             "file": "toucan.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "bright",
                 "comic"
@@ -171,7 +171,7 @@
         "turtle": {
             "kind": "actor",
             "file": "turtle.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "slow",
                 "calm"
@@ -181,7 +181,7 @@
         "snail": {
             "kind": "actor",
             "file": "snail.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "slow",
                 "comic"
@@ -210,7 +210,7 @@
         "seahorse": {
             "kind": "actor",
             "file": "seahorse.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "gentle"
             ],
@@ -219,7 +219,7 @@
         "whale": {
             "kind": "actor",
             "file": "whale.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "calm",
                 "large"
@@ -229,7 +229,7 @@
         "mantis": {
             "kind": "actor",
             "file": "mantis.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "odd",
                 "menacing"
@@ -239,7 +239,7 @@
         "scorpion": {
             "kind": "actor",
             "file": "scorpion.webp",
-            "facing": "side",
+            "facing": "left",
             "mood": [
                 "menacing"
             ],

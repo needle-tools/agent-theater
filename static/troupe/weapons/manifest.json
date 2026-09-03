@@ -31,6 +31,7 @@
         },
         "crossbow": {
             "kind": "scenery",
+            "facing": "left",
             "mood": [
                 "storybook"
             ],
@@ -148,6 +149,7 @@
         },
         "pistol": {
             "kind": "scenery",
+            "facing": "right",
             "mood": [
                 "modern",
                 "firearm"
@@ -157,6 +159,7 @@
         },
         "shotgun": {
             "kind": "scenery",
+            "facing": "left",
             "mood": [
                 "modern",
                 "firearm"
@@ -166,6 +169,7 @@
         },
         "rifle": {
             "kind": "scenery",
+            "facing": "left",
             "mood": [
                 "modern",
                 "firearm"
@@ -175,6 +179,7 @@
         },
         "rifle-sniper": {
             "kind": "scenery",
+            "facing": "left",
             "mood": [
                 "modern",
                 "firearm"
@@ -184,6 +189,7 @@
         },
         "submachine-gun": {
             "kind": "scenery",
+            "facing": "right",
             "mood": [
                 "modern",
                 "firearm"
@@ -193,6 +199,7 @@
         },
         "bazooka": {
             "kind": "scenery",
+            "facing": "right",
             "mood": [
                 "modern",
                 "comic"
@@ -202,6 +209,7 @@
         },
         "ray-gun": {
             "kind": "scenery",
+            "facing": "left",
             "mood": [
                 "sci-fi",
                 "comic"
@@ -211,6 +219,7 @@
         },
         "blaster": {
             "kind": "scenery",
+            "facing": "right",
             "mood": [
                 "sci-fi",
                 "comic"

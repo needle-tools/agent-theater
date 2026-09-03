@@ -8,14 +8,15 @@
 
 export interface AgentActivity {
     tool: string;
+    args?: unknown;
     at: number;
 }
 
 const callbacks = new Set<(activity: AgentActivity) => void>();
 let last: AgentActivity | null = null;
 
-export function notifyAgentActivity(tool: string) {
-    last = { tool, at: Date.now() };
+export function notifyAgentActivity(tool: string, args?: unknown) {
+    last = { tool, args, at: Date.now() };
     for (const callback of [...callbacks]) callback(last);
 }
 

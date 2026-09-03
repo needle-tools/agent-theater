@@ -74,6 +74,12 @@ export interface Stagehand {
     /** Throw a canned particle effect over this cast member. */
     effect(id: string, name: string, duration: number): Promise<void>;
     /**
+     * Keep a traveller in frame: pan the camera along with a walk or jump
+     * when its destination would leave the screen. Optional — a page without
+     * a camera simply lets them go.
+     */
+    follow?(id: string, dx: number, dy: number, duration: number): void;
+    /**
      * Move the view to frame these layers over this long.
      *
      * Separate from the moves because the camera is not on the stage: nothing
@@ -196,6 +202,13 @@ export function play(plan: Plan, hand: Stagehand): Playing {
             duration: beat.duration, easing: "linear", fill: "none",
         });
         animations.add(animation);
+
+        // A traveller who would walk out of the frame takes the camera with
+        // them — the follow is the world-canvas's tracking shot, and the hand
+        // decides whether it is needed at all.
+        if (beat.travel && (beat.travel.dx || beat.travel.dy)) {
+            hand.follow?.(beat.id, beat.travel.dx, beat.travel.dy, beat.duration);
+        }
 
         /*
          * Whatever this one is holding rides along: the same translation, the

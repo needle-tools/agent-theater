@@ -540,9 +540,37 @@
         },
         camera: (ids, tight, duration) => frame(ids, tight, duration),
         riders(id) {
-            return studio.collage.activeStage?.cast
-                .filter(member => member.on === id)
-                .map(member => member.id) ?? [];
+            // World state: whoever is in this one's hands, chapter or no.
+            return studio.collage.listAll()
+                .filter(layer => layer.held?.by === id)
+                .map(layer => layer.id);
+        },
+        follow(id, dx, dy, duration) {
+            if (!showing || !viewport) return;
+            const layer = placed.find(candidate => candidate.id === id);
+            if (!layer) return;
+            const end = layerBounds(layer);
+            end.x += dx;
+            end.y += dy;
+            const vis = visibleRect();
+            if (!vis) return;
+            /*
+             * Only when the journey actually leaves the frame: a step across
+             * the scene needs no camera, and panning for every shuffle would
+             * make the audience seasick. When it does leave, the camera pans
+             * the same distance at the same zoom — a tracking shot, not a
+             * re-framing — so the world visibly travels past.
+             */
+            const pad = 40 / view.zoom;
+            const inside =
+                end.x > vis.x + pad && end.x + end.width < vis.x + vis.width - pad &&
+                end.y > vis.y + pad && end.y + end.height < vis.y + vis.height - pad;
+            if (inside) return;
+            void moveTo({
+                zoom: view.zoom,
+                x: view.x - dx * view.zoom,
+                y: view.y - dy * view.zoom,
+            }, true, duration);
         },
         effect(id, name, duration) {
             playEffect(id, name);
@@ -551,10 +579,9 @@
             return new Promise(resolve => setTimeout(resolve, duration));
         },
         take(holder, item, duration) {
-            const stage = studio.collage.activeStage;
             const one = studio.collage.list().find(layer => layer.id === holder);
             const thing = studio.collage.list().find(layer => layer.id === item);
-            if (!stage || !one || !thing) {
+            if (!one || !thing) {
                 return new Promise(resolve => setTimeout(resolve, duration));
             }
             /*
@@ -565,7 +592,7 @@
              */
             const slotX = one.x + one.width * (one.flip ? -0.18 : 0.68);
             const slotY = one.y + one.height * 0.42 - thing.height / 2;
-            return moveThenAttach(stage.id, item, {
+            return moveThenAttach(item, {
                 on: holder,
                 x: slotX - one.x,
                 y: slotY - one.y,
@@ -573,18 +600,15 @@
         },
         drop(holder, item, duration) {
             void holder;
-            const stage = studio.collage.activeStage;
             const thing = studio.collage.list().find(layer => layer.id === item);
-            if (!stage || !thing) {
+            if (!thing) {
                 return new Promise(resolve => setTimeout(resolve, duration));
             }
-            // Dropped things land on the ground line, not where the hand was:
-            // gravity is the whole meaning of the beat.
-            const floor = stageRect();
-            const groundY = floor
-                ? floor.y + floor.height * 0.96 - thing.height
-                : thing.y + thing.height * 0.4;
-            return moveThenAttach(stage.id, item, {
+            // Dropped things fall a little before they rest: gravity is the
+            // whole meaning of the beat, and on the open paper "the ground"
+            // is simply lower than the hand.
+            const groundY = thing.y + thing.height * 0.4;
+            return moveThenAttach(item, {
                 on: undefined,
                 x: thing.x,
                 y: groundY,
@@ -775,7 +799,6 @@
      * On the `translate` property, so it cannot fight the transform poses.
      */
     function moveThenAttach(
-        stageId: string,
         item: string,
         placement: { on: string | undefined; x: number; y: number },
         destination: { x: number; y: number },
@@ -783,19 +806,17 @@
         duration: number,
         manner: "take" | "drop",
     ): Promise<void> {
-        const stage = studio.collage.getStage(stageId);
-        if (!stage) return Promise.resolve();
-        studio.collage.updateStage(stageId, {
-            cast: stage.cast.map(member => member.id === item
-                ? {
-                    ...member,
-                    x: placement.x,
-                    y: placement.y,
-                    ...(placement.on ? { on: placement.on } : {}),
-                    ...(placement.on === undefined && member.on ? { on: undefined } : {}),
-                }
-                : member),
-        });
+        if (placement.on) {
+            // Taken: attachment is WORLD state on the layer, so the lantern
+            // is still in the hand when the next chapter opens.
+            studio.collage.update(item, {
+                held: { by: placement.on, x: placement.x, y: placement.y },
+            });
+        } else {
+            // Dropped: the hand opens, and where it landed is written to the
+            // layer, where every position lives.
+            studio.collage.update(item, { held: null, x: placement.x, y: placement.y });
+        }
 
         const element = viewport?.querySelector(`[data-layer="${CSS.escape(item)}"]`);
         if (!element || typeof element.animate !== "function") {
@@ -1181,7 +1202,10 @@
                 const scene = castBounds();
                 if (!scene) return waitOut(duration);
                 fitted = true;
-                return frameRects([scene], Math.min(tight, 0.86), true, duration, false);
+                // Roomy on purpose: a cast-bounds rect hugs the artwork, and
+                // filling the screen with it reads as pressing your face to
+                // the paper. The play breathes when the scene sits in air.
+                return frameRects([scene], Math.min(tight, 0.66), true, duration, false);
             }
             /*
              * A cover shot frames the stage alone and lets its edges crop —
@@ -1442,7 +1466,10 @@
         const pointerY = event.clientY - rect.top;
         // Zoom about the cursor: the canvas point under it must not move.
         const factor = Math.exp(-event.deltaY * 0.0015);
-        const zoom = Math.min(4, Math.max(0.05, view.zoom * factor));
+        // Bounded like the resizes are: past 2.5× a sticker is a texture
+        // study, and below a quarter the world is dust. The camera's own
+        // scene framing stays inside this band too.
+        const zoom = Math.min(2.5, Math.max(0.25, view.zoom * factor));
         const scale = zoom / view.zoom;
         view = {
             zoom,
@@ -1602,7 +1629,13 @@
                 studio.collage.update(id, { x: origin.x + dx, y: origin.y + dy });
             }
         } else if (drag.mode === "resize") {
-            studio.collage.update(drag.id, { width: Math.max(20, drag.originWidth + dx) });
+            // Half to half-again per grab, same as the agent's tools: a size
+            // that wants to change more than that is almost always a slip of
+            // the hand, and a deliberate doubling is two short pulls.
+            studio.collage.update(drag.id, {
+                width: Math.min(drag.originWidth * 1.5,
+                    Math.max(Math.max(20, drag.originWidth * 0.5), drag.originWidth + dx)),
+            });
         } else if (drag.mode === "rotate") {
             const turned = angleTo(drag.centre, event.clientX, event.clientY) - drag.startAngle;
             let rotation = drag.originRotation + turned;
@@ -1643,14 +1676,12 @@
      * make on purpose.
      */
     function reparentByDrop(dropped: string) {
-        const stage = studio.collage.activeStage;
-        if (!stage) return;
-        const member = stage.cast.find(candidate => candidate.id === dropped);
         const layer = layers.find(candidate => candidate.id === dropped);
-        if (!member || !layer) return;
+        if (!layer) return;
+        const holding = studio.collage.own(dropped)?.held ?? null;
         // A holder cannot be handed to somebody else while loaded: one level,
         // no chains, same rule the beats enforce.
-        if (stage.cast.some(candidate => candidate.on === dropped)) return;
+        if (studio.collage.listAll().some(candidate => candidate.held?.by === dropped)) return;
 
         const centreClient = {
             x: (layer.x + layer.width / 2) * view.zoom + view.x,
@@ -1660,28 +1691,25 @@
         const under = box
             ? layerUnder(centreClient.x + box.left, centreClient.y + box.top, dropped)
             : null;
+        // Dropping onto somebody's held basket hands you to the SOMEBODY —
+        // one level, no chains, and it is what the gesture meant anyway.
         const holderId = under
-            ? (stage.cast.find(candidate => candidate.id === under.id)?.on ?? under.id)
+            ? (studio.collage.own(under.id)?.held?.by ?? under.id)
             : null;
-        const holder = holderId && holderId !== dropped && holderId !== stage.backdrop
-            ? stage.cast.find(candidate => candidate.id === holderId)
+        const holder = holderId && holderId !== dropped
+            ? layers.find(candidate => candidate.id === holderId)
             : null;
 
-        if (holder && member.on !== holder.id) {
-            studio.collage.updateStage(stage.id, {
-                cast: stage.cast.map(candidate => candidate.id === dropped
-                    ? { ...candidate, on: holder.id, x: layer.x - holder.x, y: layer.y - holder.y }
-                    : candidate),
+        if (holder && holding?.by !== holder.id) {
+            // Offsets from the holder's layer — attachment is world state.
+            studio.collage.update(dropped, {
+                held: { by: holder.id, x: layer.x - holder.x, y: layer.y - holder.y },
             });
             studio.record("layer-moved",
-                `"${layer.label}" now rides "${studio.collage.get(holder.id)?.label ?? holder.id}".`);
-        } else if (!holder && member.on) {
+                `"${layer.label}" now rides "${holder.label}".`);
+        } else if (!holder && holding) {
             // Dragged clear of everything: let go, and keep its feet.
-            studio.collage.updateStage(stage.id, {
-                cast: stage.cast.map(candidate => candidate.id === dropped
-                    ? { ...candidate, on: undefined, x: layer.x, y: layer.y }
-                    : candidate),
-            });
+            studio.collage.update(dropped, { held: null, x: layer.x, y: layer.y });
             studio.record("layer-moved", `"${layer.label}" was set down.`);
         }
     }

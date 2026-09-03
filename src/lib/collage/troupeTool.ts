@@ -15,6 +15,7 @@
  */
 import { TROUPE, TROUPE_PACKS, TROUPE_SHEETS, type TroupePiece } from "./troupe.js";
 import { STAGE_WIDTH, type CollageStudio } from "./studio.js";
+import { arrangementCentre, clearSpot, peerWidth, tamedWidth } from "./placement.js";
 import type { ToolResult, WebMcpToolDef } from "./tools.js";
 
 const ok = (text: string, structured?: object): ToolResult => ({
@@ -27,6 +28,7 @@ const fail = (text: string): ToolResult => ({ ...ok(text), isError: true });
 /** One line per piece, in the shape the sound catalogue taught. */
 function line(piece: TroupePiece): string {
     return `  ${piece.id} — ${piece.description || piece.kind}` +
+        `${piece.facing ? ` (faces ${piece.facing})` : ""}` +
         `${piece.mood.length ? ` [${piece.mood.join(", ")}]` : ""}` +
         `${piece.take ? ` (a pose of "${piece.take}")` : ""}`;
 }
@@ -71,7 +73,7 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
 
             if (!wanted.length) {
                 const kinds: Array<[string, string]> = [
-                    ["scenery", "Scenery — trees, props, furniture for the back and front planes:"],
+                    ["scenery", "Scenery — trees, props, furniture:"],
                     ["actor", "Actors — full body, ready to cast:"],
                 ];
                 const styled = TROUPE_PACKS.filter(pack => pack.stylePrompt);
@@ -113,6 +115,19 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
             const added: Array<{ id: string; label: string; kind: string }> = [];
             for (const id of wanted) {
                 const piece = DEALT.find(candidate => candidate.id === id)!;
+                /*
+                 * Arrive as a CITIZEN of the world, not as a delivery: sized
+                 * like the pieces already lying on the paper, on a clear
+                 * patch near the arrangement. The old way — a fixed width on
+                 * an origin-centred spiral — piled every add into one heap
+                 * of overlapping stickers that somebody then had to unstack.
+                 * Re-read per piece, so each add avoids the one before it.
+                 */
+                const world = studio.collage.listAll();
+                const width = ["backdrop", "midground", "foreground"].includes(piece.kind)
+                    ? STAGE_WIDTH
+                    : peerWidth(world, 260);
+                const spot = clearSpot(world, arrangementCentre(world), width);
                 const { layer } = await studio.addImage(piece.file, {
                     label: piece.id,
                     // The whole promise of the drawer: these were cut before
@@ -120,13 +135,15 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
                     // things in them to wrongly remove.
                     removeBackground: false,
                     slice: false,
-                    // Scene layers are slices of the stage, so they arrive at
-                    // its width — anything else and they could never line up.
-                    width: ["backdrop", "midground", "foreground"].includes(piece.kind)
-                        ? STAGE_WIDTH
-                        : 260,
+                    width,
+                    x: spot.x - width / 2,
+                    y: spot.y - width / 2,
                     by: "agent",
                 });
+                // Widths match, heights may not: a pencil at sheep-width is a
+                // tower. Rein tall or tiny newcomers toward the peers' height.
+                const tamed = tamedWidth(layer, world);
+                if (tamed !== null) studio.collage.update(layer.id, { width: tamed });
                 added.push({ id: layer.id, label: piece.id, kind: piece.kind });
             }
 

@@ -1,18 +1,19 @@
 /**
- * Stages: the same canvas, seen one scene at a time.
+ * Chapters: one world, told a stretch at a time.
  *
- * A stage does not own its cast. A layer belongs to the canvas; a stage records
- * *where that layer stands while this stage is playing*. One character can
- * therefore appear in scenes one and three at different spots without being
- * duplicated, and editing the character — recolouring it, tracing it, cutting
- * its background again — edits it everywhere it appears.
+ * There is no "stage" that owns positions any more. The canvas is a single
+ * continuous world and every piece stands exactly where it stands — where the
+ * person arranged it, where the last script's walk left it. A chapter (the
+ * type keeps the name Stage, and the tools keep their names, so nothing
+ * running mid-conversation breaks) records WHO matters for a stretch of the
+ * story and WHAT happens: a cast list of memberships — who they play, which
+ * voice, which depth plane, how they arrive — and a script. Never where
+ * anybody is. Follow the hero across the paper and chapter two picks her up
+ * wherever chapter one left her.
  *
- * The consequence worth stating: when a stage is active the document presents
- * itself AS that stage. `list()` returns its cast at their stage placements,
- * and an edit to a position writes to the placement rather than to the layer.
- * Everything downstream — the canvas, dragging, arranging, capture, export —
- * becomes stage-aware without knowing that stages exist, which is the only way
- * a feature this broad stays out of every other file.
+ * The one positional thing a membership may carry is an attachment: `on`
+ * plus x/y OFFSETS from the holder, because "the basket is in her hand" is a
+ * relation, not a place.
  */
 import type { Beat } from "./perform.js";
 import type { Layer } from "./model.js";
@@ -51,50 +52,54 @@ const PLANE_DEPTH: Record<PlaneName, number> = {
     front: 100_000,
 };
 
-/** How a cast member arrives when a stage builds up. */
+/** How a cast member arrives when a chapter opens. */
 export const ENTRANCES = ["fade", "left", "right", "above", "below", "grow", "none"] as const;
 export type EntranceName = (typeof ENTRANCES)[number];
 
-/** Where one layer stands while a stage is playing. */
+/**
+ * One layer's membership of a chapter. NOT a position — the layer stands
+ * where the world has it. (Old saves carry x/y/width on these; they are
+ * ignored except as attachment offsets.)
+ */
 export interface Placement {
     id: string;
-    x: number;
-    y: number;
+    /**
+     * Attachment offsets from `on`, when attached. Meaningless otherwise —
+     * a holdover slot from when placements owned positions.
+     */
+    x?: number;
+    y?: number;
+    /** Legacy fields old saves may carry. The world's layer wins. */
     width?: number;
     rotation?: number;
-    /** Paint order within the stage. Falls back to the order given. */
     z?: number;
+    flip?: boolean;
     entrance?: EntranceName;
     /**
      * Who this layer is playing — "the grandmother", "the wolf".
      *
-     * Kept on the placement rather than on the layer because a picture can be
-     * cast as one thing in one scene and another thing later, and because it
-     * is the casting that has the character in it: the layer is only ever a
-     * photograph of a thing.
+     * Kept on the membership rather than on the layer because a picture can
+     * be cast as one thing in one chapter and another thing later, and
+     * because it is the casting that has the character in it: the layer is
+     * only ever a photograph of a thing.
      */
     as?: string;
     /**
      * Which voice says this part's lines.
      *
-     * On the placement for the same reason `as` is: it belongs to the casting,
-     * not to the picture. The same drawing of a bird can be a frightened child
-     * in one scene and the thing in the woods in the next, and a voice stored
-     * on the layer would follow the drawing instead of the part.
-     *
-     * Absent means silent — not "the default voice". A play where every unnamed
-     * part quietly acquired a narrator's voice would be a play nobody chose the
-     * sound of.
+     * On the membership for the same reason `as` is: it belongs to the
+     * casting, not to the picture. Absent means silent — not "the default
+     * voice". A play where every unnamed part quietly acquired a narrator's
+     * voice would be a play nobody chose the sound of.
      */
     voice?: string;
     /** Which depth plane it stands on. Defaults to the middle. */
     plane?: PlaneName;
-    /** Mirrored, so the same drawing can face either way per scene. */
-    flip?: boolean;
     /**
      * Held by, riding on, sitting in: the id of another cast member this one
-     * is attached to. While attached, x and y are OFFSETS from that member,
-     * so a walk moves both as one and nothing has to keep them in step.
+     * is attached to. While attached, x and y are OFFSETS from that member's
+     * layer, so a walk moves both as one and nothing has to keep them in
+     * step.
      *
      * Deliberately NOT DOM nesting downstream: a rider must be able to paint
      * on a different plane than the vehicle, and nesting would weld their
@@ -107,38 +112,28 @@ export interface Placement {
 export interface Stage {
     id: string;
     name: string;
-    /**
-     * The layer behind everything, which never acts and never enters — it is
-     * the room, not somebody in it.
-     */
+    /** Legacy: old saves may name one. Retired — nothing sets it any more. */
     backdrop: string | null;
     cast: Placement[];
     /**
-     * What happens once the scene has built up.
+     * What happens once the chapter opens.
      *
-     * Stored rather than played and forgotten: a show runs its scenes one after
-     * another and has to know what each of them does. A script that only
-     * existed at the moment it was sent could be performed once and never
-     * again, which is not a play — it is a rehearsal.
+     * Stored rather than played and forgotten: a show runs its chapters one
+     * after another and has to know what each of them does. A script that
+     * only existed at the moment it was sent could be performed once and
+     * never again, which is not a play — it is a rehearsal.
      */
     script: Beat[];
-    /** A bed under the whole scene, cross-fading into the next one's. */
+    /** A bed under the whole chapter, cross-fading into the next one's. */
     music?: string | null;
     /**
-     * What to do if the bed runs out before the scene does: "loop" (the
+     * What to do if the bed runs out before the chapter does: "loop" (the
      * default), "fade", or the name of another piece to blend into.
      */
     musicEnd?: string;
-    /**
-     * The colour the room around the stage takes while this scene plays.
-     *
-     * Optional, and usually left alone: the backdrop already knows what colour
-     * it is, and the page reads it off the picture. This is for when the mood
-     * wants something the picture does not say — a cold blue surround on a warm
-     * scene, because the scene is meant to feel exposed.
-     */
+    /** A mood colour for the surround, rarely used and rarely needed. */
     tint?: string;
-    /** Seconds to hold after the scene before moving on. */
+    /** Seconds to hold after the chapter before moving on. */
     hold?: number;
 }
 
@@ -154,169 +149,62 @@ export interface StageSpec {
     hold?: number;
 }
 
-/** A layer as it appears on a stage: the layer, standing where the stage says. */
-export function placed(layer: Layer, placement: Placement, order: number): Layer {
-    const width = placement.width && placement.width > 0 ? placement.width : layer.width;
-    // Height follows width, so a stage can resize a cast member without having
-    // to know its aspect ratio.
-    const height = layer.width > 0 ? (width / layer.width) * layer.height : layer.height;
-    return {
-        ...layer,
-        x: placement.x,
-        y: placement.y,
-        width,
-        height,
-        rotation: placement.rotation ?? layer.rotation,
-        flip: placement.flip ?? layer.flip,
-        /*
-         * The layer's own depth when the stage has no opinion — NOT the index.
-         *
-         * These two are different scales. A placement that has been reordered
-         * carries a real canvas z (a few hundred, say), and one that never has
-         * carries nothing; falling back to the position in the array mixed
-         * numbers like 0, 1, 2 in with numbers like 340, so a single reorder
-         * shoved everybody else behind everything. `order` survives only as a
-         * tiebreak, which is all it was ever good for.
-         */
-        z: PLANE_DEPTH[placement.plane ?? "mid"] + (placement.z ?? layer.z ?? order),
-    };
-}
-
 /** How much of the camera's movement this plane takes. */
 export function parallaxOf(plane: PlaneName | undefined): number {
     return PARALLAX[plane ?? "mid"];
 }
 
 /**
- * The cast of a stage, in paint order, as layers.
+ * The chapter's members, as layers, in paint order.
  *
- * The backdrop goes first and furthest back — a scene with its room drawn on
- * top of its people is not a scene. Anything named in the cast that no longer
- * exists is skipped rather than faked: a deleted layer should disappear from
- * every stage it was in, not leave a hole with a name.
+ * A chapter changes NOTHING about how a layer stands — no plane lift (depth
+ * planes are retired; the world's own stacking is the paint order) and no
+ * attachment resolution (holding is world state on the layer, resolved by
+ * the document). This is purely "who is in this stretch of the story, as
+ * layers". Anything named in the cast that no longer exists is skipped
+ * rather than faked: a deleted layer should disappear from every chapter it
+ * was in, not leave a hole with a name.
  */
 export function castOf(stage: Stage, layerOf: (id: string) => Layer | null): Layer[] {
+    void PLANE_DEPTH;
     const out: Layer[] = [];
-    if (stage.backdrop) {
-        const backdrop = layerOf(stage.backdrop);
-        if (backdrop) out.push({ ...backdrop, z: -1_000_000 });
-    }
     const order = new Map<string, number>();
-    const anchors = new Map(stage.cast.map(member => [member.id, member]));
-    for (const [at, placement] of stage.cast.entries()) {
-        if (placement.id === stage.backdrop) continue;
-        const layer = layerOf(placement.id);
+    for (const [at, member] of stage.cast.entries()) {
+        const layer = layerOf(member.id);
         if (!layer) continue;
-        order.set(placement.id, at);
-        const standing = placed(layer, placement, at);
-        // An attached placement stores offsets; the world position is the
-        // holder's plus them. One level deep by construction, so this needs
-        // no recursion and can meet no cycle.
-        const holder = placement.on ? anchors.get(placement.on) : null;
-        if (holder && holder.id !== placement.id) {
-            standing.x = holder.x + placement.x;
-            standing.y = holder.y + placement.y;
-        }
-        out.push(standing);
+        order.set(member.id, at);
+        out.push(layer);
     }
     // Ties break on casting order, so two layers at the same depth keep the
-    // order they were put on stage in rather than whichever sort wins today.
+    // order they were put in rather than whichever sort wins today.
     return out.sort((a, b) => a.z - b.z || (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
 
-/** Is this layer on this stage at all? Backdrops count. */
+/** Is this layer in this chapter at all? */
 export function onStage(stage: Stage, id: string): boolean {
     return stage.backdrop === id || stage.cast.some(member => member.id === id);
 }
 
 /**
- * Fold an edit into a placement.
+ * The same chapter, pointed at different layers.
  *
- * Only the geometry: a stage says where somebody stands, not what colour they
- * are. Style, text and source belong to the layer and are shared by every stage
- * it appears on, which is the whole point of not duplicating it.
- */
-export function placeWith(
-    placement: Placement,
-    patch: {
-        x?: number; y?: number; width?: number; height?: number;
-        rotation?: number; z?: number; flip?: boolean;
-    },
-): Placement {
-    return {
-        ...placement,
-        ...(typeof patch.x === "number" ? { x: patch.x } : {}),
-        ...(typeof patch.y === "number" ? { y: patch.y } : {}),
-        ...(typeof patch.width === "number" ? { width: patch.width } : {}),
-        ...(typeof patch.rotation === "number" ? { rotation: patch.rotation } : {}),
-        ...(typeof patch.z === "number" ? { z: patch.z } : {}),
-        ...(typeof patch.flip === "boolean" ? { flip: patch.flip } : {}),
-    };
-}
-
-/** Where a member stands in the world, offsets resolved. */
-export function resolvedIn(stage: Stage, id: string): { x: number; y: number } | null {
-    const member = stage.cast.find(candidate => candidate.id === id);
-    if (!member) return null;
-    const holder = member.on ? stage.cast.find(candidate => candidate.id === member.on) : null;
-    return holder
-        ? { x: holder.x + member.x, y: holder.y + member.y }
-        : { x: member.x, y: member.y };
-}
-
-/** Which parts of an edit a stage can hold. The rest go to the layer itself. */
-export function isPlacementEdit(patch: object): boolean {
-    return ["x", "y", "width", "height", "rotation", "z", "flip"].some(key => key in patch);
-}
-
-/** The parts of an edit that are not about where something stands. */
-export function withoutPlacement<T extends object>(patch: T): Partial<T> {
-    const rest: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(patch)) {
-        if (["x", "y", "width", "height", "rotation", "z", "flip"].includes(key)) continue;
-        rest[key] = value;
-    }
-    return rest as Partial<T>;
-}
-
-/**
- * The same scene, pointed at different layers.
+ * A chapter is nothing but layer ids — who is in it and who each beat is
+ * about — so a chapter that travels between documents has to have every one
+ * rewritten. Opening a saved file re-mints its layer ids (two files made in
+ * the same browser can hold the same id for different pictures), and a
+ * chapter carried across without this would cast people who do not exist and
+ * quietly play to an empty stage.
  *
- * A scene is nothing but layer ids — who is in it, who the backdrop is, and who
- * each beat is about — so a scene that travels between documents has to have
- * every one of those rewritten. Opening a saved file re-mints its layer ids
- * (two files made in the same browser can hold the same id for different
- * pictures), and a scene carried across without this would cast people who do
- * not exist and quietly play to an empty stage.
- *
- * Anyone missing from the map is dropped rather than kept: a beat about a layer
- * that did not arrive is a beat that cannot happen, and leaving it in would make
- * the scene silently longer than it looks.
+ * Anyone missing from the map is dropped rather than kept: a beat about a
+ * layer that did not arrive is a beat that cannot happen, and leaving it in
+ * would make the chapter silently longer than it looks.
  */
 export function renamedIn(stage: Stage, ids: Map<string, string>): Stage {
+    // Attachment is the LAYER's business now and travels with it; a chapter
+    // carries only memberships, which rename or drop.
     const cast = stage.cast
         .filter(member => ids.has(member.id))
-        .map(member => {
-            const moved = { ...member, id: ids.get(member.id)! };
-            if (member.on) {
-                const holder = ids.get(member.on);
-                if (holder && stage.cast.some(candidate => candidate.id === member.on)) {
-                    moved.on = holder;
-                } else {
-                    // The holder did not make the journey. Detaching quietly
-                    // would leave offsets pretending to be positions, so the
-                    // member keeps its own feet: offsets become where it
-                    // actually stood.
-                    const stood = resolvedIn(stage, member.id);
-                    delete moved.on;
-                    if (stood) {
-                        moved.x = stood.x;
-                        moved.y = stood.y;
-                    }
-                }
-            }
-            return moved;
-        });
+        .map(member => ({ ...member, id: ids.get(member.id)! }));
     const present = new Set(cast.map(member => member.id));
 
     const script = stage.script.flatMap(beat => {

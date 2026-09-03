@@ -592,32 +592,25 @@ export function createStudio(collage = new Collage()): CollageStudio {
             });
         }
 
-        // The first scene of a fresh show is revealed by the lights coming
-        // up; every later boundary — including continuing a held show — fades
-        // through darkness, with the set swapped while nobody can see it.
-        let opening = !resuming;
         /*
-         * Scene changes travel; they do not cut. The scenes live at their own
-         * sections of one canvas, so the camera can glide from the last one to
-         * the next in the open — the journey across the paper IS the scene
-         * change, and it shows the audience that the world is one place.
+         * One continuous world: nothing teleports between chapters, so there
+         * is nothing left to hide in the dark. The camera glides from where
+         * the last chapter ended to where the next begins, and the journey
+         * across the paper IS the chapter change.
          *
-         * The blackout survives for exactly one case: two scenes that share a
-         * cast member. A shared piece teleports from one placement to the
-         * other the instant the scene switches, and that jump must happen in
-         * the dark or the audience watches somebody blink across the world.
+         * Before the first chapter of a fresh run, the world is photographed:
+         * every walk and take that follows will genuinely move the pieces,
+         * and when the show ends the arrangement is put back the way the
+         * person had it — the story happened, the paper is theirs again, and
+         * playing it twice starts from the same world both times.
          */
-        let previous = resuming ? collage.activeStage : null;
+        if (!resuming && !preshow) {
+            preshow = collage.listAll().map(layer =>
+                ({ id: layer.id, x: layer.x, y: layer.y }));
+        }
+        let opening = !resuming;
         for (const stage of stages) {
             if (!wanted) break;
-            const before = previous;
-            const dark = !opening && !!before && before.id !== stage.id &&
-                stage.cast.some(member => before.cast.some(other => other.id === member.id));
-            if (dark) {
-                billboard = { kind: "blackout", duration: BLACKOUT_MS };
-                announceShow();
-                await new Promise(resolve => setTimeout(resolve, BLACKOUT_MS * 0.45));
-            }
             setRunning(stage.id);
             collage.setActiveStage(stage.id);
             // Started with the scene rather than with its first beat, so the
@@ -626,9 +619,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             speaker.music(stage.music ?? null, stage.musicEnd ?? "loop");
 
             const { approach, beats, hidden } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
-            // Arrivals start off stage. Done through the placement, so the
-            // walk that brings them on commits back to exactly where the stage
-            // says they stand — no drift, however many times the show runs.
+            // Arrivals start off stage, then walk the same distance back on.
             if (approach.length) {
                 collage.batch(() => {
                     for (const step of approach) {
@@ -638,17 +629,12 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 });
             }
 
-            if (dark) {
-                await new Promise(resolve => setTimeout(resolve, BLACKOUT_MS * 0.55));
-                billboard = null;
-                announceShow();
-            } else if (!opening) {
-                // In the open, the first beat waits for the camera to arrive:
-                // the glide is the scene change, and it deserves its moment.
+            if (!opening) {
+                // The first beat waits for the camera to arrive: the glide is
+                // the chapter change, and it deserves its moment.
                 await new Promise(resolve => setTimeout(resolve, TRAVEL_MS));
             }
             opening = false;
-            previous = stage;
 
             const { plan } = planScene(beats, timingsFor(stage));
             const began = Date.now();
@@ -662,7 +648,6 @@ export function createStudio(collage = new Collage()): CollageStudio {
             await new Promise(resolve => setTimeout(resolve, Math.max(held, shortfall)));
         }
 
-        void previous;
         if (hold && wanted) {
             // The pause between scenes of a play still being written: running
             // stays set and the last frame stands until the next call — but
@@ -687,6 +672,30 @@ export function createStudio(collage = new Collage()): CollageStudio {
         // last scene. Music that simply stopped there would sound like the tab
         // being closed.
         speaker.fadeMusic();
+        restoreWorld();
+    };
+
+    /**
+     * Put the paper back the way it was photographed at curtain-up.
+     *
+     * The story really moved things — that is the whole point of a
+     * continuous world — but the arrangement belongs to the person, and a
+     * play that permanently scattered their pieces would make every run a
+     * small act of vandalism. One batch, not an edit per piece.
+     */
+    let preshow: Array<{ id: string; x: number; y: number }> | null = null;
+
+    const restoreWorld = () => {
+        if (!preshow) return;
+        const positions = preshow;
+        preshow = null;
+        collage.batch(() => {
+            for (const spot of positions) {
+                // Pieces removed mid-show are gone; pieces added mid-show
+                // keep wherever the story left them.
+                if (collage.own(spot.id)) collage.update(spot.id, { x: spot.x, y: spot.y });
+            }
+        });
     };
 
     /**
@@ -1679,6 +1688,20 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 arriving.push(image);
             }
 
+            /*
+             * A held layer's `held.by` names an OLD id; the whole cast was
+             * just re-minted. Point every hand at the new id, and open any
+             * hand whose holder did not make the journey — offsets from
+             * nobody are not a position.
+             */
+            for (const layer of arriving) {
+                if (!layer.held) continue;
+                const holder = renamed.get(layer.held.by);
+                collage.update(layer.id, {
+                    held: holder ? { ...layer.held, by: holder } : null,
+                });
+            }
+
             // The title is taken only by a canvas that has none. Overwriting
             // it would rename somebody else's show on the way past.
             if (!collage.billing.title && payload.doc.billing?.title) {
@@ -1835,6 +1858,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // quickly rather than instantly. Cues still stop at once: a sting
             // fading out is a sting that sounds broken.
             speaker.fadeMusic(600);
+            // And the paper goes back the way it was at curtain-up.
+            restoreWorld();
         },
 
         save(view) {

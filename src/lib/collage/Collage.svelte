@@ -18,7 +18,8 @@
     import EditPopover from "$lib/collage/EditPopover.svelte";
     import ShowOverlay from "$lib/collage/ShowOverlay.svelte";
     import StageBar from "$lib/collage/StageBar.svelte";
-    import Toasts, { createToasts, LIFETIME } from "$lib/collage/Toasts.svelte";
+    import AgentActivity from "$lib/collage/AgentActivity.svelte";
+    import Toasts, { createToasts } from "$lib/collage/Toasts.svelte";
     import { createStudio, download, FREE_PAGE } from "$lib/collage/studio";
     import { createCollageTools } from "$lib/collage/tools";
     import { registerTools } from "$lib/webmcp";
@@ -28,6 +29,7 @@
     import { boilFilterSvg, loadPainterly, PAINTERLY_CSS } from "$lib/collage/painted";
     import { TROUPE } from "$lib/collage/troupe";
     import { idleSet } from "$lib/collage/idleSet";
+    import { notifyAgentActivity } from "$lib/room/activity";
 
     const studio = createStudio();
     const collage = studio.collage;
@@ -95,37 +97,14 @@
         scheduleRestock();
         // Wrapped once here rather than in each tool: an agent's work should be
         // visible, and that should not be fourteen call sites.
-        const { notifyAgentActivity } = await import("$lib/room/activity");
         toolsRegistered = await registerTools(createCollageTools(studio).map(tool => ({
             ...tool,
             execute: (args: unknown, options?: { signal?: AbortSignal }) => {
-                notifyAgentActivity(tool.name);
-                announceAgent(tool.name);
+                notifyAgentActivity(tool.name, args);
                 return tool.execute(args, options);
             },
         })));
     });
-
-    /**
-     * Say what the agent just did, in the same bubbles a person's own actions
-     * use — with its own colour, so who did what is legible without reading.
-     *
-     * Reused rather than stacked: an agent working through a plan fires several
-     * calls a second, and a bubble each would bury everything else and never
-     * settle. One bubble that keeps updating reads as "still working".
-     */
-    let agentToast: { update: (text: string, tone?: "agent") => void } | null = null;
-    let agentTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function announceAgent(tool: string) {
-        const text = `Agent used ${tool}`;
-        if (agentToast) agentToast.update(text, "agent");
-        else agentToast = toasts.push(text, "agent");
-        if (agentTimer) clearTimeout(agentTimer);
-        // Let go once the bubble has expired, so the next call starts a new one
-        // rather than reviving a dismissed bubble's handle.
-        agentTimer = setTimeout(() => (agentToast = null), LIFETIME.agent);
-    }
 
     /** Where the next batch of images should land, if somewhere was pointed at. */
     let dropPoint: { x: number; y: number } | null = null;
@@ -352,8 +331,12 @@
          * every layout, so the stickers scale with the page and no resize
          * listener has to exist. The 72px floor lives in the CSS max(),
          * where it belongs.
+         *
+         * A narrow spread on purpose: these sizes become real layers when the
+         * scatter is adopted, and a wide random range read as pieces from
+         * different toy boxes rather than one set.
          */
-        return 9 + Math.random() * 7.2;
+        return 10.5 + Math.random() * 3;
     }
 
     /**
@@ -1063,6 +1046,7 @@
         {erasing}
         showPage={editOpen || studio.pagePreset !== FREE_PAGE}
     />
+    <AgentActivity canvas={pageEl} />
 
     <!-- The house lights, before anything is on. Kept mounted and faded rather
          than added and removed, so the first picture dropped in does not make

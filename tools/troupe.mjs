@@ -23,6 +23,7 @@ const ROOT = "static/troupe";
 // exactly these words and the validator forced them into "backdrop", which
 // was the validator being wrong.
 const KINDS = new Set(["backdrop", "midground", "foreground", "scenery", "actor"]);
+const FACINGS = new Set(["front", "left", "right"]);
 
 const pieces = [];
 const sheets = [];
@@ -85,6 +86,10 @@ if (existsSync(ROOT)) {
             }
             const file = join(path, piece.file);
             if (!existsSync(file)) throw new Error(`${entry}/${id}: ${piece.file} does not exist`);
+            if (piece.facing != null && !FACINGS.has(piece.facing)) {
+                throw new Error(
+                    `${entry}/${id}: facing ${JSON.stringify(piece.facing)} is not one of front | left | right`);
+            }
             pieces.push({
                 id: `${entry}/${id}`,
                 pack: entry,
@@ -92,6 +97,7 @@ if (existsSync(ROOT)) {
                 file: `/troupe/${entry}/${piece.file}`,
                 mood: piece.mood ?? [],
                 description: piece.description ?? "",
+                ...(piece.facing ? { facing: piece.facing } : {}),
                 ...(piece.take ? { take: `${entry}/${piece.take}` } : {}),
             });
         }
@@ -110,6 +116,7 @@ const pieceLine = (p) => {
         `file: ${JSON.stringify(p.file)}`,
         `mood: ${JSON.stringify(p.mood)}`,
         `description: ${JSON.stringify(p.description)}`,
+        ...(p.facing ? [`facing: ${JSON.stringify(p.facing)}`] : []),
         ...(p.take ? [`take: ${JSON.stringify(p.take)}`] : []),
     ];
     return `    { ${parts.join(", ")} },`;
@@ -138,6 +145,8 @@ export interface TroupePiece {
     file: string;
     mood: string[];
     description: string;
+    /** Direction drawn into the art. Omitted when the piece has no directional read. */
+    facing?: "front" | "left" | "right";
     /** Pieces sharing a take are the same character in another pose. */
     take?: string;
 }
