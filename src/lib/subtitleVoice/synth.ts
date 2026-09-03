@@ -387,24 +387,32 @@ export function wordNuclei(token: string, articulation: Articulation = "syllable
     return articulateNuclei(vowels, articulation);
 }
 
+export interface ArticulationGroup {
+    /** Inclusive token index. */
+    start: number;
+    /** Exclusive token index. */
+    end: number;
+    nuclei: VowelPhone[];
+}
+
 /**
- * Plan audible mouth gestures across words. Coarse modes deliberately reduce
- * target density across the phrase. Every word remains voiced; coarse shares
- * one moving mouth shape across each two-word group and super-coarse shares a
- * broader three-vowel shape across four. Groups never cross punctuation.
+ * Divide a phrase into actual audible gestures. Syllable and word modes keep
+ * word boundaries; coarse combines pairs; super-coarse is exactly one gesture
+ * per sentence. Groups never cross sentence punctuation.
  */
-export function articulationNuclei(tokens: readonly string[], articulation: Articulation): VowelPhone[][] {
-    const result = tokens.map(() => [] as VowelPhone[]);
-    const groupSize = articulation === "super-coarse" ? 4 : articulation === "coarse" ? 2 : 1;
+export function articulationGroups(tokens: readonly string[], articulation: Articulation): ArticulationGroup[] {
+    const result: ArticulationGroup[] = [];
     let phraseStart = 0;
     while (phraseStart < tokens.length) {
         const relativeEnd = tokens.slice(phraseStart).findIndex(token => /[.!?]+["')\]]*$/.test(token));
         const phraseEnd = relativeEnd < 0 ? tokens.length - 1 : phraseStart + relativeEnd;
+        const groupSize = articulation === "super-coarse"
+            ? phraseEnd - phraseStart + 1
+            : articulation === "coarse" ? 2 : 1;
         for (let start = phraseStart; start <= phraseEnd; start += groupSize) {
             const end = Math.min(phraseEnd + 1, start + groupSize);
             const vowels = tokens.slice(start, end).flatMap(token => wordNuclei(token));
-            const shared = articulateNuclei(vowels, articulation);
-            for (let index = start; index < end; index++) result[index] = shared;
+            result.push({ start, end, nuclei: articulateNuclei(vowels, articulation) });
         }
         phraseStart = phraseEnd + 1;
     }
@@ -417,8 +425,28 @@ export function sentencePitchContour(
     articulation: Articulation = "syllable",
 ): PitchPoint[] {
     if (!tokens.length) return [{ at: 0, multiplier: 1 }];
+    if (articulation === "coarse" || articulation === "super-coarse") {
+        return articulationGroups(tokens.map(token => token.text), articulation).flatMap(group => {
+            const first = tokens[group.start];
+            const last = tokens[group.end - 1];
+            const lastDuration = Math.max(0.02, last.end - last.start);
+            const end = Math.max(first.start + 0.01, last.end - wordReleaseGap(lastDuration, pause, last.text));
+            const span = end - first.start;
+            const prominence = Math.max(...tokens.slice(group.start, group.end).map(token => token.prominence ?? 1));
+            const base = 1.01 + (prominence - 1) * 0.07;
+            const finish = /[?]+["')\]]*$/.test(last.text) ? 1.17
+                : /[!]+["')\]]*$/.test(last.text) ? 0.93
+                    : /[.]+["')\]]*$/.test(last.text) ? 0.86 : base - 0.055;
+            // One gesture means one contour: rise once, then resolve once.
+            return [
+                { at: first.start, multiplier: base - 0.035 },
+                { at: first.start + span * 0.43, multiplier: base + 0.105 },
+                { at: end, multiplier: finish },
+            ];
+        });
+    }
     const points: PitchPoint[] = [];
-    const nucleiByToken = articulationNuclei(tokens.map(token => token.text), articulation);
+    const nucleiByToken = tokens.map(token => wordNuclei(token.text, articulation));
     let sentenceStart = 0;
     let sentenceEndIndex = tokens.findIndex(token => /[.!?]+["')\]]*$/.test(token.text));
     if (sentenceEndIndex < 0) sentenceEndIndex = tokens.length - 1;
@@ -669,7 +697,12 @@ export async function playGibberish(
     // low-frequency oscillator moves mouth loudness and F1/F2 together, so the
     // result reads as mouth articulation rather than added hiss or static.
     const mouthMotion = babbleMotion(acoustics.options);
-    const jawOscillator = mouthMotion.amount > 0 ? ctx.createOscillator() : null;
+    // A coarse gesture must have one amplitude shape as well as one pitch
+    // shape. The regular babble oscillator would carve a sustained sentence
+    // back into several audible pulses and defeat the mode.
+    const groupedArticulation = acoustics.options.articulation === "coarse"
+        || acoustics.options.articulation === "super-coarse";
+    const jawOscillator = mouthMotion.amount > 0 && !groupedArticulation ? ctx.createOscillator() : null;
     const mouthGain = ctx.createGain();
     mouthGain.gain.value = 1;
     voiceSource.connect(mouthGain);
@@ -689,31 +722,31 @@ export async function playGibberish(
     roughness.stop(start + duration + 0.06);
     sources.push(voiceSource, roughness);
     let syllableIndex = 0;
-    const nucleiByToken = articulationNuclei(tokens.map(token => token.text), acoustics.options.articulation);
-    for (const [tokenIndex, token] of tokens.entries()) {
-        const pronunciation = pronounceToken(token.text);
-        const nuclei = nucleiByToken[tokenIndex];
-        const consonants = pronunciation.phones
+    const groups = articulationGroups(tokens.map(token => token.text), acoustics.options.articulation);
+    for (const group of groups) {
+        const groupTokens = tokens.slice(group.start, group.end);
+        const firstToken = groupTokens[0];
+        const lastToken = groupTokens.at(-1)!;
+        const phones = groupTokens.flatMap(token => pronounceToken(token.text).phones);
+        const consonants = phones
             .map((value, index) => ({ value, index }))
             .filter((entry): entry is { value: ConsonantPhone; index: number } => entry.value.type === "consonant");
-        const tokenDuration = Math.max(0.001, token.end - token.start);
-        const wordStart = start + token.start;
-        // Reserve a perceptible silence inside every token allocation. At
-        // normal speeds this is 75-140 ms; very fast speech still keeps 45%.
-        const releaseGap = wordReleaseGap(tokenDuration, acoustics.options.pause, token.text);
-        const wordEnd = start + token.end - releaseGap;
-        const audibleDuration = wordEnd - wordStart;
-        const wordGain = ctx.createGain();
-        const wordLevel = clamp(0.86 + (token.prominence ?? 1) * 0.14, 0.9, 1.08);
-        const baseWordAttack = Math.min(0.012, audibleDuration * 0.2);
-        const wordAttack = baseWordAttack;
-        const wordRelease = 0.018;
+        const lastTokenDuration = Math.max(0.001, lastToken.end - lastToken.start);
+        const gestureStart = start + firstToken.start;
+        const releaseGap = wordReleaseGap(lastTokenDuration, acoustics.options.pause, lastToken.text);
+        const gestureEnd = start + lastToken.end - releaseGap;
+        const audibleDuration = gestureEnd - gestureStart;
+        const gestureGain = ctx.createGain();
+        const peakProminence = Math.max(...groupTokens.map(token => token.prominence ?? 1));
+        const gestureLevel = clamp(0.86 + peakProminence * 0.14, 0.9, 1.08);
+        const gestureAttack = Math.min(groupedArticulation ? 0.038 : 0.012, audibleDuration * 0.2);
+        const gestureRelease = groupedArticulation ? 0.04 : 0.018;
         const holdFloor = 0.012;
-        beginSilent(wordGain.gain, wordStart - 0.002);
-        wordGain.gain.linearRampToValueAtTime(wordLevel, wordStart + wordAttack);
-        wordGain.gain.setValueAtTime(wordLevel, Math.max(wordStart + holdFloor, wordEnd - wordRelease));
-        wordGain.gain.linearRampToValueAtTime(0, wordEnd);
-        wordGain.connect(master);
+        beginSilent(gestureGain.gain, gestureStart - 0.002);
+        gestureGain.gain.linearRampToValueAtTime(gestureLevel, gestureStart + gestureAttack);
+        gestureGain.gain.setValueAtTime(gestureLevel, Math.max(gestureStart + holdFloor, gestureEnd - gestureRelease));
+        gestureGain.gain.linearRampToValueAtTime(0, gestureEnd);
+        gestureGain.connect(master);
 
         // One onset cue plus, at most, a genuinely hissy coda. This preserves
         // the phonetic colour without turning every consonant into a click.
@@ -722,31 +755,33 @@ export async function playGibberish(
             : consonants.slice(0, 1);
         consonantCues.forEach(({ value, index }) => scheduleConsonantNoise(
             ctx,
-            wordGain,
+            gestureGain,
             value,
-            wordStart + audibleDuration * 0.72 * (index / Math.max(1, pronunciation.phones.length)),
+            gestureStart + audibleDuration * 0.72 * (index / Math.max(1, phones.length)),
             audibleDuration,
             acoustics.options.timbre,
             sources,
         ));
-        // Articulate the word briskly, then leave a soft release instead of
-        // stretching every vowel across the word's entire estimated duration.
+        // Fill this gesture once. In the grouped modes its single nucleus
+        // spans the whole sentence/pair; word and syllable modes retain their
+        // smaller allocations.
         const onsetLead = Math.min(0.01, audibleDuration * 0.08);
         const activeSpan = Math.max(0.001, audibleDuration - onsetLead);
+        const nuclei = group.nuclei;
         const nucleusWeights = syllableRhythmWeights(nuclei, acoustics.options.rhythm);
         const totalNucleusWeight = nucleusWeights.reduce((sum, value) => sum + value, 0) || 1;
         let nucleusCursor = 0;
         nuclei.forEach((nucleus, index) => {
             const step = activeSpan * nucleusWeights[index] / totalNucleusWeight;
-            const at = wordStart + onsetLead + nucleusCursor;
+            const at = gestureStart + onsetLead + nucleusCursor;
             nucleusCursor += step;
             const voicedFor = Math.min(
-                Math.max(0.008, wordEnd - at),
+                Math.max(0.008, gestureEnd - at),
                 Math.max(0.018, step * 1.04),
             );
             scheduleSyllable(
                 ctx,
-                wordGain,
+                gestureGain,
                 mouthGain,
                 nucleus,
                 at,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { estimateSubtitleTextDuration, timeSubtitleTokens } from "../src/lib/subtitleVoice/timing.js";
 import {
-    articulationNuclei,
+    articulationGroups,
     normalizeGibberishVoice,
     babbleMotion,
     beginSilent,
@@ -159,18 +159,16 @@ describe("English pronunciation", () => {
         expect(wordNuclei("hello", "super-coarse")).toMatchObject([{ symbol: "A", kind: "a", glide: "u", stress: 1 }]);
     });
 
-    it("shares coarse mouth shapes without dropping words or crossing sentences", () => {
+    it("reduces the number of actual gestures without crossing sentences", () => {
         const words = ["Hello", "there!", "How", "can", "I", "help", "you?"];
-        expect(articulationNuclei(words, "syllable").map(value => value.length)).toEqual([2, 1, 1, 1, 1, 1, 1]);
-        expect(articulationNuclei(words, "word").map(value => value.length)).toEqual([1, 1, 1, 1, 1, 1, 1]);
-        expect(articulationNuclei(words, "coarse").map(value => value.length)).toEqual([1, 1, 1, 1, 1, 1, 1]);
-        expect(articulationNuclei(words, "super-coarse").map(value => value.length)).toEqual([1, 1, 1, 1, 1, 1, 1]);
-        const coarse = articulationNuclei(words, "coarse");
-        expect(coarse[0]).toEqual(coarse[1]);
-        expect(coarse[1]).not.toEqual(coarse[2]);
-        const superCoarse = articulationNuclei(words, "super-coarse");
-        expect(superCoarse[2]).toEqual(superCoarse[5]);
-        expect(superCoarse[5]).not.toEqual(superCoarse[6]);
+        expect(articulationGroups(words, "syllable").flatMap(group => group.nuclei)).toHaveLength(8);
+        expect(articulationGroups(words, "word")).toHaveLength(7);
+        expect(articulationGroups(words, "coarse").map(group => [group.start, group.end])).toEqual([
+            [0, 2], [2, 4], [4, 6], [6, 7],
+        ]);
+        expect(articulationGroups(words, "super-coarse").map(group => [group.start, group.end])).toEqual([
+            [0, 2], [2, 7],
+        ]);
     });
 
     it("retains the script-aware fallback outside plain English spelling", () => {
@@ -409,6 +407,24 @@ describe("sentence prosody", () => {
         expect(manySyllables.length).toBeGreaterThan(oneSyllable.length + 5);
         expect(Math.max(...manySyllables.map(point => point.multiplier))
             - Math.min(...manySyllables.map(point => point.multiplier))).toBeGreaterThan(0.2);
+    });
+
+    it("gives super-coarse speech exactly one rise and fall per sentence", () => {
+        const oneSentence = sentencePitchContour(
+            timeSubtitleTokens("Hello there"),
+            undefined,
+            "super-coarse",
+        );
+        expect(oneSentence).toHaveLength(3);
+        expect(oneSentence[1].multiplier).toBeGreaterThan(oneSentence[0].multiplier);
+        expect(oneSentence[2].multiplier).toBeLessThan(oneSentence[1].multiplier);
+
+        const twoSentences = sentencePitchContour(
+            timeSubtitleTokens("Hello there. How are you?"),
+            undefined,
+            "super-coarse",
+        );
+        expect(twoSentences).toHaveLength(6);
     });
 
     it("makes the stressed half of hello longer than its unstressed opening", () => {
