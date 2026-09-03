@@ -436,29 +436,26 @@
              * one word per line, in letters an inch tall. max-content ignores
              * the containing block entirely, so that whole class of bug goes.
              *
-             * What stays here is only what CSS cannot know: roughly where the
-             * edges will land, for the on-screen clamp, and how much headroom
-             * the bubble needs. Estimates — 0.55em a character, the same
-             * measure the max-width uses — and estimates are fine for clamps.
+             * What stays here is only how much headroom the bubble needs, to
+             * decide whether it goes above or below. An estimate is fine for
+             * that: being one line out picks the other side, and both sides
+             * are on the screen. It was NOT fine for the horizontal fit, which
+             * is measured instead.
              */
             const perCharPx = sizePx * 0.55;
             const maxLinePx = sizePx * 0.55 * 34;
-            const likelyPx = Math.min(maxLinePx, Math.max(sizePx * 6, state.line.length * perCharPx));
             const lines = Math.max(1, Math.ceil((state.line.length * perCharPx) / maxLinePx));
             const heightPx = lines * sizePx * 1.45 + sizePx * 1.4;
 
             const size = sizePx / zoom;
 
-            // Kept on the screen, not merely on the stage: the camera is often
-            // somewhere other than squarely on the scene, and a bubble
-            // obediently inside a half-visible stage is half off the window.
-            let x = layer.x + layer.width / 2;
-            if (seen) {
-                const half = likelyPx / 2 / zoom + size;
-                const left = seen.x + half;
-                const right = seen.x + seen.width - half;
-                x = left <= right ? Math.min(Math.max(x, left), right) : seen.x + seen.width / 2;
-            }
+            // Squarely over the speaker. Keeping it on the SCREEN is `fitBubbles`,
+            // which measures the box after it is laid out and slides it in from
+            // the edge — this used to guess the width from a character count
+            // and the guess ran narrow (0.55em a character against a real ch,
+            // plus the padding it forgot), so a bubble by the right-hand edge
+            // was clamped to a place it did not fit and hung off the window.
+            const x = layer.x + layer.width / 2;
 
             // Below when the whole bubble would not fit above — measured
             // against the real height rather than a guess at one, because a
@@ -479,6 +476,41 @@
             });
         }
         return said;
+    });
+
+    /**
+     * Slide a bubble back onto the screen, and leave its tail where it was.
+     *
+     * Measured rather than predicted: only the browser knows how wide 34ch of
+     * this font wraps to. The box moves, the tail does not — a bubble whose
+     * whole self was pushed inward stopped pointing at whoever was speaking,
+     * which is worse than the overhang it was fixing.
+     *
+     * `--nudge` is in canvas units, because the bubble lives inside the world
+     * and the world is scaled; the tail subtracts the same amount, kept inside
+     * the bubble's own corners so it cannot slide off the end.
+     */
+    const BUBBLE_MARGIN_PX = 10;
+
+    function fitBubbles() {
+        if (!viewport) return;
+        const room = viewport.getBoundingClientRect();
+        for (const bubble of viewport.querySelectorAll<HTMLElement>(".bubble")) {
+            bubble.style.setProperty("--nudge", "0px");
+            const box = bubble.getBoundingClientRect();
+            const past = Math.max(0, box.right - (room.right - BUBBLE_MARGIN_PX));
+            const short = Math.max(0, room.left + BUBBLE_MARGIN_PX - box.left);
+            const dx = short > 0 && past > 0 ? 0 : short - past;
+            if (dx) bubble.style.setProperty("--nudge", `${dx / view.zoom}px`);
+        }
+    }
+
+    // After every line, and after every camera move: both change where the box
+    // lands, and neither is known until the DOM has been written.
+    $effect(() => {
+        void speaking;
+        void view.x; void view.y; void view.zoom;
+        fitBubbles();
     });
 
     /*
@@ -2022,6 +2054,8 @@
     let reframe: ReturnType<typeof setTimeout> | null = null;
 
     function onViewportResize() {
+        // A narrower window is a new set of edges for anything being said.
+        fitBubbles();
         if (!showing || !lastFraming) return;
         if (reframe) clearTimeout(reframe);
         reframe = setTimeout(() => {
@@ -2846,7 +2880,9 @@
     .bubble {
         position: absolute;
         z-index: 2147483000;
-        translate: -50% calc(-100% - 0.7em);
+        /* `--nudge` slides the box back onto the screen near an edge; it is
+           set by fitBubbles and is zero everywhere else. */
+        translate: calc(-50% + var(--nudge, 0px)) calc(-100% - 0.7em);
         /* Sized by its own text: as wide as the line wants, wrapping at a
            reading measure. max-content is load-bearing — an absolute box in
            the zero-width world otherwise shrinks to min-content, one word a
@@ -2889,23 +2925,23 @@
     }
 
     @keyframes bubble-in {
-        from { opacity: 0; scale: 0.6; translate: -50% calc(-100% - 0.1em); }
+        from { opacity: 0; scale: 0.6; translate: calc(-50% + var(--nudge, 0px)) calc(-100% - 0.1em); }
         60% { opacity: 1; }
-        to { opacity: 1; scale: 1; translate: -50% calc(-100% - 0.7em); }
+        to { opacity: 1; scale: 1; translate: calc(-50% + var(--nudge, 0px)) calc(-100% - 0.7em); }
     }
 
     /* Under the speaker, for anybody standing at the top of the stage. The
        tail moves to the top edge with it, or it would point at nothing. */
     .bubble--below {
-        translate: -50% 0.7em;
+        translate: calc(-50% + var(--nudge, 0px)) 0.7em;
         transform-origin: top center;
         animation-name: bubble-in-below, bubble-paper;
     }
 
     @keyframes bubble-in-below {
-        from { opacity: 0; scale: 0.6; translate: -50% 0.1em; }
+        from { opacity: 0; scale: 0.6; translate: calc(-50% + var(--nudge, 0px)) 0.1em; }
         60% { opacity: 1; }
-        to { opacity: 1; scale: 1; translate: -50% 0.7em; }
+        to { opacity: 1; scale: 1; translate: calc(-50% + var(--nudge, 0px)) 0.7em; }
     }
 
     .bubble--below::after {
@@ -2925,7 +2961,9 @@
     .bubble::after {
         content: "";
         position: absolute;
-        left: 50%;
+        /* Back where the box came from, so the tail keeps pointing at whoever
+           is speaking — and never past the bubble's own rounded corners. */
+        left: clamp(1.1em, calc(50% - var(--nudge, 0px)), calc(100% - 1.1em));
         bottom: -0.31em;
         width: 0.55em;
         height: 0.55em;
