@@ -205,6 +205,56 @@
                 "bright"
             ],
             "description": "a red hydrant with mustard caps — short, and the brightest thing on the pavement"
+        },
+        "bus": {
+            "kind": "scenery",
+            "mood": [
+                "friendly",
+                "modern"
+            ],
+            "description": "a red single-decker bus in profile — the longest vehicle here, wide enough to fill a third of the stage",
+            "file": "bus.webp"
+        },
+        "train-engine": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a mustard and red steam engine in profile, side rods and cowcatcher",
+            "file": "train-engine.webp"
+        },
+        "sailboat": {
+            "kind": "scenery",
+            "mood": [
+                "day",
+                "gentle"
+            ],
+            "description": "a small boat with a cream sail and a pennant — the only one that needs water under it",
+            "file": "sailboat.webp"
+        },
+        "helicopter": {
+            "kind": "scenery",
+            "mood": [
+                "modern"
+            ],
+            "description": "an olive helicopter in profile with skids — flies, so it needs no ground line",
+            "file": "helicopter.webp"
+        },
+        "scooter": {
+            "kind": "scenery",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a pink motor scooter in profile",
+            "file": "scooter.webp"
+        },
+        "bicycle-large": {
+            "kind": "scenery",
+            "file": "bicycle-large.webp",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a red bicycle in profile, larger and more detailed than `bicycle` - the one to use when it is in the foreground"
         }
     }
 }

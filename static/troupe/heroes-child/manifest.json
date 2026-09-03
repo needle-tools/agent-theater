@@ -1,67 +1,7 @@
 {
     "name": "heroes-child",
-    "description": "The same heroes as children — smaller bodies, bigger heads, the same dress-up. Five of the six match a grown-up in the `heroes` pack by name, so a story can show the same character at two ages. Drawn in the flat, rounded `people` style rather than torn paper.",
+    "description": "MERGED into `heroes`. The same heroes as children — smaller bodies, bigger heads, the same dress-up. Five of the six match a grown-up in the `heroes` pack by name, so a story can show the same character at two ages. Drawn in the flat, rounded `people` style rather than torn paper.",
     "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, buckles, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is a cast of CHILD heroes — one per cell, all different: children in heroic dress-up, small bodies and large heads. Give each one a readable silhouette and a stance that says what they are before the audience hears a word.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT character, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE character on a PLAIN WHITE background, cut-out style, with no shadow, no ground, no scenery and no base beneath them. Full body, facing the viewer, standing upright with their feet visible and their arms clear of their sides — they will be animated walking, jumping and bowing, so nothing may be cropped and nothing may merge into the background. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
-    "pieces": {
-        "knight": {
-            "kind": "actor",
-            "facing": "front",
-            "mood": [
-                "brave",
-                "storybook"
-            ],
-            "description": "a child knight in a red tunic with a star shield — the grown-up version is heroes/knight",
-            "file": "knight.webp"
-        },
-        "ranger": {
-            "kind": "actor",
-            "facing": "front",
-            "mood": [
-                "brave",
-                "watchful"
-            ],
-            "description": "a child ranger in a green hood, shading her eyes",
-            "file": "ranger.webp"
-        },
-        "superhero": {
-            "kind": "actor",
-            "facing": "front",
-            "mood": [
-                "bold",
-                "proud"
-            ],
-            "description": "a child superhero with a red cape, fists on hips",
-            "file": "superhero.webp"
-        },
-        "astronaut": {
-            "kind": "actor",
-            "facing": "front",
-            "mood": [
-                "eager",
-                "bright"
-            ],
-            "description": "a child astronaut in a cream suit, waving — no grown-up counterpart in the heroes pack",
-            "file": "astronaut.webp"
-        },
-        "sea-captain": {
-            "kind": "actor",
-            "facing": "front",
-            "mood": [
-                "proud",
-                "calm"
-            ],
-            "description": "a child captain in a navy coat, saluting",
-            "file": "sea-captain.webp"
-        },
-        "explorer": {
-            "kind": "actor",
-            "facing": "side",
-            "mood": [
-                "eager",
-                "quick"
-            ],
-            "description": "a child explorer mid-stride, arms out — already moving, so walking suits him",
-            "file": "explorer.webp"
-        }
-    }
+    "pieces": {},
+    "hidden": true
 }

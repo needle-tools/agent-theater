@@ -1,6 +1,6 @@
 {
     "name": "people",
-    "description": "Human cast. NOTE: these are drawn in a flatter, more modern illustration style than the rest of the troupe — smoother shapes, less torn-paper texture — so they read as visitors from another book when placed next to the animals pack. Six pieces so far, all women.",
+    "description": "The human cast, drawn flat and rounded rather than in torn paper - everyday people, storybook heroes, and the same heroes as children (`-child`). They read as a different hand from the animals, villains and fairy-tale packs, so a play is best cast from one or the other.",
     "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is a cast of people — one person per cell, all different in age, build and trade.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE character on a PLAIN WHITE background, cut-out style, with no shadow, no ground, no scenery and no base beneath them. Full body, facing the viewer, standing upright with their feet visible and their arms clear of their sides — they will be animated walking, jumping and bowing, so nothing may be cropped and nothing may merge into the background. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
     "pieces": {
         "chef": {
@@ -62,6 +62,126 @@
                 "casual"
             ],
             "description": "a mechanic in dungarees and a red cap, kneeling on one knee — the only piece not standing, so she cannot walk without looking wrong"
+        },
+        "knight": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "brave",
+                "storybook"
+            ],
+            "description": "a knight in plate with a lion shield, fists up — the classic protector",
+            "file": "knight.webp"
+        },
+        "ranger": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "brave",
+                "watchful"
+            ],
+            "description": "a hooded ranger in green with a quiver, shading her eyes to look ahead",
+            "file": "ranger.webp"
+        },
+        "superhero": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "bold",
+                "proud"
+            ],
+            "description": "a caped hero in navy and red, feet planted wide — the widest silhouette here",
+            "file": "superhero.webp"
+        },
+        "sea-captain": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "proud",
+                "calm"
+            ],
+            "description": "a captain in a navy coat, saluting — the narrowest and most upright of the six",
+            "file": "sea-captain.webp"
+        },
+        "explorer": {
+            "kind": "actor",
+            "facing": "side",
+            "mood": [
+                "eager",
+                "quick"
+            ],
+            "description": "an explorer mid-stride with a satchel, caught running — already in motion, so walking suits him",
+            "file": "explorer.webp"
+        },
+        "firefighter": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "brave",
+                "kind"
+            ],
+            "description": "a firefighter kneeling with a hand held out — the only one not standing, so he cannot walk without looking wrong",
+            "file": "firefighter.webp"
+        },
+        "knight-child": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "brave",
+                "storybook"
+            ],
+            "description": "a child knight in a red tunic with a star shield — the grown-up version is heroes/knight",
+            "file": "knight-child.webp"
+        },
+        "ranger-child": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "brave",
+                "watchful"
+            ],
+            "description": "a child ranger in a green hood, shading her eyes",
+            "file": "ranger-child.webp"
+        },
+        "superhero-child": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "bold",
+                "proud"
+            ],
+            "description": "a child superhero with a red cape, fists on hips",
+            "file": "superhero-child.webp"
+        },
+        "astronaut-child": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "eager",
+                "bright"
+            ],
+            "description": "a child astronaut in a cream suit, waving — no grown-up counterpart in the heroes pack",
+            "file": "astronaut-child.webp"
+        },
+        "sea-captain-child": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "proud",
+                "calm"
+            ],
+            "description": "a child captain in a navy coat, saluting",
+            "file": "sea-captain-child.webp"
+        },
+        "explorer-child": {
+            "kind": "actor",
+            "facing": "side",
+            "mood": [
+                "eager",
+                "quick"
+            ],
+            "description": "a child explorer mid-stride, arms out — already moving, so walking suits him",
+            "file": "explorer-child.webp"
         }
     }
 }

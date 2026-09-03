@@ -1020,6 +1020,12 @@
     onclick={copyFromPage}
     ondblclick={conjureProp}
     onkeydown={event => {
+        // Escape puts the eraser down — the fastest way out of a mode whose
+        // whole behaviour is "clicking deletes things".
+        if (event.key === "Escape" && erasing) {
+            erasing = false;
+            return;
+        }
         if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
         const target = event.target;
         if (target instanceof Element && target.matches("input, textarea, [contenteditable]")) return;

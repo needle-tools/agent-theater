@@ -74,7 +74,40 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
     };
 
     /**
-     * A fraction of the backdrop, in canvas coordinates.
+     * The rectangle a scene's fractions refer to.
+     *
+     * The backdrop when there is one. Without one the scene still needs a
+     * frame to be relative to — the world is one open sheet and scenes play
+     * on the bare paper — so the cast's own footprint stands in: "0.5
+     * across" means the middle of where this scene already is. A scene with
+     * neither backdrop nor cast has no frame yet, and raw coordinates are
+     * all there is.
+     */
+    const groundOf = (stage: { backdrop?: string | null; cast: Placement[] }): Layer | null => {
+        const backdrop = stage.backdrop ? collage.get(stage.backdrop) : null;
+        if (backdrop) return backdrop;
+        const standing = stage.cast
+            .filter(member => !member.on)
+            .map(member => ({ member, layer: collage.own(member.id) }))
+            .filter(entry => entry.layer !== null);
+        if (!standing.length) return null;
+        const boxes = standing.map(({ member, layer }) => {
+            const width = member.width ?? layer!.width;
+            const height = layer!.width > 0 ? (width / layer!.width) * layer!.height : layer!.height;
+            return { x: member.x, y: member.y, width, height };
+        });
+        const minX = Math.min(...boxes.map(box => box.x));
+        const minY = Math.min(...boxes.map(box => box.y));
+        return {
+            x: minX,
+            y: minY,
+            width: Math.max(...boxes.map(box => box.x + box.width)) - minX,
+            height: Math.max(...boxes.map(box => box.y + box.height)) - minY,
+        } as Layer;
+    };
+
+    /**
+     * A fraction of the scene's frame, in canvas coordinates.
      *
      * `at.y` is where the FEET go, not the top of the picture, because that is
      * what somebody placing an actor means: "standing on the ground" is a
@@ -924,9 +957,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "Say who is in a scene and where they stand. Positions belong to THIS scene only — the same " +
                 "layer stands somewhere else in another. Anyone already in it is moved; anyone new is added. " +
                 "Give each one an \"as\" — who they are playing — and they are credited by name at the end. " +
-                "Say how big with \"size\" (a fraction of the backdrop's height) and where with \"at\" " +
-                "(fractions across and down); a piece arrives at whatever size it was cut at, which has " +
-                "nothing to do with the scene it is going into. " +
+                "The canvas is one flat world seen from above — orthographic, no perspective — and a scene " +
+                "is a place on it. The composition does not stop at the backdrop's edge: a willow may hang " +
+                "over it, a web may float on the open paper beside it, and that overflow is what makes it " +
+                "look made by hand. Say how big with \"size\" and where with \"at\" (fractions of the " +
+                "scene's frame), or place freely with raw x/y — piece_list reads those same units back. " +
                 "Someone left out of a scene is not deleted, only absent from it. A layer keeps the position " +
                 "it already has unless you give it one, so adding somebody does not fling them to the corner.",
             inputSchema: {
@@ -943,11 +978,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                 at: {
                                     type: "object",
                                     description:
-                                        "Where they stand ON THE BACKDROP, as fractions of it. USE THIS " +
-                                        "rather than x/y. x: 0 is the left edge, 0.5 the middle, 1 the " +
-                                        "right. y is where their FEET are: 0.9 is standing on the ground, " +
-                                        "0.5 is halfway up, 0 is the top edge. You cannot see where the " +
-                                        "backdrop is on the canvas, so a raw x/y is a guess — this is not.",
+                                        "Where they stand as fractions of the scene's frame — the backdrop " +
+                                        "if it has one, otherwise the cast's own footprint. x: 0 is the " +
+                                        "left edge, 0.5 the middle, 1 the right; going a little past 0–1 " +
+                                        "deliberately hangs a piece over the edge, which good compositions " +
+                                        "do. y is where their FEET are: 0.9 standing on the ground, 0.5 " +
+                                        "halfway up, 0 the top edge.",
                                     properties: {
                                         x: { type: "number", description: "Across, 0–1." },
                                         y: { type: "number", description: "Feet, 0–1 from the top." },
@@ -956,13 +992,16 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                 x: {
                                     type: "number",
                                     description:
-                                        "Raw canvas x. Only if you know the canvas coordinates — prefer \"at\".",
+                                        "Raw canvas x (top-left corner). Free placement anywhere on the " +
+                                        "paper, on or off any backdrop — piece_list reports these same " +
+                                        "units, so you can read your own work back.",
                                 },
-                                y: { type: "number", description: "Raw canvas y. Prefer \"at\"." },
+                                y: { type: "number", description: "Raw canvas y (top-left corner)." },
                                 size: {
                                     type: "number",
                                     description:
-                                        "How TALL they are as a fraction of the backdrop. 0.5 is half " +
+                                        "How TALL they are as a fraction of the scene's frame (the " +
+                                        "backdrop, or the cast's footprint without one). 0.5 is half " +
                                         "its height, which is about right for a person; 0.15 for a " +
                                         "mushroom; 0.9 for a big tree. USE THIS rather than width — a " +
                                         "piece arrives at whatever size it was cut at, which has nothing " +
@@ -1059,11 +1098,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 }
 
                 const cast = stage.cast.filter(member => !dropped.has(member.id));
-                // The backdrop is the stage: it is the only rectangle in the
-                // scene that means anything, and it is the thing an agent
-                // placing somebody is imagining. Without one there is nothing
-                // to be relative to and raw coordinates are all there is.
-                const floor = stage.backdrop ? collage.get(stage.backdrop) : null;
+                const floor = groundOf(stage);
                 const offStage: string[] = [];
 
                 for (const [index, member] of wanted.entries()) {
@@ -1217,7 +1252,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 const showing = collage.activeStageId;
                 const lines = stages.map(stage => {
-                    const floor = stage.backdrop ? collage.get(stage.backdrop) : null;
+                    const floor = groundOf(stage);
                     const who = stage.cast.length
                         ? stage.cast.map(m => describeMember(m, floor)).join("; ")
                         : "nobody yet";
@@ -1225,7 +1260,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         `${stage.backdrop ? `, backdrop ${stage.backdrop}` : ""}\n    ${who}`;
                 });
                 const floating = stages.flatMap(stage => {
-                    const floor = stage.backdrop ? collage.get(stage.backdrop) : null;
+                    const floor = groundOf(stage);
                     if (!floor) return [];
                     return stage.cast
                         .filter(m => m.id !== stage.backdrop && !m.on)

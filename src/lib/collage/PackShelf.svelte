@@ -8,9 +8,16 @@
      * The pieces arrive as real layers — the same ones theater_troupe deals —
      * so an agent looking at the canvas sees exactly what was arranged.
      *
-     * Bottom LEFT, not bottom centre: the middle of the bottom edge belongs
-     * to the browser agent's own controls (voice button, activity bubbles),
-     * and the help button holds the right corner.
+     * Bottom CENTRE. It began bottom-left, to leave the middle of the edge to
+     * the browser agent's own controls — but the drawer is the thing a person
+     * reaches for most, and a row of piles pushed into a corner reads as a
+     * status bar rather than as a place to take things from. The agent's
+     * controls float above it; the help button still holds the right corner.
+     *
+     * The piles wrap onto a second row rather than scrolling sideways. Twenty
+     * packs do not fit across a laptop, and a horizontal scrollbar hides the
+     * packs past the edge completely: nobody scrolls a strip they cannot tell
+     * continues.
      */
     import { TROUPE, TROUPE_PACKS, type TroupePiece } from "./troupe.js";
     import { STAGE_WIDTH, type CollageStudio } from "./studio.js";
@@ -35,8 +42,6 @@
 
     /** Which pack's fan is open, if any. */
     let open = $state<string | null>(null);
-    /** A whole pack on its way to the canvas; the button waits it out. */
-    let adding = $state(false);
 
     const packs = TROUPE_PACKS
         .map(pack => ({ ...pack, pieces: TROUPE.filter(piece => piece.pack === pack.id) }))
@@ -122,31 +127,6 @@
         studio.save();
     }
 
-    /**
-     * The whole pack, strewn across the middle of the view — spread out
-     * rather than piled, because the next thing the person does is arrange
-     * them, and a stack must be un-stacked before anything else can happen.
-     * Stage slices stay in the drawer: "all the stickers" is not "the scenery
-     * of an entire room, at full stage width, five deep".
-     */
-    async function addAll(packId: string) {
-        const pack = packs.find(candidate => candidate.id === packId);
-        if (!pack || adding) return;
-        adding = true;
-        try {
-            const stickers = stickersOf(pack.pieces);
-            for (const [index, piece] of stickers.entries()) {
-                const fx = stickers.length === 1
-                    ? 0.5
-                    : 0.12 + 0.76 * (index / (stickers.length - 1));
-                const fy = 0.35 + 0.3 * ((index % 3) / 2);
-                await addPiece(piece, toCanvas(window.innerWidth * fx, window.innerHeight * fy));
-            }
-        } finally {
-            adding = false;
-        }
-    }
-
     /** The sticker riding the pointer from the fan to the canvas. */
     let ghost = $state<{ piece: TroupePiece; x: number; y: number; from: { x: number; y: number } } | null>(null);
     let shelf: HTMLElement | null = $state(null);
@@ -154,7 +134,12 @@
     function startDrag(event: PointerEvent, piece: TroupePiece) {
         if (event.button !== 0) return;
         event.preventDefault();
-        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        // Throws when the pointer is not genuinely down — synthetic events,
+        // some pens. Losing capture costs only a drag that ends off the
+        // element; throwing here would silently eat the whole add.
+        try {
+            (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+        } catch { /* carry on without capture */ }
         ghost = {
             piece,
             x: event.clientX,
@@ -196,21 +181,28 @@
 />
 
 {#if packs.length}
-    <div class="shelf" class:shelf--away={showing} bind:this={shelf}>
+    <div
+        class="shelf"
+        class:shelf--away={showing}
+        bind:this={shelf}
+        onpointerleave={() => {
+            // Leaving the drawer closes the fan — but not mid-drag, when the
+            // pointer is on its way to the canvas carrying a sticker.
+            if (!ghost) open = null;
+        }}
+    >
         {#if open}
             {#each packs.filter(pack => pack.id === open) as pack (pack.id)}
                 <div class="fan" role="group" aria-label="{pack.id} stickers">
-                    <div class="fan__head">
-                        <strong class="fan__name">{pack.id}</strong>
-                        <button class="fan__all" disabled={adding} onclick={() => addAll(pack.id)}>
-                            {adding ? "Dealing…" : "Add all stickers"}
-                        </button>
-                    </div>
                     <div class="fan__strip">
-                        {#each pack.pieces as piece (piece.id)}
+                        {#each pack.pieces as piece, at (piece.id)}
                             <div
                                 class="fan__sticker"
                                 class:fan__sticker--wide={widthFor(piece) === STAGE_WIDTH}
+                                style:--tilt="{(((at * 37) % 13) - 6) * 1.4}deg"
+                                style:--dx="{(((at * 53) % 11) - 5) * 1.6}px"
+                                style:--dy="{(((at * 29) % 15) - 7) * 1.5}px"
+                                style:z-index={(at * 7) % 11}
                                 role="button"
                                 tabindex="0"
                                 title={piece.description || piece.id}
@@ -242,6 +234,14 @@
                     aria-label="Open the {pack.id} pack"
                     aria-expanded={open === pack.id}
                     title={pack.description}
+                    onpointerenter={event => {
+                        // Hover fans the pack open — the drawer is for browsing,
+                        // and a click per pack to look inside is a click too many.
+                        // Only for a real pointer: on touch, pointerenter fires
+                        // with the tap and would fight the click below.
+                        if (event.pointerType === "mouse") open = pack.id;
+                    }}
+                    onfocus={() => (open = pack.id)}
                     onclick={() => (open = open === pack.id ? null : pack.id)}
                 >
                     <span class="pile__stack" aria-hidden="true">
@@ -271,14 +271,19 @@
 <style>
     .shelf {
         position: absolute;
-        left: 16px;
+        /* Centred by margin rather than by translate, because translate is
+           already spoken for by the show's fade-away below. */
+        left: 0;
+        right: 0;
+        margin-inline: auto;
+        width: fit-content;
         bottom: 12px;
         z-index: 26;
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
         gap: 8px;
-        max-width: min(560px, calc(100vw - 140px));
+        max-width: min(1180px, calc(100vw - 120px));
         transition-property: opacity, translate;
         transition-duration: 0.4s;
         transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
@@ -293,12 +298,19 @@
 
     .piles {
         display: flex;
-        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px 10px;
         max-width: 100%;
-        overflow-x: auto;
         padding: 4px;
     }
 
+    /*
+     * No card. The piles are stickers lying on the paper, so a panel behind
+     * each one turns a drawer into a toolbar — and twenty little white cards
+     * in a row is most of what the eye sees. The stickers carry their own
+     * drop shadow, which is all the lift they need.
+     */
     .pile {
         flex: none;
         display: flex;
@@ -306,62 +318,64 @@
         align-items: center;
         gap: 3px;
         padding: 6px 8px 5px;
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
+        border: 1px solid transparent;
         border-radius: 12px;
-        background: var(--surface-panel);
-        box-shadow:
-            0 1px 2px rgba(34, 44, 32, 0.06),
-            0 8px 22px rgba(34, 44, 32, 0.08);
+        background: none;
         cursor: pointer;
-        transition-property: background, border-color, scale;
+        transition-property: background, border-color, scale, translate;
         transition-duration: 0.16s;
     }
 
-    .pile:hover {
-        background: var(--surface-panel-muted);
-        border-color: var(--border-strong);
+    /* Hover lifts rather than fills: the fan opening below is the real
+       feedback, so the pile itself only needs to say "this one". */
+    .pile:hover,
+    .pile:focus-visible {
+        translate: 0 -2px;
     }
 
     .pile:active {
         scale: 0.96;
     }
 
-    .pile--open {
-        border-color: var(--accent-brand);
-        background: color-mix(in srgb, var(--accent-brand) 14%, var(--surface-panel));
+    .pile--open .pile__name {
+        color: var(--text-primary);
+    }
+
+    .pile--open .pile__stack img {
+        filter: drop-shadow(0 2px 3px rgba(20, 24, 18, 0.4));
     }
 
     .pile__stack {
         position: relative;
-        width: 44px;
-        height: 40px;
+        width: 62px;
+        height: 56px;
     }
 
     .pile__stack img {
         position: absolute;
         inset: 0;
         margin: auto;
-        max-width: 38px;
-        max-height: 36px;
+        max-width: 54px;
+        max-height: 50px;
         rotate: var(--lean, 0deg);
         filter: drop-shadow(0 1px 1.5px rgba(20, 24, 18, 0.35));
+        transition: filter 0.16s;
     }
 
     .pile__name {
-        font-size: var(--type-micro-label-size, 11px);
+        font-size: var(--type-body-muted-size, 12px);
         color: var(--text-secondary);
     }
 
+    /*
+     * No panel, for the same reason the piles lost theirs: the fan is stickers
+     * laid out on the paper, and a card behind them makes it a menu. The
+     * stickers carry their own drop shadow and read fine on the dotted paper.
+     */
     .fan {
-        /* Outer 16 = inner 10 + 6 padding. */
         border-radius: 16px;
         padding: 6px;
         max-width: 100%;
-        background: var(--surface-panel);
-        box-shadow:
-            0 0 0 1px color-mix(in srgb, var(--border-subtle) 60%, transparent),
-            0 1px 2px rgba(34, 44, 32, 0.06),
-            0 12px 28px rgba(34, 44, 32, 0.10);
         animation: fan-in 0.18s cubic-bezier(0.2, 0, 0, 1);
     }
 
@@ -374,94 +388,100 @@
         .fan { animation: none; }
     }
 
-    .fan__head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 4px 6px 6px;
-    }
-
-    .fan__name {
-        font-size: var(--type-body-muted-size, 13px);
-        color: var(--text-primary);
-        text-transform: capitalize;
-    }
-
-    .fan__all {
-        min-height: 30px;
-        padding: 0 0.6rem;
-        border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
-        border-radius: 10px;
-        background: var(--surface-panel);
-        color: var(--text-secondary);
-        font: inherit;
-        font-size: var(--type-micro-label-size, 11px);
-        cursor: pointer;
-        transition-property: background, border-color, color, scale;
-        transition-duration: 0.14s;
-    }
-
-    .fan__all:hover:not(:disabled) {
-        border-color: var(--border-strong);
-        color: var(--text-primary);
-    }
-
-    .fan__all:active:not(:disabled) {
-        scale: 0.96;
-    }
-
-    .fan__all:disabled {
-        opacity: 0.6;
-        cursor: default;
-    }
-
+    /*
+     * Strewn, not shelved.
+     *
+     * A grid of evenly spaced squares reads as a catalogue; stickers spilled
+     * out of a packet overlap and lie at angles, and that is what the drawer
+     * is. Done with negative margins rather than absolute positions so the
+     * whole thing still wraps and reflows on its own — a measured layout would
+     * need the container size, and the container size depends on the layout.
+     *
+     * Wraps rather than scrolling sideways, for the same reason the piles do,
+     * and stones-and-plants has fifty pieces so it needs a ceiling. Vertical
+     * overflow is the one scrollbar worth having: a tall spill plainly reads
+     * as continuing, where a sideways one does not.
+     */
     .fan__strip {
         display: flex;
-        gap: 6px;
-        overflow-x: auto;
-        padding: 2px 4px 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 0;
+        max-height: 46vh;
+        overflow-y: auto;
+        /* Room for the overlap to reach without clipping the outer pieces. */
+        padding: 14px 18px 18px;
     }
 
+    /*
+     * A fan, not a grid: every sticker sits at its own small angle, set from
+     * its index in the pack so a pack leans the same way each time it opens.
+     * A tilt that reshuffled on every hover would read as a glitch.
+     *
+     * No box of any kind — no background, no border, no outline. Pointing at a
+     * sticker straightens it and lifts it, which is what a hand of cards does
+     * and what a rectangle behind it does not.
+     */
     .fan__sticker {
+        position: relative;
         flex: none;
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 64px;
-        height: 64px;
-        border-radius: 10px;
+        width: 92px;
+        height: 92px;
+        /* Negative margin is the overlap; the jitter is what stops the overlap
+           looking like a deliberate offset repeated. */
+        margin: -10px -16px;
+        rotate: var(--tilt, 0deg);
+        translate: var(--dx, 0) var(--dy, 0);
         cursor: grab;
         /* The pointer is about to be captured for the drag; the browser must
            not start a native image drag or a scroll instead. */
         touch-action: none;
-        transition-property: background, scale;
-        transition-duration: 0.14s;
+        transition-property: rotate, scale, translate;
+        transition-duration: 0.16s;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
     }
 
-    .fan__sticker:hover {
-        background: var(--surface-panel-muted);
+    /* Pointing at one pulls it clear of the pile: straight, bigger, and on
+       top of its neighbours — otherwise the sticker you are reaching for is
+       the one half-hidden under the next. */
+    .fan__sticker:hover,
+    .fan__sticker:focus-visible {
+        z-index: 20 !important;
+        rotate: 0deg;
+        scale: 1.14;
+        translate: var(--dx, 0) calc(var(--dy, 0px) - 6px);
+        outline: none;
+    }
+
+    .fan__sticker:hover img,
+    .fan__sticker:focus-visible img {
+        filter: drop-shadow(0 4px 7px rgba(20, 24, 18, 0.38));
     }
 
     .fan__sticker:active {
         cursor: grabbing;
-        scale: 0.96;
+        scale: 1;
     }
 
     .fan__sticker img {
-        max-width: 56px;
-        max-height: 56px;
+        max-width: 84px;
+        max-height: 84px;
         pointer-events: none;
         filter: drop-shadow(0 1px 2px rgba(20, 24, 18, 0.3));
+        transition: filter 0.16s;
     }
 
     /* A stage slice shows as a wide little card rather than a square. */
     .fan__sticker--wide {
-        width: 96px;
+        width: 132px;
     }
 
     .fan__sticker--wide img {
-        max-width: 88px;
+        max-width: 124px;
     }
 
     .ghost {

@@ -203,6 +203,30 @@
                 "neutral"
             ],
             "description": "a rubber stamp on its pad block — the gesture that ends a scene"
+        },
+        "pencil": {
+            "kind": "scenery",
+            "file": "pencil.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a sharpened pencil, point down. Drawn much larger than the rest of this pack - it is also the pencil cursor, so it carries more detail than a 220px prop needs"
+        },
+        "eraser": {
+            "kind": "scenery",
+            "file": "eraser.webp",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a banded eraser seen at an angle. Also the eraser cursor"
+        },
+        "speech-bubble": {
+            "kind": "scenery",
+            "file": "speech-bubble.webp",
+            "mood": [
+                "friendly"
+            ],
+            "description": "an empty green speech bubble with three dots - a thought made visible, or a `say` beat you can see coming. Also the comment cursor"
         }
     }
 }

@@ -19,6 +19,8 @@
      */
     import { alphaFilters, cssColor, outlineFilterSvg, pxUnit, textCss } from "./css.js";
     import { boilFilterSvg } from "./painted.js";
+    import { TROUPE } from "./troupe.js";
+    import PaperCursor from "./PaperCursor.svelte";
     import { maskHit } from "./imaging.js";
     import { overlaps, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
     import { FREE_PAGE, type CollageStudio } from "./studio.js";
@@ -1335,8 +1337,9 @@
     }
 
     function onWheel(event: WheelEvent) {
-        // As above: the camera belongs to the show while it runs.
-        if (showing) return;
+        // The view is yours even mid-show: the world is one open canvas, and
+        // looking around is not touching the play. The camera takes the view
+        // back on the next scene it frames.
         event.preventDefault();
         stopFlight();
         const rect = viewport!.getBoundingClientRect();
@@ -1355,16 +1358,29 @@
 
     function onPointerDown(event: PointerEvent) {
         /*
-         * Nothing is grabbable during a show.
-         *
-         * A performance is watched, not handled: dragging an actor mid-line
-         * fights the animation for the same position, and panning fights the
-         * camera, which is moving on its own to find each scene. Both look like
-         * the page is broken when in fact it is being steered by two people at
-         * once. Stopping is still one click away on the bar, which is outside
-         * the canvas and therefore still live.
+         * Nothing is GRABBABLE during a show — a performance is watched, not
+         * handled, and dragging an actor mid-line fights the animation for
+         * the same position. But now that shows play on the open canvas, the
+         * VIEW is yours even then: the world is one big sheet and you can
+         * look wherever you like. The camera keeps directing — it will take
+         * the view back on the next scene — but a drag pans, and grabbing
+         * nothing else is exactly the difference between moving the camera
+         * and moving the play.
          */
-        if (showing) return;
+        if (showing) {
+            if (event.button !== 0 && event.button !== 1) return;
+            event.preventDefault();
+            try {
+                (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+            } catch { /* carry on without capture */ }
+            stopFlight();
+            moved = false;
+            drag = { mode: "pan", startX: event.clientX, startY: event.clientY, originX: view.x, originY: view.y };
+            return;
+        }
+        // A stuck sweep must never survive into a fresh gesture: it would eat
+        // every pointer move and read as "the canvas will not pan".
+        eraseSweep = false;
         stopFlight();
         if (event.button === 2) return; // The context menu handler deals with it.
         if (event.button !== 0 && event.button !== 1) return;
@@ -1954,6 +1970,20 @@
         return isBackdrop(layer.id) ? "grained" : "";
     }
 
+    /*
+     * Troupe stickers wear the paint even before any scene casts them. The
+     * idle page boils these exact pieces, and the person now drags them onto
+     * the canvas by hand — a sticker that was alive on the welcome screen and
+     * falls dead the moment it becomes real reads as something breaking.
+     * Dropped PHOTOS stay plain (a hand-painted boil on a photograph reads as
+     * a broken decoder), and troupe stage slices stay still even uncast — a
+     * room that boils is an earthquake. Matched by label, which is the troupe
+     * id and survives a save where the src does not.
+     */
+    const TROUPE_STICKERS = new Set(
+        TROUPE.filter(piece => piece.kind === "scenery" || piece.kind === "actor")
+            .map(piece => piece.id));
+
     function paintOf(layer: Layer): string {
         void version;
         if (isBackdrop(layer.id)) return "";
@@ -1963,7 +1993,11 @@
         // read as the drawing losing interest.
         const parts = studio.collage.listStages()
             .flatMap(stage => stage.cast.filter(part => part.id === layer.id));
-        if (!parts.length) return "";
+        if (!parts.length) {
+            return TROUPE_STICKERS.has(layer.label)
+                ? "painted painted--boil painted--calm"
+                : "";
+        }
         return parts.some(part => part.as)
             ? "painted painted--boil"
             : "painted painted--boil painted--calm";
@@ -2040,6 +2074,17 @@
 </script>
 
 <svelte:window onkeydown={onKeyDown} onresize={onViewportResize} />
+
+<!-- The armed eraser, drawn rather than pointed. The real cursor is hidden by
+     the rule below; this one boils like everything else made of paper.
+     Hotspot near the bottom-left corner: that is the pink end that meets the
+     page, and it is what the sweep should rub out. -->
+<PaperCursor
+    src="/cursors/eraser-64.png"
+    hotspot={{ x: 0.16, y: 0.84 }}
+    size={46}
+    active={erasing && !showing}
+/>
 
 <div
     class="viewport"
@@ -2291,11 +2336,34 @@
         cursor: move;
     }
 
-    /* The armed eraser announces itself on every pixel, hit or miss. */
+    /*
+     * The armed eraser announces itself on every pixel, hit or miss.
+     *
+     * The paper eraser rather than a crosshair, because the tool is a thing you
+     * hold: a crosshair says "aim", and this tool is rubbing out. The hotspot
+     * 3,29 is the leading corner — the pink end that meets the paper — so what
+     * disappears is what the corner touched, not what the middle of the picture
+     * covered.
+     *
+     * Two declarations on purpose. The first is the one every browser takes;
+     * the second upgrades it to the 2x image where image-set() is understood,
+     * and is ignored where it is not. Both end in `crosshair`, so a browser
+     * that refuses the PNG still shows the old behaviour rather than an arrow.
+     */
     .viewport--erasing,
     .viewport--erasing.viewport--over,
     .viewport--erasing:active {
-        cursor: crosshair;
+        /*
+         * Hidden, because PaperCursor is drawing it instead — a real cursor
+         * cannot boil, and two erasers on screen at once is worse than either.
+         *
+         * The url() cursor stays as the line above it: if scripting is off or
+         * the component has not mounted, `cursor: none` alone would leave a
+         * bare pointerless canvas, which is the one outcome worse than a
+         * static eraser.
+         */
+        cursor: url("/cursors/eraser-32.png") 3 29, crosshair;
+        cursor: none;
     }
 
     .world {
@@ -2513,7 +2581,8 @@
      * fight a beat: a beat animates the element itself through the Web
      * Animations API, which replaces `transform` outright — so this rocks a
      * wrapper property that nothing else touches, and the two compose instead
-     * of cancelling.
+     * of cancelling. (Liveliness OUTSIDE the show is the painterly boil's
+     * job, on the picture inside — see paintOf.)
      */
     .layer--alive {
         /*

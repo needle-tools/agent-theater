@@ -7,7 +7,79 @@
 			"file": "/audio/music/night-hush.opus",
 			"seconds": 50.01,
 			"mood": ["night", "sparse", "still"],
-			"description": "Celesta notes struck far apart, low bowed strings sustaining, one high harmonic held above, deep quiet between. Cool and dark blue. No melody and no arrival, so it cross-fades into itself unheard."
+			"description": "Celesta notes struck far apart, low bowed strings sustaining, one high harmonic held above, deep quiet between. Cool and dark blue. Fades away at the end despite being asked not to, so it wants `fade` rather than `loop`."
+		},
+		"forest-air-1": {
+			"role": "bed",
+			"file": "/audio/music/forest-air-1.opus",
+			"seconds": 50.01,
+			"bpm": 50,
+			"take": "forest-air",
+			"mood": ["woodland", "sparse", "unhurried"],
+			"description": "Guitar harmonics, breathy flute, bowed cimbalom, sparse celesta. Woodland and unhurried, no melody to follow. The steadiest of the batch — it ends near the level it starts at, so it is the one that loops without a hole."
+		},
+		"forest-air-2": {
+			"role": "bed",
+			"file": "/audio/music/forest-air-2.opus",
+			"seconds": 50.01,
+			"bpm": 50,
+			"take": "forest-air",
+			"mood": ["woodland", "sparse", "unhurried"],
+			"description": "Guitar harmonics, breathy flute, bowed cimbalom, sparse celesta. Woodland and unhurried, no melody to follow. Fades to silence at the end despite being asked not to, so it wants `fade` or a hand-off rather than `loop`."
+		},
+		"meadow-open-1": {
+			"role": "bed",
+			"file": "/audio/music/meadow-open-1.opus",
+			"seconds": 44.75,
+			"bpm": 55,
+			"take": "meadow-open",
+			"mood": ["open", "warm", "still"],
+			"description": "Sustained strings, clarinet long tones, brushed autoharp, warm pad. Open country in warm light. Came back short of the length asked for and fades at the end, so it wants `fade` rather than `loop`."
+		},
+		"meadow-open-2": {
+			"role": "bed",
+			"file": "/audio/music/meadow-open-2.opus",
+			"seconds": 42.77,
+			"bpm": 55,
+			"take": "meadow-open",
+			"mood": ["open", "warm", "still"],
+			"description": "Sustained strings, clarinet long tones, brushed autoharp, warm pad. The quietest and sparsest of the three meadow takes. Fades at the end, so it wants `fade` rather than `loop`."
+		},
+		"meadow-open-3": {
+			"role": "bed",
+			"file": "/audio/music/meadow-open-3.opus",
+			"seconds": 43.61,
+			"bpm": 55,
+			"take": "meadow-open",
+			"mood": ["open", "warm", "still"],
+			"description": "Sustained strings, clarinet long tones, brushed autoharp, warm pad. The fullest of the three meadow takes. Fades at the end, so it wants `fade` rather than `loop`."
+		},
+		"village-lane-1": {
+			"role": "bed",
+			"file": "/audio/music/village-lane-1.opus",
+			"seconds": 50.01,
+			"bpm": 60,
+			"take": "village-lane",
+			"mood": ["friendly", "unhurried", "acoustic"],
+			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Opens louder than the other two takes and fades to silence at the end, so it wants `fade` rather than `loop`."
+		},
+		"village-lane-2": {
+			"role": "bed",
+			"file": "/audio/music/village-lane-2.opus",
+			"seconds": 50.01,
+			"bpm": 60,
+			"take": "village-lane",
+			"mood": ["friendly", "unhurried", "acoustic"],
+			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Fades to silence at the end, so it wants `fade` rather than `loop`."
+		},
+		"village-lane-3": {
+			"role": "bed",
+			"file": "/audio/music/village-lane-3.opus",
+			"seconds": 50.01,
+			"bpm": 60,
+			"take": "village-lane",
+			"mood": ["friendly", "unhurried", "acoustic"],
+			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Fades to silence at the end, so it wants `fade` rather than `loop`."
 		},
 		"fairy-tale-ambience": {
 			"role": "bed",

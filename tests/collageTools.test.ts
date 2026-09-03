@@ -926,12 +926,18 @@ describe("reading a scene back", () => {
         expect(text).toContain("0.9");
     });
 
-    it("does not pretend raw numbers mean something without a backdrop", async () => {
+    it("measures a backdropless scene against the cast's own footprint", async () => {
+        // The world is one open sheet now: a scene without a backdrop is not
+        // unmeasurable, its frame is simply wherever its cast stands. One
+        // member alone IS the footprint, so it reads back at the centre with
+        // its feet on the frame's floor.
         const { studio, collage } = fakeStudio();
         const tree = collage.addImage({ src: "t", natural: { width: 100, height: 200 } });
         const stage = collage.addStage({ name: "nowhere" });
         collage.updateStage(stage.id, { cast: [{ id: tree.id, x: 12, y: 34 }] });
-        expect(await describe(studio)).toContain("no backdrop to measure against");
+        const text = await describe(studio);
+        expect(text).toContain("x 0.50");
+        expect(text).toContain("feet 1.00");
     });
 });
 
