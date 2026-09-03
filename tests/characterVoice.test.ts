@@ -31,8 +31,22 @@ describe("character voices", () => {
         expect(giant.age).toBeGreaterThan(fairy.age);
     });
 
+    it("casts the obvious archetypes decisively", () => {
+        const wizard = voiceForActor(piece("fairy-tale/wizard"));
+        const child = voiceForActor(piece("people/explorer-child"));
+        const elder = voiceForActor(piece("people/elder-woman"));
+        expect(wizard).toMatchObject({ speed: expect.closeTo(0.58, 1) });
+        expect(wizard.age).toBeGreaterThan(0.85);
+        expect(wizard.tone).toBeLessThan(0.2);
+        expect(child.age).toBeLessThan(0.15);
+        expect(child.tone).toBeGreaterThan(0.6);
+        expect(elder.age).toBeGreaterThan(0.85);
+        expect(elder.speed).toBeLessThan(0.55);
+    });
+
     it("chooses the same short greeting for the same actor", () => {
         expect(greetingForActor(piece("animals/rabbit"))).toBe(greetingForActor(piece("animals/rabbit")));
-        expect(["Hi!", "Hello!", "Oh, hello!"]).toContain(greetingForActor(piece("animals/rabbit")));
+        const greetings = new Set(TROUPE.filter(candidate => candidate.kind === "actor").map(greetingForActor));
+        expect(greetings.size).toBeGreaterThan(15);
     });
 });

@@ -31,6 +31,7 @@
     import { parallaxOf } from "./stage.js";
     import { play, type Playing, type Stagehand } from "./player.js";
     import { createSpeaker } from "./audio.js";
+    import { playInteractionSound } from "./interactionSounds.js";
     import { actorForLayer, greetingForActor } from "./characterVoice.js";
     import { clipKeyframes, findClip, recorder, TALK_CLIP } from "./clips.js";
     import { prompter } from "./speech.js";
@@ -1694,7 +1695,13 @@
         }
         const dx = (event.clientX - (drag as any).startX) / view.zoom;
         const dy = (event.clientY - (drag as any).startY) / view.zoom;
-        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) moved = true;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+            moved = true;
+            if (!handlingSound && drag.mode === "move") {
+                handlingSound = true;
+                playInteractionSound("pickup");
+            }
+        }
 
         if (drag.mode === "pan") {
             view = { ...view, x: drag.originX + (event.clientX - drag.startX), y: drag.originY + (event.clientY - drag.startY) };
@@ -1742,6 +1749,7 @@
     }
 
     let hoverId = $state<string | null>(null);
+    let handlingSound = false;
 
     /**
      * Dropping a piece onto another attaches it; dragging it off detaches.
@@ -1840,6 +1848,8 @@
         if (moved && drag && drag.mode === "move" && drag.origins.size === 1) {
             reparentByDrop(drag.id);
         }
+        if (handlingSound && drag?.mode === "move") playInteractionSound("putdown");
+        handlingSound = false;
         if (moved && drag && (drag.mode === "move" || drag.mode === "resize")) {
             const layer = studio.collage.get(drag.id);
             if (layer) {

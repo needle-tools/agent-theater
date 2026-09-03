@@ -21,6 +21,7 @@
     import { idleSet } from "./idleSet.js";
     import { tamedWidth } from "./placement.js";
     import { hint } from "./hint.js";
+    import { playInteractionSound } from "./interactionSounds.js";
     import { greetingForActor, voiceForActor } from "./characterVoice.js";
     import type { SubtitleVoice } from "../subtitleVoice/index.js";
 
@@ -183,6 +184,7 @@
             from: { x: event.clientX, y: event.clientY },
             clickAdds,
         };
+        playInteractionSound("pickup");
     }
 
     function randomSticker(pieces: TroupePiece[]): TroupePiece {
@@ -216,9 +218,11 @@
                 window.innerWidth * (0.42 + Math.random() * 0.16),
                 window.innerHeight * (0.4 + Math.random() * 0.2)));
         }
+        playInteractionSound("putdown");
     }
 
     function cancelDrag() {
+        if (ghost) playInteractionSound("putdown");
         ghost = null;
     }
 </script>

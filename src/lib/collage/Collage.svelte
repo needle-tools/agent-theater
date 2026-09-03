@@ -14,6 +14,7 @@
     import { onDestroy, onMount } from "svelte";
     import CollageCanvas from "$lib/collage/CollageCanvas.svelte";
     import PackShelf from "$lib/collage/PackShelf.svelte";
+    import { playInteractionSound } from "$lib/collage/interactionSounds.js";
     import EditPopover from "$lib/collage/EditPopover.svelte";
     import ShowOverlay from "$lib/collage/ShowOverlay.svelte";
     import StageBar from "$lib/collage/StageBar.svelte";
@@ -466,6 +467,7 @@
         }
         (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
         heldProp = { id, lastX: event.clientX, lastY: event.clientY };
+        playInteractionSound("pickup");
         scatter = scatter.map(prop => prop.id === id ? { ...prop, touched: true } : prop);
     }
 
@@ -487,6 +489,7 @@
     }
 
     function dropProp() {
+        if (heldProp) playInteractionSound("putdown");
         heldProp = null;
     }
 
