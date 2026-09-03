@@ -97,7 +97,7 @@ async function within<T>(work: Promise<T>, waiting: () => ToolResult): Promise<T
  * picker — and none of them is a thing an agent needs in order to stage a play.
  */
 const THEATRE = new Set([
-    "theater_start", "theater_avatar", "theater_art_prompt", "theater_clear",
+    "theater_start", "theater_avatar", "theater_art_prompt", "theater_background", "theater_clear",
     "piece_list", "piece_add", "piece_copy", "piece_sheet", "piece_text",
     "piece_move", "piece_remove", "piece_say", "show_look", "show_watch",
 ]);
@@ -788,6 +788,41 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `The set is struck: canvas, scenes and title are gone. The paper stays bare for ` +
                     `half a minute — room to build clean. If nothing is put down by then, the idle ` +
                     `page deals a fresh random scatter of troupe stickers as a new starting point.`);
+            },
+        },
+        {
+            name: "theater_background",
+            title: "Recolour the paper",
+            description:
+                "Fade the canvas background to a colour — the stage lighting, not a backdrop. Use it " +
+                "for mood: a deep blue for night, a hot ochre for a desert noon, back to 'paper' when " +
+                "the story returns home. Works any time, mid-show included, and fades over about a " +
+                "second. The dot grid stays; pieces are unaffected. Prefer muted, papery tones — the " +
+                "cut-outs still have to read against it.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    color: {
+                        type: "string",
+                        description: `A hex colour like "#1B2440" — or "paper" for the house default.`,
+                    },
+                },
+                required: ["color"],
+            },
+            async execute(args: { color?: string }) {
+                const color = str(args?.color).toLowerCase();
+                if (!color) return fail(`Pass "color" — a hex colour, or "paper" to reset.`);
+                if (color !== "paper" && !/^#[0-9a-f]{3,8}$/i.test(color)) {
+                    return fail(`"${color}" is not a hex colour like "#1B2440", and not "paper".`);
+                }
+                studio.collage.setBackground(color === "paper" ? "" : color);
+                studio.save();
+                studio.record("page-changed",
+                    color === "paper" ? "The paper returns to its own colour." : `The paper fades to ${color}.`,
+                    "agent");
+                return ok(color === "paper"
+                    ? `The paper fades back to its own colour.`
+                    : `The paper fades to ${color}. Pass "paper" to undo the weather.`);
             },
         },
         {

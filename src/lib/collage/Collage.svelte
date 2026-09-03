@@ -696,7 +696,7 @@
         }
         (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
         heldProp = { id, lastX: event.clientX, lastY: event.clientY };
-        playInteractionSound("pickup");
+        playInteractionSound("pickup", studio.speaker.ready);
         scatter = scatter.map(prop => prop.id === id ? { ...prop, touched: true } : prop);
     }
 
@@ -718,7 +718,7 @@
     }
 
     function dropProp() {
-        if (heldProp) playInteractionSound("putdown");
+        if (heldProp) playInteractionSound("putdown", studio.speaker.ready);
         heldProp = null;
     }
 

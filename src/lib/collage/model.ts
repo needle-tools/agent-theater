@@ -415,6 +415,7 @@ interface Snapshot {
     frames: Frame[];
     stages: Stage[];
     billing: Billing;
+    background: string;
 }
 
 /**
@@ -455,6 +456,9 @@ export class Collage {
     private readonly frames = new Map<string, Frame>();
     private readonly stages = new Map<string, Stage>();
     private billed: Billing = {};
+    /** The paper's colour override — "" is the house paper. Set by the agent
+     *  for mood (a night scene, a red desert noon); the canvas fades to it. */
+    private paper = "";
     /**
      * The stage being shown, if any.
      *
@@ -621,6 +625,7 @@ export class Collage {
             frames: [...this.frames.values()],
             stages: [...this.stages.values()],
             billing: { ...this.billed },
+            background: this.paper,
         };
     }
 
@@ -633,6 +638,7 @@ export class Collage {
         for (const frame of snapshot.frames) this.frames.set(frame.id, frame);
         for (const stage of snapshot.stages ?? []) this.stages.set(stage.id, stage);
         this.billed = { ...(snapshot.billing ?? {}) };
+        this.paper = snapshot.background ?? "";
         // A stage that was undone out of existence cannot stay on screen.
         if (this.active && !this.stages.has(this.active)) this.active = null;
         // A fresh edit after an undo must not coalesce into the edit it undid.
@@ -746,6 +752,17 @@ export class Collage {
         };
         this.emit();
         return this.billing;
+    }
+
+    /** The paper's colour override; "" means the house paper. */
+    get background(): string {
+        return this.paper;
+    }
+
+    setBackground(color: string): void {
+        this.remember("background");
+        this.paper = color;
+        this.emit();
     }
 
     addStage(spec: StageSpec = {}): Stage {
@@ -958,6 +975,8 @@ export class Collage {
         this.stages.clear();
         this.active = null;
         this.billed = { ...billing };
+        // A restore is a different play; it brings its own weather or none.
+        this.paper = "";
         for (const stage of stages) this.stages.set(stage.id, stage);
         for (const layer of layers) {
             this.layers.set(layer.id, layer);

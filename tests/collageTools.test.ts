@@ -796,7 +796,8 @@ describe("the surface an agent actually sees", () => {
             "show_list", "show_load", "show_look", "show_play", "show_publish", "show_save",
             "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",
-            "theater_art_prompt", "theater_avatar", "theater_batch", "theater_clear", "theater_start",
+            "theater_art_prompt", "theater_avatar", "theater_background", "theater_batch",
+            "theater_clear", "theater_start",
         ]);
     });
 

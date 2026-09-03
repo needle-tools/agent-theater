@@ -179,6 +179,10 @@
      * stage: at full strength a pink sky would make the whole window pink and
      * there would be nothing to look at.
      */
+    /** The agent-set paper colour, if any — fades in via the viewport's own
+     *  background transition; null hands the inline style back to the CSS. */
+    const paperColour = $derived.by(() => (version, studio.collage.background || null));
+
     const surround = $derived.by(() => {
         void version;
         const stage = studio.collage.activeStage;
@@ -1822,7 +1826,7 @@
             moved = true;
             if (!handlingSound && drag.mode === "move") {
                 handlingSound = true;
-                playInteractionSound("pickup");
+                playInteractionSound("pickup", studio.speaker.ready);
             }
         }
 
@@ -1971,7 +1975,7 @@
         if (moved && drag && drag.mode === "move" && drag.origins.size === 1) {
             reparentByDrop(drag.id);
         }
-        if (handlingSound && drag?.mode === "move") playInteractionSound("putdown");
+        if (handlingSound && drag?.mode === "move") playInteractionSound("putdown", studio.speaker.ready);
         handlingSound = false;
         if (moved && drag && (drag.mode === "move" || drag.mode === "resize")) {
             const layer = studio.collage.get(drag.id);
@@ -2416,6 +2420,7 @@
     style:--surround={surround
         ? `color-mix(in srgb, ${surround} 22%, #0E1013)`
         : "#14161a"}
+    style:background-color={paperColour || null}
     bind:this={viewport}
     role="application"
     aria-label="Theater stage"
@@ -2604,6 +2609,12 @@
         -webkit-user-select: none;
         background-color: var(--surface-page);
         background-image: radial-gradient(circle, color-mix(in srgb, var(--border-subtle) 80%, transparent) 1px, transparent 1px);
+        /* The agent can recolour the paper (theater_background); the change is
+           lighting, not a cut, so it FADES. Colour only — background-position
+           follows the pan every frame and must never ease after the hand. */
+        transition-property: background-color;
+        transition-duration: 1.1s;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
         /*
          * The grid pans but does not zoom.
          *

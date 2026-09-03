@@ -214,7 +214,7 @@
             y: event.clientY,
             from: { x: event.clientX, y: event.clientY },
         };
-        playInteractionSound("pickup");
+        playInteractionSound("pickup", studio.speaker.ready);
     }
 
     function moveDrag(event: PointerEvent) {
@@ -238,11 +238,11 @@
             const pack = packs.find(candidate => candidate.id === packId);
             if (pack) randomizeNext(pack);
         }
-        playInteractionSound("putdown");
+        playInteractionSound("putdown", studio.speaker.ready);
     }
 
     function cancelDrag() {
-        if (ghost) playInteractionSound("putdown");
+        if (ghost) playInteractionSound("putdown", studio.speaker.ready);
         ghost = null;
     }
 </script>

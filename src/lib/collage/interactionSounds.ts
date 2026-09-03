@@ -1,6 +1,21 @@
 /** Quiet, low-register handling sounds made without downloaded samples. */
 export type InteractionSound = "pickup" | "putdown";
 
+/**
+ * How loud handling sounds are while the rest of the sound is off.
+ *
+ * These are synthesised here rather than played through the Speaker, on their
+ * own AudioContext which resumes itself — so when the browser has not let the
+ * music and the voices start yet, or the show is running silent, these carry
+ * on at full level and become the only thing anybody hears. That is the wrong
+ * way round: they are the quietest thing in the mix when everything works.
+ *
+ * Not silence, though. A click is the only confirmation that a piece was
+ * picked up at all, and losing it because the page has not been touched yet
+ * would make the drawer feel broken rather than quiet.
+ */
+const OFF_LEVEL = 0.3;
+
 let context: AudioContext | null = null;
 
 function getContext(): AudioContext | null {
@@ -11,7 +26,7 @@ function getContext(): AudioContext | null {
     return context ??= new AudioContextClass();
 }
 
-function synthesize(ctx: AudioContext, kind: InteractionSound) {
+function synthesize(ctx: AudioContext, kind: InteractionSound, level: number) {
     const now = ctx.currentTime + 0.008;
     const duration = kind === "pickup" ? 0.25 : 0.29;
     const middle = now + duration * 0.58;
@@ -23,10 +38,13 @@ function synthesize(ctx: AudioContext, kind: InteractionSound) {
     filter.type = "lowpass";
     filter.frequency.value = kind === "pickup" ? 720 : 560;
     filter.Q.value = 0.45;
-    output.gain.setValueAtTime(0.0001, now);
-    output.gain.exponentialRampToValueAtTime(0.018, now + 0.035);
-    output.gain.setValueAtTime(0.014, middle);
-    output.gain.exponentialRampToValueAtTime(0.0001, end);
+    // Every point of the envelope scales together, so the shape of the sound
+    // is the same quiet and loud — a click that only lost its attack would
+    // read as a different, duller sound rather than as the same one further off.
+    output.gain.setValueAtTime(0.0001 * level, now);
+    output.gain.exponentialRampToValueAtTime(0.018 * level, now + 0.035);
+    output.gain.setValueAtTime(0.014 * level, middle);
+    output.gain.exponentialRampToValueAtTime(0.0001 * level, end);
     filter.connect(output).connect(ctx.destination);
 
     for (const [index, mix] of [1, 0.14].entries()) {
@@ -43,9 +61,15 @@ function synthesize(ctx: AudioContext, kind: InteractionSound) {
     }
 }
 
-export function playInteractionSound(kind: InteractionSound): void {
+/**
+ * `soundOn` is the Speaker's own state — pass `speaker.ready`. False drops
+ * these to OFF_LEVEL instead of leaving them at full while nothing else in
+ * the room can make a noise.
+ */
+export function playInteractionSound(kind: InteractionSound, soundOn = true): void {
     const ctx = getContext();
     if (!ctx) return;
-    if (ctx.state === "running") return synthesize(ctx, kind);
-    void ctx.resume().then(() => synthesize(ctx, kind), () => {});
+    const level = soundOn ? 1 : OFF_LEVEL;
+    if (ctx.state === "running") return synthesize(ctx, kind, level);
+    void ctx.resume().then(() => synthesize(ctx, kind, level), () => {});
 }
