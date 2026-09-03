@@ -1,0 +1,209 @@
+{
+    "name": "forest-band",
+    "description": "Forest scenery as BAND SEGMENTS rather than strips — 13 midground and 12 foreground pieces, each with open ragged ends so copies butt together into a band as wide as the camera travels. This is what replaces the fixed-width layers in the `forest` pack: place several side by side, repeat as needed, and slide the two bands at different speeds for parallax. Drawn more finely than the flat torn-paper packs, so it reads as a slightly different hand.",
+    "stylePrompt": "STYLE — torn and cut paper collage. Every shape is coloured paper cut or torn by hand and laid\nflat, with visible deckle edges, paper grain and a dry speckled texture. Seen STRAIGHT ON, flat,\nfrom the front. No vanishing point, no perspective, no lighting, no gradients, no cast shadows.\nPalette: muted, warm and mid-century — moss and olive green, deep navy instead of black, brick\nred, cream, dusty rose, mustard, soft pink.\n\nThe theme is: a forest.\n\nA 5 × 5 sheet of 25 pieces, and these pieces are THE PARTS OF TWO SCENERY BANDS, not separate\nobjects. They are laid side by side, repeated and overlapped, to build a band as wide as the\nstage needs — so each one is a SEGMENT of a band, never a thing standing on its own.\nTHE RULE THAT MATTERS: every piece must sit next to a copy of itself without a seam showing. So\nthe LEFT and RIGHT edges are ragged, uneven and open — foliage that carries on, grass that keeps\ngoing — never a straight vertical cut. Each piece is torn out of the middle of a longer band.\nThe TOP edge is the silhouette against the sky; the BOTTOM edge runs flat and level so pieces\nline up on a shared ground line.\n13 MIDGROUND pieces: behind the actors, distant, low contrast, a third to half the cell height.\n12 FOREGROUND pieces: nearest the audience, darker, larger, more detailed, up to three quarters.\nEvery piece on a PLAIN WHITE background, no shadow, no ground line drawn under it.",
+    "pieces": {
+        "mid-scrub": {
+            "kind": "midground",
+            "mood": [
+                "day"
+            ],
+            "description": "low scrub with bare twigs rising out of it",
+            "file": "mid-scrub.webp"
+        },
+        "mid-scrub-twigs": {
+            "kind": "midground",
+            "mood": [
+                "day"
+            ],
+            "description": "a second run of scrub, twigs more prominent",
+            "file": "mid-scrub-twigs.webp"
+        },
+        "mid-scrub-bare": {
+            "kind": "midground",
+            "mood": [
+                "winter"
+            ],
+            "description": "scrub gone over to bare branches",
+            "file": "mid-scrub-bare.webp"
+        },
+        "mid-bushes": {
+            "kind": "midground",
+            "mood": [
+                "day"
+            ],
+            "description": "dense low bushes, the plainest of the bands",
+            "file": "mid-bushes.webp"
+        },
+        "mid-bushes-pale": {
+            "kind": "midground",
+            "mood": [
+                "day"
+            ],
+            "description": "paler bushes, further off — the lowest contrast piece, good furthest back",
+            "file": "mid-bushes-pale.webp"
+        },
+        "mid-bushes-low": {
+            "kind": "midground",
+            "mood": [
+                "day"
+            ],
+            "description": "soft low bushes, barely a silhouette",
+            "file": "mid-bushes-low.webp"
+        },
+        "mid-pines": {
+            "kind": "midground",
+            "mood": [
+                "day"
+            ],
+            "description": "pine tops rising above a bush line — the tallest midground piece",
+            "file": "mid-pines.webp"
+        },
+        "mid-willows": {
+            "kind": "midground",
+            "mood": [
+                "day"
+            ],
+            "description": "weeping shrubs with hanging foliage",
+            "file": "mid-willows.webp"
+        },
+        "mid-ferns": {
+            "kind": "midground",
+            "mood": [
+                "day"
+            ],
+            "description": "a row of ferns at middle distance",
+            "file": "mid-ferns.webp"
+        },
+        "mid-blossom": {
+            "kind": "midground",
+            "mood": [
+                "spring",
+                "gentle"
+            ],
+            "description": "a bank of pink blossom — the only midground piece with strong colour in it",
+            "file": "mid-blossom.webp"
+        },
+        "mid-grass-gold": {
+            "kind": "midground",
+            "mood": [
+                "autumn"
+            ],
+            "description": "a bank of mustard grass with seed heads",
+            "file": "mid-grass-gold.webp"
+        },
+        "mid-rocks": {
+            "kind": "midground",
+            "mood": [
+                "neutral"
+            ],
+            "description": "mossy rocks in a run, low and broken",
+            "file": "mid-rocks.webp"
+        },
+        "mid-cottages": {
+            "kind": "midground",
+            "mood": [
+                "storybook"
+            ],
+            "description": "cottage roofs showing above a hedge — puts a village behind the trees",
+            "file": "mid-cottages.webp"
+        },
+        "fore-grass-spiky": {
+            "kind": "foreground",
+            "mood": [
+                "day"
+            ],
+            "description": "dark spiky grass on a bank of undergrowth",
+            "file": "fore-grass-spiky.webp"
+        },
+        "fore-ferns": {
+            "kind": "foreground",
+            "mood": [
+                "day"
+            ],
+            "description": "ferns in front, darker and larger than the midground row",
+            "file": "fore-ferns.webp"
+        },
+        "fore-nettles": {
+            "kind": "foreground",
+            "mood": [
+                "day"
+            ],
+            "description": "tall stems and nettles, the highest foreground piece",
+            "file": "fore-nettles.webp"
+        },
+        "fore-leaves-berries": {
+            "kind": "foreground",
+            "mood": [
+                "autumn"
+            ],
+            "description": "broad dark leaves with berry sprigs",
+            "file": "fore-leaves-berries.webp"
+        },
+        "fore-leaves-mushrooms": {
+            "kind": "foreground",
+            "mood": [
+                "autumn"
+            ],
+            "description": "big leaves with mushrooms at their feet",
+            "file": "fore-leaves-mushrooms.webp"
+        },
+        "fore-holly": {
+            "kind": "foreground",
+            "mood": [
+                "winter"
+            ],
+            "description": "holly with red berries",
+            "file": "fore-holly.webp"
+        },
+        "fore-flowers-gold": {
+            "kind": "foreground",
+            "mood": [
+                "summer"
+            ],
+            "description": "tall mustard flowers on thin stems",
+            "file": "fore-flowers-gold.webp"
+        },
+        "fore-flowers-pink": {
+            "kind": "foreground",
+            "mood": [
+                "summer",
+                "gentle"
+            ],
+            "description": "pink flowers over broad leaves — the brightest foreground piece",
+            "file": "fore-flowers-pink.webp"
+        },
+        "fore-rocks": {
+            "kind": "foreground",
+            "mood": [
+                "neutral"
+            ],
+            "description": "pale rocks bedded in dark undergrowth",
+            "file": "fore-rocks.webp"
+        },
+        "fore-roots": {
+            "kind": "foreground",
+            "mood": [
+                "spooky"
+            ],
+            "description": "sprawling roots across the ground",
+            "file": "fore-roots.webp"
+        },
+        "fore-log": {
+            "kind": "foreground",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a fallen log lying in undergrowth",
+            "file": "fore-log.webp"
+        },
+        "fore-log-mossy": {
+            "kind": "foreground",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a mossy log with ferns growing over it",
+            "file": "fore-log-mossy.webp"
+        }
+    }
+}

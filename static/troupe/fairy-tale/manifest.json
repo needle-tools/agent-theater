@@ -1,0 +1,302 @@
+{
+    "name": "fairy-tale",
+    "description": "The storybook cast, and the objects a folk tale turns on: 25 characters and 6 props, from two sheets. Torn paper like the animals and villains, so these mix with them — unlike the flatter `people` and `heroes` packs. The cast to reach for first when the play is a fairy tale.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, buckles, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nTWO SHEETS. One is a cast of fairy-tale characters — one per cell, all different: the people and creatures a folk tale is made of, kings and cooks and trolls alike. The other is the objects a fairy tale turns on — a mirror, a key, an apple. Give each character a readable silhouette and a stance that says what they are before the audience hears a word.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT character, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE character on a PLAIN WHITE background, cut-out style, with no shadow, no ground, no scenery and no base beneath them. Full body, facing the viewer, standing upright with their feet visible and their arms clear of their sides — they will be animated walking, jumping and bowing, so nothing may be cropped and nothing may merge into the background. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "king": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "proud",
+                "storybook"
+            ],
+            "description": "a bearded king in a red fur-trimmed robe and crown",
+            "file": "king.webp"
+        },
+        "queen": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "proud",
+                "storybook"
+            ],
+            "description": "a queen in a navy gown with a fur collar and a crown",
+            "file": "queen.webp"
+        },
+        "prince": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "brave",
+                "friendly"
+            ],
+            "description": "a young prince in a navy tunic, hands on hips",
+            "file": "prince.webp"
+        },
+        "princess": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "gentle",
+                "storybook"
+            ],
+            "description": "a princess in a wide pink gown, hands folded",
+            "file": "princess.webp"
+        },
+        "knight": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "brave"
+            ],
+            "description": "a knight in full plate with a red plume — visor down, so he has no face to act with",
+            "file": "knight.webp"
+        },
+        "soldier": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "proud",
+                "comic"
+            ],
+            "description": "a toy-soldier guard in navy with a tall gold hat",
+            "file": "soldier.webp"
+        },
+        "wizard": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "wise",
+                "storybook"
+            ],
+            "description": "a white-bearded wizard in a blue robe and pointed hat, one arm raised mid-spell",
+            "file": "wizard.webp"
+        },
+        "witch": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "menacing",
+                "storybook"
+            ],
+            "description": "a hook-nosed witch in a green robe and pointed hat — softer and greener than villains/witch",
+            "file": "witch.webp"
+        },
+        "fairy": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "gentle",
+                "bright"
+            ],
+            "description": "a winged fairy in red, up on one toe",
+            "file": "fairy.webp"
+        },
+        "elf": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "quick",
+                "friendly"
+            ],
+            "description": "a green-clad elf with pointed ears and curled shoes",
+            "file": "elf.webp"
+        },
+        "dwarf": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "stubborn",
+                "friendly"
+            ],
+            "description": "a white-bearded dwarf in mustard with a wide belt",
+            "file": "dwarf.webp"
+        },
+        "giant": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "heavy",
+                "slow"
+            ],
+            "description": "a huge man in a mustard shirt — the bulkiest figure in the pack, scale him up",
+            "file": "giant.webp"
+        },
+        "ogre": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "menacing"
+            ],
+            "description": "a green tusked ogre in a red waistcoat, knuckles down",
+            "file": "ogre.webp"
+        },
+        "troll": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "menacing",
+                "heavy"
+            ],
+            "description": "a red-brown troll with tusks and a black belt",
+            "file": "troll.webp"
+        },
+        "goblin": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "sneaky",
+                "menacing"
+            ],
+            "description": "a navy goblin with long ears and claws, crouched forward",
+            "file": "goblin.webp"
+        },
+        "jester": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "comic"
+            ],
+            "description": "a jester in mustard and pink, arms flung wide",
+            "file": "jester.webp"
+        },
+        "minstrel": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "friendly",
+                "gentle"
+            ],
+            "description": "a minstrel in pink with a lute — the one who narrates, if you need one",
+            "file": "minstrel.webp"
+        },
+        "cook": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "friendly"
+            ],
+            "description": "a cook in an apron carrying a roast on a platter",
+            "file": "cook.webp"
+        },
+        "blacksmith": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "capable"
+            ],
+            "description": "a blacksmith in a navy apron with a hammer",
+            "file": "blacksmith.webp"
+        },
+        "woodcutter": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "capable",
+                "brave"
+            ],
+            "description": "a bearded woodcutter shouldering an axe",
+            "file": "woodcutter.webp"
+        },
+        "fisherman": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "calm"
+            ],
+            "description": "a fisherman in a green coat holding a fish",
+            "file": "fisherman.webp"
+        },
+        "shepherdess": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "gentle",
+                "calm"
+            ],
+            "description": "a shepherdess in a pink cloak with a crook",
+            "file": "shepherdess.webp"
+        },
+        "merchant": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "proud"
+            ],
+            "description": "a robed merchant in a turban, hands together",
+            "file": "merchant.webp"
+        },
+        "peasant": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "calm",
+                "stubborn"
+            ],
+            "description": "a young peasant in a mustard waistcoat, arms crossed",
+            "file": "peasant.webp"
+        },
+        "maiden-book": {
+            "kind": "actor",
+            "facing": "front",
+            "mood": [
+                "gentle",
+                "wise"
+            ],
+            "description": "a dark-haired girl reading an open book — the only character looking down rather than out",
+            "file": "maiden-book.webp"
+        },
+        "crown": {
+            "kind": "scenery",
+            "mood": [
+                "proud",
+                "storybook"
+            ],
+            "description": "a red crown with gold points — the good counterpart to villain-props/crown",
+            "file": "crown.webp"
+        },
+        "key-gold": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "an olive and gold key, oversized so it reads as a prop",
+            "file": "key-gold.webp"
+        },
+        "book": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "wise"
+            ],
+            "description": "a navy clasped book — pairs with maiden-book, and with the wizard",
+            "file": "book.webp"
+        },
+        "hand-mirror": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a pink hand mirror with a blank face — the one that answers questions",
+            "file": "hand-mirror.webp"
+        },
+        "apple": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "friendly"
+            ],
+            "description": "a whole red apple with a leaf. Unbitten: villain-props/apple-poisoned is the other one",
+            "file": "apple.webp"
+        },
+        "slipper": {
+            "kind": "scenery",
+            "mood": [
+                "storybook",
+                "gentle"
+            ],
+            "description": "a cream and pink slipper — the one that fits, or does not",
+            "file": "slipper.webp"
+        }
+    }
+}
