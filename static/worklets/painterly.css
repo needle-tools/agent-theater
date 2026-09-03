@@ -264,24 +264,58 @@ img.painted--boil,
     initial-value: 4;
 }
 
+/* Which take of the paper this is. Stepped by `grain-shift` below. */
+@property --grain-frame {
+    syntax: "<integer>";
+    inherits: true;
+    initial-value: 0;
+}
+
 /* Speck radius in CSS pixels. Below about 0.7 it stops surviving the display's
    own resampling; above about 2 it stops being grain and becomes texture. */
 @property --grain-size {
     syntax: "<number>";
     inherits: true;
-    initial-value: 1;
+    initial-value: 1.4;
 }
 
 @property --grain-density {
     syntax: "<number>";
     inherits: true;
-    initial-value: 1;
+    initial-value: 3;
 }
 
 @property --grain-contrast {
     syntax: "<number>";
     inherits: true;
-    initial-value: 1;
+    initial-value: 1.1;
+}
+
+@property --grain-amount {
+    syntax: "<number>";
+    inherits: true;
+    initial-value: 1.1;
+}
+
+/**
+ * The paper re-laid, on its own clock.
+ *
+ * Three holds again, but slower than the boil and for a different reason. A
+ * backdrop must not change *shape* — that is the earthquake — so nothing here
+ * touches geometry. What changes is which specks are where, and that alone is
+ * enough to stop a still backdrop reading as a photograph behind moving
+ * drawings.
+ *
+ * Half the boil's rate by default, and that is a cost decision as much as a
+ * taste one: each hold repaints the tile, but it also re-rasterises the whole
+ * overlay the tile fills, and on a stage-width backdrop that overlay is the
+ * biggest surface on the page. Twice a second is plenty for paper.
+ */
+@keyframes grain-shift {
+    0% { --grain-frame: 0; }
+    33.333% { --grain-frame: 1; }
+    66.666% { --grain-frame: 2; }
+    100% { --grain-frame: 0; }
 }
 
 .grained {
@@ -289,6 +323,13 @@ img.painted--boil,
     /* `overlay` reaches through to whatever is painted beneath, which on a
        stage is every other scene layer. The grain belongs to this picture. */
     isolation: isolate;
+    animation: grain-shift var(--grain-hold, 0.72s) var(--grain-at, 0s) step-end infinite;
+}
+
+/* For a backdrop that should be a photograph on purpose, or when a scene has
+   several large grained surfaces and the re-raster starts to show. */
+.grained--still {
+    animation: none;
 }
 
 .painterly .grained::after {
@@ -302,7 +343,7 @@ img.painted--boil,
        darken shadows, light ones lift highlights — where a flat multiply would
        just fog the whole thing grey. */
     mix-blend-mode: overlay;
-    opacity: var(--grain-amount, 0.55);
+    opacity: var(--grain-amount, 1.1);
 }
 
 /* Scenery at the back of a stage should breathe, not twitch. */
@@ -325,7 +366,8 @@ img.painted--boil,
    dry-brush pass, so a reduced-motion viewer sees a painting rather than a
    photograph. */
 @media (prefers-reduced-motion: reduce) {
-    .painted {
+    .painted,
+    .grained {
         animation: none;
     }
 }

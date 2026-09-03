@@ -332,13 +332,19 @@ class PainterlyWash {
  *
  * Tiling is also what makes it affordable. Grain fine enough to work is on the
  * order of one speck per ten square pixels; over a 1600px backdrop that is a
- * quarter of a million draw calls. Over a 160px tile it is two thousand, once,
- * and the compositor repeats the result for free. Nothing here reads
- * `--paint-frame`, so unlike the boil this is painted once and never again.
+ * quarter of a million draw calls. Over a 160px tile it is a few thousand, and
+ * the compositor repeats the result for free.
+ *
+ * `--grain-frame` re-grains the paper. It is deliberately a different clock
+ * from the boil: the artwork is not being redrawn, the sheet it is sitting on
+ * is, so it wants to be slower and it must not change the *shape* of anything.
+ * The cost is one tile repaint per hold — but the browser also re-rasterises
+ * the whole overlay it tiles into, and on a stage-width backdrop that is the
+ * real expense, which is why the default cadence is half the boil's.
  */
 class PainterlyGrain {
     static get inputProperties() {
-        return ["--grain-seed", "--grain-size", "--grain-density", "--grain-contrast"];
+        return ["--grain-frame", "--grain-seed", "--grain-size", "--grain-density", "--grain-contrast"];
     }
 
     static get contextOptions() {
@@ -349,13 +355,18 @@ class PainterlyGrain {
         const { width, height } = size;
         if (width <= 0 || height <= 0) return;
 
+        const frame = num(props, "--grain-frame", 0);
         const seed = num(props, "--grain-seed", 4);
-        const speck = clamp(num(props, "--grain-size", 1), 0.25, 6);
-        const density = clamp(num(props, "--grain-density", 1), 0, 4);
-        const contrast = clamp(num(props, "--grain-contrast", 1), 0, 4);
+        const speck = clamp(num(props, "--grain-size", 1.4), 0.25, 6);
+        const density = clamp(num(props, "--grain-density", 3), 0, 6);
+        const contrast = clamp(num(props, "--grain-contrast", 1.1), 0, 4);
 
-        const rand = makeRng(seedFor(0, seed, 0xa3));
-        const count = Math.min(9000, Math.round((width * height) / 11 * density));
+        const rand = makeRng(seedFor(frame, seed, 0xa3));
+        // The cap is a runaway guard, not a setting. At the default density it
+        // is out of reach until the tile passes about 270px; past that the
+        // grain quietly thins instead of getting denser, so if a tile that big
+        // ever looks wrong, this is why.
+        const count = Math.min(20000, Math.round((width * height) / 11 * density));
 
         // Every speck is drawn wholly inside the tile. A speck clipped at the
         // edge would be half a speck on both sides of every repeat, and a
