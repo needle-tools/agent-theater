@@ -358,16 +358,28 @@ export interface PitchPoint {
 const strongest = (vowels: VowelPhone[]): VowelPhone =>
     vowels.reduce((best, vowel) => vowel.stress > best.stress ? vowel : best);
 
+const broadVowel = (kind: VowelKind): VowelKind => kind === "a" ? "a"
+    : kind === "e" || kind === "i" ? "i" : "u";
+
 function articulateNuclei(vowels: VowelPhone[], articulation: Articulation): VowelPhone[] {
     if (!vowels.length || articulation === "syllable") return vowels;
-    if (vowels.length === 1 && articulation !== "super-coarse") return vowels;
-    const nucleus = strongest(vowels);
-    if (articulation !== "super-coarse") return [nucleus];
-    // Only three broad mouth shapes and no diphthong travel: intentionally
-    // more puppet-like than the recognisable one-gesture `word` mode.
-    const kind: VowelKind = nucleus.kind === "a" ? "a"
-        : nucleus.kind === "e" || nucleus.kind === "i" ? "i" : "u";
-    return [{ ...nucleus, symbol: kind.toUpperCase(), kind, glide: undefined }];
+    const first = vowels[0];
+    const last = vowels.at(-1)!;
+    const kind = articulation === "super-coarse" ? broadVowel(first.kind) : first.kind;
+    const finalKind = articulation === "super-coarse"
+        ? broadVowel(last.glide ?? last.kind)
+        : last.glide ?? last.kind;
+    // A reduced word is a single *moving* mouth gesture from its first vowel
+    // toward its last, rather than one static dominant resonance stretched
+    // across the full word. Static long formants were the metallic ringing in
+    // the first implementation.
+    return [{
+        ...first,
+        symbol: articulation === "super-coarse" ? kind.toUpperCase() : first.symbol,
+        stress: strongest(vowels).stress,
+        kind,
+        glide: finalKind === kind ? undefined : finalKind,
+    }];
 }
 
 export function wordNuclei(token: string, articulation: Articulation = "syllable"): VowelPhone[] {
@@ -377,9 +389,9 @@ export function wordNuclei(token: string, articulation: Articulation = "syllable
 
 /**
  * Plan audible mouth gestures across words. Coarse modes deliberately reduce
- * utterance density across the phrase, rather than only changing the rare
- * multi-syllable word: coarse keeps one gesture per two words and super-coarse
- * one per four. Groups never cross sentence punctuation.
+ * target density across the phrase. Every word remains voiced; coarse shares
+ * one moving mouth shape across each two-word group and super-coarse shares a
+ * broader three-vowel shape across four. Groups never cross punctuation.
  */
 export function articulationNuclei(tokens: readonly string[], articulation: Articulation): VowelPhone[][] {
     const result = tokens.map(() => [] as VowelPhone[]);
@@ -391,7 +403,8 @@ export function articulationNuclei(tokens: readonly string[], articulation: Arti
         for (let start = phraseStart; start <= phraseEnd; start += groupSize) {
             const end = Math.min(phraseEnd + 1, start + groupSize);
             const vowels = tokens.slice(start, end).flatMap(token => wordNuclei(token));
-            result[start] = articulateNuclei(vowels, articulation);
+            const shared = articulateNuclei(vowels, articulation);
+            for (let index = start; index < end; index++) result[index] = shared;
         }
         phraseStart = phraseEnd + 1;
     }
@@ -476,8 +489,9 @@ function scheduleSyllable(
     profile: VowelVoiceProfile,
     jawOscillator: OscillatorNode | null,
 ) {
-    const attack = Math.min(0.022, duration * 0.22);
-    const release = Math.min(0.028, duration * 0.24);
+    const reduced = acoustics.options.articulation !== "syllable";
+    const attack = Math.min(reduced ? 0.038 : 0.022, duration * (reduced ? 0.3 : 0.22));
+    const release = Math.min(reduced ? 0.044 : 0.028, duration * (reduced ? 0.32 : 0.24));
     const glideProfile = vowel.glide ? profileForVowel(vowel.glide, acoustics) : null;
     const mouthMotion = babbleMotion(acoustics.options);
 
@@ -506,7 +520,11 @@ function scheduleSyllable(
             jawOscillator.connect(jawFormant).connect(filter.frequency);
         }
         const colour = ctx.createGain();
-        const colourGain = profile.gains[band] * resonance.gain;
+        // Long, reduced gestures expose the upper resonances much more than
+        // short syllables do. A gentle upper-band tilt keeps them vocal rather
+        // than bell-like without changing the normal syllable sound.
+        const reducedUpperTilt = reduced ? [1, 0.97, 0.82, 0.67][band] : 1;
+        const colourGain = profile.gains[band] * resonance.gain * reducedUpperTilt;
         const onsetMix = lowFormantOnsetMix(baseFrequency, wordOnset);
         colour.gain.value = colourGain;
         if (onsetMix < 1) {

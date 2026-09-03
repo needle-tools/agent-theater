@@ -178,7 +178,7 @@
                         </label>
                     {/each}
                 </div>
-                <small>One gesture per four words, two words, word, or spoken syllable.</small>
+                <small>One shared mouth shape per four words, two words, word, or spoken syllable.</small>
             </fieldset>
 
             <div class="voice-space">

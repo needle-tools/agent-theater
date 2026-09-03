@@ -155,16 +155,22 @@ describe("English pronunciation", () => {
     it("scales articulation from all syllables down to one broad mouth shape", () => {
         expect(wordNuclei("hello").map(value => value.symbol)).toEqual(["AH", "OW"]);
         expect(wordNuclei("recipe", "syllable")).toHaveLength(3);
-        expect(wordNuclei("hello", "word")).toMatchObject([{ symbol: "OW", kind: "o", glide: "u", stress: 1 }]);
-        expect(wordNuclei("hello", "super-coarse")).toMatchObject([{ symbol: "U", kind: "u", glide: undefined }]);
+        expect(wordNuclei("hello", "word")).toMatchObject([{ symbol: "AH", kind: "a", glide: "u", stress: 1 }]);
+        expect(wordNuclei("hello", "super-coarse")).toMatchObject([{ symbol: "A", kind: "a", glide: "u", stress: 1 }]);
     });
 
-    it("reduces articulation density across words without crossing sentences", () => {
+    it("shares coarse mouth shapes without dropping words or crossing sentences", () => {
         const words = ["Hello", "there!", "How", "can", "I", "help", "you?"];
         expect(articulationNuclei(words, "syllable").map(value => value.length)).toEqual([2, 1, 1, 1, 1, 1, 1]);
         expect(articulationNuclei(words, "word").map(value => value.length)).toEqual([1, 1, 1, 1, 1, 1, 1]);
-        expect(articulationNuclei(words, "coarse").map(value => value.length)).toEqual([1, 0, 1, 0, 1, 0, 1]);
-        expect(articulationNuclei(words, "super-coarse").map(value => value.length)).toEqual([1, 0, 1, 0, 0, 0, 1]);
+        expect(articulationNuclei(words, "coarse").map(value => value.length)).toEqual([1, 1, 1, 1, 1, 1, 1]);
+        expect(articulationNuclei(words, "super-coarse").map(value => value.length)).toEqual([1, 1, 1, 1, 1, 1, 1]);
+        const coarse = articulationNuclei(words, "coarse");
+        expect(coarse[0]).toEqual(coarse[1]);
+        expect(coarse[1]).not.toEqual(coarse[2]);
+        const superCoarse = articulationNuclei(words, "super-coarse");
+        expect(superCoarse[2]).toEqual(superCoarse[5]);
+        expect(superCoarse[5]).not.toEqual(superCoarse[6]);
     });
 
     it("retains the script-aware fallback outside plain English spelling", () => {
