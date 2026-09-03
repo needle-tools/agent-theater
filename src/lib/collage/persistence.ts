@@ -70,7 +70,7 @@ export function saveDoc(
             layer.kind === "image" && layer.storageKey ? { ...layer, src: "" } : layer),
         frames,
         ...(stages.length ? { stages } : {}),
-        ...(billing.title || billing.byline ? { billing } : {}),
+        ...(billing.title || billing.byline || billing.credits?.length ? { billing } : {}),
         ...(background ? { background } : {}),
         ...(view ? { view } : {}),
     };

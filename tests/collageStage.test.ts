@@ -467,7 +467,7 @@ describe("the credits", () => {
         const credits = creditsFor(
             [stage("s1", [{ id: "a", as: "the grandmother" }]), stage("s2", [{ id: "a", as: "a tree" }])],
             () => "gran.png");
-        expect(credits).toEqual([{ role: "the grandmother", actor: "gran.png" }]);
+        expect(credits).toEqual([{ id: "a", role: "the grandmother", actor: "gran.png" }]);
     });
 
     it("falls back to the picture's name when somebody acted but was never named", () => {

@@ -11,15 +11,35 @@
  */
 import type { Stage } from "./stage.js";
 
+/** A cast row in the roll: the artwork itself, beside its credit. */
+export interface CreditEntry {
+    /** The character, or null when nobody said who this was meant to be. */
+    role: string | null;
+    /** The picture doing the playing — its label, usually the file it came from. */
+    actor: string;
+    /** The artwork's src, so the roll can SHOW who bowed. Null if it is gone. */
+    src: string | null;
+}
+
 /** What is on the screen instead of the scene. */
 export type Billboard =
     | { kind: "waiting"; title?: string; duration: number }
     | { kind: "blackout"; duration: number }
     | { kind: "title"; title: string; byline?: string; duration: number }
-    | { kind: "credits"; title?: string; lines: string[]; duration: number };
+    | {
+        kind: "credits";
+        title?: string;
+        /** The cast, each with their picture — drawn as alternating rows. */
+        entries?: CreditEntry[];
+        /** Plain lines after the cast: the makers, the thanks. */
+        lines: string[];
+        duration: number;
+    };
 
 /** One line of the roll: who they played, and what picture played them. */
 export interface Credit {
+    /** The layer that played it, for looking the artwork up. */
+    id: string;
     /** The character. Null when nobody said who this was meant to be. */
     role: string | null;
     /** The picture doing the playing — its label, usually the file it came from. */
@@ -60,9 +80,12 @@ export const WAIT_FOR_AUDIENCE_MS = 30_000;
  */
 export const BLACKOUT_MS = 900;
 
-/** Per credit line, plus a moment at each end to start and finish reading. */
-export const CREDIT_LINE_MS = 900;
-export const CREDIT_PAD_MS = 2400;
+/** Per credit line, plus a moment at each end to start and finish reading.
+ *  Trimmed from the original 900: pictures read faster than sentences, and
+ *  the roll now travels its full height, so the same time moves twice the
+ *  distance. */
+export const CREDIT_LINE_MS = 450;
+export const CREDIT_PAD_MS = 1400;
 
 /**
  * Who acted, as opposed to who was on stage.
@@ -122,7 +145,7 @@ export function creditsFor(stages: Stage[], labelOf: (id: string) => string | nu
             // deleted is not somebody to thank.
             if (!actor) continue;
             seen.add(member.id);
-            credits.push({ role: member.as?.trim() || null, actor });
+            credits.push({ id: member.id, role: member.as?.trim() || null, actor });
         }
     }
     return credits;

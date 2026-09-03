@@ -12,6 +12,12 @@
      */
     import type { CollageStudio } from "./studio";
     import { CREDIT_LINE_MS, type Billboard } from "./billboard";
+    import { TROUPE } from "./troupe.js";
+    import { avatarFrame, getAgentAvatarSheet } from "./agentAvatar.js";
+
+    /** Who directed, as a picture: the agent's own pet, front-facing cell. */
+    const avatar = getAgentAvatarSheet();
+    const avatarPose = avatarFrame(avatar, 0, 0);
 
     let { studio }: { studio: CollageStudio } = $props();
 
@@ -20,12 +26,13 @@
 
     /**
      * `?titlecard` (optionally `?titlecard=Some+Title`) pins a title card up
-     * for styling work — the card is otherwise only on screen for a couple of
-     * seconds at curtain-up, which is no way to look at typography.
+     * and `?credits` pins a slow sample roll — both for styling work: each is
+     * otherwise on screen for seconds at a time, which is no way to look at
+     * typography.
      */
-    const pinned = typeof location !== "undefined"
-        ? new URL(location.href).searchParams.get("titlecard")
-        : null;
+    const params = typeof location !== "undefined" ? new URL(location.href).searchParams : null;
+    const pinned = params?.get("titlecard") ?? null;
+    const pinnedRoll = params?.has("credits") ?? false;
 
     $effect(() => {
         if (pinned !== null) {
@@ -34,6 +41,21 @@
                 title: pinned || "The Moon Who Ate Tuesday",
                 byline: "a pinned card, via ?titlecard",
                 duration: 0,
+            };
+            return;
+        }
+        if (pinnedRoll) {
+            const actors = TROUPE.filter(piece => piece.kind === "actor").slice(0, 5);
+            billboard = {
+                kind: "credits",
+                title: "The Moon Who Ate Tuesday",
+                entries: actors.map((piece, at) => ({
+                    role: ["the moon", "the baker", "the night watch", null, "tuesday itself"][at] ?? null,
+                    actor: piece.id.split("/").pop() ?? piece.id,
+                    src: piece.file,
+                })),
+                lines: ["directed by a browser agent", "staged with Marcel"],
+                duration: 14_000,
             };
             return;
         }
@@ -93,9 +115,71 @@
                     {#if billboard.title}
                         <h2 class="roll__title">{billboard.title}</h2>
                     {/if}
-                    {#each billboard.lines as line, index (line + index)}
-                        <p class="credit" style:animation-delay="{index * CREDIT_LINE_MS * 0.25}ms">{line}</p>
+                    <!-- The cast, with their pictures: rows alternating sides —
+                         picture left, name right; then name left, picture
+                         right — the rhythm of a storybook's cast page. -->
+                    {#each billboard.entries ?? [] as entry, index (entry.actor + index)}
+                        <div
+                            class="credit-row"
+                            class:credit-row--flipped={index % 2 === 1}
+                            style:animation-delay="{index * CREDIT_LINE_MS * 0.25}ms"
+                        >
+                            {#if entry.src}
+                                <!-- The lean is dealt from the row number, not Math.random,
+                                     so the roll tilts the same way every night. -->
+                                <img
+                                    class="credit-row__art"
+                                    src={entry.src}
+                                    alt=""
+                                    draggable="false"
+                                    style:rotate="{((index * 137) % 17) - 8}deg"
+                                />
+                            {/if}
+                            <p class="credit credit-row__text">
+                                {#if entry.role}{entry.role} — played by {entry.actor}{:else}{entry.actor}{/if}
+                            </p>
+                        </div>
                     {/each}
+                    {#if billboard.lines.length}
+                        <!-- The direction block: the agent's own pet stands
+                             over its credit lines, the director taking a bow
+                             in person. -->
+                        <div
+                            class="roll__maker"
+                            style:background-image="url({avatar.src})"
+                            style:background-size="{avatar.columns * 100}% {avatar.rows * 100}%"
+                            style:background-position="{avatarPose.x} {avatarPose.y}"
+                            style:animation-delay="{(billboard.entries?.length ?? 0) * CREDIT_LINE_MS * 0.25}ms"
+                        ></div>
+                    {/if}
+                    {#each billboard.lines as line, index (line + index)}
+                        <p
+                            class="credit"
+                            style:animation-delay="{((billboard.entries?.length ?? 0) + index) * CREDIT_LINE_MS * 0.25}ms"
+                        >{line}</p>
+                    {/each}
+                    <!-- The house bow, on every roll: the Needle cactus and the
+                         paper it is all cut from. The one clickable thing in the
+                         auditorium, and it goes home. -->
+                    <a
+                        class="roll__house"
+                        href="https://needle.tools"
+                        target="_blank"
+                        rel="noopener"
+                        style:animation-delay="{((billboard.entries?.length ?? 0) + billboard.lines.length) * CREDIT_LINE_MS * 0.25}ms"
+                    >
+                        <img
+                            class="roll__sigil"
+                            src="/troupe/desert/flowering-cactus.webp"
+                            alt=""
+                            draggable="false"
+                        />
+                        <p class="credit">paper &amp; glue — <span class="roll__brand">Needle</span></p>
+                    </a>
+                    <p
+                        class="credit roll__thanks"
+                        style:animation-delay="{((billboard.entries?.length ?? 0) + billboard.lines.length + 1) * CREDIT_LINE_MS * 0.25}ms"
+                    >Thank you for playing.</p>
                 </div>
             </div>
         {/if}
@@ -135,8 +219,14 @@
         to { opacity: 1; }
     }
 
-    /* Both cards sit on their own darkening, over the vignette, because text
-       over a scene is unreadable however dark the corners are. */
+    /*
+     * Both cards sit on their own veil, over the vignette, because text over
+     * a scene is unreadable however dark the corners are. The veil is the
+     * PAPER at four-fifths strength rather than a fixed cinema black: a
+     * night-blue play gets a night-blue curtain, a cream afternoon a cream
+     * one — and the ink flips light or dark to match, same oklch step the
+     * playbill uses.
+     */
     .card,
     .roll {
         position: absolute;
@@ -146,9 +236,18 @@
         align-items: center;
         justify-content: center;
         padding: 6vh 8vw;
-        background: rgba(8, 10, 14, 0.82);
-        color: #f4f2ee;
+        --card-ink: oklch(from var(--paper, var(--surface-page))
+            clamp(0.12, (0.6 - l) * 999, 0.97) min(c, 0.03) h);
+        background: color-mix(in srgb, var(--paper, var(--surface-page)) 82%, transparent);
+        color: var(--card-ink);
         text-align: center;
+        /* A card is a curtain: while one is up, the canvas behind it is not
+           for grabbing. The overlay itself stays pointer-transparent so a
+           SCENE plays on a grabbable stage — only the cards block. And a
+           curtain is not a document: nothing on it drag-selects. */
+        pointer-events: auto;
+        user-select: none;
+        -webkit-user-select: none;
     }
 
     .card {
@@ -189,7 +288,7 @@
     .byline {
         margin: 1.1rem 0 0;
         max-width: 40rem;
-        color: rgba(244, 242, 238, 0.68);
+        color: color-mix(in srgb, var(--card-ink) 68%, transparent);
         font-size: clamp(0.95rem, 1.8vw, 1.3rem);
         line-height: 1.4;
         text-wrap: pretty;
@@ -217,8 +316,8 @@
     }
 
     @keyframes roll {
-        from { translate: 0 22%; }
-        to { translate: 0 -14%; }
+        from { translate: 0 55%; }
+        to { translate: 0 -55%; }
     }
 
     .roll__title {
@@ -231,10 +330,107 @@
 
     .credit {
         margin: 0;
-        color: rgba(244, 242, 238, 0.86);
+        color: color-mix(in srgb, var(--card-ink) 86%, transparent);
         font-size: clamp(0.95rem, 2vw, 1.35rem);
         line-height: 1.35;
         text-wrap: balance;
+        animation: rise 0.6s cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
+    /*
+     * A cast row: the artwork beside the credit, sides alternating down the
+     * roll — picture left, name right, then flipped — so the eye zigzags
+     * through the company instead of sliding down a list. Fixed art height,
+     * because a roll where the wolf towers over the grandmother reads as a
+     * size chart.
+     */
+    .credit-row {
+        display: flex;
+        align-items: center;
+        gap: 1.4rem;
+        min-width: min(38rem, 88vw);
+        max-width: min(42rem, 92vw);
+        /* Air between rows: the pictures grew and lean, and two tilted
+           cut-outs touching reads as a pile, not a programme. */
+        margin-block: 0.45rem;
+        animation: rise 0.6s cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
+    .credit-row--flipped {
+        flex-direction: row-reverse;
+    }
+
+    .credit-row__art {
+        flex: none;
+        height: clamp(78px, 13.5vh, 126px);
+        max-width: 38%;
+        object-fit: contain;
+        filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
+    }
+
+    /* The text takes the rest of the row and leans toward its picture. */
+    .credit-row__text {
+        flex: 1;
+        text-align: left;
+        animation: none;
+    }
+
+    .credit-row--flipped .credit-row__text {
+        text-align: right;
+    }
+
+    /* The director's portrait: one front-facing cell of the agent's own
+       sprite sheet, standing over its credit lines. */
+    .roll__maker {
+        width: clamp(64px, 11vh, 96px);
+        aspect-ratio: 1;
+        margin: 2.8rem 0 0.9rem;
+        background-repeat: no-repeat;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.35));
+        animation: rise 0.6s cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
+    /* The house bow: the Needle cactus over its line, and the whole block is
+       the one clickable thing in the auditorium — it goes home. */
+    .roll__house {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.9rem;
+        margin-top: 3rem;
+        color: inherit;
+        text-decoration: none;
+        pointer-events: auto;
+        cursor: pointer;
+        transition-property: scale;
+        transition-duration: 0.16s;
+        animation: rise 0.6s cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
+    .roll__house:hover {
+        scale: 1.04;
+    }
+
+    .roll__house:active {
+        scale: 0.96;
+    }
+
+    .roll__brand {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+
+    .roll__sigil {
+        height: clamp(84px, 14vh, 130px);
+        object-fit: contain;
+        filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
+    }
+
+    .roll__thanks {
+        margin-top: 2.4rem;
+        font-style: italic;
+        opacity: 0.85;
         animation: rise 0.6s cubic-bezier(0.2, 0, 0, 1) both;
     }
 
@@ -247,7 +443,11 @@
         .card,
         .title,
         .byline,
-        .credit {
+        .credit,
+        .credit-row,
+        .roll__maker,
+        .roll__house,
+        .roll__thanks {
             animation-duration: 0.01ms;
             animation-delay: 0ms;
         }

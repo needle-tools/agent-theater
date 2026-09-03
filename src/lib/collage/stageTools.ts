@@ -180,10 +180,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         type: "array",
                         items: { type: "string" },
                         description:
-                            "The maker's lines, rolled at the end after the cast: " +
-                            "'story and direction — <you, by name>', 'staged with <the person>', " +
-                            "'paper cut-outs — the woodland pack'. Credit yourself honestly and " +
-                            "credit your collaborators; pass [] to clear.",
+                            "The maker's lines, rolled at the end after the cast, under the house " +
+                            "cactus. ALWAYS include a direction credit naming yourself — 'directed " +
+                            "by <your model or product name>' — and, when they took part, the " +
+                            "person: 'staged with <their name, if they told you it>'. More lines " +
+                            "welcome: 'story after Grimm', 'paper cut-outs — the woodland pack'. " +
+                            "Saved with the play; pass [] to clear.",
                     },
                 },
             },

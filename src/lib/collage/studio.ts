@@ -33,7 +33,7 @@ import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
 import { renamedIn } from "./stage.js";
 import { cellPixels, gridCells, paperBox } from "./sheet.js";
 import {
-    BLACKOUT_MS, creditLines, creditsDuration, creditsFor, performers, TITLE_MS,
+    BLACKOUT_MS, creditsDuration, creditsFor, performers, TITLE_MS,
     WAIT_FOR_AUDIENCE_MS, type Billboard,
 } from "./billboard.js";
 
@@ -764,15 +764,24 @@ export function createStudio(collage = new Collage()): CollageStudio {
         // Started with the roll rather than after it, so the last thing that
         // happens is the music running out under the names — which is how a
         // film ends and the reason the fade is longer than a scene change's.
-        // The cast first, then the makers — the order every roll uses: who
-        // was in it, then who made it.
-        const lines = [...creditLines(credits), ...makers];
-        speaker.fadeMusic(Math.min(ENDING_FADE_MS, creditsDuration(lines.length)));
+        // The cast first — each with their own picture, rows alternating
+        // sides — then the makers as plain lines: who was in it, who made it.
+        const entries = credits.map(credit => {
+            const layer = collage.get(credit.id);
+            return {
+                role: credit.role,
+                actor: credit.actor,
+                src: layer?.kind === "image" && layer.src ? layer.src : null,
+            };
+        });
+        const rows = entries.length + makers.length;
+        speaker.fadeMusic(Math.min(ENDING_FADE_MS, creditsDuration(rows)));
         await holdBillboard({
             kind: "credits",
             ...(collage.billing.title ? { title: collage.billing.title } : {}),
-            lines,
-            duration: creditsDuration(lines.length),
+            entries,
+            lines: makers,
+            duration: creditsDuration(rows),
         });
     };
 
@@ -1729,7 +1738,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 // casting, staging and scripting is most of what is in a show,
                 // and it is the part that cannot be reconstructed by looking.
                 ...(collage.listStages().length ? { stages: collage.listStages() } : {}),
-                ...(collage.billing.title || collage.billing.byline ? { billing: collage.billing } : {}),
+                ...(collage.billing.title || collage.billing.byline || collage.billing.credits?.length
+                    ? { billing: collage.billing } : {}),
                 ...(travelling.length ? { clips: travelling } : {}),
                 ...(collage.background ? { background: collage.background } : {}),
                 ...(lastView ? { view: lastView } : {}),

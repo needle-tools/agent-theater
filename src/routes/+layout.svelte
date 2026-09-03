@@ -4,6 +4,23 @@
 
     let { children } = $props();
 
+    /**
+     * The share card.
+     *
+     * A crawler cannot run the page, so none of this can be derived from what
+     * is on the stage — it is written down once, here, and it describes the
+     * app rather than whatever play happens to be loaded.
+     */
+    const SITE = "https://theater.needle.tools";
+    const CARD_TITLE = "Agent Theater — tell an AI agent a story, watch it stage the play";
+    const CARD_DESCRIPTION =
+        "A paper theatre your browser's AI agent works itself: it casts the parts from a drawer "
+        + "of cut-outs, dresses the stage, writes the script beat by beat, gives every character "
+        + "a voice, and runs the show while narrating it aloud.";
+    const CARD_ALT =
+        "A paper-cut-out title card reading Agent Theater, with a king, a robot, a crocodile "
+        + "with a megaphone, a bird, a treasure chest and a stage curtain around it.";
+
     // Chrome ships WebMCP behind an origin trial. This is the needle.tools
     // subdomain-matched token (same one the Mesh Baker ships, expires
     // 2026-11-17) — it only takes effect when the site is served from a
@@ -25,6 +42,29 @@
 
 <svelte:head>
     <meta http-equiv="origin-trial" content={originTrialToken} />
+    <!--
+        What a link to this page looks like when somebody pastes it.
+
+        Absolute, because og:image is fetched by a crawler that has no page to
+        resolve a relative path against. Set here rather than per route so a
+        link to /record or /painted unfurls as the theatre too — the card is
+        the show, not the page.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Agent Theater" />
+    <meta property="og:url" content={SITE} />
+    <meta property="og:title" content={CARD_TITLE} />
+    <meta property="og:description" content={CARD_DESCRIPTION} />
+    <meta property="og:image" content={`${SITE}/og.webp`} />
+    <meta property="og:image:type" content="image/webp" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="800" />
+    <meta property="og:image:alt" content={CARD_ALT} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={CARD_TITLE} />
+    <meta name="twitter:description" content={CARD_DESCRIPTION} />
+    <meta name="twitter:image" content={`${SITE}/og.webp`} />
+    <meta name="twitter:image:alt" content={CARD_ALT} />
 </svelte:head>
 
 <AnimatedCursor />
