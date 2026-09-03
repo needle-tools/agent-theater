@@ -52,7 +52,7 @@ export const DEFAULT_GIBBERISH_VOICE: GibberishVoiceOptions = Object.freeze({
     smoothing: 0,
     fullness: 0.65,
     babble: 1,
-    articulation: "syllable",
+    articulation: "word",
     rumbleCut: 60,
     compression: 0.42,
     drive: 1,
@@ -411,7 +411,7 @@ export function articulationGroups(tokens: readonly string[], articulation: Arti
             : articulation === "coarse" ? 2 : 1;
         for (let start = phraseStart; start <= phraseEnd; start += groupSize) {
             const end = Math.min(phraseEnd + 1, start + groupSize);
-            const vowels = tokens.slice(start, end).flatMap(token => wordNuclei(token));
+            const vowels = tokens.slice(start, end).flatMap(token => wordNuclei(token, "syllable"));
             result.push({ start, end, nuclei: articulateNuclei(vowels, articulation) });
         }
         phraseStart = phraseEnd + 1;
@@ -642,6 +642,7 @@ function scheduleConsonantNoise(
 export async function playGibberish(
     text: string,
     input: Partial<GibberishVoiceOptions> = {},
+    output?: AudioNode,
 ): Promise<GibberishPlayback> {
     if (typeof window === "undefined") throw new Error("Gibberish voice playback requires a browser.");
     const ctx = context();
@@ -670,7 +671,7 @@ export async function playGibberish(
     rumbleCut.type = "highpass";
     rumbleCut.frequency.value = processing.rumbleCut;
     rumbleCut.Q.value = 0.55;
-    master.connect(rumbleCut).connect(compressor).connect(limiter).connect(ctx.destination);
+    master.connect(rumbleCut).connect(compressor).connect(limiter).connect(output ?? ctx.destination);
     const highVoiceSoftening = Math.max(0, acoustics.options.pitch) * 0.12;
     const wave = periodicWave(ctx, acoustics.options.breathiness + highVoiceSoftening, acoustics.options.fullness);
     const sources: AudioScheduledSourceNode[] = [];
@@ -825,4 +826,60 @@ export async function playGibberish(
         finish();
     }, (duration + 0.15) * 1000);
     return { duration, stop, finished };
+}
+
+export interface GibberishRecording {
+    blob: Blob;
+    mimeType: string;
+    extension: string;
+}
+
+/**
+ * Record the production graph itself so the downloaded sample and playback do
+ * not drift into two subtly different synthesizers. MediaRecorder necessarily
+ * renders in real time, but keeps every timing, envelope and processor intact.
+ */
+export async function recordGibberish(
+    text: string,
+    input: Partial<GibberishVoiceOptions> = {},
+): Promise<GibberishRecording> {
+    if (typeof window === "undefined" || typeof MediaRecorder === "undefined") {
+        throw new Error("Audio recording is not available in this browser.");
+    }
+    const ctx = context();
+    if (ctx.state === "suspended") await ctx.resume();
+    const output = ctx.createMediaStreamDestination();
+    const formats = [
+        { mimeType: "audio/webm;codecs=opus", extension: "webm" },
+        { mimeType: "audio/ogg;codecs=opus", extension: "ogg" },
+        { mimeType: "audio/mp4", extension: "m4a" },
+        { mimeType: "audio/webm", extension: "webm" },
+    ];
+    const format = formats.find(candidate => MediaRecorder.isTypeSupported(candidate.mimeType));
+    const recorder = format
+        ? new MediaRecorder(output.stream, { mimeType: format.mimeType })
+        : new MediaRecorder(output.stream);
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = event => {
+        if (event.data.size) chunks.push(event.data);
+    };
+    const stopped = new Promise<void>((resolve, reject) => {
+        recorder.onstop = () => resolve();
+        recorder.onerror = () => reject(new Error("The browser could not record this voice."));
+    });
+
+    recorder.start();
+    try {
+        const playback = await playGibberish(text, input, output);
+        await playback.finished;
+    } finally {
+        if (recorder.state !== "inactive") recorder.stop();
+    }
+    await stopped;
+    const mimeType = recorder.mimeType || format?.mimeType || "audio/webm";
+    const extension = format?.extension
+        ?? (mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm");
+    const blob = new Blob(chunks, { type: mimeType });
+    if (!blob.size) throw new Error("The browser produced an empty audio recording.");
+    return { blob, mimeType, extension };
 }

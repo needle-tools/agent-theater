@@ -199,7 +199,7 @@ describe("voice controls", () => {
             smoothing: 3,
             fullness: 2,
             babble: 0,
-            articulation: "syllable",
+            articulation: "word",
         });
     });
 
@@ -214,7 +214,7 @@ describe("voice controls", () => {
             smoothing: 0,
             fullness: 0.65,
             babble: 1,
-            articulation: "syllable",
+            articulation: "word",
             breathiness: 1,
             rumbleCut: 60,
             compression: 0.42,

@@ -11,6 +11,7 @@
         ARTICULATIONS,
         DEFAULT_GIBBERISH_VOICE,
         playGibberish,
+        recordGibberish,
         type GibberishPlayback,
         type GibberishVoiceOptions,
     } from "$lib/subtitleVoice/synth";
@@ -22,6 +23,7 @@
     let playing = $state(false);
     let loop = $state(false);
     let trouble = $state<string | null>(null);
+    let downloading = $state(false);
     let run = 0;
     let liveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -100,6 +102,25 @@
         profile = { ...DEFAULT_GIBBERISH_VOICE };
     }
 
+    async function download() {
+        if (!text.trim() || downloading) return;
+        trouble = null;
+        downloading = true;
+        try {
+            const recording = await recordGibberish(text, profile);
+            const url = URL.createObjectURL(recording.blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = `gibberish-${profile.articulation}.${recording.extension}`;
+            anchor.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1_000);
+        } catch (error) {
+            trouble = error instanceof Error ? error.message : String(error);
+        } finally {
+            downloading = false;
+        }
+    }
+
     onDestroy(stop);
 </script>
 
@@ -144,6 +165,10 @@
                     {playing ? "Play again" : "Play"}
                 </button>
                 {#if playing}<button class="stop" type="button" onclick={stop}>Stop</button>{/if}
+                <button class="download" type="button" disabled={!text.trim() || downloading} onclick={() => void download()}>
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3.5v9M6.5 9.5 10 13l3.5-3.5M4 16h12" /></svg>
+                    {downloading ? "Recording…" : "Download"}
+                </button>
                 <button
                     class="loop"
                     class:loop--on={loop}
@@ -318,15 +343,19 @@
     textarea { box-sizing: border-box; width: 100%; min-height: 214px; resize: vertical; padding: 18px; border: 1px solid var(--border-subtle); border-radius: 16px; outline: 0; background: var(--surface-page-elevated); color: var(--text-primary); font: 500 clamp(1.15rem, 2vw, 1.45rem)/1.5 var(--font-family-body); text-wrap: pretty; transition: border-color .15s, box-shadow .15s; }
     textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-brand) 20%, transparent); }
 
-    .transport { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+    .transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
     button { font: inherit; cursor: pointer; }
-    .play, .stop, .loop, .reset { min-height: 40px; border-radius: 12px; }
+    .play, .stop, .download, .loop, .reset { min-height: 40px; border-radius: 12px; }
     .play { display: inline-flex; align-items: center; gap: 7px; padding: 0 17px; border: 0; background: var(--accent-brand); color: #14200f; font-weight: 750; }
     .play:hover:not(:disabled) { filter: brightness(.96); }
     .play:active:not(:disabled) { scale: .97; }
     .play:disabled { opacity: .4; cursor: not-allowed; }
     .play svg { width: 17px; fill: currentColor; }
     .stop { padding: 0 14px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-primary); }
+    .download { display: inline-flex; align-items: center; gap: 5px; padding: 0 11px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-primary); }
+    .download:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-panel-muted); }
+    .download:disabled { opacity: .45; cursor: not-allowed; }
+    .download svg { width: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .loop { display: inline-flex; align-items: center; gap: 5px; padding: 0 11px; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-muted); }
     .loop:hover { border-color: var(--border-strong); color: var(--text-primary); }
     .loop--on { border-color: transparent; background: color-mix(in srgb, var(--accent-brand) 25%, transparent); color: var(--text-primary); }
