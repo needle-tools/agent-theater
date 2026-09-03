@@ -140,14 +140,47 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
     return [save(false), save(true), {
         name: "show_list",
         title: "List published plays",
-        description: "List recent public plays made here, including their ids and shareable URLs.",
-        inputSchema: { type: "object", properties: { limit: { type: "number", description: "1–50, default 20." } } },
-        async execute(args: { limit?: number }) {
+        description: "Find public plays made here — id, title, how many chapters, how long, "
+            + "which troupe packs, and the shareable URL. Only plays with at least one chapter "
+            + "are listed: a canvas somebody saved without scripting it is not something to load. "
+            + "Narrow with title, theme, chapter count or length before loading anything.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                limit: { type: "number", description: "1–50, default 20." },
+                title: { type: "string", description: "Match anywhere in the title, case-insensitive." },
+                theme: {
+                    type: "string",
+                    description: "A troupe pack the play draws on — \"fairy-tale\", \"ocean\", "
+                        + "\"villains\", \"forest\". One at a time.",
+                },
+                minChapters: { type: "number", description: "Default 1. Pass 0 to include unscripted canvases." },
+                maxChapters: { type: "number", description: "For finding something short to look at." },
+                minSeconds: { type: "number", description: "Runtime in seconds, holds included." },
+                maxSeconds: { type: "number", description: "Runtime in seconds. Plays saved before lengths were recorded are skipped when this is set." },
+            },
+        },
+        async execute(args: {
+            limit?: number; title?: string; theme?: string;
+            minChapters?: number; maxChapters?: number; minSeconds?: number; maxSeconds?: number;
+        }) {
             try {
-                const data = await json(await fetch(`/api/plays?limit=${Math.max(1, Math.min(50, args?.limit || 20))}`));
+                const query = new URLSearchParams({ limit: String(Math.max(1, Math.min(50, args?.limit || 20))) });
+                for (const key of ["title", "theme", "minChapters", "maxChapters", "minSeconds", "maxSeconds"] as const) {
+                    const value = args?.[key];
+                    if (value !== undefined && value !== null && `${value}`.trim() !== "") query.set(key, String(value));
+                }
+                const data = await json(await fetch(`/api/plays?${query}`));
                 const text = data.plays.length
-                    ? data.plays.map((play: any) => `${play.id} — ${play.title} — ${play.url}`).join("\n")
-                    : "No public plays have been published yet.";
+                    ? data.plays.map((play: any) => {
+                        const chapters = `${play.chapters} chapter${play.chapters === 1 ? "" : "s"}`;
+                        const length = typeof play.seconds === "number"
+                            ? `${Math.floor(play.seconds / 60)}m ${play.seconds % 60}s`
+                            : "length unknown";
+                        const themes = play.themes?.length ? ` — ${play.themes.join(", ")}` : "";
+                        return `${play.id} — ${play.title} — ${chapters}, ${length}${themes} — ${play.url}`;
+                    }).join("\n")
+                    : "No published play matches that. Try fewer filters, or minChapters: 0 to include unscripted canvases.";
                 return { content: [{ type: "text", text }], structuredContent: data };
             } catch (error) { return { content: [{ type: "text", text: String(error) }], isError: true }; }
         },

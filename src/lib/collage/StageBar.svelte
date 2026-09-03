@@ -15,7 +15,6 @@
      * the way the current chapter is in any book. Past five chapters the
      * list fades out at its bottom edge and scrolls.
      */
-    import { onDestroy } from "svelte";
     import type { CollageStudio } from "./studio";
 
     let { studio }: { studio: CollageStudio } = $props();
@@ -47,27 +46,6 @@
     /** The chapter to print in bold: the one playing, else the one selected. */
     const current = $derived(showing ?? activeId);
 
-    let clearArmed = $state(false);
-    let clearTimer = 0;
-
-    function disarmClear() {
-        clearArmed = false;
-        if (clearTimer) window.clearTimeout(clearTimer);
-        clearTimer = 0;
-    }
-
-    async function clearStage() {
-        if (!clearArmed) {
-            clearArmed = true;
-            clearTimer = window.setTimeout(disarmClear, 5000);
-            return;
-        }
-        disarmClear();
-        studio.stopShow();
-        await studio.clear();
-    }
-
-    onDestroy(disarmClear);
 </script>
 
 {#if stages.length}
@@ -82,17 +60,6 @@
                 <img src={showing ? "/icons/playback/pause.webp" : "/icons/playback/play.webp"} alt="" />
             </button>
 
-            <button
-                class="clear"
-                class:clear--armed={clearArmed}
-                aria-label={clearArmed ? "Click again to clear the whole stage" : "Clear the stage"}
-                onclick={clearStage}
-            >
-                <img src="/icons/playback/delete-all.webp" alt="" />
-                {#if clearArmed}
-                    <span class="clear__warning">Click again to clear everything.</span>
-                {/if}
-            </button>
         </div>
 
         <!-- The playbill stays up during the show, dimmed and untouchable,
@@ -288,88 +255,18 @@
         color: var(--text-primary);
     }
 
-    .play img,
-    .clear img {
+    .play img {
         width: 28px;
         height: 28px;
         object-fit: contain;
         pointer-events: none;
     }
 
-    .clear {
-        position: relative;
-        display: grid;
-        place-items: center;
-        width: 40px;
-        height: 40px;
-        padding: 0;
-        border: 0;
-        border-radius: 12px;
-        background: transparent;
-        cursor: var(--cursor-pointer, pointer);
-        transition-property: background-color, scale;
-        transition-duration: 0.14s;
-    }
-
-    .clear:hover,
-    .clear--armed {
-        background: color-mix(in srgb, var(--accent-error, #D93A62) 10%, transparent);
-    }
-
-    .clear:active { scale: 0.96; }
-
-    .clear__warning {
-        position: absolute;
-        left: 0;
-        top: calc(100% + 10px);
-        width: max-content;
-        max-width: min(240px, calc(100vw - 32px));
-        padding: 0.55em 0.8em;
-        border: 1.5px solid var(--accent-error, #D93A62);
-        border-radius: 0.9em;
-        background: var(--surface-page-elevated, #fff);
-        color: var(--accent-error, #D93A62);
-        font: inherit;
-        font-size: var(--type-body-muted-size);
-        line-height: 1.35;
-        text-align: left;
-        pointer-events: none;
-        filter: drop-shadow(0 4px 10px rgba(34, 44, 32, 0.14));
-        animation: warning-in 0.18s cubic-bezier(0.2, 0, 0, 1) both;
-    }
-
-    :global(html.painterly) .clear__warning {
-        --paint-wash-strength: 1;
-        --paint-scale: 2.2;
-        background-image:
-            paint(painterly-wash),
-            linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
-    }
-
-    .clear__warning::before {
-        content: "";
-        position: absolute;
-        top: -6px;
-        left: 14px;
-        width: 11px;
-        height: 11px;
-        rotate: 45deg;
-        background: inherit;
-        border-top: 1.5px solid var(--accent-error, #D93A62);
-        border-left: 1.5px solid var(--accent-error, #D93A62);
-    }
-
-    @keyframes warning-in {
-        from { opacity: 0; translate: 0 -5px; }
-    }
-
     @media (prefers-reduced-motion: reduce) {
         .bar,
         .chapter,
-        .play,
-        .clear {
+        .play {
             transition-duration: 0s;
         }
-        .clear__warning { animation: none; }
     }
 </style>

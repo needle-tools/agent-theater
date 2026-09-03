@@ -76,6 +76,24 @@
     let armFrom: { x: number; y: number } | null = $state(null);
     /** The drag already armed it, so the click that follows must not toggle. */
     let armHandled = false;
+    let clearArmed = $state(false);
+    let clearTimer: ReturnType<typeof setTimeout> | undefined;
+
+    function disarmClear() {
+        clearArmed = false;
+        clearTimeout(clearTimer);
+    }
+
+    async function clearStage() {
+        if (!clearArmed) {
+            clearArmed = true;
+            clearTimer = setTimeout(disarmClear, 5000);
+            return;
+        }
+        disarmClear();
+        studio.stopShow();
+        await studio.clear();
+    }
 
     function armDown(event: PointerEvent) {
         if (event.button !== 0 || erasing) return;
@@ -108,6 +126,7 @@
     function showFileToolError(tool: "share" | "save", text: string) {
         clearTimeout(fileToolErrorTimer);
         clearInterval(fileToolTypingTimer);
+        clearTimeout(clearTimer);
         const showImmediately = matchMedia("(prefers-reduced-motion: reduce)").matches;
         fileToolError = { tool, text, revealed: showImmediately ? text : "" };
         if (!showImmediately) {
@@ -1245,6 +1264,17 @@
                 <img class="eraser__art painted" src="/cursors/eraser-64.png" alt="" draggable="false" />
             {/if}
         </button>
+        <button
+            class="file-tool clear-stage-tool"
+            class:clear-stage-tool--armed={clearArmed}
+            disabled={!layers.length}
+            aria-label={clearArmed ? "Click again to clear the whole stage" : "Clear the stage"}
+            use:hint={clearArmed ? "Click once more to clear everything." : "Clear the whole stage."}
+            onclick={clearStage}
+        >
+            <img src="/toolbar/clear-bin.webp" alt="" draggable="false" />
+            {#if clearArmed}<span class="clear-stage-tool__warning">Click again to clear everything.</span>{/if}
+        </button>
         <button class="file-tool" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Save online and share a link."} onclick={sharePlay}>
             <img src="/toolbar/share.webp" alt="" draggable="false" />
         </button>
@@ -1770,6 +1800,51 @@
         pointer-events: none;
     }
 
+    .clear-stage-tool { position: relative; }
+
+    .clear-stage-tool--armed {
+        background: color-mix(in srgb, var(--accent-error, #D93A62) 10%, transparent);
+        border-radius: 12px;
+    }
+
+    .clear-stage-tool__warning {
+        position: absolute;
+        top: calc(100% + 10px);
+        left: 0;
+        width: max-content;
+        max-width: min(240px, calc(100vw - 32px));
+        padding: 0.55em 0.8em;
+        border: 1.5px solid var(--accent-error, #D93A62);
+        border-radius: 0.9em;
+        background: var(--surface-page-elevated, #fff);
+        color: var(--accent-error, #D93A62);
+        font: inherit;
+        line-height: 1.35;
+        text-align: left;
+        pointer-events: none;
+        filter: drop-shadow(0 4px 10px rgba(34, 44, 32, 0.14));
+        animation: file-error-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
+    :global(html.painterly) .clear-stage-tool__warning {
+        background-image:
+            paint(painterly-wash),
+            linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
+    }
+
+    .clear-stage-tool__warning::before {
+        content: "";
+        position: absolute;
+        top: -6px;
+        left: 18px;
+        width: 11px;
+        height: 11px;
+        rotate: 45deg;
+        background: inherit;
+        border-top: 1.5px solid var(--accent-error, #D93A62);
+        border-left: 1.5px solid var(--accent-error, #D93A62);
+    }
+
     .file-tool-error {
         position: absolute;
         top: calc(100% + 10px);
@@ -1832,7 +1907,8 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .file-tool-error { animation: none; }
+        .file-tool-error,
+        .clear-stage-tool__warning { animation: none; }
     }
 
     /*
