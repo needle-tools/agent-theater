@@ -1709,7 +1709,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // called canvas.collage.png is a folder with one play in it as far
             // as anybody can tell — and the title is the one thing the person
             // definitely recognises.
-            const called = collage.billing.title?.trim() || frame.name;
+            const called = collage.billing.title?.trim() || suggestedCanvasName(layers);
             record("exported", `Saved "${called}" as an openable play.`, "human", { format: "collage" });
             return {
                 blob: new Blob([packCollage(png, { doc, assets })], { type: "image/png" }),
@@ -1972,7 +1972,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 const size = outputSize(frame, dpi);
                 const canvas = renderFrame(frame, layers, images, { width: size.width, height: size.height });
                 const blob = await canvasToBlob(canvas, "image/png");
-                const filename = `${slug(frame.name)}.png`;
+                const filename = `${slug(collage.billing.title?.trim() || suggestedCanvasName(layers))}.png`;
                 download(blob, filename);
                 return {
                     summary:
@@ -2171,6 +2171,34 @@ export function download(blob: Blob, filename: string) {
 
 function slug(value: string): string {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "collage";
+}
+
+/**
+ * Give an untitled picture a name that recalls what is in it. Layer labels are
+ * the names shown in the editor and supplied by the troupe, so “fox-moon” is
+ * more useful in Downloads than another “canvas.png”. Choosing afresh also
+ * keeps separate drafts from repeatedly receiving the same filename.
+ */
+function suggestedCanvasName(layers: Layer[]): string {
+    const labels = [...new Set(layers
+        .filter((layer): layer is ImageLayer => layer.kind === "image")
+        .map(layer => slug(layer.label.replace(/\.[a-z0-9]+$/i, "")))
+        .filter(label => label && !/^image-\d+$/.test(label)))];
+
+    if (labels.length) {
+        const first = Math.floor(Math.random() * labels.length);
+        const remaining = labels.filter((_, index) => index !== first);
+        if (remaining.length) {
+            const second = remaining[Math.floor(Math.random() * remaining.length)];
+            return `${labels[first]}-${second}`;
+        }
+        const endings = ["story", "scene", "adventure", "theater"];
+        return `${labels[first]}-${endings[Math.floor(Math.random() * endings.length)]}`;
+    }
+
+    const beginnings = ["little", "paper", "bright", "wandering"];
+    const endings = ["story", "scene", "adventure", "theater"];
+    return `${beginnings[Math.floor(Math.random() * beginnings.length)]}-${endings[Math.floor(Math.random() * endings.length)]}`;
 }
 
 function escapeText(value: string): string {
