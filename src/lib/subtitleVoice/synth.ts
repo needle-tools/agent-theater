@@ -2,6 +2,9 @@ import { estimateSubtitleTextDuration, timeSubtitleTokens, type TimedToken } fro
 import { pronounceToken, type ConsonantPhone, type VowelPhone } from "./phonemes.js";
 import type { VowelKind } from "./vowels.js";
 
+export const ARTICULATIONS = ["super-coarse", "coarse", "word", "syllable"] as const;
+export type Articulation = (typeof ARTICULATIONS)[number];
+
 export interface GibberishVoiceOptions {
     speed: number;
     /** -1 low/masculine, +1 high/feminine. */
@@ -25,6 +28,8 @@ export interface GibberishVoiceOptions {
     fullness: number;
     /** 0 still mouth, 2 exaggerated rhythmic jaw-driven babble. */
     babble: number;
+    /** How many mouth/vowel gestures survive inside each word. */
+    articulation: Articulation;
     /** High-pass cutoff in Hz. */
     rumbleCut: number;
     /** 0 uncompressed, 1 heavily compressed. */
@@ -47,6 +52,7 @@ export const DEFAULT_GIBBERISH_VOICE: GibberishVoiceOptions = Object.freeze({
     smoothing: 0,
     fullness: 0.65,
     babble: 1,
+    articulation: "syllable",
     rumbleCut: 60,
     compression: 0.42,
     drive: 1,
@@ -136,6 +142,9 @@ export function wordReleaseGap(tokenDuration: number, amount = DEFAULT_GIBBERISH
 }
 
 export function normalizeGibberishVoice(input: Partial<GibberishVoiceOptions> = {}): GibberishVoiceOptions {
+    const requestedArticulation = input.articulation
+        // Migrate the short-lived boolean saved by the first workbench pass.
+        ?? ((input as Partial<GibberishVoiceOptions> & { reduceSyllables?: boolean }).reduceSyllables ? "word" : undefined);
     return {
         speed: clamp(Number(input.speed ?? DEFAULT_GIBBERISH_VOICE.speed), 0.35, 2.5),
         pitch: clamp(Number(input.pitch ?? DEFAULT_GIBBERISH_VOICE.pitch), -1, 1),
@@ -149,6 +158,9 @@ export function normalizeGibberishVoice(input: Partial<GibberishVoiceOptions> = 
         smoothing: clamp(Number(input.smoothing ?? DEFAULT_GIBBERISH_VOICE.smoothing), 0, 3),
         fullness: clamp(Number(input.fullness ?? DEFAULT_GIBBERISH_VOICE.fullness), 0, 2),
         babble: clamp(Number(input.babble ?? DEFAULT_GIBBERISH_VOICE.babble), 0, 2),
+        articulation: ARTICULATIONS.includes(requestedArticulation as Articulation)
+            ? requestedArticulation as Articulation
+            : DEFAULT_GIBBERISH_VOICE.articulation,
         rumbleCut: clamp(Number(input.rumbleCut ?? DEFAULT_GIBBERISH_VOICE.rumbleCut), 60, 600),
         compression: clamp(Number(input.compression ?? DEFAULT_GIBBERISH_VOICE.compression), 0, 1),
         drive: clamp(Number(input.drive ?? DEFAULT_GIBBERISH_VOICE.drive), 0.35, 2),
@@ -343,7 +355,37 @@ export interface PitchPoint {
  * Questions lift, statements settle, exclamations peak and resolve, while
  * commas remain open. Longer words receive a small stress arch of their own.
  */
-export function sentencePitchContour(tokens: TimedToken[], pause = DEFAULT_GIBBERISH_VOICE.pause): PitchPoint[] {
+const strongest = (vowels: VowelPhone[]): VowelPhone =>
+    vowels.reduce((best, vowel) => vowel.stress > best.stress ? vowel : best);
+
+function articulateNuclei(vowels: VowelPhone[], articulation: Articulation): VowelPhone[] {
+    if (vowels.length < 2 || articulation === "syllable") return vowels;
+    if (articulation === "coarse") {
+        const result: VowelPhone[] = [];
+        for (let index = 0; index < vowels.length; index += 2) {
+            result.push(strongest(vowels.slice(index, index + 2)));
+        }
+        return result;
+    }
+    const nucleus = strongest(vowels);
+    if (articulation === "word") return [nucleus];
+    // Only three broad mouth shapes and no diphthong travel: intentionally
+    // more puppet-like than the recognisable one-gesture `word` mode.
+    const kind: VowelKind = nucleus.kind === "a" ? "a"
+        : nucleus.kind === "e" || nucleus.kind === "i" ? "i" : "u";
+    return [{ ...nucleus, symbol: kind.toUpperCase(), kind, glide: undefined }];
+}
+
+export function wordNuclei(token: string, articulation: Articulation = "syllable"): VowelPhone[] {
+    const vowels = pronounceToken(token).phones.filter((value): value is VowelPhone => value.type === "vowel");
+    return articulateNuclei(vowels, articulation);
+}
+
+export function sentencePitchContour(
+    tokens: TimedToken[],
+    pause = DEFAULT_GIBBERISH_VOICE.pause,
+    articulation: Articulation = "syllable",
+): PitchPoint[] {
     if (!tokens.length) return [{ at: 0, multiplier: 1 }];
     const points: PitchPoint[] = [];
     let sentenceStart = 0;
@@ -362,7 +404,7 @@ export function sentencePitchContour(tokens: TimedToken[], pause = DEFAULT_GIBBE
         const tokenDuration = Math.max(0.02, token.end - token.start);
         const voicedEnd = Math.max(token.start + 0.01, token.end - wordReleaseGap(tokenDuration, pause, token.text));
         const voicedDuration = voicedEnd - token.start;
-        const vowels = pronounceToken(token.text).phones.filter((value): value is VowelPhone => value.type === "vowel");
+        const vowels = wordNuclei(token.text, articulation);
         const syllables = vowels.length || 1;
         // Speech tends to gather energy through the middle of a phrase and
         // relax toward its end. The broad arch sits underneath the smaller
@@ -570,7 +612,7 @@ export async function playGibberish(
     const sources: AudioScheduledSourceNode[] = [];
     const voiceSource = ctx.createOscillator();
     voiceSource.setPeriodicWave(wave);
-    const pitch = sentencePitchContour(tokens, acoustics.options.pause);
+    const pitch = sentencePitchContour(tokens, acoustics.options.pause, acoustics.options.articulation);
     voiceSource.frequency.setValueAtTime(acoustics.fundamental * (pitch[0]?.multiplier ?? 1), start);
     let lastPitchAt = start;
     for (const point of pitch) {
@@ -613,7 +655,8 @@ export async function playGibberish(
     let syllableIndex = 0;
     for (const token of tokens) {
         const pronunciation = pronounceToken(token.text);
-        const nuclei = pronunciation.phones.filter((value): value is VowelPhone => value.type === "vowel");
+        const allNuclei = pronunciation.phones.filter((value): value is VowelPhone => value.type === "vowel");
+        const nuclei = articulateNuclei(allNuclei, acoustics.options.articulation);
         const consonants = pronunciation.phones
             .map((value, index) => ({ value, index }))
             .filter((entry): entry is { value: ConsonantPhone; index: number } => entry.value.type === "consonant");

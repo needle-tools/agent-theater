@@ -8,6 +8,7 @@
      */
     import { onDestroy } from "svelte";
     import {
+        ARTICULATIONS,
         DEFAULT_GIBBERISH_VOICE,
         playGibberish,
         type GibberishPlayback,
@@ -164,6 +165,21 @@
                 <input id="talk-speed" type="range" min="0.35" max="2.5" step="0.05" value={profile.speed}
                     oninput={event => setProfile("speed", +(event.currentTarget as HTMLInputElement).value)} />
             </div>
+
+            <fieldset class="articulation">
+                <legend>Articulation</legend>
+                <div>
+                    {#each ARTICULATIONS as mode}
+                        <label>
+                            <input type="radio" name="talk-articulation" value={mode}
+                                checked={profile.articulation === mode}
+                                onchange={() => setProfile("articulation", mode)} />
+                            <span>{mode === "super-coarse" ? "Super coarse" : mode === "coarse" ? "Coarse" : mode === "word" ? "Word" : "Syllable"}</span>
+                        </label>
+                    {/each}
+                </div>
+                <small>From three broad puppet mouth-shapes to every spoken syllable.</small>
+            </fieldset>
 
             <div class="voice-space">
                 <div class="axis axis--top">Young</div>
@@ -323,6 +339,16 @@
     output { color: var(--text-muted); font-variant-numeric: tabular-nums; font-weight: 500; }
     input[type="range"] { width: 100%; margin: 7px 0 0; accent-color: var(--accent-brand); }
     .speed { margin-bottom: 17px; }
+    .articulation { min-width: 0; margin: -3px 0 18px; padding: 0; border: 0; }
+    .articulation legend { margin-bottom: 6px; font-size: .82rem; font-weight: 650; }
+    .articulation > div { display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 10px; }
+    .articulation label { min-width: 0; cursor: pointer; }
+    .articulation input { position: absolute; opacity: 0; pointer-events: none; }
+    .articulation label span { display: grid; min-height: 36px; place-items: center; padding: 3px; border-left: 1px solid var(--border-subtle); font-size: .67rem; line-height: 1.05; text-align: center; }
+    .articulation label:first-child span { border-left: 0; }
+    .articulation input:checked + span { background: var(--accent-brand); color: #14200f; font-weight: 750; }
+    .articulation input:focus-visible + span { outline: 2px solid var(--text-primary); outline-offset: -2px; }
+    .articulation small { display: block; margin-top: 5px; color: var(--text-muted); font-size: .67rem; line-height: 1.3; }
 
     .voice-space { position: relative; display: grid; grid-template: 15px 150px 15px / 25px 1fr 30px; align-items: center; margin-bottom: 20px; color: var(--text-muted); font-size: .67rem; text-align: center; }
     .voice-pad { position: relative; grid-area: 2 / 2; height: 100%; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 14px; background: radial-gradient(circle at 76% 20%, rgba(255, 216, 125, .45), transparent 50%), linear-gradient(90deg, rgba(80, 105, 166, .24), rgba(226, 124, 146, .25)); cursor: crosshair; touch-action: none; }

@@ -15,6 +15,7 @@ import {
     voiceProcessing,
     vowelFormants,
     vowelVoiceProfile,
+    wordNuclei,
     wordReleaseGap,
 } from "../src/lib/subtitleVoice/synth.js";
 import { vowelKind, vowelNuclei } from "../src/lib/subtitleVoice/vowels.js";
@@ -150,6 +151,14 @@ describe("English pronunciation", () => {
         expect(pronunciationVowels("loud")).toMatchObject([{ symbol: "AW", kind: "a", glide: "u" }]);
     });
 
+    it("scales articulation from all syllables down to one broad mouth shape", () => {
+        expect(wordNuclei("hello").map(value => value.symbol)).toEqual(["AH", "OW"]);
+        expect(wordNuclei("recipe", "syllable")).toHaveLength(3);
+        expect(wordNuclei("recipe", "coarse")).toHaveLength(2);
+        expect(wordNuclei("hello", "word")).toMatchObject([{ symbol: "OW", kind: "o", glide: "u", stress: 1 }]);
+        expect(wordNuclei("hello", "super-coarse")).toMatchObject([{ symbol: "U", kind: "u", glide: undefined }]);
+    });
+
     it("retains the script-aware fallback outside plain English spelling", () => {
         expect(pronounceToken("Привет").source).toBe("script");
         expect(pronunciationVowels("Привет").map(value => value.kind)).toEqual(["i", "e"]);
@@ -178,6 +187,7 @@ describe("voice controls", () => {
             smoothing: 3,
             fullness: 2,
             babble: 0,
+            articulation: "syllable",
         });
     });
 
@@ -192,6 +202,7 @@ describe("voice controls", () => {
             smoothing: 0,
             fullness: 0.65,
             babble: 1,
+            articulation: "syllable",
             breathiness: 1,
             rumbleCut: 60,
             compression: 0.42,

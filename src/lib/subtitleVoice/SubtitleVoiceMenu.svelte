@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import {
+        ARTICULATIONS,
         DEFAULT_GIBBERISH_VOICE,
         normalizeGibberishVoice,
         playGibberish,
@@ -168,6 +169,20 @@
                     />
                 </label>
 
+                <fieldset class="articulation">
+                    <legend>Articulation</legend>
+                    <div>
+                        {#each ARTICULATIONS as mode}
+                            <label>
+                                <input type="radio" name={`articulation-${voiceKey}`} value={mode}
+                                    checked={profile.articulation === mode}
+                                    onchange={() => patch({ articulation: mode })} />
+                                <span>{mode === "super-coarse" ? "Super coarse" : mode === "coarse" ? "Coarse" : mode === "word" ? "Word" : "Syllable"}</span>
+                            </label>
+                        {/each}
+                    </div>
+                </fieldset>
+
                 <div class="axis axis--top"><span>Young</span></div>
                 <div
                     class="voice-pad"
@@ -327,6 +342,15 @@
 
     label { display: grid; grid-template-columns: 45px 1fr; align-items: center; gap: 7px; margin-top: 8px; font-size: 11px; }
     input[type="range"] { width: 100%; accent-color: var(--brand-primary, #78d969); }
+    .articulation { min-width: 0; margin: 8px 0 0; padding: 0; border: 0; }
+    .articulation legend { margin-bottom: 4px; color: var(--text-muted, #667064); font-size: 9px; }
+    .articulation > div { display: grid; grid-template-columns: repeat(4, 1fr); overflow: hidden; border: 1px solid color-mix(in srgb, var(--text-primary) 18%, transparent); border-radius: 8px; }
+    .articulation label { display: block; margin: 0; }
+    .articulation input { position: absolute; opacity: 0; pointer-events: none; }
+    .articulation span { display: grid; min-height: 27px; place-items: center; padding: 2px; border-left: 1px solid color-mix(in srgb, var(--text-primary) 13%, transparent); font-size: 8px; line-height: 1.05; text-align: center; white-space: normal; cursor: pointer; }
+    .articulation label:first-child span { border-left: 0; }
+    .articulation input:checked + span { background: var(--brand-primary, #a5ff8f); color: #182116; font-weight: 700; }
+    .articulation input:focus-visible + span { outline: 2px solid var(--text-primary); outline-offset: -2px; }
 
     .voice-pad {
         position: relative;
