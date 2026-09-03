@@ -1,0 +1,32 @@
+{
+  "name": "birthday-party",
+  "description": "A wonderfully unruly birthday party with guests, cake-loving creatures, presents, decorations and table props.",
+  "stylePrompt": "Torn and cut paper collage in a cheerful muted palette of navy, moss green, brick red, mustard, cream and dusty pink. Every shape is visibly hand-cut or torn, with deckled edges, paper grain and dry speckled texture; tiny details are fine black ink. Flat, straight-on puppet-theatre silhouettes with no perspective, lighting, gradients, shadows, white outlines or 3D rendering. Full isolated party guests, cake creatures, presents, decorations and table props on transparent backgrounds.",
+  "pieces": {
+    "party-ogre": { "kind": "actor", "file": "party-ogre.webp", "mood": ["party", "comic"], "facing": "front", "description": "a huge friendly ogre in suspenders and a tiny party hat" },
+    "party-boy": { "kind": "actor", "file": "party-boy.webp", "mood": ["party", "friendly"], "facing": "front", "description": "a smiling boy ready for party games, holding a looped cord" },
+    "cake-baker": { "kind": "actor", "file": "cake-baker.webp", "mood": ["party", "friendly"], "facing": "front", "description": "a cheerful baker carrying a layer cake and whisk" },
+    "cake-thief-fox": { "kind": "actor", "file": "cake-thief-fox.webp", "mood": ["party", "mischief"], "facing": "left", "description": "a red fox sneaking away with a berry-topped cake" },
+    "party-girl": { "kind": "actor", "file": "party-girl.webp", "mood": ["party", "friendly"], "facing": "front", "description": "a confident red-haired girl in green overalls" },
+    "cricket-planner": { "kind": "actor", "file": "cricket-planner.webp", "mood": ["party", "busy"], "facing": "right", "description": "a smartly dressed cricket checking the party plan on a clipboard" },
+    "jelly-monster": { "kind": "actor", "file": "jelly-monster.webp", "mood": ["party", "comic"], "facing": "front", "description": "a wobbling three-layer jelly monster in bow tie and party hat" },
+    "candle-imp": { "kind": "actor", "file": "candle-imp.webp", "mood": ["party", "magic"], "facing": "front", "description": "a grinning cream imp holding two flaming birthday candles" },
+    "balloon-dog": { "kind": "actor", "file": "balloon-dog.webp", "mood": ["party", "friendly"], "facing": "right", "description": "a yellow balloon dog with colorful round ears and tail" },
+    "cake-beetle": { "kind": "actor", "file": "cake-beetle.webp", "mood": ["party", "comic"], "facing": "right", "description": "a navy beetle disguised beneath a frosted birthday cake shell" },
+    "birthday-cake": { "kind": "scenery", "file": "birthday-cake.webp", "mood": ["party", "celebration"], "description": "a towering three-tier berry cake covered in lit candles" },
+    "party-goose": { "kind": "actor", "file": "party-goose.webp", "mood": ["party", "comic"], "facing": "right", "description": "a plump white goose in party hat and navy bow" },
+    "surprise-box": { "kind": "scenery", "file": "surprise-box.webp", "mood": ["party", "surprise"], "description": "an open green starry box with ribbons spilling over its sides" },
+    "confetti-monster": { "kind": "actor", "file": "confetti-monster.webp", "mood": ["party", "wild"], "facing": "front", "description": "a delighted shaggy confetti monster throwing both hands up" },
+    "wrapped-present": { "kind": "scenery", "file": "wrapped-present.webp", "mood": ["party", "gift"], "description": "a golden polka-dot present tied with a huge red bow" },
+    "cake-catapult": { "kind": "scenery", "file": "cake-catapult.webp", "mood": ["party", "comic"], "description": "a wheeled fork catapult loaded with a slice of cake" },
+    "party-crown": { "kind": "scenery", "file": "party-crown.webp", "mood": ["party", "royal"], "description": "a tall golden paper crown with pink pom-poms and diamond patches" },
+    "party-horn": { "kind": "scenery", "file": "party-horn.webp", "mood": ["party", "music"], "description": "a red and pink concertina party horn" },
+    "bunting": { "kind": "scenery", "file": "bunting.webp", "mood": ["party", "celebration"], "description": "a curved string of green, pink and gold party flags" },
+    "cake-slice": { "kind": "scenery", "file": "cake-slice.webp", "mood": ["party", "food"], "description": "a large berry-topped slice of pink, navy and cream layer cake" },
+    "tea-trolley": { "kind": "scenery", "file": "tea-trolley.webp", "mood": ["party", "food"], "description": "a wheeled serving trolley with covered dish, jug and plates" },
+    "birthday-candle": { "kind": "scenery", "file": "birthday-candle.webp", "mood": ["party", "celebration"], "description": "a thick pink-striped birthday candle with a large golden flame" },
+    "ribbon-scissors": { "kind": "scenery", "file": "ribbon-scissors.webp", "mood": ["party", "craft"], "description": "a pair of navy and gold scissors tied with pink ribbon" },
+    "oven-mitt": { "kind": "scenery", "file": "oven-mitt.webp", "mood": ["party", "food"], "description": "a green oven mitt patterned with big pink dots" },
+    "party-teacup": { "kind": "scenery", "file": "party-teacup.webp", "mood": ["party", "cosy"], "description": "a broad green teacup decorated with pink bunting and gold flowers" }
+  }
+}

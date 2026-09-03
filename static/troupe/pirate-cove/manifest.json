@@ -1,0 +1,32 @@
+{
+  "name": "pirate-cove",
+  "description": "A salt-stained pirate cove: a lively crew, strange sea creatures, treasure, rigging and nautical props in torn paper.",
+  "stylePrompt": "Torn and cut paper collage in a muted mid-century palette of navy, moss green, brick red, mustard, cream and dusty pink. Every shape is visibly hand-cut or torn, with deckled edges, paper grain and dry speckled texture; tiny details are fine black ink. Flat, straight-on puppet-theatre silhouettes with no perspective, lighting, gradients, shadows, white outlines or 3D rendering. Full isolated pirate characters, sea creatures and nautical props on transparent backgrounds.",
+  "pieces": {
+    "pirate-captain": { "kind": "actor", "file": "pirate-captain.webp", "mood": ["adventure", "comic"], "facing": "front", "description": "a broad red-coated pirate captain with hook, bottle and skull hat" },
+    "sea-king": { "kind": "actor", "file": "sea-king.webp", "mood": ["ocean", "royal"], "facing": "front", "description": "a crowned blue fish king carrying a golden trident" },
+    "pirate-heron": { "kind": "actor", "file": "pirate-heron.webp", "mood": ["adventure", "wry"], "facing": "right", "description": "a tall, lean pirate heron in a feathered hat" },
+    "pirate-girl": { "kind": "actor", "file": "pirate-girl.webp", "mood": ["adventure", "friendly"], "facing": "front", "description": "a cheerful young pirate with a skull hat and hands on hips" },
+    "anchor-crab": { "kind": "actor", "file": "anchor-crab.webp", "mood": ["ocean", "comic"], "facing": "front", "description": "a grinning red crab wearing a giant anchor as a hat" },
+    "barnacle-golem": { "kind": "actor", "file": "barnacle-golem.webp", "mood": ["ocean", "monster"], "facing": "front", "description": "a hulking yellow barnacle golem in a ragged belt" },
+    "jellyfish": { "kind": "actor", "file": "jellyfish.webp", "mood": ["ocean", "dreamy"], "facing": "front", "description": "a soft pink jellyfish with long ribbon tentacles" },
+    "seaweed-boot": { "kind": "scenery", "file": "seaweed-boot.webp", "mood": ["ocean", "wreck"], "description": "an enormous old boot overgrown with seaweed and flowers" },
+    "sea-serpent": { "kind": "actor", "file": "sea-serpent.webp", "mood": ["ocean", "danger"], "facing": "right", "description": "a long blue sea serpent with red fins and open jaws" },
+    "watchful-buoy": { "kind": "actor", "file": "watchful-buoy.webp", "mood": ["ocean", "odd"], "facing": "front", "description": "a one-eyed green channel buoy with a red pennant" },
+    "drowned-tree": { "kind": "scenery", "file": "drowned-tree.webp", "mood": ["ocean", "eerie"], "description": "a ghostly drowned tree draped in green weed" },
+    "mooring-chain": { "kind": "scenery", "file": "mooring-chain.webp", "mood": ["harbor", "wreck"], "description": "a heavy chain looped around a barnacled mooring stone" },
+    "golden-paddle": { "kind": "scenery", "file": "golden-paddle.webp", "mood": ["adventure"], "description": "a short golden paddle with a rope-wrapped handle" },
+    "manta-ray": { "kind": "actor", "file": "manta-ray.webp", "mood": ["ocean", "graceful"], "facing": "front", "description": "a spotted green manta ray with a long curling tail" },
+    "treasure-chest": { "kind": "scenery", "file": "treasure-chest.webp", "mood": ["treasure", "adventure"], "description": "a navy and gold treasure chest with a large lock" },
+    "teacup-sailboat": { "kind": "scenery", "file": "teacup-sailboat.webp", "mood": ["ocean", "whimsical"], "description": "a tiny striped sailboat built inside a floral teacup" },
+    "grappling-hook": { "kind": "scenery", "file": "grappling-hook.webp", "mood": ["adventure"], "description": "a three-pronged iron grappling hook with rope wrapping" },
+    "treasure-map": { "kind": "scenery", "file": "treasure-map.webp", "mood": ["treasure", "adventure"], "description": "a rolled treasure map marked with sea symbols and a red cross" },
+    "anchor-key": { "kind": "scenery", "file": "anchor-key.webp", "mood": ["treasure", "odd"], "description": "a golden key shaped like a ship anchor" },
+    "ship-cannon": { "kind": "scenery", "file": "ship-cannon.webp", "mood": ["battle", "adventure"], "description": "a squat brass ship cannon on a navy wooden carriage" },
+    "leaking-barrel": { "kind": "scenery", "file": "leaking-barrel.webp", "mood": ["harbor", "comic"], "description": "a navy-banded barrel leaking blue water" },
+    "barnacle-bucket": { "kind": "scenery", "file": "barnacle-bucket.webp", "mood": ["harbor", "ocean"], "description": "a green bucket patched with barnacles and cloth" },
+    "conch-shell": { "kind": "scenery", "file": "conch-shell.webp", "mood": ["ocean", "treasure"], "description": "a large pink conch shell wrapped in seaweed" },
+    "compass-fish": { "kind": "actor", "file": "compass-fish.webp", "mood": ["ocean", "whimsical"], "facing": "left", "description": "a cream fish whose round body is a compass rose" },
+    "rope-coil": { "kind": "scenery", "file": "rope-coil.webp", "mood": ["harbor"], "description": "a thick golden ship rope coiled and tied with green cloth" }
+  }
+}

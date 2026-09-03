@@ -1,0 +1,32 @@
+{
+  "name": "moon-magic",
+  "description": "A moonlit cabinet of witches, night creatures, crooked inventions and celestial magic props.",
+  "stylePrompt": "Torn and cut paper collage in a muted nocturnal palette of deep navy, moss green, brick red, mustard moon-gold, cream and dusty pink. Every shape is visibly hand-cut or torn, with deckled edges, paper grain and dry speckled texture; tiny details are fine black ink. Flat, straight-on puppet-theatre silhouettes with no perspective, lighting, gradients, glow, shadows, white outlines or 3D rendering. Full isolated witches, moon creatures and celestial magic props on transparent backgrounds.",
+  "pieces": {
+    "ladder-witch": { "kind": "actor", "file": "ladder-witch.webp", "mood": ["night", "magic"], "facing": "right", "description": "an elderly witch climbing a ladder with a tiny lantern" },
+    "raven-magician": { "kind": "actor", "file": "raven-magician.webp", "mood": ["night", "magic"], "facing": "right", "description": "a grand raven magician in top hat, cape and gold medallions" },
+    "hungry-moon": { "kind": "actor", "file": "hungry-moon.webp", "mood": ["night", "monster"], "facing": "left", "description": "a golden crescent moon with one eye and a huge zigzag mouth" },
+    "moon-boot-rogue": { "kind": "actor", "file": "moon-boot-rogue.webp", "mood": ["night", "adventure"], "facing": "right", "description": "a pointy-nosed rogue in enormous moonlit boots" },
+    "winter-lookout": { "kind": "actor", "file": "winter-lookout.webp", "mood": ["night", "adventure"], "facing": "right", "description": "a bundled child scout looking through binoculars" },
+    "chimney-shadow": { "kind": "actor", "file": "chimney-shadow.webp", "mood": ["night", "eerie"], "facing": "front", "description": "a black-eyed shadow peering from a mossy brick chimney" },
+    "night-watch-raven": { "kind": "actor", "file": "night-watch-raven.webp", "mood": ["night", "solemn"], "facing": "front", "description": "a uniformed raven night watchman carrying a lantern staff" },
+    "moon-bat": { "kind": "actor", "file": "moon-bat.webp", "mood": ["night", "monster"], "facing": "front", "description": "a horned bat with broad navy and red wings" },
+    "ribbon-serpent": { "kind": "actor", "file": "ribbon-serpent.webp", "mood": ["night", "mystery"], "facing": "right", "description": "a long gold and green ribbon serpent" },
+    "moon-moth": { "kind": "actor", "file": "moon-moth.webp", "mood": ["night", "dreamy"], "facing": "front", "description": "a wide pink moth with a crescent marking" },
+    "royal-moon-rat": { "kind": "actor", "file": "royal-moon-rat.webp", "mood": ["night", "royal"], "facing": "right", "description": "a tiny crowned rat in an enormous powdered wig" },
+    "lantern-ladder": { "kind": "scenery", "file": "lantern-ladder.webp", "mood": ["night", "adventure"], "description": "a crooked green ladder hung with a lantern and ribbons" },
+    "shooting-star": { "kind": "scenery", "file": "shooting-star.webp", "mood": ["night", "magic"], "description": "a red and gold shooting star trailing smaller sparks" },
+    "crescent-key": { "kind": "scenery", "file": "crescent-key.webp", "mood": ["night", "magic"], "description": "a golden key whose bow is a crescent moon" },
+    "star-cannon": { "kind": "scenery", "file": "star-cannon.webp", "mood": ["night", "adventure"], "description": "a navy cannon painted with a gold star and firing golden flame" },
+    "dream-catcher": { "kind": "scenery", "file": "dream-catcher.webp", "mood": ["night", "dreamy"], "description": "a large hoop net catching a scatter of golden stars" },
+    "moon-spellbook": { "kind": "scenery", "file": "moon-spellbook.webp", "mood": ["night", "magic"], "description": "a square green spellbook with brass corners and crescent seal" },
+    "star-potion": { "kind": "scenery", "file": "star-potion.webp", "mood": ["night", "magic"], "description": "a dark blue potion bottle bearing a gold star" },
+    "coin-purse": { "kind": "scenery", "file": "coin-purse.webp", "mood": ["treasure", "magic"], "description": "a plump red coin purse with a green patch" },
+    "moon-telescope": { "kind": "scenery", "file": "moon-telescope.webp", "mood": ["night", "discovery"], "description": "a gold and green telescope with a dangling star charm" },
+    "crescent-cage": { "kind": "scenery", "file": "crescent-cage.webp", "mood": ["night", "mystery"], "description": "a tall empty birdcage containing a hanging crescent" },
+    "crooked-chimney": { "kind": "scenery", "file": "crooked-chimney.webp", "mood": ["night", "eerie"], "description": "a bent patched chimney pipe puffing pale smoke" },
+    "moon-music-box": { "kind": "scenery", "file": "moon-music-box.webp", "mood": ["night", "music"], "description": "a wind-up music box with a round golden moon disc" },
+    "moon-sandwich": { "kind": "scenery", "file": "moon-sandwich.webp", "mood": ["night", "comic"], "description": "a crescent-shaped sandwich stuffed with colorful leaves and ribbons" },
+    "star-map": { "kind": "scenery", "file": "star-map.webp", "mood": ["night", "adventure"], "description": "a folding route map marked with moons, stars and a castle" }
+  }
+}

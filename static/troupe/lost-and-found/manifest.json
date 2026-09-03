@@ -1,0 +1,32 @@
+{
+  "name": "lost-and-found",
+  "description": "Enchanted luggage and curious things found on the road: travelers, clothes, keys, maps and belongings with lives of their own.",
+  "stylePrompt": "Torn and cut paper collage in a muted mid-century palette of navy, moss green, brick red, mustard, cream and dusty pink. Every shape is visibly hand-cut or torn, with deckled edges, paper grain and dry speckled texture; tiny details are fine black ink. Flat, straight-on puppet-theatre silhouettes with no perspective, lighting, gradients, shadows, white outlines or 3D rendering. Full isolated travelers, enchanted luggage, clothes, maps, keys and curious lost belongings on transparent backgrounds.",
+  "pieces": {
+    "umbrella-coat": { "kind": "actor", "file": "umbrella-coat.webp", "mood": ["travel", "odd"], "facing": "front", "description": "an empty red traveling coat hanging beneath an open umbrella" },
+    "backpacker-boy": { "kind": "actor", "file": "backpacker-boy.webp", "mood": ["travel", "adventure"], "facing": "right", "description": "a young traveler carrying an enormous stuffed backpack" },
+    "endless-scarf": { "kind": "scenery", "file": "endless-scarf.webp", "mood": ["travel", "cosy"], "description": "a very long patchwork scarf curled into a loose spiral" },
+    "spider-glove": { "kind": "actor", "file": "spider-glove.webp", "mood": ["odd", "mischief"], "facing": "front", "description": "a giant golden glove walking on dark spider legs" },
+    "monster-suitcase": { "kind": "actor", "file": "monster-suitcase.webp", "mood": ["travel", "monster"], "facing": "right", "description": "a red wheeled suitcase with a lock and enormous teeth" },
+    "smoky-bottle": { "kind": "scenery", "file": "smoky-bottle.webp", "mood": ["magic", "mystery"], "description": "a striped round bottle releasing a pink cloud" },
+    "walking-hanger": { "kind": "actor", "file": "walking-hanger.webp", "mood": ["travel", "odd"], "facing": "right", "description": "a wooden clothes hanger striding away in a little cape" },
+    "patchwork-moth": { "kind": "actor", "file": "patchwork-moth.webp", "mood": ["travel", "dreamy"], "facing": "front", "description": "a patchwork moth with broad multicolored wings and boots" },
+    "marching-boots": { "kind": "actor", "file": "marching-boots.webp", "mood": ["travel", "comic"], "facing": "right", "description": "a pair of mismatched lace-up boots marching by themselves" },
+    "pocket-elephant": { "kind": "actor", "file": "pocket-elephant.webp", "mood": ["travel", "friendly"], "facing": "right", "description": "a small green elephant with a blue blanket and side pocket" },
+    "darned-stocking": { "kind": "scenery", "file": "darned-stocking.webp", "mood": ["cosy", "worn"], "description": "a long mismatched stocking tied and patched at the heel" },
+    "tattered-map": { "kind": "scenery", "file": "tattered-map.webp", "mood": ["travel", "adventure"], "description": "a torn treasure map marked with a dotted path and red cross" },
+    "ribbon-key": { "kind": "scenery", "file": "ribbon-key.webp", "mood": ["mystery", "travel"], "description": "a large brass winding key tied with green and pink ribbons" },
+    "crooked-staircase": { "kind": "scenery", "file": "crooked-staircase.webp", "mood": ["mystery", "odd"], "description": "a narrow impossible staircase wrapped in strips of colored paper" },
+    "toy-guard": { "kind": "actor", "file": "toy-guard.webp", "mood": ["adventure", "solemn"], "facing": "front", "description": "a tiny toy guard in tall helmet, red cape and spear" },
+    "flower-locket": { "kind": "scenery", "file": "flower-locket.webp", "mood": ["keepsake", "gentle"], "description": "a round brass locket containing a pink paper flower" },
+    "charm-necklace": { "kind": "scenery", "file": "charm-necklace.webp", "mood": ["keepsake", "treasure"], "description": "a tangled bead necklace hung with colorful charms and tassels" },
+    "patchwork-bindle": { "kind": "scenery", "file": "patchwork-bindle.webp", "mood": ["travel"], "description": "a bulging patchwork bindle tied with red cord" },
+    "stacked-teacups": { "kind": "scenery", "file": "stacked-teacups.webp", "mood": ["cosy", "odd"], "description": "three mismatched teacups balanced in a crooked stack" },
+    "ribbon-hatbox": { "kind": "scenery", "file": "ribbon-hatbox.webp", "mood": ["travel", "gift"], "description": "a round red and navy hatbox tied with a large pink ribbon" },
+    "cracked-compass": { "kind": "scenery", "file": "cracked-compass.webp", "mood": ["travel", "mystery"], "description": "a brass pocket compass with cracked glass and chain" },
+    "arched-door": { "kind": "scenery", "file": "arched-door.webp", "mood": ["mystery", "travel"], "description": "a small green arched door in a pink stone surround" },
+    "covered-carrier": { "kind": "scenery", "file": "covered-carrier.webp", "mood": ["travel", "mystery"], "description": "a dark domed travel carrier strapped shut with a red bar" },
+    "patchwork-scarf": { "kind": "scenery", "file": "patchwork-scarf.webp", "mood": ["travel", "cosy"], "description": "a short striped patchwork scarf with cream ends" },
+    "round-spectacles": { "kind": "scenery", "file": "round-spectacles.webp", "mood": ["keepsake", "scholarly"], "description": "small round spectacles with mismatched green and pink rims" }
+  }
+}

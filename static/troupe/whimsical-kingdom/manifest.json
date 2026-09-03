@@ -1,0 +1,31 @@
+{
+  "name": "whimsical-kingdom",
+  "description": "A cheerfully impossible little kingdom of paper royalty, walking household things, garden props and heraldic oddities.",
+  "stylePrompt": "Torn and cut paper collage in a muted mid-century palette of navy, moss green, brick red, mustard, cream and dusty pink. Every shape is visibly hand-cut or torn, with deckled edges, paper grain and dry speckled texture; tiny details are fine black ink. Flat, straight-on puppet-theatre silhouettes with no perspective, lighting, gradients, shadows, white outlines or 3D rendering. Full isolated whimsical royal characters, animated household objects and garden props on transparent backgrounds.",
+  "pieces": {
+    "royal-decanter": { "kind": "scenery", "file": "royal-decanter.webp", "mood": ["royal", "odd"], "description": "a striped pear-shaped royal decanter topped by a feather" },
+    "tin-king": { "kind": "actor", "file": "tin-king.webp", "mood": ["royal", "solemn"], "facing": "front", "description": "a square tin king with crown, cape and ring-topped staff" },
+    "little-prince": { "kind": "actor", "file": "little-prince.webp", "mood": ["royal", "friendly"], "facing": "front", "description": "a smiling child prince in a paper crown and green cape" },
+    "monster-sofa": { "kind": "actor", "file": "monster-sofa.webp", "mood": ["comic", "monster"], "facing": "right", "description": "a patchwork sofa with paws, eyes and a toothy tongue" },
+    "armored-boar": { "kind": "actor", "file": "armored-boar.webp", "mood": ["battle", "comic"], "facing": "left", "description": "a grumpy wild boar wearing dark round armor" },
+    "paper-stork": { "kind": "actor", "file": "paper-stork.webp", "mood": ["courtly", "odd"], "facing": "right", "description": "a tall angular stork folded from striped paper" },
+    "banana-duelist": { "kind": "actor", "file": "banana-duelist.webp", "mood": ["comic", "adventure"], "facing": "right", "description": "a masked banana swordsman in cape and feathered cap" },
+    "walking-clock": { "kind": "actor", "file": "walking-clock.webp", "mood": ["urgent", "odd"], "facing": "front", "description": "a shield-shaped clock with legs, hat and hand bell" },
+    "spring-dog": { "kind": "actor", "file": "spring-dog.webp", "mood": ["friendly", "comic"], "facing": "right", "description": "a floppy dog whose long body is a metal spring" },
+    "kettle-creature": { "kind": "actor", "file": "kettle-creature.webp", "mood": ["comic", "odd"], "facing": "right", "description": "a round blue kettle creature with a long green snout" },
+    "royal-cart": { "kind": "scenery", "file": "royal-cart.webp", "mood": ["royal", "comic"], "description": "a silver shopping cart decorated with tiny royal pennants" },
+    "trumpet-herald": { "kind": "actor", "file": "trumpet-herald.webp", "mood": ["royal", "ceremony"], "facing": "front", "description": "a very thin herald sounding a small golden trumpet" },
+    "soot-sprite": { "kind": "actor", "file": "soot-sprite.webp", "mood": ["mischief", "odd"], "facing": "front", "description": "a round black spiky soot sprite with wide eyes" },
+    "sun-shield": { "kind": "scenery", "file": "sun-shield.webp", "mood": ["royal", "bright"], "description": "a round navy shield bearing a pink and gold sun" },
+    "paper-crown": { "kind": "scenery", "file": "paper-crown.webp", "mood": ["royal"], "description": "a silver paper crown with a golden star" },
+    "patchwork-throne": { "kind": "scenery", "file": "patchwork-throne.webp", "mood": ["royal", "cosy"], "description": "a blocky golden throne upholstered in patchwork colors" },
+    "top-hat": { "kind": "scenery", "file": "top-hat.webp", "mood": ["ceremony", "magic"], "description": "a tall curled-brim top hat banded in bright patchwork" },
+    "ribbon-umbrella": { "kind": "scenery", "file": "ribbon-umbrella.webp", "mood": ["rain", "festive"], "description": "a closed navy umbrella decorated with long ribbons" },
+    "garden-gates": { "kind": "scenery", "file": "garden-gates.webp", "mood": ["garden", "mystery"], "description": "a pair of crooked green garden gates with pink hinges" },
+    "watering-can": { "kind": "scenery", "file": "watering-can.webp", "mood": ["garden"], "description": "a patched green watering can with a long arched handle" },
+    "cracked-flowerpot": { "kind": "scenery", "file": "cracked-flowerpot.webp", "mood": ["garden", "hopeful"], "description": "a broken terracotta pot with one pink flower growing through it" },
+    "hand-mirror": { "kind": "scenery", "file": "hand-mirror.webp", "mood": ["royal", "magic"], "description": "an ornate golden hand mirror tied with colored ribbons" },
+    "garden-hose": { "kind": "scenery", "file": "garden-hose.webp", "mood": ["garden"], "description": "a tangled dark green garden hose with brass fittings" },
+    "brass-horn": { "kind": "scenery", "file": "brass-horn.webp", "mood": ["ceremony", "music"], "description": "a broad golden brass horn tied with a blue band" }
+  }
+}
