@@ -83,6 +83,18 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
      * neither backdrop nor cast has no frame yet, and raw coordinates are
      * all there is.
      */
+    /*
+     * NOT the cast's bounding box. That was the first fallback, and it fed a
+     * monster: pieces strewn across the world made a frame thousands of
+     * units tall, so "size 0.31" produced a bush the size of the sky. A
+     * frame must have a stable scale for fractions to mean anything, so the
+     * open-canvas frame is a FIXED-SIZE virtual stage — proportioned like a
+     * room, big enough that 0.5 is a person among these stickers — centred
+     * on wherever the scene's cast is standing.
+     */
+    const FRAME_WIDTH = 1080;
+    const FRAME_HEIGHT = 610;
+
     const groundOf = (stage: { backdrop?: string | null; cast: Placement[] }): Layer | null => {
         const backdrop = stage.backdrop ? collage.get(stage.backdrop) : null;
         if (backdrop) return backdrop;
@@ -98,11 +110,13 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
         });
         const minX = Math.min(...boxes.map(box => box.x));
         const minY = Math.min(...boxes.map(box => box.y));
+        const centreX = (minX + Math.max(...boxes.map(box => box.x + box.width))) / 2;
+        const centreY = (minY + Math.max(...boxes.map(box => box.y + box.height))) / 2;
         return {
-            x: minX,
-            y: minY,
-            width: Math.max(...boxes.map(box => box.x + box.width)) - minX,
-            height: Math.max(...boxes.map(box => box.y + box.height)) - minY,
+            x: centreX - FRAME_WIDTH / 2,
+            y: centreY - FRAME_HEIGHT / 2,
+            width: FRAME_WIDTH,
+            height: FRAME_HEIGHT,
         } as Layer;
     };
 
@@ -550,7 +564,17 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                                 .map(clip => `clip:${clip.name}`).join(", ")}.`
                                             : `.`),
                                 },
-                                say: { type: "string", description: "A line, in a bubble above them." },
+                                say: {
+                                    anyOf: [
+                                        { type: "string" },
+                                        { type: "array", items: { type: "string" } },
+                                    ],
+                                    description:
+                                        "A line, in a bubble above them — or an ARRAY of lines: the same " +
+                                        "speaker delivers them one after another, a fresh bubble each, " +
+                                        "and the beat's move plays under the first. Several short " +
+                                        "bubbles read far better than one long one.",
+                                },
                                 sound: {
                                     type: "string",
                                     enum: soundNames("cue", "sfx"),
@@ -644,7 +668,24 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 required: ["beats"],
             },
             async execute(args: { stage?: string; beats?: Beat[]; rehearse?: boolean }) {
-                const beats = Array.isArray(args?.beats) ? args.beats : [];
+                /*
+                 * A speech is several bubbles, not one long one. `say` accepts
+                 * an array of lines, expanded here — before validation, timing
+                 * and the voice learning — into consecutive beats: the first
+                 * keeps whatever else the beat was doing (its move, its
+                 * sound), the rest are the same speaker simply carrying on.
+                 * Everything downstream only ever sees one line per beat.
+                 */
+                const beats = (Array.isArray(args?.beats) ? args.beats : []).flatMap(beat => {
+                    if (!Array.isArray((beat as { say?: unknown })?.say)) return [beat];
+                    const lines = ((beat as unknown as { say: unknown[] }).say)
+                        .filter(line => typeof line === "string" && line.trim())
+                        .map(line => (line as string).trim());
+                    if (!lines.length) return [{ ...beat, say: undefined }];
+                    return lines.map((line, at) => at === 0
+                        ? { ...beat, say: line }
+                        : { id: (beat as { id?: string }).id, say: line } as Beat);
+                });
                 if (!beats.length) return fail(`Pass "beats" — what happens in the scene.`);
                 const rehearse = bool(args?.rehearse, true);
                 if (rehearse && studio.performing) {
@@ -853,7 +894,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "stage_create",
             title: "Make a scene",
             description:
-                "Create a stage: a named scene with a backdrop and a cast. A stage does not own its layers — " +
+                "Create a stage: a named scene with a cast. A stage does not own its layers — " +
                 "it records where they stand while it plays — so one character can appear in two scenes at " +
                 "different places without being duplicated, and restyling it changes it in both. Pass an " +
                 "existing id to rename a stage or change its backdrop. Scenes live at their own sections of " +
@@ -865,14 +906,6 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 properties: {
                     id: { type: "string", description: "An existing stage to change. Omit to make a new one." },
                     name: { type: "string", description: "What the scene is called, e.g. 'the rooftop'." },
-                    backdrop: {
-                        type: "string",
-                        description:
-                            "Layer id to draw behind everything. It never acts and never enters — it is the " +
-                            "room, not somebody in it. Pass 'none' to remove it. A scene WITHOUT a backdrop " +
-                            "plays in the open on the bare paper: the back plane becomes distant silhouettes " +
-                            "and the front plane dims, so depth still reads without a painted room.",
-                    },
                     music: {
                         type: "string",
                         enum: [...soundNames("bed"), "none"],
@@ -907,9 +940,17 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 if (id && !collage.getStage(id)) {
                     return fail(`There is no stage with id "${id}". Call stage_describe to list them.`);
                 }
-                const backdrop = str(args?.backdrop);
-                if (backdrop && backdrop !== "none" && !collage.get(backdrop)) {
-                    return fail(`There is no layer "${backdrop}" to use as a backdrop. Call piece_list.`);
+                /*
+                 * Backdrop panels are retired — the play happens on the open
+                 * paper world. Refused by name rather than silently ignored,
+                 * because an agent that thinks it set a backdrop will spend
+                 * the rest of the scene placing people relative to it.
+                 */
+                if (str(args?.backdrop) && str(args?.backdrop) !== "none") {
+                    return fail(
+                        `There are no backdrop panels: the play happens on the open canvas, with the ` +
+                        `pieces as they stand and the camera doing the framing. Cast big scenery on the ` +
+                        `"back" plane instead if the place needs marking out.`);
                 }
 
                 const music = str(args?.music);
@@ -929,7 +970,6 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 const patch = {
                     ...(str(args?.name) ? { name: str(args.name) } : {}),
                     ...(tint ? { tint: tint === "auto" ? "" : tint } : {}),
-                    ...(backdrop ? { backdrop: backdrop === "none" ? null : backdrop } : {}),
                     ...(music ? { music: music === "none" ? null : music } : {}),
                     ...(musicEnd ? { musicEnd } : {}),
                     ...(num(args?.hold) ? { hold: Math.max(0, args.hold) } : {}),

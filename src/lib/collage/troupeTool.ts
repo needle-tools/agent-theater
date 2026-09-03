@@ -32,7 +32,18 @@ function line(piece: TroupePiece): string {
 }
 
 export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
-    if (!TROUPE.length && !TROUPE_SHEETS.length) return null;
+    /*
+     * Backdrop panels and their full-width slices are RETIRED. The play
+     * happens on the open paper world; a painted panel replaces that world
+     * with a picture of one, and every play staged on a panel came out
+     * looking like a diorama in a dark room. The pieces still exist in the
+     * generated catalogue (old saves may hold them), but the drawer no
+     * longer deals them: not listed, not addable.
+     */
+    const DEALT = TROUPE.filter(piece =>
+        piece.kind === "scenery" || piece.kind === "actor");
+
+    if (!DEALT.length && !TROUPE_SHEETS.length) return null;
 
     return {
         name: "theater_troupe",
@@ -60,15 +71,6 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
 
             if (!wanted.length) {
                 const kinds: Array<[string, string]> = [
-                    ["backdrop", "Backdrops — full stages, pass one to stage_create:"],
-                    [
-                        "midground",
-                        "Scene layers — full-width slices of ONE set, made to stack for parallax. " +
-                        "Give the pack's backdrop to stage_create, then cast its midground with " +
-                        `at {x: 0.5, y: 1}, size 1, plane "mid" and its foreground the same on ` +
-                        `"front" — they align into a room with real depth the moment the camera moves:`,
-                    ],
-                    ["foreground", ""],
                     ["scenery", "Scenery — trees, props, furniture for the back and front planes:"],
                     ["actor", "Actors — full body, ready to cast:"],
                 ];
@@ -76,7 +78,7 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
                 return ok([
                     `The troupe, by pack:`,
                     ...kinds.flatMap(([kind, heading]) => {
-                        const of = TROUPE.filter(piece => piece.kind === kind);
+                        const of = DEALT.filter(piece => piece.kind === kind);
                         // A heading may be empty when its kind rides under the
                         // previous one — foreground lists below midground's.
                         return of.length ? [...(heading ? [heading] : []), ...of.map(line)] : [];
@@ -98,7 +100,7 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
                 ].join("\n"), { pieces: TROUPE, sheets: TROUPE_SHEETS, packs: TROUPE_PACKS });
             }
 
-            const unknown = wanted.filter(id => !TROUPE.some(piece => piece.id === id));
+            const unknown = wanted.filter(id => !DEALT.some(piece => piece.id === id));
             if (unknown.length) {
                 // All or nothing, for the same reason stage_remove is: a half
                 // delivery leaves the caller counting pieces to find out which
@@ -110,7 +112,7 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
 
             const added: Array<{ id: string; label: string; kind: string }> = [];
             for (const id of wanted) {
-                const piece = TROUPE.find(candidate => candidate.id === id)!;
+                const piece = DEALT.find(candidate => candidate.id === id)!;
                 const { layer } = await studio.addImage(piece.file, {
                     label: piece.id,
                     // The whole promise of the drawer: these were cut before
@@ -130,8 +132,8 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
 
             return ok(
                 `Added ${added.map(piece => `"${piece.label}" [${piece.id}]`).join(", ")} — already ` +
-                `cut, nothing to wait for. Backdrops go to stage_create; everything else is cast with ` +
-                `stage_cast (size, at, plane, flip). Look with show_look.`,
+                `cut, nothing to wait for. Cast them with stage_cast (size, at, plane, flip). ` +
+                `Look with show_look.`,
                 { layers: added });
         },
     };

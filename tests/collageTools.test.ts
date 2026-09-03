@@ -982,6 +982,32 @@ describe("wearing another picture", () => {
     });
 });
 
+describe("a speech is several bubbles", () => {
+    it("expands an array of lines into consecutive beats for one speaker", async () => {
+        const { studio, collage } = fakeStudio();
+        const bird = collage.addImage({ src: "b", natural: { width: 100, height: 100 } });
+        const stage = collage.addStage({ name: "the branch" });
+        collage.updateStage(stage.id, { cast: [{ id: bird.id, x: 0, y: 0 }] });
+
+        const script = createCollageTools(studio).find(t => t.name === "stage_script")!;
+        const result = await script.execute({
+            stage: stage.id,
+            rehearse: false,
+            beats: [{ id: bird.id, do: "nod", say: ["One.", "Two.", "Three."] }],
+        });
+        expect(result.isError).toBeUndefined();
+
+        const kept = collage.getStage(stage.id)!.script;
+        // Three beats, one line each — the move rides the first, the rest are
+        // the same speaker carrying on.
+        expect(kept).toHaveLength(3);
+        expect(kept.map(beat => beat.say)).toEqual(["One.", "Two.", "Three."]);
+        expect(kept[0].do).toBe("nod");
+        expect(kept[1].do).toBeUndefined();
+        expect(kept.every(beat => beat.id === bird.id)).toBe(true);
+    });
+});
+
 describe("arriving at a page that already has a play on it", () => {
     /**
      * The canvas restores itself from the browser, and the tools do not exist
@@ -1239,16 +1265,24 @@ describe("re-casting somebody who is already the right size", () => {
      * It only bit while a scene was being shown, and only on the second cast,
      * which is why a play looked right as it was built and wrong ever after.
      */
+    // No backdrop panels any more: the big room piece is ordinary scenery on
+    // the back plane, and its footprint is the frame the fractions refer to —
+    // the same box the backdrop used to be, so the numbers are unchanged.
     const bedroom = () => {
         const { studio, collage } = fakeStudio();
         const floor = collage.addImage({
-            src: "backdrop", natural: { width: 1260, height: 540 }, width: 960, x: -420, y: -206,
+            src: "room", natural: { width: 1260, height: 540 }, width: 960, x: -420, y: -206,
         });
         const woman = collage.addImage({
             src: "woman", natural: { width: 260, height: 485 }, width: 260, x: -114, y: -429,
         });
         return { studio, collage, floor, woman, tools: createCollageTools(studio) };
     };
+
+    const dress = (tools: any, floor: string) =>
+        tools.find((t: any) => t.name === "stage_cast")!.execute({
+            cast: [{ id: floor, x: -420, y: -206, width: 960, plane: "back" }],
+        });
 
     const castOnce = (tools: any, woman: string) =>
         tools.find((t: any) => t.name === "stage_cast")!.execute({
@@ -1257,23 +1291,26 @@ describe("re-casting somebody who is already the right size", () => {
 
     it("keeps the width it was given the first time", async () => {
         const { collage, floor, woman, tools } = bedroom();
-        await tools.find(t => t.name === "stage_create")!.execute({ name: "bedroom", backdrop: floor.id });
+        await tools.find(t => t.name === "stage_create")!.execute({ name: "bedroom" });
+        await dress(tools, floor.id);
         await castOnce(tools, woman.id);
 
-        const first = collage.listStages()[0].cast[0].width;
-        // 0.42 of a 411.4-tall backdrop is 172.8 tall, which on a 260 x 485
+        const womanIn = () => collage.listStages()[0].cast.find(m => m.id === woman.id);
+        const first = womanIn()!.width;
+        // 0.42 of the 411.4-tall room piece is 172.8 tall, which on a 260 x 485
         // drawing is 92.6 wide.
         expect(first).toBeCloseTo(92.6, 1);
 
         // Now with the scene actually showing, which is the case that broke.
         collage.setActiveStage(collage.listStages()[0].id);
         await castOnce(tools, woman.id);
-        expect(collage.listStages()[0].cast[0].width).toBeCloseTo(first!, 6);
+        expect(womanIn()!.width).toBeCloseTo(first!, 6);
     });
 
     it("still reads the scene back in the units it was cast in", async () => {
         const { collage, floor, woman, tools } = bedroom();
-        await tools.find(t => t.name === "stage_create")!.execute({ name: "bedroom", backdrop: floor.id });
+        await tools.find(t => t.name === "stage_create")!.execute({ name: "bedroom" });
+        await dress(tools, floor.id);
         await castOnce(tools, woman.id);
         collage.setActiveStage(collage.listStages()[0].id);
         await castOnce(tools, woman.id);

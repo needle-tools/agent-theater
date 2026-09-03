@@ -9,7 +9,8 @@
             "mood": [
                 "day"
             ],
-            "description": "the far backdrop: pink sky, one cream cloud, pine silhouettes, a ground band. Opaque and full-bleed, 21:9 — everything else stands in front of it"
+            "description": "RETIRED (a painted backdrop card, and scenes are free objects on bare paper now): the far backdrop: pink sky, one cream cloud, pine silhouettes, a ground band. Opaque and full-bleed, 21:9 — everything else stands in front of it",
+            "hidden": true
         },
         "midground": {
             "kind": "midground",

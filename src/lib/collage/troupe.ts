@@ -135,7 +135,6 @@ export const TROUPE: TroupePiece[] = [
     { id: "food/radish", pack: "food", kind: "scenery", file: "/troupe/food/radish.webp", mood: ["neutral"], description: "a pink radish with its leaves and root" },
     { id: "food/sushi-roll", pack: "food", kind: "scenery", file: "/troupe/food/sushi-roll.webp", mood: ["neutral"], description: "a single roll seen end-on" },
     { id: "food/watermelon-slice", pack: "food", kind: "scenery", file: "/troupe/food/watermelon-slice.webp", mood: ["bright","summer"], description: "a red wedge with navy pips — the most colourful piece in the pack" },
-    { id: "forest/backdrop", pack: "forest", kind: "backdrop", file: "/troupe/forest/backdrop.webp", mood: ["day"], description: "the far backdrop: pink sky, one cream cloud, pine silhouettes, a ground band. Opaque and full-bleed, 21:9 — everything else stands in front of it" },
     { id: "forest/acorn", pack: "forest", kind: "scenery", file: "/troupe/forest/acorn.webp", mood: ["autumn"], description: "a single huge acorn — oversized, a prop a small creature could carry" },
     { id: "forest/bench", pack: "forest", kind: "scenery", file: "/troupe/forest/bench.webp", mood: ["friendly"], description: "a wooden bench, somewhere for two to sit" },
     { id: "forest/birdhouse", pack: "forest", kind: "scenery", file: "/troupe/forest/birdhouse.webp", mood: ["friendly"], description: "a birdhouse on a post" },

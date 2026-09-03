@@ -440,7 +440,6 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     stages.length
                         ? `${stages.length} scene(s): ${stages.map(stage =>
                             `"${stage.name}" (${stage.cast.length ? `${stage.cast.length} in it` : "EMPTY"}` +
-                            `${stage.backdrop ? "" : ", no backdrop"}` +
                             `${stage.script.length ? "" : ", nothing scripted"})`).join(", ")}.`
                         : `No scenes yet.`,
                 ].join(" ");
@@ -549,13 +548,14 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  comes back: that is one flat picture with the trunks, the ferns and the light baked`,
                     `  into it, and nothing in it can move, stand in front of anything, or slide past`,
                     `  anything as the camera pans. It is a photograph of a set.`,
-                    `  Ask instead for THREE things and assemble them here:`,
-                    `    - a backdrop that is nearly empty — sky, distance, a ground line, nothing else;`,
+                    `  Ask instead for separate cut-outs and assemble them here:`,
                     `    - scenery as separate cut-outs — a tree, a bush, a door, a rock, one per cell;`,
-                    `    - the cast as separate cut-outs, full body, feet visible.`,
-                    `  Then put the scenery on the "back", "mid" and "front" planes with stage_cast. They`,
+                    `    - the cast as separate cut-outs, full body, feet visible;`,
+                    `  There are NO backdrop panels. The play happens in the open, on the paper itself:`,
+                    `  the canvas IS the world, and whatever is already arranged on it is the set.`,
+                    `  Spread the scenery over the "back", "mid" and "front" planes with stage_cast. They`,
                     `  paint in that order and slide by different amounts when the camera moves, and that`,
-                    `  is what turns flat pictures into a place with depth in it.`,
+                    `  is what turns flat pieces into a place with depth in it.`,
                     ``,
                     `THIS STAGE IS FLAT, AND THAT IS THE POINT`,
                     `  It is a paper theatre seen from the front, not a 3D world. Everything is drawn`,
@@ -596,17 +596,16 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                            `     pack that fits the story is on stage in seconds instead of minutes. Only`,
                            `     generate what the drawer does not cover.`,
                            `  2. For anything missing, theater_art_prompt writes the prompt for the art the`,
-                           `     STORY needs — once per kind: backgrounds, scenery,`]
+                           `     STORY needs — once per kind: scenery,`]
                         : [`  1. theater_art_prompt writes the prompt for the art the STORY needs — once per`,
-                           `     kind: backgrounds, scenery,`]),
-                    `     actors. Ask for ONE FULL SHEET each time, never one picture at a time: 5 × 5 for`,
-                    `     scenery and actors, which is 25 pieces from one generation, and 2 × 2 for`,
-                    `     backdrops, which need the pixels. A sheet also comes back looking like one set,`,
-                    `     where 25 separate generations come back looking like 25 different books.`,
+                           `     kind: scenery,`]),
+                    `     actors. Ask for ONE FULL SHEET each time, never one picture at a time: 5 × 5,`,
+                    `     which is 25 pieces from one generation. A sheet also comes back looking like`,
+                    `     one set, where 25 separate generations come back looking like 25 different books.`,
                     `  2. piece_sheet brings each sheet in, one piece per cell.`,
                     `  3. show_title names the piece. It opens on a title card and heads the credits.`,
-                    `  4. stage_create per scene, each at its own spot on the canvas — with a backdrop`,
-                    `     if the place wants one (scenes also play in the open), and its music.`,
+                    `  4. stage_create per scene, each at its own spot on the canvas, with its music.`,
+                    `     The play stays on the open paper; the camera does the framing.`,
                     `  5. stage_cast for everybody in it — scenery included. Say where with "at" (fractions`,
                     `     of the scene's frame, y is where the FEET go) or with free x/y canvas units,`,
                     `     which piece_list reads back. Let pieces hang over the backdrop's edges — a tree`,

@@ -545,14 +545,19 @@
      *
      * The speech bubbles do not come along — they were the page's copy, not
      * the story's.
+     *
+     * And it must be INVISIBLE. The strewn overlay stays rendered, at full
+     * strength, while the twin layers are added underneath it — same spot,
+     * same seen size, same tilt — and only once every twin exists does the
+     * overlay come off, in one frame. The idle stage does not change when
+     * work begins; only the prompt and the intro bubbles go away.
      */
-    let adopting = false;
+    let adopting = $state(false);
 
     async function adoptScatter() {
         if (adopting || !scatter.length) return;
         adopting = true;
         const props = scatter;
-        scatter = [];
         try {
             const w = window.innerWidth;
             const h = window.innerHeight;
@@ -564,7 +569,7 @@
                 // then into canvas units so the piece keeps its SEEN size.
                 const width = Math.max(72, (prop.size / 100) * Math.min(w, h)) / zoom;
                 const height = width * (prop.aspect ?? 1);
-                await studio.addImage(prop.file, {
+                const { layer } = await studio.addImage(prop.file, {
                     label: prop.id.split("#")[0],
                     removeBackground: false,
                     slice: false,
@@ -573,9 +578,14 @@
                     width,
                     by: "human",
                 });
+                // The tilt is part of where it stood. addImage has no
+                // rotation option, so it is set the moment the twin exists.
+                if (prop.tilt) studio.collage.update(layer.id, { rotation: prop.tilt });
             }
             studio.save();
         } finally {
+            // The reveal: overlay off, twins already beneath it.
+            scatter = [];
             adopting = false;
         }
     }
@@ -1071,7 +1081,11 @@
              anything claims them. -->
         <svg class="paint-defs" aria-hidden="true" focusable="false">{@html boilFilterSvg()}</svg>
 
-        <div class="strewn" class:strewn--away={!empty}>
+        <!-- Not faded while adopting: the props must stand at full strength
+             until their twin layers are all beneath them, or the handover
+             reads as everything blinking. The bubbles below DO fade at once —
+             they are the page's copy, and the copy leaving is the point. -->
+        <div class="strewn" class:strewn--away={!empty && !adopting}>
             {#each scatter as prop (prop.key)}
                 <div
                     class="strewn__prop"

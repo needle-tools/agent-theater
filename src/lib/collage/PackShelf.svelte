@@ -22,6 +22,7 @@
     import { TROUPE, TROUPE_PACKS, type TroupePiece } from "./troupe.js";
     import { STAGE_WIDTH, type CollageStudio } from "./studio.js";
     import { idleSet } from "./idleSet.js";
+    import { hint } from "./hint.js";
 
     interface Props {
         studio: CollageStudio;
@@ -54,14 +55,23 @@
     }
 
     function widthFor(piece: TroupePiece): number {
-        // Stage slices arrive at stage width so they can line up. Everything
-        // else is sized against what the person is LOOKING at, not against
-        // canvas units: a sticker should land about a sixth of the screen
-        // wide whatever the zoom, because "decent size" is a property of the
-        // view, not of the sheet.
+        // Stage slices arrive at stage width so they can line up.
         if (["backdrop", "midground", "foreground"].includes(piece.kind)) return STAGE_WIDTH;
-        // Sized like the strewn props (9–16vmin), so a dragged sticker joins
-        // the arrangement as a peer, not as a giant among miniatures.
+        /*
+         * Sized like its NEIGHBOURS first. A dropped sticker joins an
+         * arrangement, and "the right size" is whatever the other stickers
+         * are — the median of what is already lying on the paper. A
+         * screen-relative size looked right on an empty canvas and comically
+         * large next to pieces that were adopted at another zoom: the view
+         * changes, the arrangement does not.
+         */
+        const peers = studio.collage.listAll()
+            .filter(layer => layer.kind === "image" && layer.width < STAGE_WIDTH * 0.6)
+            .map(layer => layer.width)
+            .sort((a, b) => a - b);
+        if (peers.length) return Math.round(peers[Math.floor(peers.length / 2)]);
+        // An empty canvas has no peers, so the strewn props' deal stands in:
+        // about 13vmin as seen at the current zoom.
         const seen = (Math.min(window.innerWidth, window.innerHeight) * 0.13)
             / Math.max(0.05, zoom());
         return Math.round(Math.min(420, Math.max(72, seen)));
@@ -195,7 +205,7 @@
             {#each packs.filter(pack => pack.id === open) as pack (pack.id)}
                 <div class="fan" role="group" aria-label="{pack.id} stickers">
                     <div class="fan__strip">
-                        {#each pack.pieces as piece, at (piece.id)}
+                        {#each stickersOf(pack.pieces) as piece, at (piece.id)}
                             <div
                                 class="fan__sticker"
                                 class:fan__sticker--wide={widthFor(piece) === STAGE_WIDTH}
@@ -205,7 +215,7 @@
                                 style:z-index={(at * 7) % 11}
                                 role="button"
                                 tabindex="0"
-                                title={piece.description || piece.id}
+                                use:hint={piece.description || piece.id}
                                 onpointerdown={event => startDrag(event, piece)}
                                 onpointermove={moveDrag}
                                 onpointerup={endDrag}
@@ -233,7 +243,7 @@
                     class:pile--open={open === pack.id}
                     aria-label="Open the {pack.id} pack"
                     aria-expanded={open === pack.id}
-                    title={pack.description}
+                    use:hint={pack.description}
                     onpointerenter={event => {
                         // Hover fans the pack open — the drawer is for browsing,
                         // and a click per pack to look inside is a click too many.

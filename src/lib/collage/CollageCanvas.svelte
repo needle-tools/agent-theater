@@ -1874,31 +1874,16 @@
         const own = alphaFilters(layer.style, pxUnit, outlineId(layer));
         // Order matters: the indicator dilates whatever the layer already
         // draws, so it wraps a sticker outline rather than hiding under it.
-        const filters = [own, indicator, depthTreatment(layer)].filter(Boolean).join(" ");
+        /*
+         * No depth "treatment" here any more. Backdropless scenes briefly
+         * dimmed their back plane into silhouettes — and the moment the show
+         * started, the person's own arrangement changed colour, which reads
+         * as the play repainting their work. Depth in the open comes from
+         * paint order and parallax alone; the pieces look the same playing
+         * as they do lying on the paper.
+         */
+        const filters = [own, indicator].filter(Boolean).join(" ");
         return filters ? `; filter: ${filters}` : "";
-    }
-
-    /**
-     * Depth as a treatment, for scenes played in the open.
-     *
-     * A scene with a painted backdrop gets its depth from the art. A scene
-     * WITHOUT one — objects on the bare paper — gets it here instead: the
-     * back plane becomes distant silhouettes, dark and faded like paper at
-     * dusk, and the front plane dims just enough to read as nearer than the
-     * action. It costs no art, which is the point: depth stops being
-     * something you have to draw.
-     *
-     * Lives in the filter chain on the static child, so it re-rasterises on
-     * scene changes and never per frame.
-     */
-    function depthTreatment(layer: ImageLayer): string {
-        if (!showing) return "";
-        const stage = studio.collage.activeStage;
-        if (!stage || stage.backdrop) return "";
-        const plane = studio.collage.planeOf(layer.id);
-        if (plane === "back") return "brightness(0.35) saturate(0.4) opacity(0.55)";
-        if (plane === "front") return "brightness(0.7) saturate(0.75) opacity(0.92)";
-        return "";
     }
 
     /**
@@ -1994,9 +1979,13 @@
         const parts = studio.collage.listStages()
             .flatMap(stage => stage.cast.filter(part => part.id === layer.id));
         if (!parts.length) {
-            return TROUPE_STICKERS.has(layer.label)
-                ? "painted painted--boil painted--calm"
-                : "";
+            if (!TROUPE_STICKERS.has(layer.label)) return "";
+            // The same deal the idle page cuts its props: a third calm, a
+            // third standard, a third lively, stable per piece — so the
+            // canvas between shows looks exactly like the welcome scatter it
+            // grew out of, not like a subdued copy of it.
+            const temperament = ["painted--calm", "", "painted--lively"][layerSeed(layer.id) % 3];
+            return `painted painted--boil ${temperament}`.trim();
         }
         return parts.some(part => part.as)
             ? "painted painted--boil"
@@ -2297,23 +2286,18 @@
     }
 
     /*
-     * The house lights going down.
+     * A show does NOT change the room.
      *
-     * A show is meant to be watched, and everything that helps while building —
-     * the dot grid, the page outline and its label, the handles round whatever
-     * happened to be selected — is furniture in front of it. It is hidden
-     * rather than unmounted so nothing has to be rebuilt when the show ends,
-     * and the surround darkens so the eye goes to the scene instead of the
-     * edges of the window.
+     * The play happens on the same open paper the person was just arranging —
+     * that is the whole promise of the world-canvas — so the background stays
+     * exactly what it was: same colour, same dots. The surround used to go
+     * dark like a cinema, and it read as the page being replaced by a
+     * different page. Only the editing furniture goes: handles, marquee,
+     * page label — hidden below, not unmounted, so nothing rebuilds when the
+     * show ends.
      */
     .viewport--showing {
-        background-color: var(--surround, #14161a);
-        background-image: none;
-        /* Not a grab cursor: there is nothing to grab. */
         cursor: default;
-        transition-property: background-color;
-        transition-duration: 0.6s;
-        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
     }
 
     .viewport--showing :is(.handles, .marquee, .page__label) {

@@ -61,15 +61,27 @@ function ensureBubble(): HTMLElement {
     return bubble;
 }
 
-/** Keep the bubble on screen: it is drawn up and to the right of the pointer. */
+/**
+ * Keep the bubble on screen: it is drawn up and to the right of the pointer.
+ *
+ * The gap is generous on purpose. A thought crowding the pointer covers the
+ * thing being pointed at — which for a drawer of overlapping stickers is the
+ * one thing it must not do — and the trailing dots need somewhere to trail.
+ */
+const AWAY_X = 30;
+const AWAY_Y = 34;
+
 function place() {
     if (!bubble) return;
     const pad = 14;
     const box = bubble.getBoundingClientRect();
-    let x = pointer.x + 18;
-    let y = pointer.y - box.height - 14;
-    if (x + box.width > innerWidth - pad) x = pointer.x - box.width - 18;
-    if (y < pad) y = pointer.y + 24;
+    let x = pointer.x + AWAY_X;
+    let y = pointer.y - box.height - AWAY_Y;
+    // Flip to the other side rather than let it run off the edge; the dots
+    // stay bottom-left either way, which is a small lie about where the
+    // thought came from and cheaper than mirroring them.
+    if (x + box.width > innerWidth - pad) x = pointer.x - box.width - AWAY_X;
+    if (y < pad) y = pointer.y + AWAY_Y;
     bubble.style.translate = `${Math.max(pad, x)}px ${Math.max(pad, y)}px`;
 }
 

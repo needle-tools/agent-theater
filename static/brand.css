@@ -2450,20 +2450,20 @@ Variables:
 /* The two trailing dots are what make it a thought rather than speech. */
 .paper-hint__dot {
     position: absolute;
-    bottom: -7px;
-    left: 16px;
-    width: 7px;
-    height: 7px;
+    bottom: -22px;
+    left: 10px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: inherit;
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-subtle, #d8d3c6) 70%, transparent);
 }
 
 .paper-hint__dot--big {
-    bottom: -3px;
-    left: 22px;
-    width: 12px;
-    height: 12px;
+    bottom: -11px;
+    left: 18px;
+    width: 13px;
+    height: 13px;
 }
 
 /* The caret while the text is still arriving. */
