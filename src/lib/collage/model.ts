@@ -94,8 +94,14 @@ interface LayerBase {
      *
      * One level only — a thing held by a held thing is a chain nobody can
      * reason about, and the tools refuse it.
+     *
+     * `byHand` marks a hold a PERSON made by dragging, as opposed to one a
+     * script's `take` beat made. The distinction matters exactly once: at
+     * curtain-up, a hand-made hold touching the cast is set down, because
+     * most of them are accidents (a chair dropped across a desk) and an
+     * accident that rides a walking character wrecks the blocking.
      */
-    held?: { by: string; x: number; y: number };
+    held?: { by: string; x: number; y: number; byHand?: boolean };
 }
 
 export interface ImageLayer extends LayerBase {
@@ -399,7 +405,7 @@ export interface LayerPatch {
     align?: "left" | "center" | "right";
     style?: Partial<LayerStyle>;
     /** Attach to another layer's hand (offsets from it), or null to let go. */
-    held?: { by: string; x: number; y: number } | null;
+    held?: { by: string; x: number; y: number; byHand?: boolean } | null;
 }
 
 export interface CollageOptions {

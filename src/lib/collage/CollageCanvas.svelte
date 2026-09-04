@@ -2185,8 +2185,12 @@
 
         if (holder && holding?.by !== holder.id) {
             // Offsets from the holder's layer — attachment is world state.
+            // Marked as the hand's doing: a scripted `take` carries into a
+            // play unconditionally, but a drag's hold is set down at
+            // curtain-up when it touches the cast, because most of those
+            // are accidents.
             studio.collage.update(dropped, {
-                held: { by: holder.id, x: layer.x - holder.x, y: layer.y - holder.y },
+                held: { by: holder.id, x: layer.x - holder.x, y: layer.y - holder.y, byHand: true },
             });
             studio.record("layer-moved",
                 `"${layer.label}" now rides "${holder.label}".`);

@@ -46,7 +46,7 @@ import {
 const TRAVEL_MS = 950;
 import { aimed, plan as planScene, type Plan } from "./perform.js";
 import {
-    DEFAULT_HOLD, MIN_SCENE_MS, sceneBeats, spokenBy, type ShowTiming,
+    DEFAULT_HOLD, MIN_SCENE_MS, sceneBeats, spokenBy, strandedByHand, type ShowTiming,
 } from "./show.js";
 import { autoVoiceFor } from "./characterVoice.js";
 import { prompter } from "./speech.js";
@@ -787,6 +787,26 @@ export function createStudio(collage = new Collage()): CollageStudio {
         if (!resuming && !preshow) {
             preshow = collage.listAll().map(layer =>
                 ({ id: layer.id, x: layer.x, y: layer.y }));
+            /*
+             * Hands off the cast. A drag's accidental hold that touches the
+             * cast on either side is dissolved before the first beat — each
+             * piece set down exactly where it stands — or a chair welded to
+             * a desk swings across the stage with every scripted walk. After
+             * the snapshot, so restoreWorld puts positions back identically;
+             * the detach itself is a repair and deliberately survives.
+             */
+            const strays = strandedByHand(collage.listAll(), stages);
+            if (strays.length) {
+                collage.batch(() => {
+                    for (const id of strays) {
+                        const spot = collage.get(id);
+                        if (spot) collage.update(id, { held: null, x: spot.x, y: spot.y });
+                    }
+                });
+                record("page-changed",
+                    `${strays.length} accidentally attached piece(s) were set down at curtain-up.`,
+                    "agent");
+            }
         }
         let opening = !resuming;
         for (const stage of stages) {

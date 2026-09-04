@@ -96,6 +96,28 @@ export function buildUp(stage: Stage, sizeOf: (id: string) => number): BuildUp {
  * began was not brought on, and removing them would be taking away something
  * the person put there.
  */
+/**
+ * The hand-made holds a show must dissolve before it starts.
+ *
+ * A person's drag can attach pieces by accident — a chair dropped across a
+ * desk — and an accidental rider on a cast member (or an accidental cast
+ * rider on walking furniture) moves completely wrong the moment a beat
+ * plays. So at curtain-up, every hold a HAND made that touches the cast on
+ * either side is set down where it stands. A hold a `take` beat made is the
+ * script's own and always rides; a hand-made hold between two bystanders is
+ * somebody's arrangement and none of the show's business.
+ */
+export function strandedByHand(
+    layers: Array<{ id: string; held?: { by: string; byHand?: boolean } }>,
+    stages: Stage[],
+): string[] {
+    const acting = new Set(stages.flatMap(stage => stage.cast.map(member => member.id)));
+    return layers
+        .filter(layer => layer.held?.byHand
+            && (acting.has(layer.id) || acting.has(layer.held.by)))
+        .map(layer => layer.id);
+}
+
 export function handOff(stage: Stage): Beat[] {
     return stage.cast
         .filter(member => member.entrance && member.entrance !== "none")
