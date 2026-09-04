@@ -19,7 +19,7 @@ import { prompter } from "./speech.js";
 import type { SubtitleVoice } from "../subtitleVoice/index.js";
 
 /** Characters that earn a breath after they are typed. */
-const PAUSE_AFTER = new Set([".", "-", "—", "!", "?"]);
+const PAUSE_AFTER = new Set([".", "-", "–", "—", "!", "?", "…"]);
 
 /** How long the next character waits, given the one just typed. */
 export function delayAfter(written: string, perChar: number, pause: number): number {

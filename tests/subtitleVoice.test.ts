@@ -63,7 +63,10 @@ describe("subtitle voice timing", () => {
     it("preserves FastVid's calibrated duration estimates", () => {
         expect(estimateSubtitleTextDuration("Hello, brave new world!")).toBeCloseTo(2.0970060145947267, 12);
         expect(estimateSubtitleTextDuration("Dr. Fox found 12 fireflies.")).toBeCloseTo(2.6200244744025376, 12);
-        expect(estimateSubtitleTextDuration("Wait — really?")).toBeCloseTo(1.556813802696945, 12);
+        // 0.056s over the original FastVid figure: the em dash now earns its
+        // light pause (0.35 units), matching the breath the typed reveal
+        // already took there. A deliberate departure from the calibration.
+        expect(estimateSubtitleTextDuration("Wait — really?")).toBeCloseTo(1.612813802696945, 12);
     });
 
     it("allocates every token in order inside the estimated line", () => {

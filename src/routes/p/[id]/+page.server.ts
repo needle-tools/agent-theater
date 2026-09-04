@@ -25,18 +25,22 @@ export const load: PageServerLoad = async ({ params, url }) => {
     try {
         const { sql, ready } = database(); await ready;
         const [play] = await sql`
-            select title, chapters, duration_seconds, themes
+            select title, chapters, duration_seconds, themes,
+                   doc #>> '{billing,byline}' as byline
             from plays where id = ${params.id}`;
         if (play) {
             return {
                 id: params.id,
                 card: {
                     title: String(play.title || "Untitled play"),
+                    // The byline is the author's own sentence about the story;
+                    // when it exists, the card leads with it and the pack list
+                    // steps aside.
                     description: describePlay({
                         chapters: Number(play.chapters ?? 0),
                         seconds: Number(play.duration_seconds ?? 0),
                         themes: Array.isArray(play.themes) ? play.themes.map(String) : [],
-                    }),
+                    }, String(play.byline ?? "")),
                     url: `${url.origin}/p/${encodeURIComponent(params.id)}`,
                 },
             };

@@ -1008,12 +1008,25 @@ export function createStudio(collage = new Collage()): CollageStudio {
         return url;
     };
 
+    /*
+     * Whether the LAST autosave landed. Tracked on the transition only: a
+     * full localStorage fails on every debounced save, and an event every
+     * 800ms is a telemetry bill, not a signal. One event when saving breaks,
+     * one when it recovers.
+     */
+    let autosaving = true;
+
     const scheduleSave = () => {
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
             saveTimer = null;
-            saveDoc(collage.listAll(), collage.listFrames(), lastView, collage.listStages(),
+            const saved = saveDoc(collage.listAll(), collage.listFrames(), lastView, collage.listStages(),
                 collage.billing, collage.background);
+            if (saved !== autosaving) {
+                autosaving = saved;
+                track(saved ? "autosave_recovered" : "play_save_failed",
+                    saved ? {} : { by: "page", where: "autosave", pieces: collage.listAll().length });
+            }
             // Cheap enough to run alongside a save, and it keeps a long session
             // from leaving every superseded cut-out behind in the store.
             // listAll, emphatically. With a stage showing, list() answers with

@@ -89,24 +89,29 @@ export function summarize(doc: StoredDoc): PlaySummary {
 /**
  * The play in a sentence, for the card a pasted link unfurls into.
  *
- * Built from the summary rather than written by anyone, for the same reason
- * the summary is: a description somebody fills in by hand is a description
- * that lies the moment a chapter is added. These three numbers are recomputed
- * on every save, so the card cannot drift from the play.
+ * The STORY leads when the play has one to give: the byline is a sentence
+ * the author wrote about the piece ("a Moon Magic tale in three scenes"),
+ * and a card that opens with it reads as a play rather than an inventory.
+ * The numbers still follow — they are recomputed on every save, so that part
+ * of the card cannot drift from the play — but the pack list steps aside
+ * when a story is present: "set in birthday party, desert and fairy tale"
+ * is where the paper came from, not where the story happens.
  *
- * Facts first and the pitch last, because a link preview is read in about a
- * second and gets truncated after that — whoever sees it should learn what
+ * Facts before the pitch either way, because a link preview is read in about
+ * a second and gets truncated after that — whoever sees it should learn what
  * this particular play is before they learn what the site is.
  */
-export function describePlay(summary: PlaySummary): string {
+export function describePlay(summary: PlaySummary, story = ""): string {
+    const telling = story.trim().replace(/[.\s]+$/, "");
     const facts: string[] = [];
     if (summary.chapters > 0) {
         facts.push(summary.chapters === 1 ? "One chapter" : `${summary.chapters} chapters`);
     }
     if (summary.seconds > 0) facts.push(`about ${roughly(summary.seconds)}`);
-    if (summary.themes.length) facts.push(`set in ${listed(summary.themes.slice(0, 3))}`);
+    if (!telling && summary.themes.length) facts.push(`set in ${listed(summary.themes.slice(0, 3))}`);
     const play = "A paper theatre play — watch it, or take it apart and stage your own.";
-    return facts.length ? `${facts.join(", ")}. ${play}` : play;
+    const lead = telling ? `${telling.charAt(0).toUpperCase()}${telling.slice(1)}. ` : "";
+    return facts.length ? `${lead}${facts.join(", ")}. ${play}` : `${lead}${play}`;
 }
 
 /**

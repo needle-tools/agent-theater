@@ -191,7 +191,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     byline: {
                         type: "string",
                         description:
-                            "The smaller line under it — 'a play in two scenes', 'after Grimm'. Optional.",
+                            "The smaller line under the title — and the sentence a shared link's " +
+                            "preview card opens with, so make it about the STORY: 'a tale of a moon " +
+                            "with an appetite', 'after Grimm, with more chickens'. Not the art packs " +
+                            "used — that is inventory, not invitation. Strongly recommended.",
                     },
                     credits: {
                         type: "array",

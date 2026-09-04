@@ -135,6 +135,19 @@ describe("describePlay", () => {
         expect(line).toContain("paper theatre play");
     });
 
+    it("leads with the story when the play has one, and drops the pack list", () => {
+        // The byline is the author's sentence about the piece. A card that
+        // opens with it reads as a play; "set in birthday party, desert and
+        // fairy tale" is where the paper came from, not where the story
+        // happens, so it steps aside.
+        const line = describePlay(
+            { chapters: 3, seconds: 137, themes: ["birthday-party", "desert"] },
+            "a tale of a moon with an appetite.");
+        expect(line.startsWith("A tale of a moon with an appetite. 3 chapters, about 2 minutes.")).toBe(true);
+        expect(line).not.toContain("set in");
+        expect(line).toContain("paper theatre play");
+    });
+
     it("counts one chapter as one, not as 1", () => {
         expect(describePlay({ chapters: 1, seconds: 20, themes: [] })).toMatch(/^One chapter, about 20 seconds\./);
     });

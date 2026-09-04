@@ -174,7 +174,9 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
                 });
                 return { content: [{ type: "text", text: `${published ? "Published" : "Saved"} “${result.title}”. Share: ${result.url}` }], structuredContent: result };
             } catch (error) {
-                return { content: [{ type: "text", text: `Could not save the play: ${error instanceof Error ? error.message : error}` }], isError: true };
+                const reason = error instanceof Error ? error.message : String(error);
+                track("play_save_failed", { by: "agent", published, reason: reason.slice(0, 120) });
+                return { content: [{ type: "text", text: `Could not save the play: ${reason}` }], isError: true };
             }
         },
     });

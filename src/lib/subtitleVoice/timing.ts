@@ -73,9 +73,15 @@ function estimateSyllables(word: string): number {
 }
 
 function pauseUnits(token: string): number {
-    if (/[.!?]+["')\]]*$/.test(token)) return PROFILE.sentencePauseUnits;
+    // The one-character ellipsis too: models write "…" as often as "...",
+    // and a trailing-off that trailed off in the bubble but not in the voice
+    // was the drift the dashes had.
+    if (/[.!?…]+["')\]]*$/.test(token)) return PROFILE.sentencePauseUnits;
     if (/[,:;]+["')\]]*$/.test(token)) return PROFILE.clausePauseUnits;
-    if (/[-/]+["')\]]*$/.test(token)) return PROFILE.lightPauseUnits;
+    // All three dashes: hyphen, en, em. The typed reveal breathes on them,
+    // and a voice that did not made the bubble and the audio drift apart on
+    // every dash-heavy line.
+    if (/[-–—/]+["')\]]*$/.test(token)) return PROFILE.lightPauseUnits;
     return 0;
 }
 

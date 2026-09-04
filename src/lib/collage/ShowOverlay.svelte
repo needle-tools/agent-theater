@@ -177,12 +177,14 @@
                         {#each billboard.entries as entry, index (entry.actor + index)}
                             {#if entry.src}
                                 <img
-                                    class="poster__piece"
+                                    class="poster__piece painted painted--boil {['painted--calm', '', 'painted--lively'][index % 3]}"
                                     src={entry.src}
                                     alt=""
                                     draggable="false"
                                     style:rotate="{((index * 137) % 17) - 8}deg"
                                     style:animation-delay="{380 + index * 140}ms"
+                                    style:--paint-seed={(index * 271) % 997}
+                                    style:--paint-at="-{(index * 173) % 1400}ms"
                                 />
                             {/if}
                         {/each}
@@ -215,12 +217,17 @@
                             {#if entry.src}
                                 <!-- The lean is dealt from the row number, not Math.random,
                                      so the roll tilts the same way every night. -->
+                                <!-- Alive like everything else on the paper:
+                                     the same painterly boil, dealt a seed and
+                                     an offset so no two rows breathe in step. -->
                                 <img
-                                    class="credit-row__art"
+                                    class="credit-row__art painted painted--boil {['painted--calm', '', 'painted--lively'][index % 3]}"
                                     src={entry.src}
                                     alt=""
                                     draggable="false"
                                     style:rotate="{((index * 137) % 17) - 8}deg"
+                                    style:--paint-seed={(index * 271) % 997}
+                                    style:--paint-at="-{(index * 173) % 1400}ms"
                                 />
                             {/if}
                             <!-- The part, and nothing else. Who played it is
@@ -262,7 +269,7 @@
                         style:animation-delay="{((billboard.entries?.length ?? 0) + billboard.lines.length) * CREDIT_LINE_MS * 0.25}ms"
                     >
                         <img
-                            class="roll__sigil"
+                            class="roll__sigil painted painted--boil painted--calm"
                             src="/troupe/desert/flowering-cactus.webp"
                             alt=""
                             draggable="false"
@@ -409,7 +416,7 @@
         height: clamp(84px, 15vh, 150px);
         max-width: 22vw;
         object-fit: contain;
-        filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+        --paint-filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
         animation: rise 0.7s cubic-bezier(0.2, 0, 0, 1) both;
     }
 
@@ -499,7 +506,10 @@
         height: clamp(78px, 13.5vh, 126px);
         max-width: 38%;
         object-fit: contain;
-        filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
+        /* Through the boil's extension point, not `filter` — a filter of our
+           own would overwrite the warp and freeze the painting back into a
+           photograph. */
+        --paint-filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
     }
 
     /* The text takes the rest of the row and leans toward its picture. */
@@ -562,7 +572,7 @@
     .roll__sigil {
         height: clamp(84px, 14vh, 130px);
         object-fit: contain;
-        filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
+        --paint-filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
     }
 
     .roll__thanks {

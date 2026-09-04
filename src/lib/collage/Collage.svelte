@@ -229,6 +229,7 @@
             announce("Share link copied.", { voiced: false });
         } catch (error) {
             toast.close();
+            track("play_save_failed", { by: "human", where: "online", reason: message(error).slice(0, 120) });
             showFileToolError("share", "We couldn’t save the play just now. Maybe try again in a little while.");
         } finally {
             sharing = false;
@@ -952,6 +953,7 @@
             announce(`Saved ${filename} — open it from Theater options to keep working.`);
         } catch (error) {
             toast.close();
+            track("play_save_failed", { by: "human", where: "file", reason: message(error).slice(0, 120) });
             showFileToolError("save", "We couldn’t save the play to your device. Please try again.");
         }
     }
