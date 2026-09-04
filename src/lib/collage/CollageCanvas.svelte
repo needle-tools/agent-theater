@@ -18,6 +18,7 @@
      * anything, and they are drawn behind everything as paper laid on a table.
      */
     import { alphaFilters, cssColor, outlineFilterSvg, pxUnit, textCss } from "./css.js";
+    import { paintOrder } from "./depth.js";
     import { boilFilterSvg } from "./painted.js";
     import { findEffect, particlesFor } from "./effects.js";
     import { autoVoiceFor } from "./characterVoice.js";
@@ -272,7 +273,7 @@
         // A scene with no backdrop still has depth: the cast's own bounds
         // stand in as the anchor, so parallax works on the open paper too.
         const floor = stageRect() ?? castBounds();
-        if (!floor) return dressed;
+        if (!floor) return paintOrder(dressed);
         // Measured from the middle of the stage, so a camera framing the scene
         // head-on has every plane exactly where it was placed.
         const anchorX = floor.x + floor.width / 2;
@@ -294,7 +295,7 @@
             viewport.clientWidth / Math.max(1, floor.width),
             viewport.clientHeight / Math.max(1, floor.height));
 
-        return dressed.map(layer => {
+        return paintOrder(dressed).map(layer => {
             const share = parallaxOf(studio.collage.planeOf(layer.id));
             if (share === 1) return layer;
             // The offset that makes a plane travel `share` as far across the
