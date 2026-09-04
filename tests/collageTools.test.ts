@@ -132,6 +132,18 @@ function fakeStudio(options: FakeOptions = {}) {
             return { timings: stages.map((s: any, i: number) => (
                 { stage: s.id, name: s.name, at: i * 1000, duration: 1000 })), duration: stages.length * 1000 };
         },
+        // The fake never plays anything, so nobody has moved and the chapter
+        // opens on the world exactly as it stands. The drift itself is tested
+        // against the real studio, which does the moving.
+        openingPositions(stageId: string) {
+            const stage = collage.getStage(stageId);
+            const where = new Map<string, { x: number; y: number }>();
+            for (const member of stage?.cast ?? []) {
+                const layer = collage.get(member.id);
+                if (layer) where.set(member.id, { x: layer.x, y: layer.y });
+            }
+            return where;
+        },
         get performing() { return false; },
         async playScene(plan: Plan) {
             (studio as any).played.push(plan);

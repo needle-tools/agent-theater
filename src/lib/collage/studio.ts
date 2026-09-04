@@ -44,7 +44,7 @@ import {
  * beat should start after the glide, not during it.
  */
 const TRAVEL_MS = 950;
-import { plan as planScene, type Plan } from "./perform.js";
+import { aimed, plan as planScene, type Plan } from "./perform.js";
 import {
     DEFAULT_HOLD, MIN_SCENE_MS, sceneBeats, spokenBy, type ShowTiming,
 } from "./show.js";
@@ -298,6 +298,16 @@ export interface CollageStudio {
         options?: { hold?: boolean },
     ): Promise<{ timings: ShowTiming[]; duration: number }>;
     stopShow(): void;
+    /**
+     * Where the cast will be standing when a chapter opens.
+     *
+     * The world is continuous — a walk in chapter one leaves somebody across
+     * the stage for chapter two — so the position a layer has RIGHT NOW is not
+     * the position the next chapter starts from, and blocking written against
+     * it is out by however far the earlier chapters carried everybody. This
+     * plays the earlier chapters on paper and hands back where they end.
+     */
+    openingPositions(stageId: string): Map<string, { x: number; y: number }>;
     /**
      * Whether the show is paused between scenes, waiting to be continued.
      *
@@ -714,7 +724,11 @@ export function createStudio(collage = new Collage()): CollageStudio {
             }
             opening = false;
 
-            const { plan } = planScene(beats, timingsFor(stage));
+            // `at` becomes a distance here, where the cast is standing where
+            // the chapter found them — after the arrivals were put off stage,
+            // so an entrance walks on before anything is measured from it.
+            const { plan } = planScene(
+                aimed(beats, id => collage.get(id) ?? null), timingsFor(stage));
             const began = Date.now();
             if (plan.beats.length) await played({ ...plan, hidden });
             if (!wanted) break;
@@ -2013,6 +2027,47 @@ export function createStudio(collage = new Collage()): CollageStudio {
         onShowChanged(callback) {
             showWatchers.add(callback);
             return () => showWatchers.delete(callback);
+        },
+
+        openingPositions(stageId) {
+            const where = new Map<string, { x: number; y: number }>();
+            const spot = (id: string) => {
+                const known = where.get(id);
+                if (known) return known;
+                const layer = collage.get(id);
+                if (!layer) return null;
+                const fresh = { x: layer.x, y: layer.y };
+                where.set(id, fresh);
+                return fresh;
+            };
+            const move = (id: string, dx: number, dy: number) => {
+                const at = spot(id);
+                if (!at) return;
+                at.x += dx;
+                at.y += dy;
+            };
+
+            for (const stage of collage.listStages()) {
+                if (stage.id === stageId) break;
+                // Exactly what the show does to the world, in the same order:
+                // the arrivals are put off stage, then every travelling beat
+                // commits. An entrance and its walk cancel out, which is why
+                // both halves have to be counted rather than just the script.
+                const { approach, beats } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
+                for (const step of approach) move(step.id, step.dx, step.dy);
+                const { plan } = planScene(aimed(beats, spot));
+                for (const beat of plan.beats) {
+                    if (beat.travel) move(beat.id, beat.travel.dx, beat.travel.dy);
+                }
+            }
+
+            const stage = collage.getStage(stageId);
+            const opening = new Map<string, { x: number; y: number }>();
+            for (const member of stage?.cast ?? []) {
+                const at = spot(member.id);
+                if (at) opening.set(member.id, { x: at.x, y: at.y });
+            }
+            return opening;
         },
 
         async playShow(stageIds, options) {

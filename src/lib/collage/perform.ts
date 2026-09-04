@@ -530,6 +530,50 @@ export function compose(a: Pose, b: Pose): Pose {
 }
 
 /**
+ * Turn every `at` into the `to` it means, in order.
+ *
+ * In order, because a scene moves people: the second walk of a scene starts
+ * from where the first one left them, so an absolute target has to be measured
+ * against the running position rather than against the position the scene
+ * opened on.
+ *
+ * A travelling clip is carried along untouched. Its journey was recorded and
+ * is not known here, so a later `at` in the same scene is measured from before
+ * it — the one case where this is an approximation rather than arithmetic.
+ */
+export function aimed(beats: Beat[], startOf: (id: string) => { x: number; y: number } | null): Beat[] {
+    const at = new Map<string, { x: number; y: number }>();
+    const now = (id: string) => {
+        const known = at.get(id);
+        if (known) return known;
+        const start = startOf(id) ?? { x: 0, y: 0 };
+        const fresh = { x: start.x, y: start.y };
+        at.set(id, fresh);
+        return fresh;
+    };
+
+    return beats.map(beat => {
+        const id = typeof beat?.id === "string" ? beat.id.trim() : "";
+        const travels = typeof beat?.do === "string" && TRAVELS.has(beat.do as MoveName);
+        if (!id || !travels) return beat;
+
+        const here = now(id);
+        let to = beat.to;
+        if (beat.at) {
+            to = {
+                ...(typeof beat.at.x === "number" ? { x: beat.at.x - here.x } : {}),
+                ...(typeof beat.at.y === "number" ? { y: beat.at.y - here.y } : {}),
+            };
+        }
+        here.x += to?.x ?? 0;
+        here.y += to?.y ?? 0;
+        if (!beat.at) return beat;
+        const { at: _target, ...rest } = beat;
+        return { ...rest, to };
+    });
+}
+
+/**
  * Where each travelling beat leaves its layer.
  *
  * Applied to the document once, when the performance ends, so a walk that
@@ -672,6 +716,18 @@ export interface Beat {
     wait?: number;
     /** What they do — a built-in move, or "clip:<name>" for a recorded one. */
     do?: MoveName | (string & {});
+    /**
+     * Where they end up, in canvas coordinates. Turned into a `to` by
+     * `aimed()` before anything is planned, against where they will actually
+     * be standing at that point in the scene.
+     *
+     * `to` is a distance and reads like a destination — "walk to 1800" moved
+     * somebody 1800 further along, which for anyone not starting at the
+     * origin is off the end of the world. Both are kept: a script written
+     * before this is still a script, and a delta is the right thing to write
+     * for "two steps back".
+     */
+    at?: { x?: number; y?: number };
     say?: string;
     /** A noise, fired as the beat starts. Rides along with whatever else it does. */
     sound?: string;

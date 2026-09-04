@@ -252,3 +252,53 @@ describe("the show", () => {
         expect(studio.holding).toBe(true);
     });
 });
+
+describe("where a chapter opens", () => {
+    /** Two chapters, one walker, and the world as it stands before any of it. */
+    function play() {
+        const studio = createStudio();
+        const wolf = studio.collage.addImage({
+            src: "wolf", label: "wolf", natural: { width: 100, height: 100 },
+            x: 1200, y: 40, width: 100,
+        });
+        const one = studio.collage.addStage({
+            name: "the road",
+            cast: [{ id: wolf.id, x: 1200, y: 40 }],
+            script: [{ id: wolf.id, do: "walk", to: { x: 600 } }],
+        });
+        const two = studio.collage.addStage({
+            name: "the door",
+            cast: [{ id: wolf.id, x: 1200, y: 40 }],
+            script: [],
+        });
+        return { studio, wolf, one, two };
+    }
+
+    it("says where the earlier chapters will have left everybody", () => {
+        const { studio, wolf, one, two } = play();
+        // Chapter one has not been played, so the document still says 1200 —
+        // and blocking chapter two against 1200 is 600 units of wrong.
+        expect(studio.collage.get(wolf.id)!.x).toBe(1200);
+        expect(studio.openingPositions(one.id).get(wolf.id)).toEqual({ x: 1200, y: 40 });
+        expect(studio.openingPositions(two.id).get(wolf.id)).toEqual({ x: 1800, y: 40 });
+    });
+
+    it("counts an aimed walk as the walk it turns into", () => {
+        const { studio, wolf, one, two } = play();
+        studio.collage.updateStage(one.id, {
+            script: [{ id: wolf.id, do: "walk", at: { x: 400 } }],
+        });
+        expect(studio.openingPositions(two.id).get(wolf.id)).toEqual({ x: 400, y: 40 });
+    });
+
+    it("does not count an entrance, which walks on to where it was cast", () => {
+        // The arrival is put off stage and walks the same distance back, so a
+        // chapter of nothing but entrances leaves the world where it found it.
+        const { studio, wolf, one, two } = play();
+        studio.collage.updateStage(one.id, {
+            cast: [{ id: wolf.id, x: 1200, y: 40, entrance: "left" }],
+            script: [],
+        });
+        expect(studio.openingPositions(two.id).get(wolf.id)).toEqual({ x: 1200, y: 40 });
+    });
+});

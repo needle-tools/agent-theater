@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
     AT_REST, BREATH_MS, DEFAULT_CAMERA_MS, DEFAULT_DURATION, MOVES, compose, keyframesFor,
     plan as planScene, poseFor, rideKeyframes,
-    readingTime, restingPlaces, score, stateAt, type MoveName,
+    aimed, readingTime, restingPlaces, score, stateAt, type MoveName,
 } from "../src/lib/collage/perform.js";
 
 /**
@@ -295,6 +295,47 @@ describe("where everyone ends up", () => {
             { id: "a", do: "jump", to: { x: 50, y: -30 } },
         ]);
         expect(restingPlaces(plan).get("a")).toEqual({ dx: 250, dy: -30 });
+    });
+});
+
+describe("walking to a place rather than by a distance", () => {
+    const standing = (where: Record<string, { x: number; y: number }>) =>
+        (id: string) => where[id] ?? null;
+
+    it("turns a canvas point into the distance to it", () => {
+        // The bug this exists to end: "walk to 1800" moved somebody 1800
+        // FURTHER, because `to` is a distance and reads like a destination.
+        const [walk] = aimed(
+            [{ id: "wolf", do: "walk", at: { x: 1800 } }],
+            standing({ wolf: { x: 1200, y: 40 } }));
+        expect(walk.to).toEqual({ x: 600 });
+        expect(walk.at).toBeUndefined();
+    });
+
+    it("measures each target from where the last one left them", () => {
+        const beats = aimed(
+            [{ id: "wolf", do: "walk", at: { x: 1800 } },
+             { id: "wolf", do: "walk", at: { x: 1000 } },
+             { id: "wolf", do: "jump", at: { y: 0 } }],
+            standing({ wolf: { x: 1200, y: 40 } }));
+        expect(beats.map(beat => beat.to)).toEqual([{ x: 600 }, { x: -800 }, { y: -40 }]);
+    });
+
+    it("leaves a distance alone, and counts it toward the next target", () => {
+        const beats = aimed(
+            [{ id: "wolf", do: "walk", to: { x: 300 } },
+             { id: "wolf", do: "walk", at: { x: 2000 } }],
+            standing({ wolf: { x: 1200, y: 0 } }));
+        expect(beats[0].to).toEqual({ x: 300 });
+        expect(beats[1].to).toEqual({ x: 500 });
+    });
+
+    it("ignores an aim on a move that does not travel", () => {
+        const [beat] = aimed(
+            [{ id: "wolf", do: "bow", at: { x: 9000 } }],
+            standing({ wolf: { x: 0, y: 0 } }));
+        expect(beat.to).toBeUndefined();
+        expect(beat.at).toEqual({ x: 9000 });
     });
 });
 

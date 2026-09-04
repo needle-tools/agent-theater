@@ -10,7 +10,7 @@
  * they stand while it is playing. So the same character appears in scene one and
  * scene three at different places, and recolouring it changes it in both.
  */
-import { MOVES, plan as planScene, type Beat } from "./perform.js";
+import { aimed, MOVES, plan as planScene, type Beat } from "./perform.js";
 import { creditsFor } from "./billboard.js";
 import { spokenBy } from "./show.js";
 import { findSound, soundCatalogue, soundNames } from "./audio.js";
@@ -86,13 +86,28 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
      * numbers piece_list reports and stage_cast accepts, so an agent can
      * read its own work back without a translation table.
      */
-    const describeMember = (placement: Placement): string => {
+    const describeMember = (
+        placement: Placement,
+        /**
+         * Where this one will be standing when the chapter opens, if that is
+         * somewhere else. The world is continuous: an earlier chapter's walk
+         * leaves somebody across the stage, and blocking written against where
+         * they are RIGHT NOW is out by exactly that walk.
+         */
+        opens?: { x: number; y: number } | null,
+    ): string => {
         const name = `${placement.id}${placement.as ? ` as ${placement.as}` : ""}`;
         const layer = collage.own(placement.id);
         if (layer?.held) return `${name} (held by ${layer.held.by})`;
-        const at = layer
-            ? `at ${Math.round(layer.x)}, ${Math.round(layer.y)} (${Math.round(layer.width)} wide)`
-            : `(layer missing)`;
+        const moved = layer && opens
+            && (Math.round(opens.x) !== Math.round(layer.x) || Math.round(opens.y) !== Math.round(layer.y));
+        const at = !layer
+            ? `(layer missing)`
+            : moved
+                ? `at ${Math.round(opens!.x)}, ${Math.round(opens!.y)} when this chapter opens ` +
+                  `(${Math.round(layer.x)}, ${Math.round(layer.y)} now, before the earlier chapters ` +
+                  `move it) (${Math.round(layer.width)} wide)`
+                : `at ${Math.round(layer.x)}, ${Math.round(layer.y)} (${Math.round(layer.width)} wide)`;
         return `${name} ${at}` +
             `${placement.entrance ? ` (enters ${placement.entrance})` : ""}` +
             // Nobody is silent any more: a part with no cast voice speaks in
@@ -399,8 +414,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "One thing happens at a time: a beat starts when the last one ends, and there is no timing to " +
                 "work out. The scene KEEPS its script, so show_play can run it again as part of the whole " +
                 "show — pass rehearse:false to write it without playing it now. " +
-                `Moves: ${MOVES.join(", ")}. "walk" and "jump" take a "to" and leave the layer there; ` +
-                "everything else finishes exactly where it started. A beat's \"take\" picks another " +
+                `Moves: ${MOVES.join(", ")}. "walk" and "jump" leave the layer where they end: give them ` +
+                "\"at\" to say WHERE on the canvas to end up (the coordinates piece_list and stage_describe " +
+                "report), or \"to\" to say HOW FAR to go from where they are. \"at\" is usually what you " +
+                "want — a scene moves people, so the place somebody started is rarely the place you last " +
+                "saw them. Everything else finishes exactly where it started. A beat's \"take\" picks another " +
                 "cast member up — it rides along through every later move until a \"drop\" lets it fall. " +
                 "\"with\": true makes a beat run AT THE SAME TIME as the one before it, so two characters " +
                 "can move or speak together. \"walk\" and \"jump\" travel to any canvas point — a hero can " +
@@ -456,14 +474,26 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "A sting fired as the beat starts. Rides along with a move rather " +
                                         "than taking its own time. Call show_sounds for what each is.",
                                 },
+                                at: {
+                                    type: "object",
+                                    description:
+                                        "Where a walk or jump ENDS UP, in canvas coordinates — the same " +
+                                        "numbers piece_list and stage_describe report. Measured against " +
+                                        "where the walker is standing at that point in the scene, so two " +
+                                        "walks in a row both land where you said. This is a FLAT stage " +
+                                        "seen from the front, so crossing it means changing x — left and " +
+                                        "right. There is no into-the-distance to walk into; y moves " +
+                                        "somebody up or down the picture, which is a jump or a climb, " +
+                                        "not a journey.",
+                                    properties: { x: { type: "number" }, y: { type: "number" } },
+                                },
                                 to: {
                                     type: "object",
                                     description:
-                                        "Where a walk or jump ends up, relative to now, in canvas units. " +
-                                        "This is a FLAT stage seen from the front, so crossing it means " +
-                                        "changing x — left and right. There is no into-the-distance to " +
-                                        "walk into; y moves somebody up or down the picture, which is a " +
-                                        "jump or a climb, not a journey.",
+                                        "How far a walk or jump travels from where it starts, in canvas " +
+                                        "units — a distance, not a place. \"at\" is the one to reach for " +
+                                        "when you know where somebody should end up; this is for \"two " +
+                                        "steps back\". Ignored when \"at\" is given.",
                                     properties: { x: { type: "number" }, y: { type: "number" } },
                                 },
                                 camera: {
@@ -692,7 +722,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 });
 
                 const scripted: Stage = { ...stage, script: timed };
-                const { plan, problems } = planScene(timed,
+                // The script is STORED with its `at` beats intact — an
+                // absolute target means where the canvas says, on the night,
+                // not where it said when the scene was written. Only the copy
+                // being planned here has them turned into distances.
+                const { plan, problems } = planScene(
+                    aimed(timed, id => collage.own(id) ?? null),
                     spokenBy(scripted, id => autoVoiceFor(collage.own(id))));
                 if (problems.length) {
                     return fail(["The scene has problems:", ...problems.map(
@@ -1102,9 +1137,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 studio.record("page-changed",
                     `"${next.name}" now has ${next.cast.length} in it.`, "agent", { stage: next.id });
 
+                const opensWith = studio.openingPositions(next.id);
                 return ok(
                     `"${next.name}": ` +
-                    `${next.cast.map(m => describeMember(m)).join("; ")}` +
+                    `${next.cast.map(m => describeMember(m, opensWith.get(m.id))).join("; ")}` +
                     `${dropped.size ? `, ${dropped.size} taken out` : ""}. ` +
                     (nudged.length
                         ? `NOTE: ${nudged.map(label => `"${label}"`).join(", ")} landed on top of ` +
@@ -1153,8 +1189,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 const showing = collage.activeStageId;
                 const lines = stages.map(stage => {
+                    const opensWith = studio.openingPositions(stage.id);
                     const who = stage.cast.length
-                        ? stage.cast.map(m => describeMember(m)).join("; ")
+                        ? stage.cast.map(m => describeMember(m, opensWith.get(m.id))).join("; ")
                         : "nobody yet";
                     return `${stage.id} — "${stage.name}"${stage.id === showing ? "  [on screen]" : ""}` +
                         `\n    ${who}`;
