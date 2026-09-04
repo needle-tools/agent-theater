@@ -420,9 +420,19 @@
         flex-direction: column;
         align-items: center;
         gap: 0.85rem;
-        /* Near-linear through the middle, easing off at the end — the roll
-           slows into its last card rather than stopping dead. */
-        animation: roll var(--travel, 8s) cubic-bezier(0.35, 0.35, 0.25, 1) both;
+        /*
+         * One pace, and a settle at the end rather than a long glide into it.
+         *
+         * The curve is the pace as much as the duration is, and the old one
+         * was reaching its stopping point with a third of the time still to
+         * run: it covered less than half a percent of the distance in the last
+         * tenth, so the roll was parked and still counting before the hold it
+         * already has. This holds within a tenth of constant speed through the
+         * middle and gives up the last stretch to stopping — the landing is
+         * still soft, because the curve ends flat; it just takes a beat
+         * instead of a scene.
+         */
+        animation: roll var(--travel, 8s) cubic-bezier(0.2, 0.2, 0.85, 1) both;
     }
 
     /* After the hold, the whole curtain — veil, names, cactus — fades. */
