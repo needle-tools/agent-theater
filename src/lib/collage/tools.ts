@@ -821,10 +821,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             title: "Clear the whole stage",
             annotations: { readOnlyHint: false, destructiveHint: true },
             description:
-                "Clear the canvas for a fresh start — safely: everything on it (pieces, scenes, " +
-                "scripts, title) steps into the wings, and theater_restore brings the whole set back " +
-                "if it is missed. The paper then stays bare for half a minute; only if nothing is " +
-                "built by then does the idle page deal a fresh scatter.",
+                "Clear the canvas: removes all pieces, scenes, scripts and the title. Safe — " +
+                "theater_restore brings everything back. The canvas stays empty for 30 seconds; " +
+                "if nothing is added by then, a fresh random scatter of stickers appears.",
             inputSchema: { type: "object", properties: {} },
             async execute() {
                 if (studio.showing) studio.stopShow("agent");
@@ -840,9 +839,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "theater_restore",
             title: "Bring the cleared set back",
             description:
-                "Walk the last cleared set back on from the wings: every piece, scene and title as " +
-                "they stood when theater_clear was called. Only onto an empty canvas — restoring on " +
-                "top of new work would bury it.",
+                "Undo the last theater_clear: restores every piece, scene and title exactly as they " +
+                "were. Only works while the canvas is empty.",
             inputSchema: { type: "object", properties: {} },
             async execute() {
                 try {
@@ -862,11 +860,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "theater_background",
             title: "Recolour the paper",
             description:
-                "Fade the canvas background to a colour — the stage lighting, not a backdrop. Use it " +
-                "for mood: a deep blue for night, a hot ochre for a desert noon, back to 'paper' when " +
-                "the story returns home. Works any time, mid-show included, and fades over about a " +
-                "second. The dot grid stays; pieces are unaffected. Prefer muted, papery tones — the " +
-                "cut-outs still have to read against it.",
+                "Fade the canvas background to a colour, e.g. dark blue for a night scene. Works any " +
+                "time, including during a show; the fade takes about 1 second. Pieces are unaffected. " +
+                "Prefer muted tones so cut-outs stay readable. Pass 'paper' to reset. Scenes and " +
+                "beats can also set this: stage_create 'background' and a beat's 'background'.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -1854,14 +1851,11 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "piece_say",
             title: "Have a piece say something now",
             description:
-                "Put a spoken speech bubble over a piece RIGHT NOW, outside any play — the workbench " +
-                "aside. Use it to react to what the person is doing (they placed a dragon: have the " +
-                "knight gulp), to think out loud through a character while you build, or to let a piece " +
-                "answer a question in its own voice. Same bubble and voice the piece would have in a " +
-                "play: the page SAYS the line out loud, so do not repeat it in your own reply — a voice " +
-                "client reading it too means the person hears it twice. " +
-                "Pass an array to have it deliver several lines in a row. Not while a show is " +
-                "playing — the script owns the stage then; give them a say beat instead.",
+                "Make a piece speak a line in a speech bubble right now, outside a play — e.g. to " +
+                "react to something the person placed, or to answer through a character. Same bubble " +
+                "and voice as in a play. The page speaks the line out loud, so do not repeat it in " +
+                "your own reply. Pass an array of lines for several bubbles in a row. Does not work " +
+                "while a show is playing; use a say beat then.",
             inputSchema: {
                 type: "object",
                 properties: {

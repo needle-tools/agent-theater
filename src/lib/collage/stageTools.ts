@@ -177,13 +177,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             title: "Name the piece",
             annotations: { readOnlyHint: false },
             description:
-                "Give the show a name. It opens on a title card over a dark stage before the first scene, " +
-                "and the name heads the credits at the end. Worth doing: a play that starts by simply " +
-                "beginning is a canvas moving, and one that starts with its name on the screen is a play. " +
-                "The credits themselves are built from the cast — give each one an \"as\" in stage_cast and " +
-                "the roll names the part beside its picture. And SIGN YOUR WORK: pass \"credits\" " +
-                "with the maker's lines — who wrote it, who directed, whose paper it is. A play was made " +
-                "by somebody, and the roll is where it says so.",
+                "Set the show's title, byline and maker credits. The title shows on a card before the " +
+                "first scene and heads the end credits. Always set one. Cast credits come from " +
+                "stage_cast \"as\" values; pass \"credits\" for the maker lines and always include " +
+                "\"directed by <your model or product name>\".",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -191,10 +188,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     byline: {
                         type: "string",
                         description:
-                            "The smaller line under the title — and the sentence a shared link's " +
-                            "preview card opens with, so make it about the STORY: 'a tale of a moon " +
-                            "with an appetite', 'after Grimm, with more chickens'. Not the art packs " +
-                            "used — that is inventory, not invitation. Strongly recommended.",
+                            "One sentence about the story, shown under the title and used as the " +
+                            "share link's preview text. E.g. 'a tale of a moon with an appetite'. " +
+                            "Describe the story, not the art packs used. Strongly recommended.",
                     },
                     credits: {
                         type: "array",
@@ -612,13 +608,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         { type: "array", items: { type: "string" } },
                                     ],
                                     description:
-                                        "Aim the SPOTLIGHT: a layer id, an array for a shared pool of " +
-                                        "light, or 'off'. Everything else dims gently while the lit " +
-                                        "pieces stay untouched, and the beam follows them as they " +
-                                        "move. Use it for a confession, a discovery, a solo — and " +
-                                        "turn it 'off' when the moment passes. Rides along; alone it " +
-                                        "takes no time and needs no id. Lasts until changed or the " +
-                                        "scene ends.",
+                                        "Put a spotlight on a layer id (or an array of ids, or 'off'). " +
+                                        "Everything else dims; the lit pieces stay fully visible and " +
+                                        "the beam follows them when they move. Can ride along with " +
+                                        "another beat; alone it takes no time and needs no id. Lasts " +
+                                        "until changed or the scene ends.",
                                 },
                                 range: {
                                     type: "number",
