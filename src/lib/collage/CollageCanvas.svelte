@@ -103,12 +103,16 @@
      * The canvas is a workshop, so there are usually stickers lying about
      * that no chapter ever cast — and a title card or a scene laid out by
      * the agent lands right on top of them. When the curtain goes up, any
-     * uncast layer overlapping the play's ground is ushered out to a ring
-     * around the scene; when it ends, everybody walks back. Presentational
-     * only (WAAPI on the element, never the document): the document is the
-     * person's arrangement, and the show has no business rewriting it.
+     * uncast layer overlapping the play's ground takes a half-step back:
+     * dimmed to a paper-tinted ghost, shrunk a little, and sent behind the
+     * whole company. When the show ends, everybody steps forward again.
+     * Presentational only (WAAPI on the element, never the document): the
+     * document is the person's arrangement, and the show has no business
+     * rewriting it.
      */
     const sidelined = new Map<string, Animation>();
+    /** The same ids, reactive, so the template can dress them as offstage. */
+    let benched = $state<Set<string>>(new Set());
 
     function sidelineBystanders() {
         if (!viewport) return;
@@ -129,10 +133,6 @@
         const bottom = Math.max(...players.map(l => l.y + l.height));
         const cx = (left + right) / 2;
         const cy = (top + bottom) / 2;
-        // The ring sits just past the scene's furthest corner; each bystander
-        // keeps its own bearing from the centre, so nobody crosses the stage
-        // on the way out and the strays stay in their rough neighbourhoods.
-        const ring = Math.hypot(right - left, bottom - top) / 2 + 80;
 
         for (const layer of world) {
             if (cast.has(layer.id) || sidelined.has(layer.id)) continue;
@@ -145,13 +145,23 @@
             const ownY = layer.y + layer.height / 2 - cy;
             const bearing = ownX || ownY ? Math.atan2(ownY, ownX)
                 : (layerSeed(layer.id) % 360) * (Math.PI / 180);
-            const reach = ring + Math.hypot(layer.width, layer.height) / 2;
-            const dx = cx + Math.cos(bearing) * reach - (layer.x + layer.width / 2);
-            const dy = cy + Math.sin(bearing) * reach - (layer.y + layer.height / 2);
+            /*
+             * A step back, not an exile: dimmed, shrunk and sent behind the
+             * cast (the offstage dress below), a bystander can share the
+             * stage's ground — so the drift is a polite half-pace outward
+             * rather than the old march to a ring past the scene's corner.
+             */
+            const drift = 36 + Math.hypot(layer.width, layer.height) * 0.12;
+            const dx = Math.cos(bearing) * drift;
+            const dy = Math.sin(bearing) * drift;
             sidelined.set(layer.id, element.animate(
-                [{ translate: "0px 0px" }, { translate: `${dx.toFixed(1)}px ${dy.toFixed(1)}px` }],
+                [
+                    { translate: "0px 0px", scale: "1" },
+                    { translate: `${dx.toFixed(1)}px ${dy.toFixed(1)}px`, scale: "0.85" },
+                ],
                 { duration: 700, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "forwards" }));
         }
+        benched = new Set(sidelined.keys());
     }
 
     function recallBystanders() {
@@ -161,6 +171,7 @@
             animation.finished.then(() => animation.cancel(), () => animation.cancel());
         }
         sidelined.clear();
+        benched = new Set();
     }
 
     $effect(() => {
@@ -2802,6 +2813,7 @@
                     class:layer--settling={settling}
                     class:layer--alive={showing && !gone.has(layer.id)}
                     class:layer--speaking={showing && spoken.has(layer.id)}
+                    class:layer--offstage={benched.has(layer.id)}
                     style:--sway="{(layerSeed(layer.id) % 1400) + 3200}ms"
                     style:--sway-at="-{layerSeed(layer.id) % 2000}ms"
                     style:--paint-seed={layerSeed(layer.id) % 1000}
@@ -2829,6 +2841,7 @@
                     class="layer layer--text"
                     class:layer--selected={selectedIds.length > 1 && isSelected(layer.id)}
                     class:layer--settling={settling}
+                    class:layer--offstage={benched.has(layer.id)}
                     class:layer--editing={editingId === layer.id}
                     contenteditable={editingId === layer.id ? "plaintext-only" : "false"}
                     data-layer={layer.id}
@@ -3142,6 +3155,28 @@
         margin: 0;
         overflow: visible;
         pointer-events: none;
+        /* Colour only, and only for the offstage dress below: positions are
+           inline and poses are WAAPI, neither of which this touches. */
+        transition-property: opacity, filter;
+        transition-duration: 0.7s;
+        transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    /*
+     * Offstage dress for the bystanders a show ushers aside: drained almost
+     * to a silhouette and turned mostly transparent, so the PAPER does the
+     * tinting — whatever colour the play has faded it to shows through, which
+     * is the oklch-offset look without recolouring a single pixel. They stay
+     * recognisable shapes at the edge of the light, not competing voices.
+     */
+    .layer--offstage {
+        opacity: 0.3;
+        filter: saturate(0.12) contrast(0.92);
+        /* Behind the whole company. The document's stacking arrives as an
+           inline z-index, so the override has to shout — and every bystander
+           at 0 falling back to DOM order is fine for people standing in the
+           shadows. */
+        z-index: 0 !important;
     }
 
     .layer__filter,
