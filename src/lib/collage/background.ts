@@ -78,8 +78,14 @@ function resolveHandoffUrl(): string {
 const HANDOFF_URL = resolveHandoffUrl();
 
 const CHANNEL = "fastcut";
-/** Long enough for a cold model download on a slow line, short enough to give up. */
-const READY_TIMEOUT_MS = 20_000;
+/**
+ * Long enough for a cold model download on a slow line.
+ *
+ * Generous, because giving up here is remembered for the whole visit and every
+ * cut-out after it silently keeps its background. Nothing is blocked waiting:
+ * the frame is opened on the first agent call, long before anything is cut.
+ */
+const READY_TIMEOUT_MS = 45_000;
 const REQUEST_TIMEOUT_MS = 180_000;
 /** Images already this transparent are cut-outs; running a model would be waste. */
 const ALREADY_CUT_OUT = 0.95;

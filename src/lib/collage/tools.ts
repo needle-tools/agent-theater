@@ -20,7 +20,7 @@
 import { FONTS, FRAME_PRESETS, findFont, outputSize, type Frame, type ImageLayer, type Layer, type TextLayer } from "./model.js";
 import { LAYOUT_MODES, type LayoutMode } from "./layout.js";
 import { checkFrame } from "./quality.js";
-import { FREE_PAGE, type CollageStudio, type ExportFormat } from "./studio.js";
+import { backgroundRemovalError, FREE_PAGE, type CollageStudio, type ExportFormat } from "./studio.js";
 
 import { createStageTools } from "./stageTools.js";
 import { artPrompt } from "./artPrompt.js";
@@ -1091,16 +1091,28 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                             { layers: made, pieces: made.length, as: actors ? "actors" : "backgrounds" });
                     }
 
+                    // A remover that could not be reached does not stop the
+                    // pieces arriving — it stops them being cut out, and they
+                    // arrive as squares of white paper. Silence there is how a
+                    // set of cut-outs turns out to be a set of stamps.
+                    const uncut = backgroundRemovalError();
                     return ok(
-                        actors
+                        (uncut
+                            ? `THE PIECES STILL HAVE THEIR BACKGROUNDS: ${uncut} They are on the ` +
+                              `canvas as they were on the sheet — white square and all. Cut the sheet ` +
+                              `at https://fastcut.needle.tools instead and add the transparent pieces ` +
+                              `with piece_add.\n`
+                            : ``) +
+                        (actors
                             ? `Cut into ${made.length} piece(s): ` +
                               `${made.map(layer => `"${layer.label}" [${layer.id}]`).join(", ")}. ` +
                               `Each is its own cut-out and can be cast, moved and animated. Look with show_look.`
                             : `Cut into ${made.length} backdrop(s): ` +
                               `${made.map(layer => `"${layer.label}" [${layer.id}]`).join(", ")}. ` +
                               `Each is ready to be a scene's backdrop — pass one to stage_create as ` +
-                              `"backdrop". Look with show_look.`,
-                        { layers: made, pieces: made.length, as: actors ? "actors" : "backgrounds" });
+                              `"backdrop". Look with show_look.`),
+                        { layers: made, pieces: made.length, as: actors ? "actors" : "backgrounds",
+                          ...(uncut ? { backgroundsRemoved: false } : {}) });
                 } catch (error) {
                     return fail(`The sheet could not be cut — ${(error as Error).message}`);
                 }

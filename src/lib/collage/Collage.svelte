@@ -32,6 +32,7 @@
     import { beginAgentActivity, completeAgentActivity } from "$lib/room/activity";
     import { canEditPlay, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
     import { briefing } from "$lib/collage/invitation";
+    import { prewarm } from "$lib/collage/background";
     import SubtitleVoiceMenu from "$lib/subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "$lib/subtitleVoice";
 
@@ -338,6 +339,19 @@
         await registerTools(createCollageTools(studio).map(tool => ({
             ...tool,
             execute: async (args: unknown, options?: { signal?: AbortSignal }) => {
+                /*
+                 * An agent is here, so a cut is coming — fetch the remover now
+                 * rather than inside it.
+                 *
+                 * The model is tens of megabytes and it used to arrive during
+                 * the first piece_sheet, which is a tool call with somebody
+                 * waiting on it: the call outlived its own patience, said so,
+                 * and got retried. Started on the FIRST agent call instead
+                 * (theater_start, in practice), which is minutes of pitching a
+                 * story before any art is cut. Not on page load: a visitor who
+                 * only ever watches a play should not be made to download it.
+                 */
+                void warmRemover();
                 const activity = beginAgentActivity(tool.name, args);
                 try {
                     return await tool.execute(args, options);
@@ -398,6 +412,14 @@
         }
         scatter = scatter.map(prop =>
             (prop.key === key ? { ...prop, say: line, copied: true } : prop));
+    }
+
+    /** Once per visit, and never awaited: nothing waits on the remover being ready. */
+    let warming = false;
+    function warmRemover() {
+        if (warming) return;
+        warming = true;
+        void prewarm().catch(() => { /* the cut itself reports this properly */ });
     }
 
     let pageEl: HTMLDivElement | null = $state(null);
