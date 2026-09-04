@@ -69,7 +69,15 @@
                 aria-label={playing ? "Pause the show" : "Play the show"}
                 onclick={() => (playing ? studio.stopShow() : play())}
             >
-                <img src={playing ? "/icons/playback/pause.webp" : "/icons/playback/play.webp"} alt="" />
+                <!-- Painted like the rest of the paper. The chip it sits on is
+                     chrome and stays still; the glyph on it is a cut-out and
+                     boils with everything else. `calm`, because a control the
+                     eye returns to is a signpost, not a prop. -->
+                <img
+                    class="painted painted--calm painted--boil"
+                    src={playing ? "/icons/playback/pause.webp" : "/icons/playback/play.webp"}
+                    alt=""
+                />
             </button>
 
         </div>
@@ -288,6 +296,15 @@
         height: 28px;
         object-fit: contain;
         pointer-events: none;
+        /*
+         * A bigger brush again than the question mark's, for the same reason
+         * and one size further down: the worklet scales its marks against the
+         * object, and this glyph is 28px. Its own seed and its own start, so
+         * it is neither painted like the cursor nor stepping in time with it.
+         */
+        --paint-scale: 3.2;
+        --paint-seed: 41;
+        --paint-at: -0.37s;
     }
 
     @media (prefers-reduced-motion: reduce) {
