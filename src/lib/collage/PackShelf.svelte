@@ -58,15 +58,29 @@
         .filter(group => group.pieces.length));
     let nextByPack = $state<Record<string, string>>({});
 
+    /*
+     * A thought per pile, keyed by the PILE's id.
+     *
+     * These used to be keyed by pack name — animals, forest, office — while the
+     * lookup below passes a shelf group id. Nothing ever matched, so all of them
+     * fell through to the same fallback and every pile in the drawer wondered
+     * the same thing at you. Both tabs are covered: the eight everyday piles and
+     * the five themes, so the fallback is a safety net rather than the norm.
+     */
     const PACK_THOUGHTS: Record<string, string> = {
-        animals: "What if a creature wandered in? %wait5% Maybe it knows the way home... // Or perhaps it has something to say.",
-        "fairy-tale": "Perhaps an old spell wakes up... %wait5% Who has been waiting in the tower? // Maybe the crown chose the wrong hero.",
-        food: "Maybe the feast hides a surprise... %wait5% Who took the last bite? // Perhaps dinner is about to escape.",
-        forest: "What could be waiting in the woods? %wait5% A trail appears where none was before... // Maybe the trees remember everything.",
-        home: "A quiet room can hold a big secret... %wait5% Who left the light on? // Perhaps something here is not where it belongs.",
-        landscape: "Where might the road lead next? %wait5% A storm could be coming... // Maybe this place has been forgotten.",
-        ocean: "Something strange washes ashore... %wait5% What is moving beneath the waves? // Perhaps the tide brought a message.",
-        office: "What if today is not an ordinary day? %wait5% Someone left a curious note... // Maybe the smallest job starts the biggest story.",
+        cast: "Who walks on first? %wait5% Someone here wants something badly... // Maybe two of them have already met.",
+        creatures: "What if a creature wandered in? %wait5% Maybe it knows the way home... // Or perhaps it has something to say.",
+        nature: "What could be waiting in the woods? %wait5% A trail appears where none was before... // Maybe the trees remember everything.",
+        "water-sky": "Something strange washes ashore... %wait5% What is moving beneath the waves? // Perhaps the tide brought a message.",
+        indoors: "A quiet room can hold a big secret... %wait5% Who left the light on? // Perhaps something here is not where it belongs.",
+        props: "Whose hand does this belong in? %wait5% Someone will want this back... // Maybe it was left behind on purpose.",
+        street: "Where might the road lead next? %wait5% A storm could be coming... // Maybe this place has been forgotten.",
+        "night-space": "The lights go out, and then? %wait5% Something is awake up there... // Maybe nobody else has noticed yet.",
+        "birthday-party": "Who forgot to send an invitation? %wait5% One guest is not what they seem... // Maybe the surprise is on the host.",
+        "lost-and-found": "Everything here belonged to somebody... %wait5% Who has been looking for this? // Maybe it was never lost at all.",
+        "moon-magic": "The moon is paying attention... %wait5% What was promised under it? // Maybe it wants something back.",
+        "pirate-cove": "What did the tide leave behind? %wait5% Somebody buried this and lied about it... // Maybe the map is wrong on purpose.",
+        "whimsical-kingdom": "Perhaps an old spell wakes up... %wait5% Who has been waiting in the tower? // Maybe the crown chose the wrong hero.",
     };
 
     /** The pile shows stickers, not stage slices — a backdrop face-down on a

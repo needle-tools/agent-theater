@@ -56,7 +56,9 @@ export const TROUPE_PACKS: TroupePack[] = [
     { id: "flowers", description: "Twenty-five flowers, one species each, drawn full-face rather than as scenery. Bigger and more particular than the blooms scattered through `stones-and-plants` and `desert` — these are what you hand somebody, plant in a row, or put in a vase.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: flowers — one species per cell, drawn full-face with its own leaves and stem.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
     { id: "food", description: "Things to eat, as hand props. All drawn at the same cell scale, so a watermelon slice and a cracker arrive the same size — the stage has to set the sizes, the files will not tell it.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: food — fruit, vegetables, bread, and things on a plate. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
     { id: "forest", description: "Woodland scenery in felt and paper: trees, fungus, and the odd made thing — a gate, a lantern, a bench.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: a forest. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
+    { id: "hand-props", description: "Props drawn at hand scale, so `take` puts one in a character's hand and walks, jumps and turns carry it along. The troupe already had a crown, a key, a scroll and a lantern, but each was drawn into a scene at scenery scale or built into a character who could not put it down; these are the loose versions, sized to be held, handed over and taken away. `jester-puppet` is the only true puppet — the rest are simply things to hold.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: props small enough to be held in one hand — drawn at hand scale, not furniture scale.\n\nDraw ONE sheet: a 3 × 3 grid of 9 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 9 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 9 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
     { id: "home", description: "The inside of a house in felt and paper: furniture to stand around, and the small machines and objects a domestic scene is made of. Pairs with the bedroom and living-room layer sets.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — dials, stitching, handles — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: the inside of a home. Everything on it belongs to that one subject.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
+    { id: "horses", description: "Three knights in the troupe and nothing for any of them to ride. Weighted deliberately toward props over animals: 109 of the 154 actors are drawn facing front, so a side-on horse only works beside a rider who is also side-on, which almost none of them are. A hobby horse is HELD, so a front-facing knight can gallop on one and `take` puts it in their hand. `pony` is the only true animal and faces left. `pantomime-horse` is the odd one out and the best of them — front-facing, funny alone, and theatre rather than horse. NOTE: this sheet came back with the same opaque red/yellow rim along the cut edges that the `trees` sheet has — about six pixels of pure colour before the paper starts. It disappears against paper and shows against a dark backdrop. Re-cutting in FastCut clears it.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: horses a character can ride, hold or wear — hobby horses, a pantomime horse, tack — rather than horses as animals.\n\nDraw ONE sheet: a 3 × 3 grid of 9 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 9 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 9 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
     { id: "instruments", description: "Instruments small enough to be carried. Drawn at hand-prop scale so `take` puts one in a character's hand and walks, jumps and turns carry it along — until now the only instrument in the troupe was the lute drawn into the minstrel, which nobody else could hold. Two date a scene rather than dressing it: `microphone` and `electric-guitar` belong to the last century, where the lyre, lute and panpipes belong to none.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: small instruments a character can hold — one per cell, at hand-prop scale rather than furniture scale.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
     { id: "landscape", description: "The land itself: mountains, cliffs, dunes, trees, water and route pieces. TWO VIEWPOINTS IN ONE PACK, and `view` says which. 16 pieces are `side` — drawn in elevation like the rest of the troupe, and they stand behind or beside actors. 9 are `plan` — rivers, ponds and road tiles drawn from above, which only work laid flat as ground, or on a canvas meant to read as a map. A mountain seen from the side next to a crossroads seen from above reads as a mistake, so filter on `view` before mixing. The five road pieces (straight, curve, cross, T, roundabout) are a modular set: their ends line up, so a route can be built from them.", stylePrompt: "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: landscape — the land itself. Mountains, cliffs, hills, dunes, water, trees, and the pieces a route is built from.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP." },
     { id: "lost-and-found", description: "Enchanted luggage and curious things found on the road: travelers, clothes, keys, maps and belongings with lives of their own.", stylePrompt: "Torn and cut paper collage in a muted mid-century palette of navy, moss green, brick red, mustard, cream and dusty pink. Every shape is visibly hand-cut or torn, with deckled edges, paper grain and dry speckled texture; tiny details are fine black ink. Flat, straight-on puppet-theatre silhouettes with no perspective, lighting, gradients, shadows, white outlines or 3D rendering. Full isolated travelers, enchanted luggage, clothes, maps, keys and curious lost belongings on transparent backgrounds." },
@@ -80,30 +82,25 @@ export const TROUPE_PACKS: TroupePack[] = [
 export const TROUPE_SHELF: { assorted: TroupeShelfGroup[]; themes: TroupeShelfGroup[] } = {
     "assorted": [
         {
-            "id": "animal-actors",
-            "label": "Animal actors",
+            "id": "cast",
+            "label": "Cast",
             "packs": [
-                "animals"
-            ],
-            "kinds": [
-                "actor"
-            ]
-        },
-        {
-            "id": "story-actors",
-            "label": "Story actors",
-            "packs": [
+                "people",
                 "fairy-tale",
-                "people"
+                "villains",
+                "space",
+                "night",
+                "horses"
             ],
             "kinds": [
                 "actor"
             ]
         },
         {
-            "id": "dinosaur-actors",
-            "label": "Dinosaurs",
+            "id": "creatures",
+            "label": "Creatures",
             "packs": [
+                "animals",
                 "dinosaurs"
             ],
             "kinds": [
@@ -111,79 +108,14 @@ export const TROUPE_SHELF: { assorted: TroupeShelfGroup[]; themes: TroupeShelfGr
             ]
         },
         {
-            "id": "desert-pieces",
-            "label": "Desert",
+            "id": "nature",
+            "label": "Nature",
             "packs": [
-                "desert"
-            ],
-            "kinds": [
-                "scenery"
-            ]
-        },
-        {
-            "id": "door-pieces",
-            "label": "Doors & arches",
-            "packs": [
-                "doors"
-            ],
-            "kinds": [
-                "scenery"
-            ]
-        },
-        {
-            "id": "flower-pieces",
-            "label": "Flowers",
-            "packs": [
-                "flowers"
-            ],
-            "kinds": [
-                "scenery"
-            ]
-        },
-        {
-            "id": "food-props",
-            "label": "Food props",
-            "packs": [
-                "food"
-            ],
-            "kinds": [
-                "scenery"
-            ]
-        },
-        {
-            "id": "forest-pieces",
-            "label": "Forest",
-            "packs": [
-                "forest"
-            ],
-            "kinds": [
-                "scenery"
-            ]
-        },
-        {
-            "id": "home-props",
-            "label": "Home props",
-            "packs": [
-                "home"
-            ],
-            "kinds": [
-                "scenery"
-            ]
-        },
-        {
-            "id": "instrument-pieces",
-            "label": "Instruments",
-            "packs": [
-                "instruments"
-            ],
-            "kinds": [
-                "scenery"
-            ]
-        },
-        {
-            "id": "landscape-pieces",
-            "label": "Landscape",
-            "packs": [
+                "forest",
+                "trees",
+                "flowers",
+                "stones-and-plants",
+                "desert",
                 "landscape"
             ],
             "kinds": [
@@ -191,62 +123,61 @@ export const TROUPE_SHELF: { assorted: TroupeShelfGroup[]; themes: TroupeShelfGr
             ]
         },
         {
-            "id": "night-pieces",
-            "label": "Night",
+            "id": "water-sky",
+            "label": "Water & sky",
             "packs": [
-                "night"
-            ],
-            "kinds": [
-                "actor",
-                "scenery"
-            ]
-        },
-        {
-            "id": "ocean-props",
-            "label": "Ocean props",
-            "packs": [
-                "ocean"
+                "water",
+                "ocean",
+                "sky"
             ],
             "kinds": [
                 "scenery"
             ]
         },
         {
-            "id": "office-props",
-            "label": "Office props",
+            "id": "indoors",
+            "label": "Indoors",
             "packs": [
-                "office"
+                "home",
+                "office",
+                "doors"
             ],
             "kinds": [
                 "scenery"
             ]
         },
         {
-            "id": "space-pieces",
-            "label": "Space",
+            "id": "props",
+            "label": "Props",
             "packs": [
+                "hand-props",
+                "instruments",
+                "food",
+                "weapons",
+                "fairy-tale",
+                "villains",
+                "horses"
+            ],
+            "kinds": [
+                "scenery"
+            ]
+        },
+        {
+            "id": "street",
+            "label": "Street",
+            "packs": [
+                "street"
+            ],
+            "kinds": [
+                "scenery"
+            ]
+        },
+        {
+            "id": "night-space",
+            "label": "Night & space",
+            "packs": [
+                "night",
                 "space"
-            ],
-            "kinds": [
-                "actor",
-                "scenery"
-            ]
-        },
-        {
-            "id": "tree-pieces",
-            "label": "Trees",
-            "packs": [
-                "trees"
-            ],
-            "kinds": [
-                "scenery"
-            ]
-        },
-        {
-            "id": "water-pieces",
-            "label": "Water",
-            "packs": [
-                "water"
             ],
             "kinds": [
                 "scenery"
@@ -548,6 +479,15 @@ export const TROUPE: TroupePiece[] = [
     { id: "forest/trough", pack: "forest", kind: "scenery", file: "/troupe/forest/trough.webp", mood: ["neutral"], description: "a wooden feed trough, low and wide" },
     { id: "forest/vine-ivy", pack: "forest", kind: "scenery", file: "/troupe/forest/vine-ivy.webp", mood: ["neutral"], description: "a hanging ivy vine, tall and narrow, good at a stage edge" },
     { id: "forest/wall-brick", pack: "forest", kind: "scenery", file: "/troupe/forest/wall-brick.webp", mood: ["neutral"], description: "a mossy brick wall section, tileable-ish side by side" },
+    { id: "hand-props/bouquet", pack: "hand-props", kind: "scenery", file: "/troupe/hand-props/bouquet.webp", mood: ["gentle","friendly"], description: "Pink and mustard paper flowers in a navy cone. An apology, a proposal, or a curtain call." },
+    { id: "hand-props/crown", pack: "hand-props", kind: "scenery", file: "/troupe/hand-props/crown.webp", mood: ["proud","bright"], description: "A mustard crown with navy jewels on a red band, drawn at hand scale so it can be carried, offered or fought over rather than only worn." },
+    { id: "hand-props/frying-pan", pack: "hand-props", kind: "scenery", file: "/troupe/hand-props/frying-pan.webp", mood: ["comic"], description: "A red pan with a cream base and a navy handle, seen from above. Cooking, or comic violence." },
+    { id: "hand-props/jester-puppet", pack: "hand-props", kind: "scenery", file: "/troupe/hand-props/jester-puppet.webp", mood: ["comic","storybook"], description: "A grinning jester head in a belled mustard cap on a green stick — the only actual puppet here. Raised beside an actor who is speaking for it." },
+    { id: "hand-props/key", pack: "hand-props", kind: "scenery", file: "/troupe/hand-props/key.webp", mood: ["storybook"], description: "An ornate mustard and red key, big enough to read from the back row. A locked door, a secret, a prison." },
+    { id: "hand-props/lantern", pack: "hand-props", kind: "scenery", file: "/troupe/hand-props/lantern.webp", mood: ["night","gentle"], description: "A navy lantern with a red roof and lit mustard windows, with a ring to carry it by. Held out ahead of somebody walking into the dark." },
+    { id: "hand-props/scroll", pack: "hand-props", kind: "scenery", file: "/troupe/hand-props/scroll.webp", mood: ["proud","storybook"], description: "A cream scroll tied with a red ribbon. A proclamation, a will, a map — the prop a herald reads from." },
+    { id: "hand-props/wand", pack: "hand-props", kind: "scenery", file: "/troupe/hand-props/wand.webp", mood: ["storybook","bright"], description: "A mustard paper star on a pink stick with cream ribbons trailing. The thing to be holding when an effect fires — pair it with \"sparkles\"." },
+    { id: "hand-props/wooden-spoon", pack: "hand-props", kind: "scenery", file: "/troupe/hand-props/wooden-spoon.webp", mood: ["comic","friendly"], description: "An olive wooden spoon with a bound mustard handle. Cooking, or being chased with." },
     { id: "home/alarm-clock", pack: "home", kind: "scenery", file: "/troupe/home/alarm-clock.webp", mood: ["neutral"], description: "a twin-bell alarm clock — oversized, so it reads as a prop" },
     { id: "home/bathtub", pack: "home", kind: "scenery", file: "/troupe/home/bathtub.webp", mood: ["neutral"], description: "a clawfoot bath with a tap, low and wide" },
     { id: "home/bed", pack: "home", kind: "scenery", file: "/troupe/home/bed.webp", mood: ["cosy"], description: "a bed with a cream headboard and navy cover, seen side-on" },
@@ -573,6 +513,15 @@ export const TROUPE: TroupePiece[] = [
     { id: "home/vacuum", pack: "home", kind: "scenery", file: "/troupe/home/vacuum.webp", mood: ["neutral"], description: "a cylinder vacuum with a hose and wand" },
     { id: "home/wardrobe", pack: "home", kind: "scenery", file: "/troupe/home/wardrobe.webp", mood: ["neutral"], description: "a two-door wardrobe, tall — somewhere to hide, or to come out of" },
     { id: "home/watering-can", pack: "home", kind: "scenery", file: "/troupe/home/watering-can.webp", mood: ["friendly"], description: "an olive watering can with a rose spout" },
+    { id: "horses/pantomime-horse", pack: "horses", kind: "actor", file: "/troupe/horses/pantomime-horse.webp", mood: ["comic","friendly"], description: "The two-person horse costume, seen from the front with human legs and shoes showing under a pink coat. Facing front, so it works beside any of the cast — and it is theatre rather than horse, which is the joke." },
+    { id: "horses/pony", pack: "horses", kind: "actor", file: "/troupe/horses/pony.webp", mood: ["friendly","day"], description: "A stocky cream pony with a navy mane and red tail, standing side-on and facing LEFT. The only real animal here, so it only reads right next to a character turned the same way." },
+    { id: "horses/bridle", pack: "horses", kind: "scenery", file: "/troupe/horses/bridle.webp", mood: ["neutral"], description: "A cream bridle with long pink reins trailing from it. Held in two hands to mime driving, or hung up in a stable." },
+    { id: "horses/hobby-horse", pack: "horses", kind: "scenery", file: "/troupe/horses/hobby-horse.webp", mood: ["friendly","bright"], description: "A red horse head on a mustard stick with navy reins. Held between the legs and galloped on — a knight can charge without the art needing them side-on." },
+    { id: "horses/hobby-unicorn", pack: "horses", kind: "scenery", file: "/troupe/horses/hobby-unicorn.webp", mood: ["storybook","bright"], description: "An olive unicorn head with a mustard spiral horn on a pink stick. The hobby horse for a story that has magic in it." },
+    { id: "horses/horse-head-puppet", pack: "horses", kind: "scenery", file: "/troupe/horses/horse-head-puppet.webp", mood: ["friendly","storybook"], description: "A cream horse head with a mustard mane on a short pole with a crossbar grip — held up like a puppet rather than ridden. The one to raise beside an actor who is speaking for it." },
+    { id: "horses/horseshoe", pack: "horses", kind: "scenery", file: "/troupe/horses/horseshoe.webp", mood: ["friendly","bright"], description: "A mustard horseshoe studded with red. Luck, a stable wall, or something found on the road." },
+    { id: "horses/rocking-horse", pack: "horses", kind: "scenery", file: "/troupe/horses/rocking-horse.webp", mood: ["gentle","storybook"], description: "A navy horse on cream curved rockers, saddled in mustard. Nursery furniture — it sits on the floor and stays put." },
+    { id: "horses/saddle", pack: "horses", kind: "scenery", file: "/troupe/horses/saddle.webp", mood: ["neutral"], description: "A red saddle with an olive girth and a mustard stirrup, seen from the side." },
     { id: "instruments/accordion", pack: "instruments", kind: "scenery", file: "/troupe/instruments/accordion.webp", mood: ["friendly","comic"], description: "a pink accordion with cream keys, bellows open" },
     { id: "instruments/bagpipes", pack: "instruments", kind: "scenery", file: "/troupe/instruments/bagpipes.webp", mood: ["comic","proud"], description: "a pink bag with mustard drones — unmistakable in silhouette" },
     { id: "instruments/banjo", pack: "instruments", kind: "scenery", file: "/troupe/instruments/banjo.webp", mood: ["comic","friendly"], description: "a banjo with a cream head and red strings" },

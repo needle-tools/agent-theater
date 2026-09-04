@@ -2,176 +2,105 @@
   "shelf": {
     "assorted": [
       {
-        "id": "animal-actors",
-        "label": "Animal actors",
-        "packs": [
-          "animals"
-        ],
+        "id": "cast",
+        "label": "Cast",
         "kinds": [
           "actor"
-        ]
-      },
-      {
-        "id": "story-actors",
-        "label": "Story actors",
+        ],
         "packs": [
+          "people",
           "fairy-tale",
-          "people"
-        ],
-        "kinds": [
-          "actor"
+          "villains",
+          "space",
+          "night",
+          "horses"
         ]
       },
       {
-        "id": "dinosaur-actors",
-        "label": "Dinosaurs",
+        "id": "creatures",
+        "label": "Creatures",
+        "kinds": [
+          "actor"
+        ],
         "packs": [
+          "animals",
           "dinosaurs"
-        ],
-        "kinds": [
-          "actor"
         ]
       },
       {
-        "id": "desert-pieces",
-        "label": "Desert",
-        "packs": [
-          "desert"
-        ],
+        "id": "nature",
+        "label": "Nature",
         "kinds": [
           "scenery"
-        ]
-      },
-      {
-        "id": "door-pieces",
-        "label": "Doors & arches",
-        "packs": [
-          "doors"
         ],
-        "kinds": [
-          "scenery"
-        ]
-      },
-      {
-        "id": "flower-pieces",
-        "label": "Flowers",
         "packs": [
-          "flowers"
-        ],
-        "kinds": [
-          "scenery"
-        ]
-      },
-      {
-        "id": "food-props",
-        "label": "Food props",
-        "packs": [
-          "food"
-        ],
-        "kinds": [
-          "scenery"
-        ]
-      },
-      {
-        "id": "forest-pieces",
-        "label": "Forest",
-        "packs": [
-          "forest"
-        ],
-        "kinds": [
-          "scenery"
-        ]
-      },
-      {
-        "id": "home-props",
-        "label": "Home props",
-        "packs": [
-          "home"
-        ],
-        "kinds": [
-          "scenery"
-        ]
-      },
-      {
-        "id": "instrument-pieces",
-        "label": "Instruments",
-        "packs": [
-          "instruments"
-        ],
-        "kinds": [
-          "scenery"
-        ]
-      },
-      {
-        "id": "landscape-pieces",
-        "label": "Landscape",
-        "packs": [
+          "forest",
+          "trees",
+          "flowers",
+          "stones-and-plants",
+          "desert",
           "landscape"
-        ],
-        "kinds": [
-          "scenery"
         ]
       },
       {
-        "id": "night-pieces",
-        "label": "Night",
-        "packs": [
-          "night"
-        ],
+        "id": "water-sky",
+        "label": "Water & sky",
         "kinds": [
-          "actor",
           "scenery"
+        ],
+        "packs": [
+          "water",
+          "ocean",
+          "sky"
         ]
       },
       {
-        "id": "ocean-props",
-        "label": "Ocean props",
-        "packs": [
-          "ocean"
-        ],
+        "id": "indoors",
+        "label": "Indoors",
         "kinds": [
           "scenery"
+        ],
+        "packs": [
+          "home",
+          "office",
+          "doors"
         ]
       },
       {
-        "id": "office-props",
-        "label": "Office props",
-        "packs": [
-          "office"
-        ],
+        "id": "props",
+        "label": "Props",
         "kinds": [
           "scenery"
+        ],
+        "packs": [
+          "hand-props",
+          "instruments",
+          "food",
+          "weapons",
+          "fairy-tale",
+          "villains",
+          "horses"
         ]
       },
       {
-        "id": "space-pieces",
-        "label": "Space",
+        "id": "street",
+        "label": "Street",
+        "kinds": [
+          "scenery"
+        ],
         "packs": [
+          "street"
+        ]
+      },
+      {
+        "id": "night-space",
+        "label": "Night & space",
+        "kinds": [
+          "scenery"
+        ],
+        "packs": [
+          "night",
           "space"
-        ],
-        "kinds": [
-          "actor",
-          "scenery"
-        ]
-      },
-      {
-        "id": "tree-pieces",
-        "label": "Trees",
-        "packs": [
-          "trees"
-        ],
-        "kinds": [
-          "scenery"
-        ]
-      },
-      {
-        "id": "water-pieces",
-        "label": "Water",
-        "packs": [
-          "water"
-        ],
-        "kinds": [
-          "scenery"
         ]
       }
     ],
