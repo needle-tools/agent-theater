@@ -87,9 +87,21 @@ export const WAIT_FOR_AUDIENCE_MS = 30_000;
  */
 export const BLACKOUT_MS = 900;
 
-/** Per credit line, plus a moment at each end to start and finish reading. */
-export const CREDIT_LINE_MS = 820;
-export const CREDIT_PAD_MS = 2200;
+/**
+ * Per credit line, plus a moment at each end to start and finish reading.
+ *
+ * These two are the roll's PACE, not just its length: the distance is set by
+ * the content and the stopping point, so doubling the time here halves the
+ * speed. It was doubled — the roll used to climb fast enough that a name with
+ * a picture beside it went past before both had been looked at, which is the
+ * one job a curtain call has.
+ *
+ * The per-line figure also staggers each row's fade-in, and that is why it is
+ * one number rather than two: a row has to appear at the pace it climbs, or
+ * the names arrive somewhere other than where the eye is.
+ */
+export const CREDIT_LINE_MS = 1640;
+export const CREDIT_PAD_MS = 4400;
 
 /**
  * The rows the page adds to every roll uninvited: the director's portrait, the

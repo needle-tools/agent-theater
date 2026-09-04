@@ -73,6 +73,61 @@
         return studio.onShowChanged(read);
     });
 
+    /**
+     * Where the roll starts and where it stops, measured rather than guessed.
+     *
+     * It used to travel a fixed 55% of its own height either side of centre,
+     * which meant the stopping point was wherever that happened to leave the
+     * bottom of a list whose length nobody knows in advance — a long cast
+     * parked the house bow low, a short one left it high, and neither is the
+     * place a roll is supposed to end.
+     *
+     * So the end is the one thing that actually matters: the cactus and the
+     * name on the centre line, which is where a film puts the studio. The roll
+     * is centred in the frame, so the distance from the middle of the list to
+     * the middle of the house bow IS the offset that puts one on the other —
+     * no need to know how tall the screen is.
+     *
+     * Measured as the gap between two rectangles inside the same block rather
+     * than off `offsetTop`, and that is not fussiness. `offsetTop` is reported
+     * against the nearest offsetParent, and which element that turns out to be
+     * depends on the animation this is being measured FOR — it came back a
+     * screen and a half out. Two rects in one translated subtree differ by the
+     * same amount whatever the translate is, because it is a translate.
+     *
+     * Both ends are set before the first paint, so the roll starts against the
+     * right numbers instead of jumping to them.
+     */
+    function travel(node: HTMLElement) {
+        const measure = () => {
+            const inner = node.querySelector<HTMLElement>(".roll__inner");
+            if (!inner) return;
+            const house = node.querySelector<HTMLElement>(".roll__house");
+            const middle = inner.offsetHeight / 2;
+            let end = -middle * 1.1;
+            if (house) {
+                // `offsetTop` where it is reported against the list itself,
+                // because that is layout: free of the roll's own travel AND of
+                // the fourteen pixels the row's entrance is still holding it
+                // down by at the moment this runs. Rects where the offsetParent
+                // turns out to be something else, which is a hair out and
+                // still lands the bow on the middle.
+                const top = house.offsetParent === inner
+                    ? house.offsetTop
+                    : house.getBoundingClientRect().top - inner.getBoundingClientRect().top;
+                end = middle - (top + house.offsetHeight / 2);
+            }
+            node.style.setProperty("--roll-from", `${Math.round(middle * 1.1)}px`);
+            node.style.setProperty("--roll-to", `${Math.round(end)}px`);
+        };
+        measure();
+        // A turned phone changes both ends. Re-measuring only re-resolves the
+        // keyframes; it does not restart the roll or move it.
+        const observer = new ResizeObserver(measure);
+        observer.observe(node);
+        return { destroy: () => observer.disconnect() };
+    }
+
     /*
      * While any billboard is up the page is an auditorium in the dark: every
      * button — playbill, file tools, the corner cut-outs — goes with the
@@ -139,6 +194,7 @@
                  holds its last card for a breath, and the curtain fades. -->
             <div
                 class="roll"
+                use:travel
                 style:--travel="{Math.max(1500, billboard.duration - CREDIT_END_HOLD_MS - CREDIT_FADE_MS)}ms"
                 style:--fade-at="{Math.max(0, billboard.duration - CREDIT_FADE_MS)}ms"
                 style:--fade="{CREDIT_FADE_MS}ms"
@@ -379,8 +435,8 @@
     }
 
     @keyframes roll {
-        from { translate: 0 55%; }
-        to { translate: 0 -55%; }
+        from { translate: 0 var(--roll-from, 55%); }
+        to { translate: 0 var(--roll-to, -55%); }
     }
 
     .roll__title {
