@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { chaptersOf, secondsOf, summarize, themesOf } from "../src/lib/collage/playSummary.js";
+import { chaptersOf, describePlay, secondsOf, summarize, themesOf } from "../src/lib/collage/playSummary.js";
 import type { StoredDoc } from "../src/lib/collage/persistence.js";
 
 /**
@@ -120,5 +120,47 @@ describe("the summary as a whole", () => {
         expect(summarize(doc({
             layers: [{ kind: "image", src: "/troupe/food/pretzel.webp" }] as never,
         }))).toMatchObject({ chapters: 0, seconds: 0, themes: ["food"] });
+    });
+});
+
+/**
+ * The sentence a pasted link unfurls into. It is read in about a second and
+ * truncated after that, so what a crawler gets has to be about THIS play
+ * before it is about the site.
+ */
+describe("describePlay", () => {
+    it("leads with the play and ends with the pitch", () => {
+        const line = describePlay({ chapters: 3, seconds: 137, themes: ["forest", "fairy-tale"] });
+        expect(line.startsWith("3 chapters, about 2 minutes, set in forest and fairy tale.")).toBe(true);
+        expect(line).toContain("paper theatre play");
+    });
+
+    it("counts one chapter as one, not as 1", () => {
+        expect(describePlay({ chapters: 1, seconds: 20, themes: [] })).toMatch(/^One chapter, about 20 seconds\./);
+    });
+
+    it("is vague about length on purpose", () => {
+        // Rounded, so two saves of the same play do not advertise different
+        // numbers — and nobody needs "1:47" from a preview.
+        expect(describePlay({ chapters: 1, seconds: 47, themes: [] })).toContain("about 45 seconds");
+        expect(describePlay({ chapters: 1, seconds: 62, themes: [] })).toContain("about 60 seconds");
+        expect(describePlay({ chapters: 1, seconds: 80, themes: [] })).toContain("about a minute");
+        expect(describePlay({ chapters: 1, seconds: 95, themes: [] })).toContain("about 2 minutes");
+        // Never "0 seconds": a play that measured short still took a moment.
+        expect(describePlay({ chapters: 1, seconds: 1, themes: [] })).toContain("about 5 seconds");
+    });
+
+    it("names at most three packs, and reads them as words", () => {
+        const line = describePlay({ chapters: 2, seconds: 60, themes: ["forest", "fairy-tale", "animals", "desert"] });
+        expect(line).toContain("set in forest, fairy tale and animals");
+        expect(line).not.toContain("desert");
+    });
+
+    it("still says something about a play the summary knows nothing about", () => {
+        // Rows written before durations were recorded, and canvases that were
+        // never scripted: no facts to give, so give the pitch alone rather
+        // than a sentence with holes in it.
+        const line = describePlay({ chapters: 0, seconds: 0, themes: [] });
+        expect(line).toBe("A paper theatre play — watch it, or take it apart and stage your own.");
     });
 });

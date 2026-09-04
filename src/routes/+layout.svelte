@@ -1,6 +1,7 @@
 <script lang="ts">
     import AnimatedCursor from "$lib/collage/AnimatedCursor.svelte";
     import { hint } from "$lib/collage/hint";
+    import { page } from "$app/state";
 
     let { children } = $props();
 
@@ -20,6 +21,26 @@
     const CARD_ALT =
         "A paper-cut Agent Theater title surrounded by a young director, a robot, a bird, "
         + "a frog, a crowned bat, a hobby horse, a theatre light and a treasure chest.";
+
+    /**
+     * A page may describe itself instead.
+     *
+     * A shared play is the case that matters: pasting its link should say what
+     * THAT play is, not what the site is. Chosen here rather than by each page
+     * writing its own <head>, because two `og:title` tags in one document is
+     * not an override — it is two titles, and which one wins is up to whoever
+     * is reading. One place decides, and a page only has to hand it a card.
+     *
+     * The picture stays the house card either way: a play's own poster lives
+     * in the file somebody downloads, not on the server, so there is nothing
+     * per-play to point a crawler at.
+     */
+    const card = $derived({
+        title: CARD_TITLE,
+        description: CARD_DESCRIPTION,
+        url: SITE,
+        ...(page.data?.card ?? {}),
+    });
 
     // Chrome ships WebMCP behind an origin trial. This is the needle.tools
     // subdomain-matched token (same one the Mesh Baker ships, expires
@@ -52,17 +73,17 @@
     -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Agent Theater" />
-    <meta property="og:url" content={SITE} />
-    <meta property="og:title" content={CARD_TITLE} />
-    <meta property="og:description" content={CARD_DESCRIPTION} />
+    <meta property="og:url" content={card.url} />
+    <meta property="og:title" content={card.title} />
+    <meta property="og:description" content={card.description} />
     <meta property="og:image" content={`${SITE}/og.webp`} />
     <meta property="og:image:type" content="image/webp" />
     <meta property="og:image:width" content="1672" />
     <meta property="og:image:height" content="941" />
     <meta property="og:image:alt" content={CARD_ALT} />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={CARD_TITLE} />
-    <meta name="twitter:description" content={CARD_DESCRIPTION} />
+    <meta name="twitter:title" content={card.title} />
+    <meta name="twitter:description" content={card.description} />
     <meta name="twitter:image" content={`${SITE}/og.webp`} />
     <meta name="twitter:image:alt" content={CARD_ALT} />
 </svelte:head>

@@ -85,3 +85,51 @@ export function themesOf(doc: StoredDoc): string[] {
 export function summarize(doc: StoredDoc): PlaySummary {
     return { chapters: chaptersOf(doc), seconds: secondsOf(doc), themes: themesOf(doc) };
 }
+
+/**
+ * The play in a sentence, for the card a pasted link unfurls into.
+ *
+ * Built from the summary rather than written by anyone, for the same reason
+ * the summary is: a description somebody fills in by hand is a description
+ * that lies the moment a chapter is added. These three numbers are recomputed
+ * on every save, so the card cannot drift from the play.
+ *
+ * Facts first and the pitch last, because a link preview is read in about a
+ * second and gets truncated after that — whoever sees it should learn what
+ * this particular play is before they learn what the site is.
+ */
+export function describePlay(summary: PlaySummary): string {
+    const facts: string[] = [];
+    if (summary.chapters > 0) {
+        facts.push(summary.chapters === 1 ? "One chapter" : `${summary.chapters} chapters`);
+    }
+    if (summary.seconds > 0) facts.push(`about ${roughly(summary.seconds)}`);
+    if (summary.themes.length) facts.push(`set in ${listed(summary.themes.slice(0, 3))}`);
+    const play = "A paper theatre play — watch it, or take it apart and stage your own.";
+    return facts.length ? `${facts.join(", ")}. ${play}` : play;
+}
+
+/**
+ * A length somebody can picture. Deliberately vague: "1:47" is a fact nobody
+ * needs from a preview, and rounding to the nearest five seconds keeps two
+ * saves of the same play from advertising different numbers.
+ */
+function roughly(seconds: number): string {
+    // The changeover is at a minute and a quarter rather than at ninety
+    // seconds, so that "about a minute" is a thing this can actually say:
+    // ninety seconds rounds to two minutes, which left the phrase unreachable
+    // and eighty-five seconds reading as "about 85 seconds".
+    if (seconds < 75) {
+        const rounded = Math.max(5, Math.round(seconds / 5) * 5);
+        return `${rounded} seconds`;
+    }
+    const minutes = Math.round(seconds / 60);
+    return minutes === 1 ? "a minute" : `${minutes} minutes`;
+}
+
+/** "forest", "forest and animals", "forest, animals and fairy tale". */
+function listed(names: string[]): string {
+    const words = names.map(name => name.replace(/-/g, " "));
+    if (words.length <= 1) return words[0] ?? "";
+    return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
