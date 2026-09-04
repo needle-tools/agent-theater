@@ -1,0 +1,218 @@
+{
+    "name": "flowers",
+    "description": "Twenty-five flowers, one species each, drawn full-face rather than as scenery. Bigger and more particular than the blooms scattered through `stones-and-plants` and `desert` — these are what you hand somebody, plant in a row, or put in a vase.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: flowers — one species per cell, drawn full-face with its own leaves and stem.\n\nDraw ONE sheet: a 5 × 5 grid of 25 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 25 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 25 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "tulip": {
+            "kind": "scenery",
+            "mood": [
+                "spring",
+                "bright"
+            ],
+            "description": "a red tulip, closed and upright",
+            "file": "tulip.webp"
+        },
+        "sunflower": {
+            "kind": "scenery",
+            "mood": [
+                "summer",
+                "bright"
+            ],
+            "description": "a mustard face ringed with green leaves — the biggest bloom here",
+            "file": "sunflower.webp"
+        },
+        "daffodil": {
+            "kind": "scenery",
+            "mood": [
+                "spring"
+            ],
+            "description": "a cream daffodil with a mustard trumpet",
+            "file": "daffodil.webp"
+        },
+        "rose": {
+            "kind": "scenery",
+            "mood": [
+                "gentle",
+                "storybook"
+            ],
+            "description": "a pink rose, petals coiled tight",
+            "file": "rose.webp"
+        },
+        "poppy": {
+            "kind": "scenery",
+            "mood": [
+                "summer"
+            ],
+            "description": "a red poppy with a navy centre",
+            "file": "poppy.webp"
+        },
+        "foxglove": {
+            "kind": "scenery",
+            "mood": [
+                "storybook"
+            ],
+            "description": "a pink spire hung with speckled bells",
+            "file": "foxglove.webp"
+        },
+        "iris": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a navy iris with mustard falls",
+            "file": "iris.webp"
+        },
+        "lily": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a cream lily, stamens showing",
+            "file": "lily.webp"
+        },
+        "daisy": {
+            "kind": "scenery",
+            "mood": [
+                "friendly",
+                "summer"
+            ],
+            "description": "a white daisy with a mustard eye — the plainest and most useful",
+            "file": "daisy.webp"
+        },
+        "bluebell": {
+            "kind": "scenery",
+            "mood": [
+                "spring",
+                "gentle"
+            ],
+            "description": "navy bells hanging along an arched stem",
+            "file": "bluebell.webp"
+        },
+        "peony": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a full pink peony, ruffled",
+            "file": "peony.webp"
+        },
+        "carnation": {
+            "kind": "scenery",
+            "mood": [
+                "neutral"
+            ],
+            "description": "a red carnation, fringed",
+            "file": "carnation.webp"
+        },
+        "marigold": {
+            "kind": "scenery",
+            "mood": [
+                "autumn",
+                "bright"
+            ],
+            "description": "a dense mustard pompom",
+            "file": "marigold.webp"
+        },
+        "orchid": {
+            "kind": "scenery",
+            "mood": [
+                "gentle",
+                "odd"
+            ],
+            "description": "a mustard orchid with a navy throat",
+            "file": "orchid.webp"
+        },
+        "hydrangea": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a cream globe of small flowers",
+            "file": "hydrangea.webp"
+        },
+        "lavender": {
+            "kind": "scenery",
+            "mood": [
+                "gentle",
+                "calm"
+            ],
+            "description": "three navy spikes on grey-green stems",
+            "file": "lavender.webp"
+        },
+        "water-lily": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a pink lily open on its pad — lies flat, does not stand",
+            "file": "water-lily.webp"
+        },
+        "bird-of-paradise": {
+            "kind": "scenery",
+            "mood": [
+                "bright",
+                "odd"
+            ],
+            "description": "orange and navy blades fanning out of a green sheath",
+            "file": "bird-of-paradise.webp"
+        },
+        "coneflower": {
+            "kind": "scenery",
+            "mood": [
+                "summer"
+            ],
+            "description": "pink petals swept back from a mustard cone",
+            "file": "coneflower.webp"
+        },
+        "dahlia": {
+            "kind": "scenery",
+            "mood": [
+                "proud"
+            ],
+            "description": "a navy dahlia, petals in tight rings",
+            "file": "dahlia.webp"
+        },
+        "fuchsia": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a red and cream fuchsia hanging down",
+            "file": "fuchsia.webp"
+        },
+        "morning-glory": {
+            "kind": "scenery",
+            "mood": [
+                "spring"
+            ],
+            "description": "a navy trumpet on a curling vine",
+            "file": "morning-glory.webp"
+        },
+        "protea": {
+            "kind": "scenery",
+            "mood": [
+                "odd",
+                "proud"
+            ],
+            "description": "a pink protea with a spiky cream crown",
+            "file": "protea.webp"
+        },
+        "snowdrop": {
+            "kind": "scenery",
+            "mood": [
+                "winter",
+                "gentle"
+            ],
+            "description": "a single white bell nodding on a thin stem",
+            "file": "snowdrop.webp"
+        },
+        "forget-me-not": {
+            "kind": "scenery",
+            "mood": [
+                "gentle"
+            ],
+            "description": "a spray of small navy flowers with mustard eyes",
+            "file": "forget-me-not.webp"
+        }
+    }
+}
