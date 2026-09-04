@@ -7,7 +7,7 @@
 			"file": "/audio/music/night-hush.opus",
 			"seconds": 50.01,
 			"mood": ["night", "sparse", "still"],
-			"description": "Celesta notes struck far apart, low bowed strings sustaining, one high harmonic held above, deep quiet between. Cool and dark blue. Fades away at the end despite being asked not to, so it wants `fade` rather than `loop`."
+			"description": "Celesta notes struck far apart, low bowed strings sustaining, one high harmonic held above, deep quiet between. Cool and dark blue. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"forest-air-1": {
 			"role": "bed",
@@ -16,7 +16,7 @@
 			"bpm": 50,
 			"take": "forest-air",
 			"mood": ["woodland", "sparse", "unhurried"],
-			"description": "Guitar harmonics, breathy flute, bowed cimbalom, sparse celesta. Woodland and unhurried, no melody to follow. The steadiest of the batch — it ends near the level it starts at, so it is the one that loops without a hole."
+			"description": "Guitar harmonics, breathy flute, bowed cimbalom, sparse celesta. Woodland and unhurried, no melody to follow. Ends at its starting level, so it loops cleanly."
 		},
 		"forest-air-2": {
 			"role": "bed",
@@ -25,7 +25,7 @@
 			"bpm": 50,
 			"take": "forest-air",
 			"mood": ["woodland", "sparse", "unhurried"],
-			"description": "Guitar harmonics, breathy flute, bowed cimbalom, sparse celesta. Woodland and unhurried, no melody to follow. Fades to silence at the end despite being asked not to, so it wants `fade` or a hand-off rather than `loop`."
+			"description": "Guitar harmonics, breathy flute, bowed cimbalom, sparse celesta. Woodland and unhurried, no melody to follow. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"meadow-open-1": {
 			"role": "bed",
@@ -34,7 +34,7 @@
 			"bpm": 55,
 			"take": "meadow-open",
 			"mood": ["open", "warm", "still"],
-			"description": "Sustained strings, clarinet long tones, brushed autoharp, warm pad. Open country in warm light. Came back short of the length asked for and fades at the end, so it wants `fade` rather than `loop`."
+			"description": "Sustained strings, clarinet long tones, brushed autoharp, warm pad. Open country in warm light. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"meadow-open-2": {
 			"role": "bed",
@@ -43,7 +43,7 @@
 			"bpm": 55,
 			"take": "meadow-open",
 			"mood": ["open", "warm", "still"],
-			"description": "Sustained strings, clarinet long tones, brushed autoharp, warm pad. The quietest and sparsest of the three meadow takes. Fades at the end, so it wants `fade` rather than `loop`."
+			"description": "Sustained strings, clarinet long tones, brushed autoharp, warm pad. The quietest and sparsest of the three meadow takes. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"meadow-open-3": {
 			"role": "bed",
@@ -52,7 +52,7 @@
 			"bpm": 55,
 			"take": "meadow-open",
 			"mood": ["open", "warm", "still"],
-			"description": "Sustained strings, clarinet long tones, brushed autoharp, warm pad. The fullest of the three meadow takes. Fades at the end, so it wants `fade` rather than `loop`."
+			"description": "Sustained strings, clarinet long tones, brushed autoharp, warm pad. The fullest of the three meadow takes. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"village-lane-1": {
 			"role": "bed",
@@ -61,7 +61,7 @@
 			"bpm": 60,
 			"take": "village-lane",
 			"mood": ["friendly", "unhurried", "acoustic"],
-			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Opens louder than the other two takes and fades to silence at the end, so it wants `fade` rather than `loop`."
+			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"village-lane-2": {
 			"role": "bed",
@@ -70,7 +70,7 @@
 			"bpm": 60,
 			"take": "village-lane",
 			"mood": ["friendly", "unhurried", "acoustic"],
-			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Fades to silence at the end, so it wants `fade` rather than `loop`."
+			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"village-lane-3": {
 			"role": "bed",
@@ -79,7 +79,7 @@
 			"bpm": 60,
 			"take": "village-lane",
 			"mood": ["friendly", "unhurried", "acoustic"],
-			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Fades to silence at the end, so it wants `fade` rather than `loop`."
+			"description": "Sparse plucked mandolin, soft accordion pad, clarinet long tones, warm upright bass drone. A small street on an ordinary morning. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"danger-close-1": {
 			"role": "bed",
@@ -88,7 +88,7 @@
 			"bpm": 50,
 			"take": "danger-close",
 			"mood": ["dark", "tense", "hovering"],
-			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The most eventful of the three: its level swings about 20 dB across the piece, so things happen in it rather than under it. Fades at the end, so it wants `fade` rather than `loop`."
+			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The most eventful of the three: its level swings about 20 dB across the piece, so things happen in it rather than under it. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"danger-close-2": {
 			"role": "bed",
@@ -97,7 +97,7 @@
 			"bpm": 50,
 			"take": "danger-close",
 			"mood": ["dark", "tense", "hovering"],
-			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The steadiest of the three and the one that behaves most like a bed, but also the loudest. Fades at the end, so it wants `fade` rather than `loop`."
+			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The steadiest of the three and the one that behaves most like a bed, but also the loudest. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"danger-close-3": {
 			"role": "bed",
@@ -106,7 +106,7 @@
 			"bpm": 50,
 			"take": "danger-close",
 			"mood": ["dark", "tense", "hovering"],
-			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The only one that came back at the full length asked for, and the quietest through the middle. Fades to silence at the end, so it wants `fade` rather than `loop`."
+			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"bright-arrival": {
 			"role": "bed",
@@ -114,7 +114,7 @@
 			"seconds": 45.14,
 			"bpm": 80,
 			"mood": ["bright", "clear", "arriving"],
-			"description": "One bright sustained chord held open, with a soft harp accent and a light chime. Asked for as a short sting for the moment somebody realises something, and it came back as forty-five seconds of that feeling instead — so it is a bed for a scene that has just turned hopeful. Fades at the end."
+			"description": "One bright sustained chord held open, with a soft harp accent and a light chime. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"climb-steps": {
 			"role": "bed",
@@ -122,7 +122,7 @@
 			"seconds": 29.22,
 			"bpm": 100,
 			"mood": ["effortful", "stepping", "comic"],
-			"description": "An ascending pizzicato ladder over grunting bassoon steps and a woodblock. Effort going somewhere — a climb, a journey, a task being got on with. Ends level with its middle, so it is one of the few beds here that genuinely loops."
+			"description": "An ascending pizzicato ladder over grunting bassoon steps and a woodblock. Effort going somewhere — a climb, a journey, a task being got on with. Ends at its starting level, so it loops cleanly."
 		},
 		"underwater-1": {
 			"role": "bed",
@@ -131,7 +131,7 @@
 			"bpm": 60,
 			"take": "underwater",
 			"mood": ["submerged", "slow", "damp"],
-			"description": "Muffled bowed marimba, low sustained strings and sparse harp harmonics in a wide damp space. Under the water, which the `ocean` pack had twenty-five pieces and no sound for. Fades at the end."
+			"description": "Muffled bowed marimba, low sustained strings and sparse harp harmonics in a wide damp space. For underwater or submerged scenes. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"underwater-2": {
 			"role": "bed",
@@ -140,7 +140,7 @@
 			"bpm": 60,
 			"take": "underwater",
 			"mood": ["submerged", "slow", "damp"],
-			"description": "Muffled bowed marimba, low sustained strings and sparse harp harmonics in a wide damp space. Quieter through the middle than `underwater-1` and the easier of the two to speak over. Fades at the end."
+			"description": "Muffled bowed marimba, low sustained strings and sparse harp harmonics in a wide damp space. Quieter through the middle than `underwater-1` and the easier of the two to speak over. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"shanty-sea-1": {
 			"role": "bed",
@@ -149,7 +149,7 @@
 			"bpm": 100,
 			"take": "shanty-sea",
 			"mood": ["salty", "rolling", "cheerful"],
-			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass. A crew, a deck, a voyage under way. Came in already at level."
+			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass. For a ship at sea or a pirate scene."
 		},
 		"shanty-sea-2": {
 			"role": "bed",
@@ -158,7 +158,7 @@
 			"bpm": 100,
 			"take": "shanty-sea",
 			"mood": ["salty", "rolling", "cheerful"],
-			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass. A crew, a deck, a voyage under way."
+			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass. For a ship at sea or a pirate scene."
 		},
 		"shanty-sea-3": {
 			"role": "bed",
@@ -185,7 +185,7 @@
 			"bpm": 100,
 			"take": "shanty-sea",
 			"mood": ["salty", "rolling", "cheerful"],
-			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass. The loudest take as generated, and turned down the most."
+			"description": "Concertina and fiddle trading a lilting six-eight figure over hand drum and plucked upright bass."
 		},
 		"western-wide-1": {
 			"role": "bed",
@@ -194,7 +194,7 @@
 			"bpm": 90,
 			"take": "western-wide",
 			"mood": ["sunbaked", "wide", "dusty"],
-			"description": "Twangy tremolo electric guitar, a lone whistled melody, sparse jaw harp and a distant trumpet. Open country and heat. The only electric instrument and only the second voice in the library, so it sits some way from the paper folk of everything else."
+			"description": "Twangy tremolo electric guitar, a lone whistled melody, sparse jaw harp and a distant trumpet. For open country, desert or a standoff. Contains the library's only electric guitar and its only whistling, so it is stylistically distant from the acoustic folk of the rest."
 		},
 		"western-wide-2": {
 			"role": "bed",
@@ -219,7 +219,7 @@
 			"file": "/audio/music/skeleton-steps.opus",
 			"seconds": 30.01,
 			"mood": ["bony", "sparse", "dry"],
-			"description": "Strings struck with the wood of the bow — sharp dry taps with silence between them. Bones walking, a clock in an empty house, something approaching one step at a time. Its average level is the lowest of any bed by ten decibels, but that is the silence between the taps: the taps themselves peak as loud as anything here, so it does not want turning up. One of the few beds that does not fade at the end."
+			"description": "Strings struck with the wood of the bow: sharp dry taps with silence between them. For a skeleton, a slow approach, or an empty room. Its average level is the lowest of any bed by 10 dB, but that is the silence between taps; the taps themselves peak as loud as anything here, so it does not need raising. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"hurdy-drone-1": {
 			"role": "bed",
@@ -228,7 +228,7 @@
 			"bpm": 60,
 			"take": "hurdy-drone",
 			"mood": ["medieval", "hypnotic", "rustic"],
-			"description": "A solo hurdy-gurdy droning open fifths over a slow rotary groove. Older and stranger than anything else here — for a village fair, a road, a tale told before the others were written. Fades at the end, so it wants `fade` rather than `loop`."
+			"description": "A solo hurdy-gurdy droning open fifths over a slow rotary groove. For a medieval or folk scene: a village fair, a road, a tavern. The only hurdy-gurdy in the library. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"hurdy-drone-2": {
 			"role": "bed",
@@ -237,7 +237,7 @@
 			"bpm": 60,
 			"take": "hurdy-drone",
 			"mood": ["medieval", "hypnotic", "rustic"],
-			"description": "A solo hurdy-gurdy droning open fifths over a slow rotary groove. Starts very quietly and grows, so it opens a scene better than it joins one. Fades at the end."
+			"description": "A solo hurdy-gurdy droning open fifths over a slow rotary groove. Starts very quietly and grows, so it opens a scene better than it joins one. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"hurdy-drone-3": {
 			"role": "bed",
@@ -246,7 +246,7 @@
 			"bpm": 60,
 			"take": "hurdy-drone",
 			"mood": ["medieval", "hypnotic", "rustic"],
-			"description": "A solo hurdy-gurdy droning open fifths over a slow rotary groove. The shortest and steadiest of the three, and the one that came in already at level."
+			"description": "A solo hurdy-gurdy droning open fifths over a slow rotary groove."
 		},
 		"chase-comic-1": {
 			"role": "bed",
@@ -273,7 +273,7 @@
 			"bpm": 155,
 			"take": "race-driving",
 			"mood": ["urgent", "driving", "tense"],
-			"description": "Racing staccato strings, pulsing low brass, urgent snare and driving percussion. For a chase or a race, and short enough to come round often. Ends about where it started, so unlike almost everything else here it genuinely loops."
+			"description": "Racing staccato strings, pulsing low brass, urgent snare and driving percussion. For a chase or a race, and short enough to come round often. Ends at its starting level, so it loops cleanly."
 		},
 		"race-driving-2": {
 			"role": "bed",
@@ -282,7 +282,7 @@
 			"bpm": 155,
 			"take": "race-driving",
 			"mood": ["urgent", "driving", "tense"],
-			"description": "Racing staccato strings, pulsing low brass, urgent snare and driving percussion. Louder and fuller than `race-driving-1`, but it fades to silence at the end, so it wants `fade` rather than `loop`."
+			"description": "Racing staccato strings, pulsing low brass, urgent snare and driving percussion. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"fairy-tale-ambience": {
 			"role": "bed",
@@ -453,7 +453,7 @@
 			"bpm": 40,
 			"take": "menu-theatre",
 			"mood": ["idle", "textural", "calm"],
-			"description": "Barely music: felt piano resonance over soft room tone, no melody and no lead. The quietest and least eventful of the idle pool — the one to reach for when somebody is concentrating."
+			"description": "Felt piano resonance over soft room tone, with no melody and no lead instrument. The quietest and least eventful bed in the idle pool."
 		},
 		"menu-theatre-7": {
 			"role": "bed",
@@ -462,7 +462,7 @@
 			"bpm": 60,
 			"take": "menu-theatre",
 			"mood": ["idle", "warm", "percussive"],
-			"description": "Soft hand percussion: fingertip bongos and light shaker over warm room tone. Movement without a tune, for an idle page that would otherwise feel becalmed."
+			"description": "Fingertip bongos and light shaker over warm room tone. Movement without a melody, for the idle pool."
 		},
 		"menu-theatre-8": {
 			"role": "bed",
@@ -498,7 +498,7 @@
 			"bpm": 110,
 			"take": "menu-theatre",
 			"mood": ["playful", "light", "bouncy"],
-			"description": "Playful and lighthearted: acoustic piano, bouncy woodwinds, soft pizzicato strings and light percussion hits. The only bed in the whole library that does not fade at the end — it finishes where it started, so it is the one that genuinely loops."
+			"description": "Playful and lighthearted: acoustic piano, bouncy woodwinds, soft pizzicato strings and light percussion hits. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"cosy-folk-1": {
 			"role": "bed",
@@ -1606,7 +1606,7 @@
 			"seconds": 3.01,
 			"take": "applause",
 			"mood": ["warm", "audience", "approving"],
-			"description": "Warm applause from a small theatre audience. Came out at 3s rather than the 5s asked for, so it wants a fade rather than a hard stop.",
+			"description": "Warm applause from a small theatre audience. For the end of a show or a successful moment.",
 			"seam": "showEnd"
 		},
 		"applause-2": {
@@ -1615,7 +1615,7 @@
 			"seconds": 3.01,
 			"take": "applause",
 			"mood": ["warm", "audience", "approving"],
-			"description": "Warm applause from a small theatre audience. Came out at 3s rather than the 5s asked for, so it wants a fade rather than a hard stop.",
+			"description": "Warm applause from a small theatre audience. For the end of a show or a successful moment.",
 			"seam": "showEnd"
 		},
 		"applause-3": {
@@ -1624,7 +1624,7 @@
 			"seconds": 3.01,
 			"take": "applause",
 			"mood": ["warm", "audience", "approving"],
-			"description": "Warm applause from a small theatre audience. Came out at 3s rather than the 5s asked for, so it wants a fade rather than a hard stop.",
+			"description": "Warm applause from a small theatre audience. For the end of a show or a successful moment.",
 			"seam": "showEnd"
 		},
 		"applause-4": {
@@ -1633,7 +1633,7 @@
 			"seconds": 3.01,
 			"take": "applause",
 			"mood": ["warm", "audience", "approving"],
-			"description": "Warm applause from a small theatre audience. Came out at 3s rather than the 5s asked for, so it wants a fade rather than a hard stop.",
+			"description": "Warm applause from a small theatre audience. For the end of a show or a successful moment.",
 			"seam": "showEnd"
 		},
 		"boing": {
@@ -1641,7 +1641,7 @@
 			"file": "/audio/sfx/boing.opus",
 			"seconds": 1.17,
 			"mood": ["springy", "comic", "hollow"],
-			"description": "A sprung boing with a long wobble, low and mid weighted with no top at all. Recorded rather than generated, so it has the room and the body the synthetic cues lack.",
+			"description": "A sprung boing with a long wobble, low and mid weighted with no top at all.",
 			"skill": "jump"
 		},
 		"boing-long": {
@@ -1695,7 +1695,7 @@
 			"seconds": 2.01,
 			"take": "awe",
 			"mood": ["vast", "still", "humbling"],
-			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. For something vast or overwhelming. `choir-wonder` covers delight instead."
 		},
 		"awe-2": {
 			"role": "cue",
@@ -1703,7 +1703,7 @@
 			"seconds": 2.01,
 			"take": "awe",
 			"mood": ["vast", "still", "humbling"],
-			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. For something vast or overwhelming. `choir-wonder` covers delight instead."
 		},
 		"awe-3": {
 			"role": "cue",
@@ -1711,7 +1711,7 @@
 			"seconds": 2.01,
 			"take": "awe",
 			"mood": ["vast", "still", "humbling"],
-			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. For something vast or overwhelming. `choir-wonder` covers delight instead."
 		},
 		"awe-4": {
 			"role": "cue",
@@ -1719,7 +1719,7 @@
 			"seconds": 2.01,
 			"take": "awe",
 			"mood": ["vast", "still", "humbling"],
-			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. For something vast or overwhelming. `choir-wonder` covers delight instead."
 		},
 		"awe-5": {
 			"role": "cue",
@@ -1727,7 +1727,7 @@
 			"seconds": 2.01,
 			"take": "awe",
 			"mood": ["vast", "still", "humbling"],
-			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. For something vast or overwhelming. `choir-wonder` covers delight instead."
 		},
 		"betrayal-1": {
 			"role": "cue",
@@ -1735,7 +1735,7 @@
 			"seconds": 3.94,
 			"take": "betrayal",
 			"mood": ["souring", "cold", "turning"],
-			"description": "A sweet string chord souring into a low brass note under a single muted timpani. The moment an ally stops being one — the beat a fairy tale turns on, and the library had nothing for it."
+			"description": "A sweet string chord souring into a low brass note under a single muted timpani. For a betrayal or a change of allegiance."
 		},
 		"betrayal-2": {
 			"role": "cue",
@@ -1743,7 +1743,7 @@
 			"seconds": 3.98,
 			"take": "betrayal",
 			"mood": ["souring", "cold", "turning"],
-			"description": "A sweet string chord souring into a low brass note under a single muted timpani. The moment an ally stops being one — the beat a fairy tale turns on, and the library had nothing for it."
+			"description": "A sweet string chord souring into a low brass note under a single muted timpani. For a betrayal or a change of allegiance."
 		},
 		"betrayal-3": {
 			"role": "cue",
@@ -1751,7 +1751,7 @@
 			"seconds": 3.66,
 			"take": "betrayal",
 			"mood": ["souring", "cold", "turning"],
-			"description": "A sweet string chord souring into a low brass note under a single muted timpani. The moment an ally stops being one — the beat a fairy tale turns on, and the library had nothing for it."
+			"description": "A sweet string chord souring into a low brass note under a single muted timpani. For a betrayal or a change of allegiance."
 		},
 		"boredom-1": {
 			"role": "cue",
@@ -1759,7 +1759,7 @@
 			"seconds": 5.01,
 			"take": "boredom",
 			"mood": ["sagging", "patient", "comic"],
-			"description": "A drooping bassoon phrase repeating over a slow woodblock. Waiting and minding it — `clock-time` marks time passing without complaining about it."
+			"description": "A drooping bassoon phrase repeating over a slow woodblock. For boredom or impatient waiting. `clock-time` marks time passing without the complaint."
 		},
 		"boredom-2": {
 			"role": "cue",
@@ -1767,7 +1767,7 @@
 			"seconds": 5.01,
 			"take": "boredom",
 			"mood": ["sagging", "patient", "comic"],
-			"description": "A drooping bassoon phrase repeating over a slow woodblock. Waiting and minding it — `clock-time` marks time passing without complaining about it."
+			"description": "A drooping bassoon phrase repeating over a slow woodblock. For boredom or impatient waiting. `clock-time` marks time passing without the complaint."
 		},
 		"boredom-3": {
 			"role": "cue",
@@ -1775,7 +1775,7 @@
 			"seconds": 5.01,
 			"take": "boredom",
 			"mood": ["sagging", "patient", "comic"],
-			"description": "A drooping bassoon phrase repeating over a slow woodblock. Waiting and minding it — `clock-time` marks time passing without complaining about it."
+			"description": "A drooping bassoon phrase repeating over a slow woodblock. For boredom or impatient waiting. `clock-time` marks time passing without the complaint."
 		},
 		"climb-up": {
 			"role": "cue",
@@ -1790,7 +1790,7 @@
 			"seconds": 3.08,
 			"take": "forgive",
 			"mood": ["resolving", "warm", "mending"],
-			"description": "A held dissonance settling into a major chord under soft harp. The mend. `sorrowful-cello` grieves and nothing until now repaired anything."
+			"description": "A held dissonance settling into a major chord under soft harp. For a reconciliation or a resolution. `sorrowful-cello` covers grief instead."
 		},
 		"forgive-2": {
 			"role": "cue",
@@ -1798,7 +1798,7 @@
 			"seconds": 2.84,
 			"take": "forgive",
 			"mood": ["resolving", "warm", "mending"],
-			"description": "A held dissonance settling into a major chord under soft harp. The mend. `sorrowful-cello` grieves and nothing until now repaired anything."
+			"description": "A held dissonance settling into a major chord under soft harp. For a reconciliation or a resolution. `sorrowful-cello` covers grief instead."
 		},
 		"lie-told": {
 			"role": "cue",
@@ -1812,7 +1812,7 @@
 			"file": "/audio/cues/lonely.opus",
 			"seconds": 1.26,
 			"mood": ["bare", "distant", "alone"],
-			"description": "One solo cello line in a large room with silence around it. Being left, which is different from grief: `sorrowful-cello` has somebody to mourn. Came back barely a second long despite being asked for eight."
+			"description": "One solo cello line in a large room with silence around it. Being left, which is different from grief: `sorrowful-cello` has somebody to mourn."
 		},
 		"longing-1": {
 			"role": "cue",
@@ -1820,7 +1820,7 @@
 			"seconds": 5.01,
 			"take": "longing",
 			"mood": ["yearning", "unresolved", "tender"],
-			"description": "A solo clarinet phrase rising and hanging over sparse harp. The wish that starts the story, left deliberately unanswered."
+			"description": "A solo clarinet phrase rising and left unresolved over sparse harp. For a wish, a want, or an unanswered question."
 		},
 		"longing-2": {
 			"role": "cue",
@@ -1828,7 +1828,7 @@
 			"seconds": 3.62,
 			"take": "longing",
 			"mood": ["yearning", "unresolved", "tender"],
-			"description": "A solo clarinet phrase rising and hanging over sparse harp. The wish that starts the story, left deliberately unanswered."
+			"description": "A solo clarinet phrase rising and left unresolved over sparse harp. For a wish, a want, or an unanswered question."
 		},
 		"longing-3": {
 			"role": "cue",
@@ -1836,7 +1836,7 @@
 			"seconds": 5.01,
 			"take": "longing",
 			"mood": ["yearning", "unresolved", "tender"],
-			"description": "A solo clarinet phrase rising and hanging over sparse harp. The wish that starts the story, left deliberately unanswered."
+			"description": "A solo clarinet phrase rising and left unresolved over sparse harp. For a wish, a want, or an unanswered question."
 		},
 		"menace-near-1": {
 			"role": "cue",
@@ -1908,7 +1908,7 @@
 			"seconds": 5.01,
 			"take": "relief-resolve",
 			"mood": ["easing", "warm", "settling"],
-			"description": "A settling woodwind cadence over a soft guitar chord and a gentle triangle. It is over, and it was all right — the musical answer to the recorded `phew`."
+			"description": "A settling woodwind cadence over a soft guitar chord and a gentle triangle. For relief once the danger has passed. `phew` is the recorded equivalent."
 		},
 		"relief-resolve-2": {
 			"role": "cue",
@@ -1916,7 +1916,7 @@
 			"seconds": 5.01,
 			"take": "relief-resolve",
 			"mood": ["easing", "warm", "settling"],
-			"description": "A settling woodwind cadence over a soft guitar chord and a gentle triangle. It is over, and it was all right — the musical answer to the recorded `phew`."
+			"description": "A settling woodwind cadence over a soft guitar chord and a gentle triangle. For relief once the danger has passed. `phew` is the recorded equivalent."
 		},
 		"relief-resolve-3": {
 			"role": "cue",
@@ -1924,7 +1924,7 @@
 			"seconds": 5.01,
 			"take": "relief-resolve",
 			"mood": ["easing", "warm", "settling"],
-			"description": "A settling woodwind cadence over a soft guitar chord and a gentle triangle. It is over, and it was all right — the musical answer to the recorded `phew`."
+			"description": "A settling woodwind cadence over a soft guitar chord and a gentle triangle. For relief once the danger has passed. `phew` is the recorded equivalent."
 		},
 		"shame-1": {
 			"role": "cue",
@@ -1932,7 +1932,7 @@
 			"seconds": 1.55,
 			"take": "shame",
 			"mood": ["sinking", "quiet", "withdrawn"],
-			"description": "A descending muted viola line over soft low piano. A face turning away, which `disappointed-banjo` does not cover: that one is a failed attempt, this is not wanting to be looked at."
+			"description": "A descending muted viola line over soft low piano. For shame or embarrassment. `disappointed-banjo` covers a failed attempt instead."
 		},
 		"shame-2": {
 			"role": "cue",
@@ -1940,7 +1940,7 @@
 			"seconds": 2.01,
 			"take": "shame",
 			"mood": ["sinking", "quiet", "withdrawn"],
-			"description": "A descending muted viola line over soft low piano. A face turning away, which `disappointed-banjo` does not cover: that one is a failed attempt, this is not wanting to be looked at."
+			"description": "A descending muted viola line over soft low piano. For shame or embarrassment. `disappointed-banjo` covers a failed attempt instead."
 		},
 		"shame-3": {
 			"role": "cue",
@@ -1948,7 +1948,7 @@
 			"seconds": 1.03,
 			"take": "shame",
 			"mood": ["sinking", "quiet", "withdrawn"],
-			"description": "A descending muted viola line over soft low piano. A face turning away, which `disappointed-banjo` does not cover: that one is a failed attempt, this is not wanting to be looked at."
+			"description": "A descending muted viola line over soft low piano. For shame or embarrassment. `disappointed-banjo` covers a failed attempt instead."
 		},
 		"striving-climb-1": {
 			"role": "cue",
@@ -2052,7 +2052,7 @@
 			"seconds": 4.48,
 			"take": "guitar-nightwatch",
 			"mood": ["lone", "patient", "spacious"],
-			"description": "Sparse reverb electric guitar notes far apart over a low sustained bass note. One character awake while everyone else sleeps."
+			"description": "Sparse reverb electric guitar notes far apart over a low sustained bass note. For a night watch or a character alone and awake."
 		},
 		"guitar-nightwatch-2": {
 			"role": "cue",
@@ -2060,7 +2060,7 @@
 			"seconds": 4.46,
 			"take": "guitar-nightwatch",
 			"mood": ["lone", "patient", "spacious"],
-			"description": "Sparse reverb electric guitar notes far apart over a low sustained bass note. One character awake while everyone else sleeps."
+			"description": "Sparse reverb electric guitar notes far apart over a low sustained bass note. For a night watch or a character alone and awake."
 		},
 		"guitar-nightwatch-3": {
 			"role": "cue",
@@ -2068,14 +2068,14 @@
 			"seconds": 4.1,
 			"take": "guitar-nightwatch",
 			"mood": ["lone", "patient", "spacious"],
-			"description": "Sparse reverb electric guitar notes far apart over a low sustained bass note. One character awake while everyone else sleeps."
+			"description": "Sparse reverb electric guitar notes far apart over a low sustained bass note. For a night watch or a character alone and awake."
 		},
 		"halt-comic": {
 			"role": "cue",
 			"file": "/audio/cues/halt-comic.opus",
 			"seconds": 2.01,
 			"mood": ["abrupt", "clumsy", "comic"],
-			"description": "A run collapsing into one tuba honk, a cymbal choke and a woodblock knock. Everything stopping at once. The quietest cue in the batch and left as generated."
+			"description": "A run collapsing into one tuba honk, a cymbal choke and a woodblock knock. Everything stopping at once."
 		},
 		"mischief-1": {
 			"role": "cue",
@@ -2083,7 +2083,7 @@
 			"seconds": 2.01,
 			"take": "mischief",
 			"mood": ["sly", "pleased", "tiptoeing"],
-			"description": "A tiptoeing oboe figure over muted marimba taps, ending on a single triangle ping. Getting away with it — `suspense-stalking` creeps without ever succeeding."
+			"description": "A tiptoeing oboe figure over muted marimba taps, ending on a single triangle ping. For mischief that succeeds. `suspense-stalking` covers creeping without resolution instead."
 		},
 		"mischief-2": {
 			"role": "cue",
@@ -2091,7 +2091,7 @@
 			"seconds": 2.01,
 			"take": "mischief",
 			"mood": ["sly", "pleased", "tiptoeing"],
-			"description": "A tiptoeing oboe figure over muted marimba taps, ending on a single triangle ping. Getting away with it — `suspense-stalking` creeps without ever succeeding."
+			"description": "A tiptoeing oboe figure over muted marimba taps, ending on a single triangle ping. For mischief that succeeds. `suspense-stalking` covers creeping without resolution instead."
 		},
 		"musicbox-wind-1": {
 			"role": "cue",
@@ -2122,7 +2122,7 @@
 			"file": "/audio/cues/owl-hoot.opus",
 			"seconds": 2.01,
 			"mood": ["hollow", "calm", "nocturnal"],
-			"description": "Two soft low flute notes over muted harp. An owl. Arrived ten decibels hot and was turned down the furthest of any cue in this batch."
+			"description": "Two soft low flute notes over muted harp. For an owl or a night bird."
 		},
 		"shimmer-dream-1": {
 			"role": "cue",
@@ -2170,7 +2170,7 @@
 			"seconds": 2.01,
 			"take": "shrink-down",
 			"mood": ["dwindling", "comic", "descending"],
-			"description": "A descending marimba run with a narrowing pizzicato and a soft slide whistle. Getting smaller — the counterpart to `grow-in`, which had none until now."
+			"description": "A descending marimba run with a narrowing pizzicato and a soft slide whistle. For something shrinking. `grow-in` is the counterpart."
 		},
 		"shrink-down-2": {
 			"role": "cue",
@@ -2178,7 +2178,7 @@
 			"seconds": 2.01,
 			"take": "shrink-down",
 			"mood": ["dwindling", "comic", "descending"],
-			"description": "A descending marimba run with a narrowing pizzicato and a soft slide whistle. Getting smaller — the counterpart to `grow-in`, which had none until now."
+			"description": "A descending marimba run with a narrowing pizzicato and a soft slide whistle. For something shrinking. `grow-in` is the counterpart."
 		},
 		"sneak-muted-1": {
 			"role": "cue",
@@ -2186,7 +2186,7 @@
 			"seconds": 5.01,
 			"take": "sneak-muted",
 			"mood": ["creeping", "sly", "walking"],
-			"description": "Muted staccato electric guitar notes walking, with brushed snare and an upright bass step. Sneaking, and audibly different from `suspense-stalking` and `mischief`, which both do it with pizzicato."
+			"description": "Muted staccato electric guitar notes walking, with brushed snare and an upright bass step. For sneaking. `suspense-stalking` and `mischief` do the same job with pizzicato."
 		},
 		"sneak-muted-2": {
 			"role": "cue",
@@ -2194,7 +2194,7 @@
 			"seconds": 4.4,
 			"take": "sneak-muted",
 			"mood": ["creeping", "sly", "walking"],
-			"description": "Muted staccato electric guitar notes walking, with brushed snare and an upright bass step. Sneaking, and audibly different from `suspense-stalking` and `mischief`, which both do it with pizzicato."
+			"description": "Muted staccato electric guitar notes walking, with brushed snare and an upright bass step. For sneaking. `suspense-stalking` and `mischief` do the same job with pizzicato."
 		},
 		"surf-chase-1": {
 			"role": "cue",
@@ -2313,7 +2313,7 @@
 			"file": "/audio/cues/ray-zap.opus",
 			"seconds": 3.46,
 			"mood": ["sharp", "sudden", "electronic"],
-			"description": "One descending synth zap with a short tail. For `weapons/blaster`, `weapons/ray-gun` and `weapons/sword-energy`, which had no sound at all."
+			"description": "One descending synth zap with a short tail. For a blaster, a ray gun or an energy weapon."
 		},
 		"robot-chirp-1": {
 			"role": "cue",
@@ -2321,7 +2321,7 @@
 			"seconds": 2.01,
 			"take": "robot-chirp",
 			"mood": ["small", "friendly", "electronic"],
-			"description": "Short square wave bleeps rising and falling over a soft click. A small machine talking — the robot in the `space` pack, and the one on the title card, finally saying something."
+			"description": "Short square wave bleeps rising and falling over a soft click. For a small machine or robot speaking. One of three electronic sounds in the library."
 		},
 		"robot-chirp-2": {
 			"role": "cue",
@@ -2329,7 +2329,7 @@
 			"seconds": 2.01,
 			"take": "robot-chirp",
 			"mood": ["small", "friendly", "electronic"],
-			"description": "Short square wave bleeps rising and falling over a soft click. A small machine talking — the robot in the `space` pack, and the one on the title card, finally saying something."
+			"description": "Short square wave bleeps rising and falling over a soft click. For a small machine or robot speaking. One of three electronic sounds in the library."
 		},
 		"blacksmith-strike": {
 			"role": "cue",
@@ -2337,14 +2337,14 @@
 			"seconds": 1.06,
 			"bpm": 80,
 			"mood": ["ringing", "rhythmic", "metallic"],
-			"description": "Three hammer strikes on an anvil under a low bellows breath. For `fairy-tale/blacksmith`. The quietest thing in the batch and left exactly as generated."
+			"description": "Three hammer strikes on an anvil under a low bellows breath. For `fairy-tale/blacksmith`."
 		},
 		"herald-fanfare": {
 			"role": "cue",
 			"file": "/audio/cues/herald-fanfare.opus",
 			"seconds": 1.56,
 			"mood": ["formal", "bright", "ceremonial"],
-			"description": "A natural trumpet call with a single tabor hit. A herald announcing somebody — valveless, so it is restricted to the harmonic series, which is what makes it read as old rather than as the orchestral brass in `curtain-up`. Arrived twelve decibels hot and took the largest trim in the batch."
+			"description": "A natural trumpet call with a single tabor hit. For a herald or a proclamation. Valveless and restricted to the harmonic series, so it reads as medieval rather than as the orchestral brass in `curtain-up`."
 		},
 		"minstrel-air-1": {
 			"role": "cue",
@@ -2353,7 +2353,7 @@
 			"bpm": 90,
 			"take": "minstrel-air",
 			"mood": ["gentle", "modal", "wandering"],
-			"description": "A solo gittern picking a modal tune. The `fairy-tale/minstrel` has been on the shelf since the pack shipped and this is the first thing it can play."
+			"description": "A solo gittern picking a modal tune. For a minstrel, a bard, or a quiet medieval scene."
 		},
 		"minstrel-air-2": {
 			"role": "cue",
@@ -2362,7 +2362,7 @@
 			"bpm": 90,
 			"take": "minstrel-air",
 			"mood": ["gentle", "modal", "wandering"],
-			"description": "A solo gittern picking a modal tune. The `fairy-tale/minstrel` has been on the shelf since the pack shipped and this is the first thing it can play."
+			"description": "A solo gittern picking a modal tune. For a minstrel, a bard, or a quiet medieval scene."
 		},
 		"feast-hall-1": {
 			"role": "bed",
@@ -2371,7 +2371,7 @@
 			"bpm": 120,
 			"take": "feast-hall",
 			"mood": ["rowdy", "warm", "dancing"],
-			"description": "Shawm and recorder trading a modal dance tune over a steady tabor and plucked gittern. The great hall, a wedding, a celebration. Ends level with its middle, so unlike almost every bed here it loops without a hole."
+			"description": "Shawm and recorder trading a modal dance tune over a steady tabor and plucked gittern. The great hall, a wedding, a celebration. Ends at its starting level, so it loops cleanly."
 		},
 		"feast-hall-2": {
 			"role": "bed",
@@ -2380,7 +2380,7 @@
 			"bpm": 120,
 			"take": "feast-hall",
 			"mood": ["rowdy", "warm", "dancing"],
-			"description": "Shawm and recorder trading a modal dance tune over a steady tabor and plucked gittern. The great hall, a wedding, a celebration. Ends level with its middle, so unlike almost every bed here it loops without a hole."
+			"description": "Shawm and recorder trading a modal dance tune over a steady tabor and plucked gittern. The great hall, a wedding, a celebration. Ends at its starting level, so it loops cleanly."
 		},
 		"feast-hall-3": {
 			"role": "bed",
@@ -2389,7 +2389,7 @@
 			"bpm": 120,
 			"take": "feast-hall",
 			"mood": ["rowdy", "warm", "dancing"],
-			"description": "Shawm and recorder trading a modal dance tune over a steady tabor and plucked gittern. The great hall, a wedding, a celebration. Ends level with its middle, so unlike almost every bed here it loops without a hole."
+			"description": "Shawm and recorder trading a modal dance tune over a steady tabor and plucked gittern. The great hall, a wedding, a celebration. Ends at its starting level, so it loops cleanly."
 		},
 		"march-army": {
 			"role": "bed",
@@ -2397,7 +2397,7 @@
 			"seconds": 30.09,
 			"bpm": 70,
 			"mood": ["heavy", "inevitable", "processional"],
-			"description": "Deep war drums in a slow tread under a low shawm drone. An army on the move, or a procession that is not going to stop. Fades at the end, so it wants `fade` rather than `loop`."
+			"description": "Deep war drums in a slow tread under a low shawm drone. An army on the move, or a procession that is not going to stop. Fades at the end; use `fade` or a hand-off rather than `loop`."
 		},
 		"argument": {
 			"role": "cue",
@@ -2467,7 +2467,7 @@
 			"bpm": 130,
 			"take": "street-bustle",
 			"mood": ["hurrying", "cheerful", "busy"],
-			"description": "A walking upright bass under clipped accordion chords and brushed snare. Four seconds of a street going about its business."
+			"description": "A walking upright bass under clipped accordion chords and brushed snare. Four seconds of ordinary street activity. `street-bustle-long` is the same idea at thirty-four seconds."
 		},
 		"street-bustle-2": {
 			"role": "cue",
@@ -2476,7 +2476,7 @@
 			"bpm": 130,
 			"take": "street-bustle",
 			"mood": ["hurrying", "cheerful", "busy"],
-			"description": "A walking upright bass under clipped accordion chords and brushed snare. Four seconds of a street going about its business."
+			"description": "A walking upright bass under clipped accordion chords and brushed snare. Four seconds of ordinary street activity. `street-bustle-long` is the same idea at thirty-four seconds."
 		},
 		"street-bustle-long": {
 			"role": "bed",
@@ -2484,7 +2484,7 @@
 			"seconds": 33.62,
 			"bpm": 130,
 			"mood": ["hurrying", "cheerful", "busy"],
-			"description": "A walking upright bass under clipped accordion chords and brushed snare, at thirty-four seconds. A street to play a whole scene under, for the `street` pack's thirty-one silent pieces. Ends within three decibels of its middle, so it very nearly loops."
+			"description": "A walking upright bass under clipped accordion chords and brushed snare, at thirty-four seconds. A street to play a whole scene under, for the `street` pack's thirty-one silent pieces. Ends at its starting level, so it loops cleanly."
 		},
 		"bird-chirp": {
 			"role": "cue",
@@ -2563,7 +2563,7 @@
 			"seconds": 2.01,
 			"take": "big-beast",
 			"mood": ["huge", "lumbering", "low"],
-			"description": "A low tuba growl over slow timpani steps. Something very large arriving — the giant, the ogre, the whale. Peter and the Wolf, not a monster movie."
+			"description": "A low tuba growl over slow timpani steps. For a giant, an ogre, or any very large creature arriving."
 		},
 		"big-beast-2": {
 			"role": "cue",
@@ -2595,7 +2595,7 @@
 			"seconds": 3.01,
 			"take": "bow-courtly",
 			"mood": ["formal", "gracious", "courtly"],
-			"description": "A short string cadence with a soft harpsichord flourish. From a prompt asking for a softer opening than `bow-courtly-1`, and it arrived nearly at level."
+			"description": "A short string cadence with a soft harpsichord flourish. For a bow, a curtsy or a formal entrance."
 		},
 		"bow-courtly-3": {
 			"role": "cue",
@@ -2721,7 +2721,7 @@
 			"seconds": 5.01,
 			"take": "explosion-comic",
 			"mood": ["chaotic", "slapstick", "loud"],
-			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals. Turned down 4 dB on the way in — it arrived at -16 LUFS, the loud end of the library, and dense enough to swamp a line. Long enough to duck the bed while it runs.",
+			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals. Long enough to duck the bed while it runs.",
 			"skill": "flash"
 		},
 		"explosion-comic-2": {
@@ -2730,7 +2730,7 @@
 			"seconds": 5.01,
 			"take": "explosion-comic",
 			"mood": ["chaotic", "slapstick", "loud"],
-			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals. Turned down 4 dB on the way in, and the quietest of the three takes.",
+			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals.",
 			"skill": "flash"
 		},
 		"explosion-comic-3": {
@@ -2739,7 +2739,7 @@
 			"seconds": 5.01,
 			"take": "explosion-comic",
 			"mood": ["chaotic", "slapstick", "loud"],
-			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals. Turned down 4 dB on the way in.",
+			"description": "A cartoon explosion: brass stabs, slapstick percussion, a wobbling bassoon and crash cymbals.",
 			"skill": "flash"
 		},
 		"potion-bubble-1": {
@@ -2764,7 +2764,7 @@
 			"seconds": 2.21,
 			"take": "potion-bubble",
 			"mood": ["wet", "small", "glassy"],
-			"description": "A small glass bottle bubbling, fine wet pops."
+			"description": "A small glass bottle bubbling, fine wet pops. For a potion, a cauldron or anything brewing."
 		},
 		"hinge-creak-1": {
 			"role": "sfx",
@@ -2812,7 +2812,7 @@
 			"seconds": 3.01,
 			"take": "vanish-poof",
 			"mood": ["magical", "soft", "delicate"],
-			"description": "A single puff of air with a chime tail, from a differently worded prompt than the other three. Very quiet — about 14 dB under its siblings and the faintest sound in the library, so it will disappear under a bed unless the moment is already still."
+			"description": "A single puff of air with a chime tail. For something disappearing. About 14 dB under the other `vanish-poof` takes and the faintest sound in the library, so it will be lost under a bed unless the moment is already quiet."
 		},
 		"wind-gust-1": {
 			"role": "sfx",
@@ -2956,7 +2956,7 @@
 			"file": "/audio/sfx/knock-dull.opus",
 			"seconds": 0.43,
 			"mood": ["dull", "wooden", "abrupt"],
-			"description": "A single short knock: fast attack, dead by a third of a second, mid-weighted with almost no top. Duller and much shorter than `thud`. Came in clipping and 6 dB hotter than the rest of the library, so it is the one sound here that was turned down on the way in."
+			"description": "A single short knock: fast attack, dead by a third of a second, mid-weighted with almost no top. Duller and much shorter than `thud`."
 		},
 		"laugh-cute": {
 			"role": "sfx",
