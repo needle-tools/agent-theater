@@ -187,74 +187,138 @@
       "tagline": "Cut image backgrounds and build sprite sheets in the browser."
     },
     {
-      "id": "collage",
-      "name": "Needle Collage",
-      "url": "https://webmcp.needle.tools/collage",
-      "description": "Build a collage from cut-out images on an infinite canvas, then export it as a print page, an image, or code for a website. Backgrounds are removed automatically as images arrive — the page runs FastCut's remover itself, so an agent passes the original photo and never needs a second tab for it. Frames decide the output: drop an A4 frame around the work for print, an og:image frame for a social card, a hero frame for a web page — one canvas, several deliverables. Cut-outs are measured to their visible shape, and their transparency drives silhouettes, sticker outlines and shadows. The collage survives a reload.",
+      "id": "agent-theater",
+      "name": "Agent Theater",
+      "url": "https://theater.needle.tools",
+      "description": "Stage and perform paper-cut plays with a browser AI agent. Use ready-made troupe art or add and cut images, arrange a cast on an infinite canvas, create scenes, script movement and dialogue, add voices and sound, watch the result, and save or publish the finished play.",
       "status": "live",
       "tools": [
         {
-          "name": "collage_describe",
-          "description": "Everything on the canvas and every frame, with sizes and any resolution problems."
+          "name": "theater_start",
+          "description": "Read this first: explains the theater workflow and reports the current canvas, scenes, title and best next step."
         },
         {
-          "name": "collage_add_image",
-          "description": "Put an image on the canvas from an http(s) or data: URL. The background is removed automatically — pass the original photo, do not cut it out first."
+          "name": "theater_avatar",
+          "description": "Set the floating agent avatar from a spritesheet."
         },
         {
-          "name": "collage_remove_background",
-          "description": "Re-run background removal on a layer already on the canvas."
+          "name": "theater_troupe",
+          "description": "List the bundled precut cast and scenery, or add selected pieces to the canvas."
         },
         {
-          "name": "collage_add_text",
-          "description": "Add a headline or caption. It stays real text in the exported HTML."
+          "name": "theater_art_prompt",
+          "description": "Write a ready-to-use image-generation prompt for matching actor, scenery, background or depth-layer sheets."
         },
         {
-          "name": "collage_set_text",
-          "description": "Rewrite a text layer or restyle it: colour, size, typeface, alignment."
+          "name": "theater_background",
+          "description": "Recolour the stage paper for mood or return it to its default colour."
         },
         {
-          "name": "collage_set_page",
-          "description": "Choose what the collage is for, which sets the export size: free canvas, A4, US Letter, square post, story, og:image, slide or web hero."
+          "name": "theater_clear",
+          "description": "Clear the play from the canvas while keeping one recoverable copy in the wings."
         },
         {
-          "name": "collage_arrange",
-          "description": "Lay the images out: grid, row, column, ring, scatter, packed, or collage — overlapping and tilted."
+          "name": "theater_restore",
+          "description": "Restore the last play cleared with theater_clear onto an empty canvas."
         },
         {
-          "name": "collage_watch",
-          "description": "Block until something changes on the canvas, then return what happened together with a picture of it. Call in a loop to follow along while a person works."
+          "name": "piece_sheet",
+          "description": "Cut a generated image grid into separately usable actors, scenery pieces or backdrops."
         },
         {
-          "name": "collage_select",
-          "description": "Pick out layers by id or by words matching their names. The person sees the same selection highlighted."
+          "name": "piece_add",
+          "description": "Add an image from an http(s) or data URL, remove its background, and optionally split distinct objects into pieces."
         },
         {
-          "name": "collage_capture",
-          "description": "Return an image of part of the canvas — the selection, given layers, or a rectangle — with the exact region, so a generated image can be dropped back in its place."
+          "name": "piece_list",
+          "description": "List everything on the canvas with positions, sizes, selection and pending sheet cuts."
         },
         {
-          "name": "collage_transform",
-          "description": "Move, scale, rotate or restack one layer — scale relative to its current size, or set an exact width."
+          "name": "piece_move",
+          "description": "Move, resize, rotate or restack one piece."
         },
         {
-          "name": "collage_style",
-          "description": "Style a cut-out using its own transparency: silhouette fill, sticker outline, drop shadow, opacity."
+          "name": "piece_copy",
+          "description": "Clone an image piece so copies can be cast and scripted independently."
         },
         {
-          "name": "collage_preview",
-          "description": "Render a frame and return it as an image, so you can see what you made and fix what is wrong."
+          "name": "piece_text",
+          "description": "Add a text piece to the canvas."
         },
         {
-          "name": "collage_export",
-          "description": "Export a frame as a PNG, a print/PDF page, a self-contained HTML snippet, or a whole page to host as an embed."
+          "name": "piece_say",
+          "description": "Have a piece speak immediately in a bubble outside a running show."
         },
         {
-          "name": "collage_remove",
-          "description": "Take one layer or frame off the canvas."
+          "name": "piece_remove",
+          "description": "Remove one piece from the canvas."
+        },
+        {
+          "name": "stage_create",
+          "description": "Create or update a scene, including its location, backdrop, music and transition."
+        },
+        {
+          "name": "stage_cast",
+          "description": "Choose which pieces appear in a scene and set their roles, positions, entrances and voices."
+        },
+        {
+          "name": "stage_script",
+          "description": "Save and optionally rehearse a scene's ordered movement, dialogue, sound, effects and camera beats."
+        },
+        {
+          "name": "stage_describe",
+          "description": "Describe the scenes, casts, scripts and where everybody stands when each scene opens."
+        },
+        {
+          "name": "stage_remove",
+          "description": "Remove scenes without removing their pieces from the canvas."
+        },
+        {
+          "name": "show_title",
+          "description": "Set the play's title card, byline and maker credits."
+        },
+        {
+          "name": "show_sounds",
+          "description": "List the available music beds, stings and sound effects with descriptions."
+        },
+        {
+          "name": "show_play",
+          "description": "Perform selected scenes or the whole show and return its timetable immediately."
+        },
+        {
+          "name": "show_stop",
+          "description": "Stop the current performance and leave its current scene visible."
+        },
+        {
+          "name": "show_look",
+          "description": "Return an image of the current canvas so the agent can inspect its work."
+        },
+        {
+          "name": "show_watch",
+          "description": "Wait for canvas changes and return the events with a picture, enabling live collaboration and narrator mode."
+        },
+        {
+          "name": "show_save",
+          "description": "Save the play online as an unlisted shareable link."
+        },
+        {
+          "name": "show_publish",
+          "description": "Publish the play to the shared public library and return its URL."
+        },
+        {
+          "name": "show_list",
+          "description": "Find public plays by title, troupe theme, chapter count or runtime."
+        },
+        {
+          "name": "show_load",
+          "description": "Replace the current canvas with a published or unlisted play."
+        },
+        {
+          "name": "theater_batch",
+          "description": "Run several theater tools in order as one round trip and one undoable action."
         }
       ],
-      "tagline": "Arrange cut-outs on an infinite canvas; export a page, an image, or the code."
+      "tagline": "Tell an AI agent a story and watch it stage the play."
     },
     {
       "id": "needle-inspector",
@@ -438,31 +502,31 @@
       ]
     },
     {
-      "id": "photo-collage",
-      "title": "Photos to a collage, a poster or a web page",
-      "goal": "Turn a set of photos into a collage and get it out as a print page, an image, or code for a website.",
-      "keywords": ["collage", "poster", "moodboard", "mood board", "montage", "cut out", "cutout", "silhouette", "a4", "print", "pdf", "flyer", "zine", "og image", "social card", "hero", "embed"],
+      "id": "stage-a-play",
+      "title": "Stage and perform a paper-cut play",
+      "goal": "Turn a story into a cast, scenes and a performed paper-cut play that can be shared.",
+      "keywords": ["theater", "theatre", "play", "story", "puppet", "paper cut", "cast", "scene", "perform", "dialogue", "narrate"],
       "steps": [
         {
-          "app": "collage",
-          "url": "https://webmcp.needle.tools/collage",
-          "tools": ["collage_add_image", "collage_set_page", "collage_arrange", "collage_preview"],
-          "instruction": "Open the collage page and pass each photo straight to collage_add_image — the page removes the background itself, so do not open FastCut first. Say what it is for with collage_set_page — 'a4-portrait' for print, 'og-1200x630' for a social card, 'web-hero' for a page banner, or leave it free. Then collage_arrange ('collage' overlaps and tilts them; 'packed' is tidy justified rows), and look at the result with collage_preview before deciding anything is finished."
+          "app": "agent-theater",
+          "url": "https://theater.needle.tools",
+          "tools": ["theater_start", "theater_troupe", "piece_add", "piece_sheet"],
+          "instruction": "Open Agent Theater and call theater_start first. Use theater_troupe for ready-made art. If the story needs custom art, add individual images with piece_add or generate a grid using theater_art_prompt and cut it apart with piece_sheet."
         },
         {
-          "app": "collage",
-          "url": "https://webmcp.needle.tools/collage",
-          "tools": ["collage_style", "collage_transform", "collage_preview"],
-          "instruction": "Refine what the preview showed: collage_style turns a cut-out into a flat silhouette, gives it a sticker outline or a drop shadow, all driven by its own transparency. collage_transform nudges anything that landed badly. Preview again after each round."
+          "app": "agent-theater",
+          "url": "https://theater.needle.tools",
+          "tools": ["stage_create", "stage_cast", "stage_script", "show_look"],
+          "instruction": "Create the story's scenes, cast the pieces into each one, and hand each scene's complete sequence of movement and dialogue to stage_script. Use show_look to inspect the staging."
         },
         {
-          "app": "collage",
-          "url": "https://webmcp.needle.tools/collage",
-          "tools": ["collage_export"],
-          "instruction": "Export: 'png' for an image, 'print' to open the print dialogue (Save as PDF for paper), 'html' for a responsive snippet to paste into a site, 'embed' for a whole page to host. The same canvas can carry several frames, so one arrangement can produce a poster and a social card without redoing the work."
+          "app": "agent-theater",
+          "url": "https://theater.needle.tools",
+          "tools": ["show_title", "show_play", "show_save", "show_publish"],
+          "instruction": "Name the play, perform it, then save it as an unlisted link or publish it to the shared library when the user asks."
         }
       ],
-      "note": "To collaborate rather than just build: collage_watch blocks until the person does something and returns a picture of the result, so an agent can follow along and react. collage_select and collage_capture hand a piece of the canvas to an image model, and the capture reports the exact region — so what comes back can be placed with collage_add_image at the same coordinates. One tab is enough for the cut-outs — the collage page removes backgrounds itself. If it reports that the remover could not be loaded, fall back to FastCut (fastcut_add_image, then fastcut_get_image) and pass the transparent PNG to collage_add_image with removeBackground: false. Watch the resolution warnings either way: a cut-out that looks sharp on screen can be a smear on A4, and the collage tools say so before it is printed rather than after."
+      "note": "For live collaboration, show_watch waits for the person's canvas changes and returns a picture; piece_say lets a character react immediately. theater_batch can combine known setup steps into one call."
     },
     {
       "id": "debug-scene",

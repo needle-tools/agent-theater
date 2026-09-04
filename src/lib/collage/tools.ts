@@ -319,10 +319,10 @@ function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef
     const byName = new Map(tools.map(tool => [tool.name, tool]));
     return {
         name: "theater_batch",
-        title: "Run several collage tools as one batch",
+        title: "Run several theater tools as one batch",
         description:
-            "Run a list of collage tools in order, in one call. Use it whenever you know more than one step " +
-            "in advance — moving six layers, styling a set, building a layout — because it is one round trip " +
+            "Run a list of theater tools in order, in one call. Use it whenever you know more than one step " +
+            "in advance — adding a cast, moving several pieces, or building and scripting scenes — because it is one round trip " +
             "instead of six, it undoes as a single step, and the canvas deals the changes 125ms apart. Each step " +
             "is { tool, args } exactly as you would have called it. Steps see what earlier steps did, so ids " +
             "from a piece_add step are usable later in the same batch.",
@@ -782,6 +782,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
         {
             name: "theater_clear",
             title: "Clear the whole stage",
+            annotations: { readOnlyHint: false, destructiveHint: true },
             description:
                 "Clear the canvas for a fresh start — safely: everything on it (pieces, scenes, " +
                 "scripts, title) steps into the wings, and theater_restore brings the whole set back " +
@@ -1001,9 +1002,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 "The whole sheet goes to FastCut's remover in ONE pass, with the grid telling it where " +
                 "each cell is — this page runs that remover itself, in a hidden frame, so there is no " +
                 "second tab to open and no per-piece round trip. " +
-                "'actors' cuts each cell out of its background so it can stand on a stage; 'backgrounds' " +
-                "keeps each cell whole, because a backdrop IS a background and removing it would leave " +
-                "nothing. Pass the same labels you gave as subjects and every piece arrives named.",
+                "'actors' turns each cell into a movable cut-out. 'backgrounds' also removes the white " +
+                "sheet surround, but keeps the artwork inside each cell together as one backdrop rather " +
+                "than splitting it into separate objects. Pass the same labels you gave as subjects and " +
+                "every piece arrives named.",
             inputSchema: {
                 type: "object",
                 properties: {

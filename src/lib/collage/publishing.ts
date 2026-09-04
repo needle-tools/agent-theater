@@ -93,6 +93,7 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
     const save = (published: boolean): WebMcpToolDef => ({
         name: published ? "show_publish" : "show_save",
         title: published ? "Publish this play" : "Save this play online",
+        annotations: { readOnlyHint: false },
         description: published
             ? "Publish the current play to the shared library and return a shareable URL."
             : "Save the current play online as an unlisted shareable link. Reuses its edit token when id is supplied.",
@@ -187,6 +188,7 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
     }, {
         name: "show_load",
         title: "Load a published play",
+        annotations: { readOnlyHint: false, destructiveHint: true },
         description: "Replace the current canvas with a published or unlisted play by id or share URL.",
         inputSchema: { type: "object", properties: { id: { type: "string", description: "Play id or /p/<id> URL." } }, required: ["id"] },
         async execute(args: { id?: string }) {
