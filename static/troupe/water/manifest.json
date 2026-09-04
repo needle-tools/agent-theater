@@ -1,0 +1,34 @@
+{
+    "name": "water",
+    "description": "Water a character can be IN rather than next to. The troupe already had water from above (the ponds in `landscape`) and water as objects (`ocean`), but nothing with a waterline — so a boat could only ever sit beside the sea. These three are cut side-on and belong in front of the cast: `waterline` runs across the stage and repeats, `wave` breaks over them, `puddle` lies flat at their feet.",
+    "stylePrompt": "STYLE — follow this exactly, it matters more than the subject: Torn and cut paper collage. Every single shape is a piece of coloured paper that has been cut with scissors or torn by hand and laid flat on top of the others, with visible torn deckle edges, paper grain, fibre and a dry speckled gouache texture inside each shape. Small details — faces, eyes, twigs, stitching — are drawn on top in fine black ink line. Seen STRAIGHT ON, flat, from the front — the way an audience sees a puppet theatre or a paper cut-out stage. There is no vanishing point and no perspective anywhere. Depth is made only by putting one flat shape in front of another, never by making things smaller as they go back. ABSOLUTELY NOT: digital painting, watercolour, gouache painting, concept art, rendered 3D, airbrushing, photorealism, cinematic lighting, volumetric light, glow, ambient occlusion, depth of field, blur, gradients, soft shading, cast shadows, reflections, perspective depth, or texture that looks painted rather than papery. Nothing is lit. Nothing is round. Nothing recedes. Everything is flat. Shapes are simple, geometric and slightly naive — built from a few pieces, the way a child's paper cut-out is. Palette: muted, warm and mid-century — moss and olive green, deep navy used instead of black, brick red, cream, dusty rose, mustard, soft pink. Four to six colours in total, used as large flat areas.\n\nThe sheet is about: water seen from the SIDE — a stage-front waterline, a wave, a puddle — cut so a character can stand behind it.\n\nDraw ONE sheet: a 3 × 1 row of 3 separate pictures. Each cell is 1:1 — square. The cells must be exactly equal in size and evenly spaced, filling the whole image edge to edge, in reading order. Leave a clear even gap between cells and keep every subject well inside its own cell — nothing may touch or cross a cell edge. No grid lines, no borders, no numbers, no captions, no text, no watermark. NO WHITE OUTLINES. Do not draw a white keyline, a die-cut sticker border, a stroke or a glow around anything. This is not a sticker pack. NO OUTLINES. Before you draw anything, write out all 3 descriptions and check them: every one must be a COMPLETELY DIFFERENT object, not a variation of its neighbour. 3 genuinely different things, or the sheet is wasted.\n\nEach cell holds ONE piece of scenery on a PLAIN WHITE background, cut-out style, with no shadow, no ground under it, no sky behind it and nothing else in the cell. Draw the whole object, not a part of a scene, and do not draw two things in one cell. Keep the same scale, the same lighting and the same level of detail across every cell.\n\nThen cut it up at https://fastcut.needle.tools: fastcut_add_image, fastcut_set_output_format (WebP), fastcut_split_sprites, fastcut_download as a ZIP.",
+    "pieces": {
+        "waterline": {
+            "file": "waterline.webp",
+            "kind": "scenery",
+            "mood": [
+                "calm",
+                "day"
+            ],
+            "description": "A long low band of water with small crests along its top edge — the sea, a river or a flooded floor, seen from the side. Repeats end to end well enough to run the width of the stage, and is the piece to put IN FRONT of a character to stand them in water."
+        },
+        "wave": {
+            "file": "wave.webp",
+            "kind": "scenery",
+            "mood": [
+                "stormy",
+                "bold"
+            ],
+            "description": "A single big wave curling over to break, taller than it is wide. The dramatic one: a storm, a shipwreck, something about to be swept away."
+        },
+        "puddle": {
+            "file": "puddle.webp",
+            "kind": "scenery",
+            "mood": [
+                "calm",
+                "comic"
+            ],
+            "description": "A wide scallop-edged pool lying flat on the ground — a puddle, a pond, a spill. Small enough to jump into and the only water here a character can be shown standing beside."
+        }
+    }
+}

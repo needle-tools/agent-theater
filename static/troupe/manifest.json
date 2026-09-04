@@ -163,6 +163,16 @@
         "kinds": [
           "scenery"
         ]
+      },
+      {
+        "id": "water-pieces",
+        "label": "Water",
+        "packs": [
+          "water"
+        ],
+        "kinds": [
+          "scenery"
+        ]
       }
     ],
     "themes": [
