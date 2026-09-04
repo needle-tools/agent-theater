@@ -735,9 +735,16 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // The hold, or whatever is left of the minimum — whichever is
             // longer. A scene nobody wrote anything for still has to be looked
             // at, and one that ran its own length is not shortened by this.
+            //
+            // The camera's journey to the next chapter counts toward it rather
+            // than following it. Both are the same pause — the moment nothing
+            // is acting — and running them one after the other made three
+            // seconds of stillness out of a two-second beat.
             const held = (stage.hold ?? DEFAULT_HOLD) * 1000;
             const shortfall = MIN_SCENE_MS - (Date.now() - began);
-            await new Promise(resolve => setTimeout(resolve, Math.max(held, shortfall)));
+            const glide = stage === stages[stages.length - 1] ? 0 : TRAVEL_MS;
+            await new Promise(resolve =>
+                setTimeout(resolve, Math.max(0, Math.max(held, shortfall) - glide)));
         }
 
         if (hold && wanted) {

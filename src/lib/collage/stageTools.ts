@@ -693,6 +693,32 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             `There is: ${effectNames().join(", ")}`);
                     }
                 }
+                /*
+                 * A walk longer than the world is a misread "to".
+                 *
+                 * "to" is a distance; agents write the canvas point they want
+                 * to reach, and the character leaves for somewhere off the
+                 * paper. Caught here rather than played, because the play looks
+                 * like an animation bug and nobody suspects the number.
+                 */
+                const world = collage.listAll();
+                const span = world.length
+                    ? Math.max(
+                        Math.max(...world.map(l => l.x + l.width)) - Math.min(...world.map(l => l.x)),
+                        Math.max(...world.map(l => l.y + l.height)) - Math.min(...world.map(l => l.y)))
+                    : 0;
+                const tooFar = Math.max(2000, span * 1.5);
+                for (const [index, beat] of beats.entries()) {
+                    if (!beat?.to || beat.at) continue;
+                    const dx = num(beat.to.x) ? beat.to.x : 0;
+                    const dy = num(beat.to.y) ? beat.to.y : 0;
+                    const journey = Math.max(Math.abs(dx), Math.abs(dy));
+                    if (journey <= tooFar) continue;
+                    handErrors.push(
+                        `beat ${index + 1}: "to" travels ${Math.round(journey)}, further than the whole ` +
+                        `set (${Math.round(span)} across). "to" is a DISTANCE from where they stand — ` +
+                        `if you meant the canvas point, write "at": {x: ${Math.round(dx)}} instead`);
+                }
                 if (handErrors.length) {
                     return fail(["The scene has problems:", ...handErrors].join("\n"));
                 }

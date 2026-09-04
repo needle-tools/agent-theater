@@ -1095,6 +1095,56 @@ describe("wearing another picture", () => {
     });
 });
 
+describe("walking further than the world", () => {
+    it("refuses a distance that is really a destination", async () => {
+        // The number reads fine and plays as a character leaving for nowhere,
+        // which looks like an animation bug rather than a misread field.
+        const { studio, collage } = fakeStudio();
+        const wolf = collage.addImage({ src: "w", natural: { width: 100, height: 100 }, x: 1200, y: 0 });
+        const stage = collage.addStage({ name: "the road" });
+        collage.updateStage(stage.id, { cast: [{ id: wolf.id, x: 1200, y: 0 }] });
+
+        const script = createCollageTools(studio).find(t => t.name === "stage_script")!;
+        const result = await script.execute({
+            stage: stage.id,
+            rehearse: false,
+            beats: [{ id: wolf.id, do: "walk", to: { x: 4000 } }],
+        });
+        expect(result.isError).toBe(true);
+        expect(textOf(result)).toContain('"at"');
+    });
+
+    it("allows the same journey when it is written as a destination", async () => {
+        const { studio, collage } = fakeStudio();
+        const wolf = collage.addImage({ src: "w", natural: { width: 100, height: 100 }, x: 1200, y: 0 });
+        const stage = collage.addStage({ name: "the road" });
+        collage.updateStage(stage.id, { cast: [{ id: wolf.id, x: 1200, y: 0 }] });
+
+        const script = createCollageTools(studio).find(t => t.name === "stage_script")!;
+        const result = await script.execute({
+            stage: stage.id,
+            rehearse: false,
+            beats: [{ id: wolf.id, do: "walk", at: { x: 4000 } }],
+        });
+        expect(result.isError).toBeUndefined();
+    });
+
+    it("leaves an ordinary walk alone", async () => {
+        const { studio, collage } = fakeStudio();
+        const wolf = collage.addImage({ src: "w", natural: { width: 100, height: 100 }, x: 1200, y: 0 });
+        const stage = collage.addStage({ name: "the road" });
+        collage.updateStage(stage.id, { cast: [{ id: wolf.id, x: 1200, y: 0 }] });
+
+        const script = createCollageTools(studio).find(t => t.name === "stage_script")!;
+        const result = await script.execute({
+            stage: stage.id,
+            rehearse: false,
+            beats: [{ id: wolf.id, do: "walk", to: { x: 600 } }],
+        });
+        expect(result.isError).toBeUndefined();
+    });
+});
+
 describe("a speech is several bubbles", () => {
     it("expands an array of lines into consecutive beats for one speaker", async () => {
         const { studio, collage } = fakeStudio();
