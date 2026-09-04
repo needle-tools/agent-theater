@@ -512,11 +512,14 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                 camera: {
                                     type: "object",
                                     description:
-                                        "Move the view on this beat: push in on somebody, pull back to the " +
-                                        "whole scene, or drift from one group to another. The camera keeps " +
-                                        "moving for the beat's whole length, so \"duration\" is how slow it " +
-                                        "is — 600ms is a snap, 3000ms is a drift. A camera beat needs no " +
-                                        "\"id\"; it is about the view, not about anybody.",
+                                        "Move the view to frame pieces. The move takes the beat's whole " +
+                                        "\"duration\": 600ms = fast cut, 3000ms = drift, 8000ms = slow " +
+                                        "zoom. Use slow moves often, not only cuts. Add \"with\": true to " +
+                                        "move the camera WHILE the previous beat plays, e.g. a slow " +
+                                        "push-in during a line: {id, say: \"...\"} then {camera: {on: " +
+                                        "[id], tight: 1.3}, with: true, duration: 6000}. To travel from " +
+                                        "one place to another, frame piece A, then piece B. Needs no " +
+                                        "\"id\".",
                                     properties: {
                                         on: {
                                             description:
@@ -531,6 +534,13 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                             description:
                                                 "How much of the view they fill. 1 is snug (default), 0.6 " +
                                                 "leaves air around them, 1.4 is a close-up that crops.",
+                                        },
+                                        easing: {
+                                            type: "string",
+                                            enum: ["glide", "linear"],
+                                            description:
+                                                "'glide' (default) slows down at the end. 'linear' moves " +
+                                                "at constant speed — use it for long slow zooms and pans.",
                                         },
                                     },
                                     required: ["on"],

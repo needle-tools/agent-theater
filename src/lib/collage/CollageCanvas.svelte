@@ -789,7 +789,7 @@
             else next.delete(id);
             gone = next;
         },
-        camera: (ids, tight, duration) => frame(ids, tight, duration),
+        camera: (ids, tight, duration, easing) => frame(ids, tight, duration, false, easing),
         riders(id) {
             // World state: whoever is in this one's hands, chapter or no.
             return studio.collage.listAll()
@@ -1591,6 +1591,7 @@
         tight = 1,
         duration = 1400,
         cover = false,
+        easing: "glide" | "linear" = "glide",
     ): Promise<void> {
         if (!viewport) return Promise.resolve();
         lastFraming = { ids, tight, cover };
@@ -1616,7 +1617,7 @@
                 // Roomy on purpose: a cast-bounds rect hugs the artwork, and
                 // filling the screen with it reads as pressing your face to
                 // the paper. The play breathes when the scene sits in air.
-                return frameRects([scene], Math.min(tight, 0.66), true, duration, false);
+                return frameRects([scene], Math.min(tight, 0.66), true, duration, false, easing);
             }
             /*
              * A cover shot frames the stage alone and lets its edges crop —
@@ -1631,7 +1632,7 @@
                 ? [stage]
                 : [stage, ...onStageOnly(layers.map(layerBounds), stage)];
             fitted = true;
-            return frameRects(rects, tight, true, duration, cover);
+            return frameRects(rects, tight, true, duration, cover, easing);
         }
 
         const wanted = onStageOnly(
@@ -1640,7 +1641,7 @@
         // camera holds where it is and the beat still takes its time.
         if (!wanted.length) return waitOut(duration);
         fitted = true;
-        return frameRects(wanted, tight, true, duration);
+        return frameRects(wanted, tight, true, duration, false, easing);
     }
 
     /**
@@ -1720,6 +1721,7 @@
         animate: boolean,
         duration?: number,
         cover = false,
+        easing: "glide" | "linear" = "glide",
     ): Promise<void> {
         if (!viewport) return Promise.resolve();
         const minX = Math.min(...rects.map(r => r.x));
@@ -1740,7 +1742,7 @@
             zoom,
             x: viewport.clientWidth / 2 - ((minX + maxX) / 2) * zoom,
             y: viewport.clientHeight / 2 - ((minY + maxY) / 2) * zoom,
-        }, animate, duration);
+        }, animate, duration, easing);
     }
 
     let flight: number | null = null;
@@ -1759,6 +1761,7 @@
         target: { x: number; y: number; zoom: number },
         animate = false,
         duration = 420,
+        easing: "glide" | "linear" = "glide",
     ): Promise<void> {
         stopFlight();
         if (!animate || reducedMotion()) {
@@ -1770,9 +1773,11 @@
         return new Promise(resolve => {
             const step = (now: number) => {
                 const t = Math.min(1, (now - start) / duration);
-                // The same easing the arrange transition uses, so the canvas has
-                // one sense of how things move.
-                const eased = 1 - Math.pow(1 - t, 3);
+                // "glide" is the arrange transition's ease-out, so the canvas
+                // has one sense of how things settle. "linear" is the beat's
+                // machine drift — the documentary pan, the creeping zoom that
+                // never relents — and only a camera beat ever asks for it.
+                const eased = easing === "linear" ? t : 1 - Math.pow(1 - t, 3);
                 const zoom = Math.exp(Math.log(from.zoom) + (Math.log(target.zoom) - Math.log(from.zoom)) * eased);
                 view = {
                     zoom,

@@ -701,6 +701,12 @@ export interface CameraMove {
      * Below 1 pulls back, above 1 pushes in past the edges.
      */
     tight?: number;
+    /**
+     * How the move travels. "glide" (the default) settles in like a hand
+     * easing off; "linear" is a constant machine drift — the documentary
+     * pan, the slow creeping zoom that never relents.
+     */
+    easing?: "glide" | "linear";
 }
 
 export interface Beat {
@@ -876,7 +882,11 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
 
     for (const [index, beat] of beats.entries()) {
         const camera = beat?.camera && (Array.isArray(beat.camera.on) || beat.camera.on === "all")
-            ? { on: beat.camera.on, ...(typeof beat.camera.tight === "number" ? { tight: beat.camera.tight } : {}) }
+            ? {
+                on: beat.camera.on,
+                ...(typeof beat.camera.tight === "number" ? { tight: beat.camera.tight } : {}),
+                ...(beat.camera.easing === "linear" ? { easing: "linear" as const } : {}),
+            }
             : null;
         // A pause is a beat about nobody, like a camera move. It needs no id
         // and it is the one beat whose whole content is its length.

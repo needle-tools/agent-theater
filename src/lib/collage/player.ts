@@ -96,7 +96,10 @@ export interface Stagehand {
      * about the scene changes when it moves, and a layer animation cannot
      * express it — the whole world has to slide, not one picture in it.
      */
-    camera(ids: string[] | "all", tight: number, duration: number): Promise<void>;
+    camera(
+        ids: string[] | "all", tight: number, duration: number,
+        easing?: "glide" | "linear",
+    ): Promise<void>;
 }
 
 export interface Playing {
@@ -150,7 +153,7 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         // Started before the move so a beat can do both: the camera pushes in
         // while the person it is pushing in on takes their step.
         const framing = beat.camera
-            ? hand.camera(beat.camera.on, beat.camera.tight ?? 1, beat.duration)
+            ? hand.camera(beat.camera.on, beat.camera.tight ?? 1, beat.duration, beat.camera.easing)
             : null;
         // The document is told where this ends up first; the animation then
         // runs from minus the journey back to zero. A turn commits its flip the
