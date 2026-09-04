@@ -1,0 +1,59 @@
+diff --git a/src/lib/collage/Collage.svelte b/src/lib/collage/Collage.svelte
+--- a/src/lib/collage/Collage.svelte
++++ b/src/lib/collage/Collage.svelte
+@@ -33 +33 @@
+-    import { canEditPlay, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
++    import { canEditPlay, CURRENT_PLAY_KEY, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
+@@ -172,2 +172,0 @@
+-    const CURRENT_PLAY = "needle-play/current";
+-
+@@ -176 +174 @@
+-            const value = localStorage.getItem(CURRENT_PLAY);
++            const value = localStorage.getItem(CURRENT_PLAY_KEY);
+@@ -191 +189 @@
+-            try { localStorage.setItem(CURRENT_PLAY, JSON.stringify(play)); } catch { /* optional */ }
++            try { localStorage.setItem(CURRENT_PLAY_KEY, JSON.stringify(play)); } catch { /* optional */ }
+diff --git a/src/lib/collage/EditPopover.svelte b/src/lib/collage/EditPopover.svelte
+--- a/src/lib/collage/EditPopover.svelte
++++ b/src/lib/collage/EditPopover.svelte
+@@ -19,0 +20,2 @@
++        CURRENT_PLAY_CHANGED,
++        CURRENT_PLAY_KEY,
+@@ -26,2 +27,0 @@
+-    const CURRENT_PLAY = "needle-play/current";
+-
+@@ -69 +68 @@
+-            const saved = localStorage.getItem(CURRENT_PLAY);
++            const saved = localStorage.getItem(CURRENT_PLAY_KEY);
+@@ -71,0 +71,7 @@
++        const cleared = () => {
++            current = null;
++            playUrl = "";
++            onlineMessage = "Start a new play, then publish it as a new story.";
++        };
++        window.addEventListener(CURRENT_PLAY_CHANGED, cleared);
++        return () => window.removeEventListener(CURRENT_PLAY_CHANGED, cleared);
+@@ -76 +83 @@
+-        try { localStorage.setItem(CURRENT_PLAY, JSON.stringify(play)); } catch { /* optional */ }
++        try { localStorage.setItem(CURRENT_PLAY_KEY, JSON.stringify(play)); } catch { /* optional */ }
+diff --git a/src/lib/collage/publishing.ts b/src/lib/collage/publishing.ts
+--- a/src/lib/collage/publishing.ts
++++ b/src/lib/collage/publishing.ts
+@@ -5,0 +6,8 @@
++export const CURRENT_PLAY_KEY = "needle-play/current";
++export const CURRENT_PLAY_CHANGED = "needle-play-current-changed";
++
++/** Clearing the stage starts a new work, so a later save must create a new row. */
++export function forgetCurrentPlay(): void {
++    try { localStorage.removeItem(CURRENT_PLAY_KEY); } catch { /* Storage is optional. */ }
++    try { window.dispatchEvent(new CustomEvent(CURRENT_PLAY_CHANGED, { detail: null })); } catch { /* SSR */ }
++}
+diff --git a/src/lib/collage/studio.ts b/src/lib/collage/studio.ts
+--- a/src/lib/collage/studio.ts
++++ b/src/lib/collage/studio.ts
+@@ -52,0 +53 @@
++import { forgetCurrentPlay } from "./publishing.js";
+@@ -2298,0 +2300,3 @@
++            // A cleared canvas is a new work. Keeping the previous online id
++            // here would make its next Publish overwrite the finished story.
++            forgetCurrentPlay();

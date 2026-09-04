@@ -41,6 +41,8 @@
     import { prompter } from "./speech.js";
     import SubtitleVoiceMenu from "../subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "../subtitleVoice/index.js";
+    // Aliased: there is a local `track` in the spotlight effect below.
+    import { many, track as tally } from "../telemetry.js";
 
     interface Props {
         studio: CollageStudio;
@@ -181,6 +183,111 @@
      * stage: at full strength a pink sky would make the whole window pink and
      * there would be nothing to look at.
      */
+    /*
+     * The spotlight, behind ?spotlight for now — the LOOK, ahead of the beat
+     * that will drive it. `?spotlight` follows whichever piece stands nearest
+     * the middle of the screen when it arms (drag it and the beam follows);
+     * `?spotlight=fox` targets by id or label. Screen-space, tracked per
+     * frame, and purely presentational.
+     */
+    const SPOT_WANT = typeof location !== "undefined"
+        ? new URL(location.href).searchParams.get("spotlight")
+        : null;
+    /** `&range=1.8` scales the beam: 1 hugs the piece, 2.5 is a pool of light. */
+    const SPOT_RANGE = (() => {
+        if (typeof location === "undefined") return 1;
+        const raw = Number(new URL(location.href).searchParams.get("range"));
+        return Number.isFinite(raw) && raw > 0 ? Math.min(6, raw) : 1;
+    })();
+    /** What a show's beats aim the light at; null when the rig is dark. */
+    let spotShow = $state<{ ids: string[]; range: number } | null>(null);
+    let spots = $state<Array<{ x: number; y: number; r: number }>>([]);
+    let spotTarget: string | null = null;
+
+    /** The veil's mask and the glow, built for however many beams are lit.
+     *  Multiple mask layers intersect their alphas, so each layer's hole
+     *  survives into the union — with mask-composite saying so explicitly. */
+    const spotMask = $derived(spots.length
+        ? spots.map(s =>
+            `radial-gradient(circle at ${s.x.toFixed(1)}px ${s.y.toFixed(1)}px, ` +
+            `transparent ${(s.r * 0.8).toFixed(1)}px, black ${(s.r * 1.45).toFixed(1)}px)`).join(", ")
+        : null);
+    const spotGlowImage = $derived(spots.length
+        ? spots.map(s =>
+            `radial-gradient(circle at ${s.x.toFixed(1)}px ${s.y.toFixed(1)}px, ` +
+            `rgba(255, 232, 178, 0.14) 0, rgba(255, 232, 178, 0.05) ${(s.r * 0.9).toFixed(1)}px, ` +
+            `transparent ${(s.r * 1.3).toFixed(1)}px)`).join(", ")
+        : null);
+
+    $effect(() => {
+        if ((SPOT_WANT === null && !spotShow) || !viewport) return;
+        const beats = spotShow;
+        const host = viewport;
+        let raf = 0;
+        const pick = (): string | null => {
+            const want = (SPOT_WANT ?? "").trim().toLowerCase();
+            const candidates = studio.collage.list().filter(layer => layer.kind === "image");
+            if (want) {
+                const named = candidates.find(layer =>
+                    layer.id === want || layer.label.toLowerCase().includes(want))?.id;
+                // A name that matches nothing falls through to nearest-centre:
+                // this is a test rig, and no beam at all reads as "broken".
+                if (named) return named;
+            }
+            // Nearest the middle of the screen, chosen once and kept.
+            const mid = { x: host.clientWidth / 2, y: host.clientHeight / 2 };
+            let best: { id: string; far: number } | null = null;
+            for (const layer of candidates) {
+                const element = host.querySelector(`[data-layer="${CSS.escape(layer.id)}"]`);
+                if (!element) continue;
+                const rect = element.getBoundingClientRect();
+                const base = host.getBoundingClientRect();
+                const far = Math.hypot(
+                    rect.left - base.left + rect.width / 2 - mid.x,
+                    rect.top - base.top + rect.height / 2 - mid.y);
+                if (!best || far < best.far) best = { id: layer.id, far };
+            }
+            return best?.id ?? null;
+        };
+        const measure = () => {
+            // A show's beats outrank the ?spotlight rig while both are up.
+            let wanted: string[];
+            let range: number;
+            if (beats) {
+                wanted = beats.ids;
+                range = beats.range;
+            } else {
+                if (!spotTarget || !studio.collage.get(spotTarget)) spotTarget = pick();
+                wanted = spotTarget ? [spotTarget] : [];
+                range = SPOT_RANGE;
+            }
+            const base = host.getBoundingClientRect();
+            spots = wanted.flatMap(id => {
+                const element = host.querySelector(`[data-layer="${CSS.escape(id)}"]`);
+                if (!element) return [];
+                const rect = element.getBoundingClientRect();
+                return [{
+                    x: rect.left - base.left + rect.width / 2,
+                    y: rect.top - base.top + rect.height / 2,
+                    r: (Math.max(rect.width, rect.height) * 0.62 + 28) * range,
+                }];
+            });
+        };
+        const track = () => {
+            raf = requestAnimationFrame(track);
+            measure();
+        };
+        track();
+        // rAF stalls entirely in a hidden tab; the slow ticker keeps the beam
+        // roughly aimed so a tab switched back to is not lit in the wrong place.
+        const ticker = setInterval(measure, 400);
+        return () => {
+            cancelAnimationFrame(raf);
+            clearInterval(ticker);
+            spots = [];
+        };
+    });
+
     const surround = $derived.by(() => {
         void version;
         const stage = studio.collage.activeStage;
@@ -681,6 +788,9 @@
         paper(color) {
             studio.collage.setBackground(color === "paper" ? "" : color);
         },
+        spotlight(ids, range) {
+            spotShow = ids.length ? { ids, range } : null;
+        },
         follow(id, dx, dy, duration) {
             if (!showing || !viewport) return;
             const layer = placed.find(candidate => candidate.id === id);
@@ -1090,10 +1200,27 @@
                 bit.shape === "sliver" ? "border-radius: 45%;" :
                 "border-radius: 50%;";
             const tall = bit.shape === "strip" || bit.shape === "sliver" ? size * 2.4 : size;
-            piece.style.cssText =
-                `position: absolute; left: ${(bit.x * 100).toFixed(1)}%; top: ${(bit.y * 100).toFixed(1)}%; ` +
-                `width: ${size.toFixed(1)}px; height: ${tall.toFixed(1)}px; ` +
-                `background: ${bit.color}; opacity: 0; ${shape}`;
+            if (bit.shape === "glyph") {
+                /*
+                 * Drawn as text, not as a coloured box: a hash is a letter,
+                 * and a clip-path approximating one at fifteen pixels across
+                 * would be a smudge. The box is sized by `size` like every
+                 * other bit, and the type fills it — line-height 1 and a
+                 * centred grid, so the character sits where the maths put it
+                 * rather than wherever its own metrics would drop it.
+                 */
+                piece.textContent = bit.glyph ?? "#";
+                piece.style.cssText =
+                    `position: absolute; left: ${(bit.x * 100).toFixed(1)}%; top: ${(bit.y * 100).toFixed(1)}%; ` +
+                    `display: grid; place-items: center; ` +
+                    `font: 900 ${size.toFixed(1)}px/1 var(--font-display, system-ui), sans-serif; ` +
+                    `color: ${bit.color}; opacity: 0; user-select: none;`;
+            } else {
+                piece.style.cssText =
+                    `position: absolute; left: ${(bit.x * 100).toFixed(1)}%; top: ${(bit.y * 100).toFixed(1)}%; ` +
+                    `width: ${size.toFixed(1)}px; height: ${tall.toFixed(1)}px; ` +
+                    `background: ${bit.color}; opacity: 0; ${shape}`;
+            }
             flock.appendChild(piece);
             const dx = bit.dx * target.width;
             const dy = bit.dy * target.height;
@@ -1155,6 +1282,9 @@
         gestures.clear();
         for (const flock of [...flocks]) flock.remove();
         flocks.clear();
+        // The lighting rig belongs to the scene that aimed it: the next
+        // chapter starts with the house lights up.
+        spotShow = null;
         // The player cancels animations; the prompter is the page's, not the
         // scene's, so it has to be told separately. Without this the lines of
         // an abandoned scene carry on being spoken over an empty stage — and
@@ -1204,6 +1334,8 @@
         if (text !== (layer as TextLayer).text) {
             studio.collage.update(id, { text });
             studio.record("layer-styled", `A person set a text layer to "${text.slice(0, 40)}".`, "human", { id });
+            // That somebody typed, and roughly how much. Never what.
+            tally("text_edited", { by: "human", characters: text.length });
         }
         // Hug what it now says, rather than keeping the box the placeholder had.
         studio.collage.fitText(id, width, height);
@@ -1275,6 +1407,7 @@
             }
             pasted.push(copy.id);
         }
+        tally("piece_added", { by: "human", source: "paste", count: pasted.length });
         studio.setSelection(pasted);
         studio.save();
     }
@@ -1285,8 +1418,12 @@
         event.preventDefault();
         if (layer.kind === "text") {
             editingId = layer.id;
+            tally("piece_opened", { by: "human", kind: "text" });
             return;
         }
+        // Double-clicking a cut-out makes it say hello. Counted because it is
+        // the one gesture in here nobody discovers unless they try it.
+        tally("piece_greeted", { by: "human" });
         const greeting = randomGreetingForLayer(layer);
         void stagehand.voice(layer.id, greeting, readingTime(greeting));
     }
@@ -1295,6 +1432,28 @@
     /** The eraser is down and sweeping; ends with the pointer, saves once. */
     let eraseSweep = false;
     let erasedAny = false;
+    /** How many the sweep caught, counted once at the end like the save. */
+    let erasedCount = 0;
+
+    /**
+     * Looking around, counted once per look.
+     *
+     * A wheel gesture is thirty events and a pinch is a hundred; one event per
+     * frame of a zoom would drown everything else on the page in noise and say
+     * nothing more than "somebody zoomed". So the last one wins, a beat after
+     * the hands stop.
+     */
+    let viewSettle: ReturnType<typeof setTimeout> | null = null;
+    let viewHow = "wheel";
+
+    function noteView(how: "wheel" | "pinch" | "drag") {
+        viewHow = how;
+        if (viewSettle) clearTimeout(viewSettle);
+        viewSettle = setTimeout(() => {
+            viewSettle = null;
+            tally("canvas_view", { by: "human", how: viewHow, during_show: !!showing });
+        }, 1200);
+    }
 
     /**
      * Rub out whatever the pointer is touching, with a little forgiveness.
@@ -1323,6 +1482,7 @@
             }
             studio.collage.remove(layer.id);
             erasedAny = true;
+            erasedCount++;
         }
         if (erasedAny) studio.setSelection([]);
     }
@@ -1751,7 +1911,10 @@
 
     function pinchTo() {
         const now = grip();
-        if (pinch && now) view = pinched(pinch.view, pinch.from, now);
+        if (pinch && now) {
+            view = pinched(pinch.view, pinch.from, now);
+            noteView("pinch");
+        }
     }
 
     function onWheel(event: WheelEvent) {
@@ -1760,6 +1923,7 @@
         // back on the next scene it frames.
         event.preventDefault();
         stopFlight();
+        noteView("wheel");
         const rect = viewport!.getBoundingClientRect();
         // Zoom about the cursor: the canvas point under it must not move. Same
         // arithmetic two fingers use, and bounded by the same band.
@@ -1857,9 +2021,13 @@
         if (layer) {
             if (event.shiftKey) {
                 // Toggle, so shift-clicking a picked layer lets it go again.
-                studio.setSelection(isSelected(layer.id)
+                const next = isSelected(layer.id)
                     ? selectedIds.filter(id => id !== layer.id)
-                    : [...selectedIds, layer.id]);
+                    : [...selectedIds, layer.id];
+                studio.setSelection(next);
+                tally("pieces_selected", {
+                    by: "human", how: "shift", count: next.length, pieces: many(next.length),
+                });
             } else if (!isSelected(layer.id)) {
                 studio.setSelection([layer.id]);
             }
@@ -2011,10 +2179,12 @@
             });
             studio.record("layer-moved",
                 `"${layer.label}" now rides "${holder.label}".`);
+            tally("piece_attached", { by: "human" });
         } else if (!holder && holding) {
             // Dragged clear of everything: let go, and keep its feet.
             studio.collage.update(dropped, { held: null, x: layer.x, y: layer.y });
             studio.record("layer-moved", `"${layer.label}" was set down.`);
+            tally("piece_detached", { by: "human" });
         }
     }
 
@@ -2059,6 +2229,10 @@
             eraseSweep = false;
             if (erasedAny) {
                 erasedAny = false;
+                tally("pieces_erased", {
+                    by: "human", count: erasedCount, pieces: many(erasedCount),
+                });
+                erasedCount = 0;
                 studio.save();
             }
             return;
@@ -2092,6 +2266,32 @@
                     { id: layer.id, x: Math.round(layer.x), y: Math.round(layer.y), width: Math.round(layer.width) });
             }
         }
+        /*
+         * The gesture, counted once when the hand lets go.
+         *
+         * Not during the drag: a move is a hundred pointer events and all of
+         * them are the same fact. `during_show` because rearranging the paper
+         * while the play runs is the thing this theatre is unusual for, and
+         * nothing else would tell us whether anybody does it.
+         */
+        if (moved && drag) {
+            if (drag.mode === "move" || drag.mode === "resize" || drag.mode === "rotate") {
+                const count = drag.mode === "move" ? drag.origins.size : 1;
+                tally(
+                    drag.mode === "move" ? "piece_moved"
+                        : drag.mode === "resize" ? "piece_scaled" : "piece_rotated",
+                    { by: "human", count, pieces: many(count), during_show: !!showing });
+            } else if (drag.mode === "marquee") {
+                tally("pieces_selected", {
+                    by: "human",
+                    how: drag.additive ? "marquee add" : "marquee",
+                    count: selectedIds.length,
+                    pieces: many(selectedIds.length),
+                });
+            } else if (drag.mode === "pan") {
+                noteView("drag");
+            }
+        }
         if (drag) studio.save(view);
         drag = null;
         marquee = null;
@@ -2104,6 +2304,10 @@
         // Right-clicking outside the selection moves it; right-clicking inside
         // keeps it, so a menu can act on all of them at once.
         if (layer && !isSelected(layer.id)) studio.setSelection([layer.id]);
+        // Nothing opens on right-click any more — the menu was retired. Worth
+        // counting anyway: people still reaching for one is the evidence for
+        // whether anything should come back.
+        tally("right_click", { by: "human", on: layer ? "piece" : "paper" });
         onContextMenu?.({ x: event.clientX, y: event.clientY, layerId: layer?.id ?? null });
     }
 
@@ -2132,6 +2336,14 @@
         }, 140);
     }
 
+    /** An arrow key held down is one nudge, not one per repeat. */
+    let nudgeSettle: ReturnType<typeof setTimeout> | null = null;
+    let nudged = 0;
+
+    /** One name per keyboard command, so the shortcuts read as a list. */
+    const shortcut = (what: string, count = 0) =>
+        tally("shortcut", { by: "human", what, ...(count ? { count, pieces: many(count) } : {}) });
+
     function onKeyDown(event: KeyboardEvent) {
         // Not every keydown target is an element — it can be the document
         // itself when nothing has focus, and Document has no .matches(). Calling
@@ -2146,6 +2358,7 @@
         if (accel && key === "a") {
             event.preventDefault();
             studio.setSelection(layers.map(l => l.id));
+            shortcut("select all", layers.length);
             return;
         }
         if (accel && key === "z") {
@@ -2155,6 +2368,7 @@
                 // Ids may have come back or gone away with the step.
                 studio.setSelection(studio.selection);
                 studio.save();
+                shortcut(event.shiftKey ? "redo" : "undo");
             }
             return;
         }
@@ -2163,6 +2377,7 @@
             if (studio.collage.redo()) {
                 studio.setSelection(studio.selection);
                 studio.save();
+                shortcut("redo");
             }
             return;
         }
@@ -2174,6 +2389,7 @@
                 for (const layer of clipboard) studio.collage.remove(layer.id);
                 studio.setSelection([]);
             }
+            shortcut(key === "x" ? "cut" : "copy", clipboard.length);
             return;
         }
         // Ctrl+V is deliberately absent. A keydown cannot see what is on the
@@ -2186,6 +2402,7 @@
             if (!selectedIds.length) return;
             event.preventDefault();
             pasteLayers(selectedIds.map(id => studio.collage.get(id)).filter((l): l is Layer => !!l));
+            shortcut("duplicate", selectedIds.length);
             return;
         }
         // Depth, on the keys every design tool uses for it. These had lived in
@@ -2200,6 +2417,7 @@
                 else studio.collage.sendToBack(id);
             }
             studio.save();
+            shortcut(event.key === "]" ? "bring to front" : "send to back", selectedIds.length);
             return;
         }
         // F for frame, as in every 3D tool. No modifier: it is a view command,
@@ -2207,6 +2425,7 @@
         if (!accel && key === "f") {
             event.preventDefault();
             fitAll({ animate: true });
+            shortcut("frame all");
             return;
         }
         if (event.key === "Escape") {
@@ -2217,8 +2436,10 @@
 
         if (event.key === "Delete" || event.key === "Backspace") {
             event.preventDefault();
+            const going = selectedIds.length;
             for (const id of selectedIds) studio.collage.remove(id);
             studio.setSelection([]);
+            tally("pieces_removed", { by: "human", how: "key", count: going, pieces: many(going) });
             return;
         }
         const step = event.shiftKey ? 20 : 2;
@@ -2231,6 +2452,14 @@
                 const layer = studio.collage.get(id);
                 if (layer) studio.collage.update(id, { x: layer.x + nudge[event.key][0], y: layer.y + nudge[event.key][1] });
             }
+            // Coalesced: a held arrow key is one nudge as far as anybody
+            // reading this afterwards is concerned, not fifty.
+            nudged = selectedIds.length;
+            if (nudgeSettle) clearTimeout(nudgeSettle);
+            nudgeSettle = setTimeout(() => {
+                nudgeSettle = null;
+                shortcut("nudge", nudged);
+            }, 600);
         }
     }
 
@@ -2669,6 +2898,26 @@
         {/each}
     </div>
 
+    {#if spots.length}
+        <!-- The spotlight: a low-opacity dim over everything EXCEPT the
+             soft-edged holes around the subjects — nothing sits on top of a
+             lit piece, and pointer events pass straight through. The glow is
+             a sibling, not a child: a child would inherit the mask and be
+             erased exactly where it is wanted. -->
+        <div
+            class="spotlight-veil"
+            aria-hidden="true"
+            style:mask-image={spotMask}
+            style:-webkit-mask-image={spotMask}
+            style:mask-composite={spots.length > 1 ? "intersect" : null}
+        ></div>
+        <div
+            class="spotlight-glow"
+            aria-hidden="true"
+            style:background-image={spotGlowImage}
+        ></div>
+    {/if}
+
     <!-- Filter definitions only; nothing here is drawn. One dilate pass per
          outlined layer, plus the two shared selection and hover marks. -->
     <svg class="defs" aria-hidden="true" focusable="false">{@html indicatorDefs + outlineDefs + boilFilterSvg()}</svg>
@@ -2745,6 +2994,35 @@
          * moves under your hand.
          */
         background-size: 24px 24px;
+    }
+
+    /*
+     * The spotlight veil: house lights at 45%, derived from the paper so a
+     * night play dims into deeper night rather than soot. The mask cuts a
+     * soft-feathered hole — inside it, NOTHING covers the artwork.
+     */
+    .spotlight-veil {
+        position: absolute;
+        inset: 0;
+        z-index: 40;
+        pointer-events: none;
+        background: oklch(from var(--paper, var(--surface-page))
+            calc(l * 0.22) calc(c * 0.7) h / 0.45);
+        animation: spot-up 0.5s ease both;
+    }
+
+    /* A whisper of warmth inside the beams — additive, barely there. */
+    .spotlight-glow {
+        position: absolute;
+        inset: 0;
+        z-index: 40;
+        pointer-events: none;
+        mix-blend-mode: screen;
+        animation: spot-up 0.5s ease both;
+    }
+
+    @keyframes spot-up {
+        from { opacity: 0; }
     }
 
     /* Lifted on a dark canvas — a mid grey that reads as a mark against white

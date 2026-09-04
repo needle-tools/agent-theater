@@ -92,3 +92,11 @@ The tools cover the full production workflow:
 Shows save, publish and share: `show_save`, `show_publish`, `show_list`, `show_load`. Share URLs are `/p/<id>`.
 
 For custom artwork, `theater_art_prompt` creates an image-generation prompt in the project's paper-cut style, including the layout constraints needed for animation and spritesheet cutting.
+
+## What is counted
+
+The page reports anonymous, cookieless usage to a self-hosted [Rybbit](https://rybbit.com) instance: page views, which tools an agent called and how long they took, what a person did with their hands (pieces moved, scaled, rotated, selected, erased; buttons pressed), and the life of a play (started, held, ended, saved, shared, loaded).
+
+It sends the *shape* of what happened and never its content — no play titles, chapter names, scripts, spoken lines, typed text, image data or layer ids. See [`src/lib/telemetry.ts`](src/lib/telemetry.ts).
+
+Nothing is counted on localhost; add `?telemetry=on` to count anyway while developing. Add `?telemetry=off` to any URL to opt out for good on that origin.

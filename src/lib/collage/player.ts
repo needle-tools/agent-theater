@@ -85,6 +85,11 @@ export interface Stagehand {
      */
     paper?(color: string): void;
     /**
+     * Aim the spotlight at these layers (empty array: house lights back up).
+     * Range scales the beam. Optional: a page without a canvas has no rig.
+     */
+    spotlight?(ids: string[], range: number): void;
+    /**
      * Move the view to frame these layers over this long.
      *
      * Separate from the moves because the camera is not on the stage: nothing
@@ -153,8 +158,13 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         if (beat.travel) hand.commit(beat.id, beat.travel.dx, beat.travel.dy);
         if (beat.move === "turn") hand.turn(beat.id);
         // The weather turns as the beat starts; the fade runs on its own
-        // clock, so it costs the beat nothing.
+        // clock, so it costs the beat nothing. The lights move the same way.
         if (beat.background) hand.paper?.(beat.background);
+        if (beat.spotlight) {
+            hand.spotlight?.(
+                beat.spotlight === "off" ? [] : beat.spotlight.ids,
+                beat.spotlight === "off" ? 1 : beat.spotlight.range);
+        }
 
         /*
          * Acting and speaking run together.

@@ -781,6 +781,15 @@ export interface Beat {
      * takes no time (the fade runs on its own clock).
      */
     background?: string;
+    /**
+     * Aim the spotlight: a layer id, several for a shared pool of light, or
+     * "off" to bring the house lights back. Everything else dims gently; the
+     * lit pieces are never covered and the beam follows them as they move.
+     * Lasts until changed or the chapter ends. Rides along like a sound.
+     */
+    spotlight?: string | string[];
+    /** Beam size as a multiple of the piece: 1 hugs it, 2.5 is a pool. */
+    range?: number;
     duration?: number;
 }
 
@@ -807,6 +816,8 @@ export interface PlannedBeat {
     travel: { dx: number; dy: number } | null;
     /** A paper colour this beat fades the canvas to, or null. */
     background: string | null;
+    /** Where the light goes: ids and beam size, "off", or null for no change. */
+    spotlight: { ids: string[]; range: number } | "off" | null;
     duration: number;
 }
 
@@ -874,10 +885,12 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
             : null;
         const id = typeof beat?.id === "string" ? beat.id.trim() : "";
         // A camera beat is about the view, a pause is about nothing at all,
-        // and a background change is about the paper — none needs somebody
-        // to be about.
+        // a background change is about the paper and a spotlight about the
+        // lights — none needs somebody to be about.
         const weather = typeof beat?.background === "string" && beat.background.trim();
-        if (!id && !camera && !wait && !weather) {
+        const lights = (typeof beat?.spotlight === "string" && beat.spotlight.trim())
+            || (Array.isArray(beat?.spotlight) && beat.spotlight.length);
+        if (!id && !camera && !wait && !weather && !lights) {
             problems.push({ index, reason: `every beat needs an "id" naming who it is about` });
             continue;
         }
@@ -910,17 +923,35 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
             });
             continue;
         }
+        // The lights: who the beam is on, or "off". Whether the ids exist is
+        // the player's problem, like clips — a missing target simply unlit.
+        let spotlight: PlannedBeat["spotlight"] = null;
+        {
+            const raw = beat?.spotlight;
+            const range = typeof beat?.range === "number" && Number.isFinite(beat.range)
+                ? Math.min(6, Math.max(0.3, beat.range))
+                : 1;
+            if (typeof raw === "string" && raw.trim()) {
+                spotlight = raw.trim().toLowerCase() === "off"
+                    ? "off"
+                    : { ids: [raw.trim()], range };
+            } else if (Array.isArray(raw)) {
+                const ids = raw.filter((v): v is string => typeof v === "string" && !!v.trim())
+                    .map(v => v.trim());
+                if (ids.length) spotlight = { ids, range };
+            }
+        }
         // Same string-boolean lesson as `rehearse`: agents send "true". The
         // first beat has nothing to ride along with, so it can never be `with`.
         const together = planned.length > 0 &&
             (beat?.with === true || String(beat?.with ?? "").trim().toLowerCase() === "true");
         if (!move && !say && !sound && !camera && !wait && !becomes && !take && !drop && !effect
-            && !background) {
+            && !background && !spotlight) {
             problems.push({
                 index,
                 reason:
                     `a beat must have a "do", a "say", a "sound", a "camera", a "wait", a "becomes", ` +
-                    `a "take", a "drop", an "effect" or a "background"`,
+                    `a "take", a "drop", an "effect", a "background" or a "spotlight"`,
             });
             continue;
         }
@@ -964,14 +995,14 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
             planned.push({
                 id: "", with: false, becomes: null, take: null, drop: null, effect: null,
                 move: null, say: null, sound: null, camera: null, travel: null,
-                background: null, duration: BREATH_MS,
+                background: null, spotlight: null, duration: BREATH_MS,
             });
         }
         if (say) lastSpeaker = id;
 
         planned.push({
             id, with: together, becomes, take, drop, effect, move, say, sound, camera, travel,
-            background, duration,
+            background, spotlight, duration,
         });
     }
 

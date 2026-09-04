@@ -27,6 +27,7 @@
     import { sayName } from "./sayName.js";
     import { greetingForActor, voiceForActor } from "./characterVoice.js";
     import type { SubtitleVoice } from "../subtitleVoice/index.js";
+    import { track } from "../telemetry.js";
 
     interface Props {
         studio: CollageStudio;
@@ -158,6 +159,15 @@
         // Widths match, heights may not: a pencil at sheep-width is a tower.
         const tamed = tamedWidth(layer, world);
         if (tamed !== null) studio.collage.update(layer.id, { width: tamed });
+        // A sticker off the shelf: which drawer, and what kind of thing. The
+        // pack and the kind are ours, shipped with the app — nothing here is
+        // anything the person wrote.
+        track("piece_added", {
+            by: "human",
+            source: "shelf",
+            pack: piece.pack,
+            kind: piece.kind,
+        });
         const stage = studio.collage.activeStage;
         if (piece.kind === "actor") {
             const voice = voiceForActor(piece);

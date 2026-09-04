@@ -2,8 +2,15 @@
     import AnimatedCursor from "$lib/collage/AnimatedCursor.svelte";
     import { hint } from "$lib/collage/hint";
     import { page } from "$app/state";
+    import { watchClicks } from "$lib/telemetry";
 
     let { children } = $props();
+
+    // Every button on every page, counted from one listener. Here rather than
+    // in the theatre component so /record, /painted and /talk are covered by
+    // the same thing, and so a control added tomorrow is counted without
+    // anybody remembering to say so.
+    $effect(() => watchClicks());
 
     /**
      * The share card.

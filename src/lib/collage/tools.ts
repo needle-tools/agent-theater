@@ -27,6 +27,7 @@ import { artPrompt } from "./artPrompt.js";
 import { createTroupeTool } from "./troupeTool.js";
 import { TROUPE } from "./troupe.js";
 import { noteCall } from "./toolLog.js";
+import { speed, track } from "../telemetry.js";
 import { listClips } from "./clips.js";
 import { idleSet } from "./idleSet.js";
 import { publishingTools } from "./publishing.js";
@@ -145,11 +146,23 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
             const since = seen;
             const began = performance.now();
             const result = await tool.execute(args, options);
+            // Counted from the same place, and for the same reason: a tool
+            // added later is counted without anybody remembering to say so.
+            // The name and the outcome, never the arguments — those carry the
+            // person's prompts and megabytes of image data.
+            const took = performance.now() - began;
+            track("ai_tool_call", {
+                tool: tool.name,
+                ok: !result.isError,
+                ms: Math.round(took),
+                speed: speed(took),
+                via: "direct",
+            });
             // Logged here rather than in each tool, so a tool cannot be added
             // and quietly not appear in the record.
             noteCall({
                 tool: tool.name,
-                ms: performance.now() - began,
+                ms: took,
                 ok: !result.isError,
                 args,
                 // Text parts only. An image part is a screenshot of the canvas,
@@ -187,9 +200,12 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
             const recorded = knownClips ? drawer.filter(clip => !before.has(clip.name)) : [];
             knownClips = new Set(drawer.map(clip => clip.name));
 
-            // Its own doing is not news; the person's is.
-            const theirs = events.filter(event => event.by === "human");
-            if (!theirs.length && !guide && !recorded.length) return result;
+            // Its own doing is not news; the person's is. Trouble is — whoever
+            // caused it: a background job that failed after answering "still
+            // going" has exactly one chance to be heard, and this is it.
+            const troubles = events.filter(event => event.kind === "trouble");
+            const theirs = events.filter(event => event.by === "human" && event.kind !== "trouble");
+            if (!theirs.length && !guide && !recorded.length && !troubles.length) return result;
             const what = !theirs.length ? "" : theirs.length === 1
                 ? theirs[0].summary
                 : `${theirs.length} things happened, the last: ${theirs[theirs.length - 1].summary}`;
@@ -223,6 +239,10 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
                                   `Look with piece_list or show_look, and work what they added into the ` +
                                   `story: cast it in a chapter, give it a line, let the plot notice it.`
                                 : ""),
+                    }] : []),
+                    ...(troubles.length ? [{
+                        type: "text" as const,
+                        text: `MEANWHILE, SOMETHING FAILED: ${troubles.map(event => event.summary).join(" ")}`,
                     }] : []),
                     ...(recorded.length ? [{
                         type: "text" as const,
@@ -382,11 +402,24 @@ function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef
                     const tool = byName.get(str(step.tool))!;
                     notifyAgentActivity(tool.name, step.args ?? {});
                     let result: ToolResult;
+                    const began = performance.now();
                     try {
                         result = await tool.execute(step.args ?? {});
                     } catch (error) {
                         result = fail(`threw: ${message(error)}`);
                     }
+                    // A batch runs the tools UNWRAPPED — the wrapper is put on
+                    // afterwards, and the steps inside would otherwise be a
+                    // blank in the count: one theater_batch where twelve tool
+                    // calls happened.
+                    const stepMs = performance.now() - began;
+                    track("ai_tool_call", {
+                        tool: tool.name,
+                        ok: !result.isError,
+                        ms: Math.round(stepMs),
+                        speed: speed(stepMs),
+                        via: "batch",
+                    });
                     const text = result.content
                         .map(part => (part.type === "text" ? part.text : "[image]"))
                         .join(" ");
@@ -397,6 +430,10 @@ function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef
 
             const failed = outcomes.filter(o => !o.ok).length;
             const ran = outcomes.length;
+            // How much an agent plans ahead is the interesting number here: a
+            // batch of twelve is a scene worked out in advance, a batch of one
+            // is a round trip that need not have been one.
+            track("ai_batch", { steps: steps.length, ran, failed });
             const lines = outcomes.map((o, i) => `${i + 1}. ${o.tool} — ${o.ok ? "" : "FAILED: "}${o.text}`);
             const summary = failed
                 ? `${ran - failed} of ${steps.length} steps worked${ran < steps.length ? `, then it stopped` : ""}.`
@@ -790,7 +827,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 "built by then does the idle page deal a fresh scatter.",
             inputSchema: { type: "object", properties: {} },
             async execute() {
-                if (studio.showing) studio.stopShow();
+                if (studio.showing) studio.stopShow("agent");
                 idleSet.clearedBy = "agent";
                 await studio.clear();
                 return ok(
@@ -1009,7 +1046,14 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             inputSchema: {
                 type: "object",
                 properties: {
-                    url: { type: "string", description: "http(s) or data: URL of the sheet." },
+                    url: {
+                        type: "string",
+                        description:
+                            "http(s) or data: URL of the sheet. For art served from a LOCAL or " +
+                            "temporary server (127.0.0.1, localhost tunnels), pass a data: URL " +
+                            "instead — a local http image often loads but cannot be read back " +
+                            "for cutting (CORS), and the cut dies after this call has answered.",
+                    },
                     columns: { type: "number", description: "Cells across." },
                     rows: { type: "number", description: "Cells down." },
                     as: {
@@ -1064,12 +1108,37 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         by: "agent",
                     });
                     if (!already) {
-                        cutting.set(key, {
-                            work,
-                            cells: columns * rows,
-                            label: `a ${columns}×${rows} sheet of ${actors ? "actors" : "backdrops"}`,
-                        });
-                        void work.then(() => cutting.delete(key), () => cutting.delete(key));
+                        const label = `a ${columns}×${rows} sheet of ${actors ? "actors" : "backdrops"}`;
+                        cutting.set(key, { work, cells: columns * rows, label });
+                        /*
+                         * A cut that dies AFTER the tool has answered "still
+                         * going" used to die in silence: the job vanished
+                         * from the pending list, piece_list showed an empty
+                         * canvas, show_watch had no events, and the agent
+                         * waited for pieces that were never coming. Failure
+                         * is recorded as its own event so show_watch and the
+                         * next tool reply both carry it.
+                         */
+                        void work.then(
+                            made => {
+                                cutting.delete(key);
+                                if (!made.length) {
+                                    studio.record("trouble",
+                                        `${label} finished cutting with NOTHING: no cell survived. The ` +
+                                        `pieces are not coming — cut it at https://fastcut.needle.tools ` +
+                                        `and piece_add the results, or try piece_sheet again with a ` +
+                                        `data: URL.`, "agent");
+                                }
+                            },
+                            error => {
+                                cutting.delete(key);
+                                studio.record("trouble",
+                                    `${label} FAILED to cut: ${error instanceof Error ? error.message : error}. ` +
+                                    `The pieces are not coming. A sheet served from a local http:// ` +
+                                    `address often cannot be read back (CORS) — send it as a data: URL ` +
+                                    `instead, or cut it at https://fastcut.needle.tools and piece_add ` +
+                                    `the results.`, "agent");
+                            });
                     }
                     const raced = await within(work, () => ok(
                         (already

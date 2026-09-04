@@ -62,6 +62,16 @@ export const EFFECTS: EffectDef[] = [
         seconds: 2.4,
         count: 22,
     },
+    {
+        id: "anger",
+        description:
+            "Big cut-paper symbols burst over their head — a hash, an at, a star, " +
+            "a bang. Comic swearing: fury, a tantrum, being told off, losing an " +
+            "argument. Fewer and much larger than the other effects, so it reads " +
+            "from across the stage.",
+        seconds: 1.3,
+        count: 7,
+    },
 ];
 
 export function findEffect(name: string): EffectDef | null {
@@ -74,6 +84,14 @@ export function effectNames(): string[] {
 
 /** The paper the bits are torn from — the packs' own palette. */
 const PAPER = ["#c4463c", "#2b3a67", "#6a8a4f", "#e9ddc7", "#d9a441", "#c98da4"];
+
+/**
+ * What a character swears in.
+ *
+ * No letters, so nothing accidentally spells anything, and nothing a child
+ * would read as a real word. Kept to symbols a comic actually uses.
+ */
+const ANGER_GLYPHS = ["#", "@", "%", "&", "✱", "!"];
 
 export interface Particle {
     /** Start, as fractions of the target box (0.5, 0.5 is its middle). */
@@ -90,7 +108,17 @@ export interface Particle {
     life: number;
     spin: number;
     color: string;
-    shape: "star" | "dot" | "strip" | "heart" | "sliver";
+    shape: "star" | "dot" | "strip" | "heart" | "sliver" | "glyph";
+    /**
+     * The character a "glyph" particle draws, and only then.
+     *
+     * Every other bit is a shape cut from coloured paper, which a clip-path
+     * can make. A hash is not a shape, it is a letter — a polygon for one
+     * would be eight coordinates of guesswork and still wrong at a dozen
+     * pixels across. So this one kind of particle carries text and the canvas
+     * sets it as the element's content.
+     */
+    glyph?: string;
 }
 
 /**
@@ -174,6 +202,41 @@ export function particlesFor(name: string): Particle[] {
                     shape: "sliver",
                 });
                 break;
+            case "anger": {
+                /*
+                 * Grawlix: the comic-strip swear. A hash first because that is
+                 * the one everybody reads as swearing on its own, then the
+                 * company it usually keeps.
+                 *
+                 * Weighted rather than uniform. A flock of seven drawn evenly
+                 * from six symbols came out looking like a character set, not
+                 * like cursing — the hash has to dominate for the joke to land.
+                 */
+                const glyph = i === 0 || Math.random() < 0.45
+                    ? "#"
+                    : ANGER_GLYPHS[Math.floor(Math.random() * ANGER_GLYPHS.length)];
+                // Above the head and to either side, never over the face: the
+                // expression is the other half of the gag.
+                const side = i % 2 === 0 ? -1 : 1;
+                bits.push({
+                    x: 0.5 + side * (0.1 + Math.random() * 0.32),
+                    y: -0.05 + Math.random() * 0.3,
+                    dx: side * (0.05 + Math.random() * 0.16),
+                    dy: -0.18 - Math.random() * 0.22,
+                    // Four to eight times a sparkle. "Big" was the whole ask,
+                    // and a grawlix that needs looking for is not a grawlix.
+                    size: 0.2 + Math.random() * 0.16,
+                    delay: Math.random() * 0.3,
+                    life: 0.5 + Math.random() * 0.2,
+                    // A tilt, not a tumble: these are read, so they must stay
+                    // the right way up.
+                    spin: (Math.random() - 0.5) * 36,
+                    color: Math.random() < 0.65 ? "#c4463c" : "#2b3a67",
+                    shape: "glyph",
+                    glyph,
+                });
+                break;
+            }
         }
     }
     return bits;

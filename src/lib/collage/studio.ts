@@ -50,6 +50,8 @@ import {
 } from "./show.js";
 import { autoVoiceFor } from "./characterVoice.js";
 import { prompter } from "./speech.js";
+import { forgetCurrentPlay } from "./publishing.js";
+import { many, track } from "../telemetry.js";
 import { ENDING_FADE_MS, SILENT, type Speaker } from "./audio.js";
 
 /**
@@ -185,7 +187,15 @@ export interface CollageEvent {
          * to tell "nothing has happened" apart from "something is happening and
          * has not finished" — the first means try again, the second means wait.
          */
-        | "working";
+        | "working"
+        /**
+         * Something that was running FAILED after its tool call had already
+         * answered "still going". Its own kind because it is the one event an
+         * agent must not be allowed to miss: a sheet that entered the cutter
+         * and never came out used to vanish without a word, and the agent
+         * waited on pieces that were never coming.
+         */
+        | "trouble";
     /** One line, already phrased for an agent to read. */
     summary: string;
     /** Whether a person did it or an agent did. */
@@ -298,9 +308,11 @@ export interface CollageStudio {
      */
     playShow(
         stageIds?: string[],
-        options?: { hold?: boolean },
+        options?: { hold?: boolean; by?: "human" | "agent" },
     ): Promise<{ timings: ShowTiming[]; duration: number }>;
-    stopShow(): void;
+    /** `by` is for the count only: a play cut short by hand is not the same
+     *  event as one an agent stopped to write the next chapter. */
+    stopShow(by?: "human" | "agent"): void;
     /**
      * Where the cast will be standing when a chapter opens.
      *
@@ -575,6 +587,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
     };
     let wanted = false;
     let speaker: Speaker = SILENT;
+    /**
+     * Who reached for stop, until the run notices and ends.
+     *
+     * A show stops asynchronously — `stopShow` only says so, and the loop finds
+     * out at its next await — so the hand that pressed it has to be left
+     * somewhere for the ending to pick up. Telemetry only; nothing else reads it.
+     */
+    let stoppedBy: "human" | "agent" | null = null;
 
     /** How long this scene's lines take, given what has been synthesised. */
     // The auto actor voice is part of the timing: a line the player will
@@ -655,12 +675,40 @@ export function createStudio(collage = new Collage()): CollageStudio {
      * step rather than only between scenes — a show that ignored the request
      * until the current scene ended would ignore it for half a minute.
      */
-    const runShow = async (stages: Stage[], hold = false) => {
+    const runShow = async (stages: Stage[], hold = false, by: "human" | "agent" = "human") => {
         // Continuing a held show is the same loop minus the opening: no second
         // title card, no re-dimming — the house is already dark.
         const resuming = held;
         held = false;
         wanted = true;
+
+        /*
+         * Curtain up, counted.
+         *
+         * The one number nobody could get at any other way is how long a play
+         * is actually watched — a show that ends because it ran out of
+         * chapters and a show ended by somebody reaching for stop look
+         * identical from every other angle, and they mean opposite things.
+         */
+        const curtainUp = Date.now();
+        const cast = new Set(stages.flatMap(stage => stage.cast.map(member => member.id)));
+        const ended = (reason: "finished" | "stopped" | "held") => track("play_ended", {
+            reason,
+            by,
+            ended_by: stoppedBy ?? by,
+            chapters: stages.length,
+            seconds: Math.round((Date.now() - curtainUp) / 1000),
+            titled: !!collage.billing.title,
+        });
+        stoppedBy = null;
+        track("play_started", {
+            by,
+            resumed: resuming,
+            chapters: stages.length,
+            cast: cast.size,
+            cast_size: many(cast.size),
+            titled: !!collage.billing.title,
+        });
 
         /*
          * Wait to be let in.
@@ -686,8 +734,13 @@ export function createStudio(collage = new Collage()): CollageStudio {
             }
             billboard = null;
             announceShow();
+            // Whether the audience ever arrived. A play begun by an agent on a
+            // tab nobody has clicked runs silent, and this is the only place
+            // that knows it — the rest of the show cannot tell the difference.
+            track("play_waited_for_audience", { arrived: speaker.ready, by });
             if (!wanted) {
                 setRunning(null);
+                ended("stopped");
                 return;
             }
         }
@@ -811,11 +864,16 @@ export function createStudio(collage = new Collage()): CollageStudio {
             wanted = false;
             speaker.fadeMusic();
             announceShow();
+            ended("held");
             return;
         }
 
         if (wanted) await curtainCall(stages);
 
+        // Read after the credits, not before: a show stopped during its own
+        // credit roll was stopped, and saying "finished" would hide exactly
+        // the moment people leave.
+        const reason = wanted ? "finished" : "stopped";
         setRunning(null);
         wanted = false;
         // Fades rather than stops. The bed has usually been let go under the
@@ -825,6 +883,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
         // being closed.
         speaker.fadeMusic();
         restoreWorld();
+        ended(reason);
     };
 
     /**
@@ -2247,11 +2306,12 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 at += duration;
             }
 
-            void runShow(wanted, options?.hold === true);
+            void runShow(wanted, options?.hold === true, options?.by ?? "human");
             return { timings, duration: at };
         },
 
-        stopShow() {
+        stopShow(by) {
+            stoppedBy = by ?? "human";
             wanted = false;
             held = false;
             running = null;
@@ -2296,6 +2356,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
             objectUrls.clear();
             images.clear();
             collage.restore([], []);
+            // A cleared canvas is a new work. Keeping the previous online id
+            // here would make its next Publish overwrite the finished story.
+            forgetCurrentPlay();
             pagePreset = FREE_PAGE;
             clearDoc();
             if (stashed) await collectGarbage(struck);

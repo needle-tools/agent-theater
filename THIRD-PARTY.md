@@ -109,6 +109,20 @@ question about those services rather than about this repository. Speech is the
 exception and goes the other way — it runs in the page, which is why it has a
 row of its own above.
 
+### Analytics
+
+`src/app.html` loads Rybbit (AGPL-3.0, self-hosted at
+`analytics-2.needle.tools`) and `src/lib/telemetry.ts` hands it named events.
+Rybbit itself is not vendored here — only a `<script src>` to a Needle-operated
+instance — so its licence is a question about that deployment.
+
+What is sent: page views, and events describing the SHAPE of what happened —
+which tool an agent called and how long it took, that a piece was moved or
+rotated, that a play started and how long it ran. Not sent: any text a person or
+an agent wrote (play titles, chapter names, scripts, typed lines), image data,
+or layer ids. Nothing is counted on localhost, and `?telemetry=off` turns it off
+for good on any origin.
+
 ## Brand
 
 `static/brand.css`, `static/logos/`, and the Needle name and wordmark are Needle

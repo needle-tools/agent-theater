@@ -17,13 +17,13 @@
     import { toolCalls, toolLogFile } from "./toolLog.js";
     import {
         canEditPlay,
+        CURRENT_PLAY_CHANGED,
+        CURRENT_PLAY_KEY,
         listPublicPlays,
         loadPlayOnline,
         savePlayOnline,
         type PublishedPlay,
     } from "./publishing.js";
-
-    const CURRENT_PLAY = "needle-play/current";
 
     interface Props {
         studio: CollageStudio;
@@ -66,14 +66,21 @@
 
     onMount(() => {
         try {
-            const saved = localStorage.getItem(CURRENT_PLAY);
+            const saved = localStorage.getItem(CURRENT_PLAY_KEY);
             if (saved) current = JSON.parse(saved);
         } catch { /* Publishing remains available without remembered state. */ }
+        const cleared = () => {
+            current = null;
+            playUrl = "";
+            onlineMessage = "Start a new play, then publish it as a new story.";
+        };
+        window.addEventListener(CURRENT_PLAY_CHANGED, cleared);
+        return () => window.removeEventListener(CURRENT_PLAY_CHANGED, cleared);
     });
 
     function remember(play: PublishedPlay) {
         current = play;
-        try { localStorage.setItem(CURRENT_PLAY, JSON.stringify(play)); } catch { /* optional */ }
+        try { localStorage.setItem(CURRENT_PLAY_KEY, JSON.stringify(play)); } catch { /* optional */ }
     }
 
     async function saveOnline(published: boolean) {
@@ -204,7 +211,10 @@
                         <ul class="plays">
                             {#each publicPlays as play}
                                 <li>
-                                    <button disabled={onlineBusy} onclick={() => loadFromUrl(play.id)}>{play.title}</button>
+                                    <!-- data-track, because the label is a play's own
+                                         title and titles belong to whoever wrote them. -->
+                                    <button data-track="open public play" disabled={onlineBusy}
+                                        onclick={() => loadFromUrl(play.id)}>{play.title}</button>
                                 </li>
                             {/each}
                         </ul>

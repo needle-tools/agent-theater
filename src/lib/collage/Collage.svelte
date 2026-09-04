@@ -30,11 +30,12 @@
     import { idleSet } from "$lib/collage/idleSet";
     import { MENU_MUSIC_LEVEL, takeNames } from "$lib/collage/audio";
     import { beginAgentActivity, completeAgentActivity } from "$lib/room/activity";
-    import { canEditPlay, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
+    import { canEditPlay, CURRENT_PLAY_KEY, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
     import { briefing } from "$lib/collage/invitation";
     import { prewarm } from "$lib/collage/background";
     import SubtitleVoiceMenu from "$lib/subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "$lib/subtitleVoice";
+    import { track } from "$lib/telemetry";
 
     const studio = createStudio();
     const collage = studio.collage;
@@ -105,8 +106,9 @@
             return;
         }
         disarmClear();
-        studio.stopShow();
+        studio.stopShow("human");
         idleSet.clearedBy = "human";
+        track("play_cleared", { by: "human", pieces: collage.listAll().length });
         await studio.clear();
     }
 
@@ -169,11 +171,9 @@
         fileToolError = null;
     }
 
-    const CURRENT_PLAY = "needle-play/current";
-
     function rememberedPlay(): PublishedPlay | null {
         try {
-            const value = localStorage.getItem(CURRENT_PLAY);
+            const value = localStorage.getItem(CURRENT_PLAY_KEY);
             return value ? JSON.parse(value) as PublishedPlay : null;
         } catch {
             return null;
@@ -188,12 +188,13 @@
             const remembered = rememberedPlay();
             const owned = remembered && canEditPlay(remembered.id) ? remembered.id : undefined;
             const play = await savePlayOnline(studio, { published: false, id: owned });
-            try { localStorage.setItem(CURRENT_PLAY, JSON.stringify(play)); } catch { /* optional */ }
+            try { localStorage.setItem(CURRENT_PLAY_KEY, JSON.stringify(play)); } catch { /* optional */ }
             toast.close();
 
             if (navigator.share) {
                 try {
                     await navigator.share({ title: play.title, url: play.url });
+                    track("play_shared", { by: "human", how: "share sheet" });
                     announce("Share link ready.", { voiced: false });
                     return;
                 } catch (error) {
@@ -202,6 +203,7 @@
             }
 
             await navigator.clipboard.writeText(play.url);
+            track("play_shared", { by: "human", how: "clipboard" });
             announce("Share link copied.", { voiced: false });
         } catch (error) {
             toast.close();
@@ -301,6 +303,7 @@
         try {
             const count = await studio.restore();
             if (count) {
+                track("play_restored", { by: "human", pieces: count });
                 announce(`Picked up where you left off — ${count} layer${count === 1 ? "" : "s"}.`);
                 canvas?.fitAll();
             }
@@ -315,9 +318,13 @@
                 const play = await response.json();
                 if (!response.ok) throw new Error(play.error || "The play could not be loaded.");
                 await studio.loadPublished!(play.doc);
+                // Somebody following a link somebody else sent them: the one
+                // arrival worth telling apart from every other page load.
+                track("play_loaded", { by: "human", source: "link" });
                 toasts.push(`Opened “${play.title}”.`);
                 canvas?.fitAll();
             } catch (error) {
+                track("play_load_failed", { by: "human", source: "link" });
                 // The full chrome comes back: a person whose play did not
                 // arrive should not also be locked out of the workshop.
                 sharedView = false;
@@ -753,6 +760,7 @@
                 if (prop.tilt) studio.collage.update(layer.id, { rotation: prop.tilt });
             }
             studio.save();
+            track("piece_added", { by: "human", source: "props", count: props.length });
         } finally {
             // The reveal: overlay off, twins already beneath it.
             scatter = [];
@@ -902,6 +910,7 @@
         try {
             const { blob, filename } = await studio.saveFile();
             download(blob, filename);
+            track("play_saved", { by: "human", where: "file", pieces: collage.listAll().length });
             toast.close();
             announce(`Saved ${filename} — open it from Theater options to keep working.`);
         } catch (error) {
@@ -964,6 +973,7 @@
             // collage that loaded off-screen is indistinguishable from one that
             // did not load at all.
             canvas?.fitAll();
+            track("play_loaded", { by: "human", source: "file", pieces: opened });
             announce(`Opened a saved play — ${opened} pieces.`);
         }
         return rest;
@@ -1066,6 +1076,7 @@
             // A crop is the loudest thing that can happen to an export, so it
             // takes over the message rather than being appended to a cheerful one.
             const cropped = Number((output.structured as { cropped?: number })?.cropped ?? 0);
+            track("play_exported", { by: "human", format, cropped: cropped > 0 });
             toasts.push(
                 cropped
                     ? `${done} ${cropped} ${cropped === 1 ? "item was" : "items were"} cut off by the page edge.`

@@ -1,8 +1,17 @@
 import type { CollageStudio } from "./studio.js";
 import type { StoredDoc } from "./persistence.js";
 import type { WebMcpToolDef } from "./tools.js";
+import { track } from "../telemetry.js";
 
 export const TOKEN_PREFIX = "needle-play/edit/";
+export const CURRENT_PLAY_KEY = "needle-play/current";
+export const CURRENT_PLAY_CHANGED = "needle-play-current-changed";
+
+/** Clearing the stage starts a new work, so a later save must create a new row. */
+export function forgetCurrentPlay(): void {
+    try { localStorage.removeItem(CURRENT_PLAY_KEY); } catch { /* Storage is optional. */ }
+    try { window.dispatchEvent(new CustomEvent(CURRENT_PLAY_CHANGED, { detail: null })); } catch { /* SSR */ }
+}
 
 export interface PublishedPlay {
     id: string;
@@ -73,6 +82,16 @@ export async function savePlayOnline(
         }),
     })) as PublishedPlay & { editToken?: string };
     if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);
+    // A play leaving the tab is the moment somebody decided it was worth
+    // keeping. Its shape, never its title — that is theirs.
+    track("play_saved", {
+        by: "human",
+        published: options.published,
+        updated: !!id,
+        images: local.length,
+        chapters: studio.collage.listStages().length,
+        pieces: studio.collage.listAll().length,
+    });
     return result;
 }
 
@@ -86,6 +105,7 @@ export async function loadPlayOnline(studio: CollageStudio, value: string): Prom
     if (!id) throw new Error("Enter a play link or id.");
     const play = await json(await fetch(`/api/plays/${encodeURIComponent(id)}`));
     const layers = await studio.loadPublished!(play.doc as StoredDoc);
+    track("play_loaded", { by: "human", source: "online", pieces: layers });
     return { play: { ...play, id, url: `${location.origin}/p/${id}` }, layers };
 }
 
@@ -131,6 +151,14 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
                     }),
                 }));
                 if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);
+                track("play_saved", {
+                    by: "agent",
+                    published,
+                    updated: !!id,
+                    images: local.length,
+                    chapters: studio.collage.listStages().length,
+                    pieces: studio.collage.listAll().length,
+                });
                 return { content: [{ type: "text", text: `${published ? "Published" : "Saved"} “${result.title}”. Share: ${result.url}` }], structuredContent: result };
             } catch (error) {
                 return { content: [{ type: "text", text: `Could not save the play: ${error instanceof Error ? error.message : error}` }], isError: true };
@@ -197,6 +225,7 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
                 if (!id) throw new Error("Pass a play id or share URL.");
                 const data = await json(await fetch(`/api/plays/${encodeURIComponent(id)}`));
                 const count = await studio.loadPublished!(data.doc as StoredDoc);
+                track("play_loaded", { by: "agent", source: "online", pieces: count });
                 return { content: [{ type: "text", text: `Loaded “${data.title}” with ${count} layers.` }], structuredContent: { id, title: data.title, layers: count } };
             } catch (error) { return { content: [{ type: "text", text: `Could not load the play: ${error instanceof Error ? error.message : error}` }], isError: true }; }
         },

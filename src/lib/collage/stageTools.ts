@@ -24,6 +24,7 @@ import { actorForLayer, autoVoiceFor, voiceForActor } from "./characterVoice.js"
 import { clearSpot } from "./placement.js";
 import type { CollageStudio } from "./studio.js";
 import type { ToolResult, WebMcpToolDef } from "./tools.js";
+import { track } from "../telemetry.js";
 
 const ok = (text: string, structured?: object): ToolResult => ({
     content: [{ type: "text", text }],
@@ -161,6 +162,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     `${gone.length} scene(s) removed.`, "agent");
 
                 const left = collage.listStages();
+                track("chapter_removed", { by: "agent", removed: gone.length, chapters: left.length });
                 return ok(
                     `Removed ${gone.map(stage => `"${stage.name}"`).join(", ")}. ` +
                     `Their pieces are still on the canvas. ` +
@@ -222,6 +224,14 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 studio.record("page-changed",
                     billing.title ? `The show is called "${billing.title}".` : `The show lost its title.`,
                     "agent");
+                // The name itself is the person's play, not ours — only whether
+                // there is one, and whether the makers were credited.
+                track("play_titled", {
+                    by: "agent",
+                    titled: !!billing.title,
+                    byline: !!billing.byline,
+                    credits: billing.credits?.length ?? 0,
+                });
 
                 const credits = creditsFor(collage.listStages(), id => collage.get(id)?.label ?? null);
                 return ok(
@@ -308,7 +318,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 const hold = bool(args?.hold, false);
                 const { timings, duration } = await studio.playShow(
-                    wanted.length ? wanted : undefined, { hold });
+                    wanted.length ? wanted : undefined, { hold, by: "agent" });
                 if (!timings.length) return fail(`Nothing to play.`);
 
                 // Sound is the one thing that can fail silently, and an agent
@@ -400,7 +410,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             async execute() {
                 if (!studio.showing) return ok(`Nothing was running.`, { stopped: false });
                 const where = collage.activeStage?.name ?? "a scene";
-                studio.stopShow();
+                studio.stopShow("agent");
                 return ok(`Stopped during "${where}". It is still on screen.`, { stopped: true });
             },
         },
@@ -582,6 +592,26 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "'paper' returns the house colour. Rides along with whatever " +
                                         "else the beat does; alone it takes no time and needs no id. " +
                                         "It stays until something changes it again.",
+                                },
+                                spotlight: {
+                                    anyOf: [
+                                        { type: "string" },
+                                        { type: "array", items: { type: "string" } },
+                                    ],
+                                    description:
+                                        "Aim the SPOTLIGHT: a layer id, an array for a shared pool of " +
+                                        "light, or 'off'. Everything else dims gently while the lit " +
+                                        "pieces stay untouched, and the beam follows them as they " +
+                                        "move. Use it for a confession, a discovery, a solo — and " +
+                                        "turn it 'off' when the moment passes. Rides along; alone it " +
+                                        "takes no time and needs no id. Lasts until changed or the " +
+                                        "scene ends.",
+                                },
+                                range: {
+                                    type: "number",
+                                    description:
+                                        "Beam size for `spotlight`, as a multiple of the piece: " +
+                                        "1 hugs it (default), 0.7 a tight face-spot, 2.5 a wide pool.",
                                 },
                                 duration: { type: "number", description: "Override the beat's length, in ms." },
                             },
@@ -788,6 +818,24 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 // once and never again, which is a rehearsal, not a play.
                 collage.updateStage(stage.id, { script: timed });
                 studio.save();
+                /*
+                 * A chapter's running order, rewritten.
+                 *
+                 * This is the closest thing the theatre has to a timeline being
+                 * adjusted: beats in order, each starting when the last ends.
+                 * The shape of it is the interesting part — how long a scene
+                 * runs, how much of it is talking, whether the camera moves —
+                 * and none of the words are.
+                 */
+                track("script_written", {
+                    by: "agent",
+                    beats: plan.beats.length,
+                    lines: lines.length,
+                    cameras: beats.filter(beat => beat?.camera).length,
+                    seconds: Math.round(plan.duration / 1000),
+                    rehearsed: rehearse,
+                    thin: thin.length,
+                });
 
                 // Deliberately not awaited: a scene runs for seconds and the
                 // point is to talk over it, not to sit watching an animation
@@ -956,6 +1004,14 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 studio.save();
                 studio.record("page-changed",
                     `Scene "${stage.name}" was ${id ? "changed" : "created"}.`, "agent", { stage: stage.id });
+                track(id ? "chapter_changed" : "chapter_created", {
+                    by: "agent",
+                    chapters: collage.listStages().length,
+                    backdrop: !!stage.backdrop,
+                    music: !!stage.music,
+                    hold: stage.hold ?? 0,
+                    restage: !!stage.restage,
+                });
 
                 return ok(
                     `${id ? "Changed" : "Made"} the scene "${stage.name}" as ${stage.id}` +
@@ -1181,6 +1237,12 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 studio.save();
                 studio.record("page-changed",
                     `"${next.name}" now has ${next.cast.length} in it.`, "agent", { stage: next.id });
+                track("chapter_cast", {
+                    by: "agent",
+                    cast: next.cast.length,
+                    dropped: dropped.size,
+                    voiced: next.cast.filter(member => member.voice).length,
+                });
 
                 const opensWith = studio.openingPositions(next.id);
                 return ok(

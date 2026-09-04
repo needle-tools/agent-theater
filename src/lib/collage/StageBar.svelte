@@ -49,8 +49,8 @@
 
     /** Play from the top. A held show is ended first, so it starts as a show. */
     function play() {
-        if (holding) studio.stopShow();
-        studio.playShow();
+        if (holding) studio.stopShow("human");
+        studio.playShow(undefined, { by: "human" });
     }
 
     const stages = $derived.by(() => (version, collage.listStages()));
@@ -67,7 +67,7 @@
                 class="play"
                 class:play--stop={playing}
                 aria-label={playing ? "Pause the show" : "Play the show"}
-                onclick={() => (playing ? studio.stopShow() : play())}
+                onclick={() => (playing ? studio.stopShow("human") : play())}
             >
                 <!-- Painted like the rest of the paper. The chip it sits on is
                      chrome and stays still; the glyph on it is a cut-out and
@@ -92,6 +92,8 @@
                     class:chapter--current={stage.id === current}
                     class:chapter--busy={stage.id === busy}
                     aria-pressed={stage.id === current}
+                    data-track="chapter"
+                    data-track-area="Chapters"
                     tabindex={showing ? -1 : 0}
                     onclick={() => {
                         if (!showing) collage.setActiveStage(stage.id);
