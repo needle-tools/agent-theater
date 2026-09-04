@@ -93,6 +93,16 @@
         ]
       },
       {
+        "id": "instrument-pieces",
+        "label": "Instruments",
+        "packs": [
+          "instruments"
+        ],
+        "kinds": [
+          "scenery"
+        ]
+      },
+      {
         "id": "landscape-pieces",
         "label": "Landscape",
         "packs": [
