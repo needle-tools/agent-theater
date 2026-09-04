@@ -17,6 +17,7 @@
      * There are deliberately only a few piles, always in one row. The shelf is
      * a quick source of surprises rather than a catalogue to browse.
      */
+    import { onDestroy } from "svelte";
     import { TROUPE, TROUPE_SHELF, type TroupePiece } from "./troupe.js";
     import { STAGE_WIDTH, type CollageStudio } from "./studio.js";
     import { idleSet } from "./idleSet.js";
@@ -197,13 +198,37 @@
         from: { x: number; y: number };
     } | null>(null);
     let shelf: HTMLElement | null = $state(null);
+    /** Torn down the moment a drag ends, whichever way it ends. */
+    let following: (() => void) | null = null;
 
+    /**
+     * Follow the drag on the WINDOW rather than on the pile.
+     *
+     * The gesture used to be watched by pointermove/pointerup handlers on the
+     * pile itself, which only works for as long as the pointer capture taken
+     * on press survives — and a capture is a loan, not a fact. The browser
+     * hands it back whenever it feels the gesture has become something else,
+     * and it does not have to say so: the release then lands on whatever is
+     * under the pointer, the pile hears nothing, and the sticker is left
+     * riding the cursor with no way to put it down. Dropping onto another
+     * cut-out is where people hit it, because that is where the pointer is
+     * over something that wants the gesture too.
+     *
+     * A window listener does not care. It sees the release wherever it lands
+     * and whoever is holding the capture, so the drag ends exactly once, every
+     * time. The capture is still taken — it keeps the moves coming smoothly
+     * and stops the piles lighting up under a pointer that is busy — but
+     * nothing depends on it any more.
+     */
     function startPackDrag(event: PointerEvent, pack: ShelfPack) {
         if (event.button !== 0) return;
         event.preventDefault();
+        // A second press while one is already in the air: end the first, so
+        // there is never more than one sticker riding the pointer.
+        following?.();
         // Throws when the pointer is not genuinely down — synthetic events,
-        // some pens. Losing capture costs only a drag that ends off the
-        // element; throwing here would silently eat the whole add.
+        // some pens. Losing capture costs only a little smoothness now;
+        // throwing here would silently eat the whole add.
         try {
             (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
         } catch { /* carry on without capture */ }
@@ -214,6 +239,21 @@
             y: event.clientY,
             from: { x: event.clientX, y: event.clientY },
         };
+
+        const mine = (moving: PointerEvent) => moving.pointerId === event.pointerId;
+        const move = (moving: PointerEvent) => { if (mine(moving)) moveDrag(moving); };
+        const up = (release: PointerEvent) => { if (mine(release)) endDrag(release); };
+        const cancel = (aborted: PointerEvent) => { if (mine(aborted)) cancelDrag(); };
+        following = () => {
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+            window.removeEventListener("pointercancel", cancel);
+            following = null;
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+        window.addEventListener("pointercancel", cancel);
+
         playInteractionSound("pickup", studio.speaker.ready);
     }
 
@@ -223,6 +263,7 @@
     }
 
     function endDrag(event: PointerEvent) {
+        following?.();
         if (!ghost) return;
         const { piece, packId, from } = ghost;
         const wandered = Math.hypot(event.clientX - from.x, event.clientY - from.y) > 8;
@@ -242,9 +283,14 @@
     }
 
     function cancelDrag() {
+        following?.();
         if (ghost) playInteractionSound("putdown", studio.speaker.ready);
         ghost = null;
     }
+
+    // A shelf that goes away mid-drag — the show starting, a route change —
+    // must not leave its listeners behind on the window.
+    onDestroy(() => following?.());
 </script>
 
 {#if packs.length}
@@ -277,9 +323,6 @@
                     aria-label="Drag this {pack.label} sticker, or click to see another"
                     use:hint={PACK_THOUGHTS[pack.id] ?? "What story could this begin?"}
                     onpointerdown={event => startPackDrag(event, pack)}
-                    onpointermove={moveDrag}
-                    onpointerup={endDrag}
-                    onpointercancel={cancelDrag}
                     onkeydown={event => {
                         if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();

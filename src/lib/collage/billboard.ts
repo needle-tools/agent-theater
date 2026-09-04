@@ -216,11 +216,15 @@ export function creditLines(credits: Credit[]): string[] {
 }
 
 /**
- * The ending: the roll eases to a stop, the last card holds still for a
- * breath, and then the whole curtain fades. Part of the duration, so the
- * billboard is not snatched away mid-fade.
+ * The ending: the roll eases to a stop, the last card holds still, and then
+ * the whole curtain fades. Part of the duration, so the billboard is not
+ * snatched away mid-fade.
+ *
+ * The hold is long enough to be a pause rather than a hesitation. It is the
+ * only moment the house cactus and the name under it are still and alone on
+ * the screen, and two seconds was over before it registered as deliberate.
  */
-export const CREDIT_END_HOLD_MS = 2000;
+export const CREDIT_END_HOLD_MS = 4000;
 export const CREDIT_FADE_MS = 900;
 
 /** How long a roll of this length needs: travel, then the hold, then the fade. */

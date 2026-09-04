@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Collage, type ImageLayer } from "../src/lib/collage/model.js";
-import { bandDepth, posterCast } from "../src/lib/collage/poster.js";
+import { bandDepth, posterCast, posterRegion, POSTER_SIZE } from "../src/lib/collage/poster.js";
 
 /**
  * The front of a saved play is a poster, not a screenshot — the leads step
@@ -18,8 +18,10 @@ function company() {
         collage.addImage({
             src: `https://cdn.example.test/${label}.png`,
             label,
+            // Height follows the aspect, as it does everywhere: the model
+            // will not take one, because a stretched cut-out is never a choice.
             natural: { width: width * 2, height: height * 2 },
-            x: 0, y: 0, width, height,
+            x: 0, y: 0, width,
         });
     return { collage, add };
 }
@@ -146,5 +148,65 @@ describe("bandDepth", () => {
 
     it("keeps a floor under a small one, so the band stays legible", () => {
         expect(bandDepth(320, 180)).toBeGreaterThanOrEqual(76);
+    });
+});
+
+describe("posterRegion", () => {
+    const OG = POSTER_SIZE;
+    const band = bandDepth(OG.width, OG.height);
+    /** What one canvas unit is worth in poster pixels, per axis. */
+    const scales = (frame: { x: number; y: number; width: number; height: number }) => {
+        const region = posterRegion(frame, OG.width, OG.height, band);
+        return { x: OG.width / region.width, y: OG.height / region.height, region };
+    };
+
+    it("is the card's shape whatever shape the page is", () => {
+        for (const page of [
+            { x: 0, y: 0, width: 1200, height: 630 },
+            { x: 0, y: 0, width: 794, height: 1123 },
+            { x: 0, y: 0, width: 900, height: 900 },
+            { x: -400, y: 120, width: 1920, height: 1080 },
+        ]) {
+            const region = posterRegion(page, OG.width, OG.height, band);
+            expect(region.width / region.height).toBeCloseTo(OG.width / OG.height, 6);
+        }
+    });
+
+    it("never stretches — one scale, both axes", () => {
+        for (const page of [
+            { x: 0, y: 0, width: 794, height: 1123 },
+            { x: 0, y: 0, width: 900, height: 900 },
+            { x: 0, y: 0, width: 2400, height: 500 },
+        ]) {
+            const { x, y } = scales(page);
+            expect(x).toBeCloseTo(y, 6);
+        }
+    });
+
+    it("never crops the page off the poster", () => {
+        // A tall page loses nothing: the part that would go is the top or the
+        // sides of somebody's set.
+        const page = { x: 0, y: 0, width: 794, height: 1123 };
+        const { region } = scales(page);
+        expect(region.x).toBeLessThanOrEqual(page.x);
+        expect(region.y).toBeLessThanOrEqual(page.y);
+        expect(region.x + region.width).toBeGreaterThanOrEqual(page.x + page.width);
+        expect(region.y + region.height).toBeGreaterThanOrEqual(page.y + page.height);
+    });
+
+    it("centres the page above the band, not behind it", () => {
+        const page = { x: 0, y: 0, width: 900, height: 900 };
+        const { region, y: scale } = scales(page);
+        const centreInPoster = (page.y + page.height / 2 - region.y) * scale;
+        // The picture is what is left above the band; a set centred on the
+        // whole poster would stand with its feet under the paper strip.
+        expect(centreInPoster).toBeCloseTo((OG.height - band) / 2, 2);
+        expect(centreInPoster).toBeLessThan(OG.height / 2);
+    });
+
+    it("follows a page that is not at the origin", () => {
+        const page = { x: -640, y: 275, width: 1200, height: 630 };
+        const { region, x: scale } = scales(page);
+        expect((page.x + page.width / 2 - region.x) * scale).toBeCloseTo(OG.width / 2, 2);
     });
 });
