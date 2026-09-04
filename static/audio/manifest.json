@@ -2331,6 +2331,74 @@
 			"mood": ["small", "friendly", "electronic"],
 			"description": "Short square wave bleeps rising and falling over a soft click. A small machine talking — the robot in the `space` pack, and the one on the title card, finally saying something."
 		},
+		"blacksmith-strike": {
+			"role": "cue",
+			"file": "/audio/cues/blacksmith-strike.opus",
+			"seconds": 1.06,
+			"bpm": 80,
+			"mood": ["ringing", "rhythmic", "metallic"],
+			"description": "Three hammer strikes on an anvil under a low bellows breath. For `fairy-tale/blacksmith`. The quietest thing in the batch and left exactly as generated."
+		},
+		"herald-fanfare": {
+			"role": "cue",
+			"file": "/audio/cues/herald-fanfare.opus",
+			"seconds": 1.56,
+			"mood": ["formal", "bright", "ceremonial"],
+			"description": "A natural trumpet call with a single tabor hit. A herald announcing somebody — valveless, so it is restricted to the harmonic series, which is what makes it read as old rather than as the orchestral brass in `curtain-up`. Arrived twelve decibels hot and took the largest trim in the batch."
+		},
+		"minstrel-air-1": {
+			"role": "cue",
+			"file": "/audio/cues/minstrel-air-1.opus",
+			"seconds": 2.01,
+			"bpm": 90,
+			"take": "minstrel-air",
+			"mood": ["gentle", "modal", "wandering"],
+			"description": "A solo gittern picking a modal tune. The `fairy-tale/minstrel` has been on the shelf since the pack shipped and this is the first thing it can play."
+		},
+		"minstrel-air-2": {
+			"role": "cue",
+			"file": "/audio/cues/minstrel-air-2.opus",
+			"seconds": 2.01,
+			"bpm": 90,
+			"take": "minstrel-air",
+			"mood": ["gentle", "modal", "wandering"],
+			"description": "A solo gittern picking a modal tune. The `fairy-tale/minstrel` has been on the shelf since the pack shipped and this is the first thing it can play."
+		},
+		"feast-hall-1": {
+			"role": "bed",
+			"file": "/audio/music/feast-hall-1.opus",
+			"seconds": 37.19,
+			"bpm": 120,
+			"take": "feast-hall",
+			"mood": ["rowdy", "warm", "dancing"],
+			"description": "Shawm and recorder trading a modal dance tune over a steady tabor and plucked gittern. The great hall, a wedding, a celebration. Ends level with its middle, so unlike almost every bed here it loops without a hole."
+		},
+		"feast-hall-2": {
+			"role": "bed",
+			"file": "/audio/music/feast-hall-2.opus",
+			"seconds": 38.16,
+			"bpm": 120,
+			"take": "feast-hall",
+			"mood": ["rowdy", "warm", "dancing"],
+			"description": "Shawm and recorder trading a modal dance tune over a steady tabor and plucked gittern. The great hall, a wedding, a celebration. Ends level with its middle, so unlike almost every bed here it loops without a hole."
+		},
+		"feast-hall-3": {
+			"role": "bed",
+			"file": "/audio/music/feast-hall-3.opus",
+			"seconds": 40.01,
+			"bpm": 120,
+			"take": "feast-hall",
+			"mood": ["rowdy", "warm", "dancing"],
+			"description": "Shawm and recorder trading a modal dance tune over a steady tabor and plucked gittern. The great hall, a wedding, a celebration. Ends level with its middle, so unlike almost every bed here it loops without a hole."
+		},
+		"march-army": {
+			"role": "bed",
+			"file": "/audio/music/march-army.opus",
+			"seconds": 30.09,
+			"bpm": 70,
+			"mood": ["heavy", "inevitable", "processional"],
+			"description": "Deep war drums in a slow tread under a low shawm drone. An army on the move, or a procession that is not going to stop. Fades at the end, so it wants `fade` rather than `loop`."
+		},
 		"bird-chirp": {
 			"role": "cue",
 			"file": "/audio/cues/bird-chirp.opus",
