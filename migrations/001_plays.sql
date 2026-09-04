@@ -10,3 +10,10 @@ create table if not exists plays (
     updated_at timestamptz not null default now()
 );
 create index if not exists plays_public_recent on plays (created_at desc) where visibility = 'public';
+
+create table if not exists play_publish_events (
+    client_key text not null,
+    published_at timestamptz not null default now()
+);
+create index if not exists play_publish_events_client_time
+    on play_publish_events (client_key, published_at desc);

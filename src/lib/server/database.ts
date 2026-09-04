@@ -1,4 +1,5 @@
 import postgres from "postgres";
+import { createHash } from "node:crypto";
 import { env } from "$env/dynamic/private";
 
 let client: ReturnType<typeof postgres> | null = null;
@@ -66,6 +67,50 @@ export function database() {
 
         await client!`create index if not exists plays_public_playable
             on plays (chapters, created_at desc) where visibility = 'public'`;
+
+        await client!`
+            create table if not exists play_publish_events (
+                client_key text not null,
+                published_at timestamptz not null default now()
+            )`;
+        await client!`create index if not exists play_publish_events_client_time
+            on play_publish_events (client_key, published_at desc)`;
     })();
     return { sql: client, ready };
+}
+
+/**
+ * Atomically reserve one public-publish slot for a client address.
+ * Only a SHA-256 digest reaches Postgres; raw addresses are never retained.
+ */
+export async function claimPublishSlot(address: string): Promise<{ allowed: boolean; retryAfter: number }> {
+    const { sql, ready } = database();
+    await ready;
+    const key = createHash("sha256").update(address || "unknown").digest("hex");
+
+    return sql.begin(async transaction => {
+        // Serialize simultaneous publishes from the same client so parallel
+        // requests cannot all observe a free final slot.
+        await transaction`select pg_advisory_xact_lock(hashtext(${key}))`;
+        await transaction`delete from play_publish_events
+            where client_key = ${key} and published_at <= now() - interval '30 minutes'`;
+        const events = await transaction<{ age_seconds: number }[]>`
+            select extract(epoch from (now() - published_at))::float8 as age_seconds
+            from play_publish_events
+            where client_key = ${key} and published_at > now() - interval '30 minutes'
+            order by published_at asc`;
+
+        const minute = events.filter(event => event.age_seconds < 60);
+        const minuteRetry = minute.length >= 5
+            ? Math.max(1, Math.ceil(60 - Math.max(...minute.map(event => event.age_seconds))))
+            : 0;
+        const halfHourRetry = events.length >= 20
+            ? Math.max(1, Math.ceil(1800 - Math.max(...events.map(event => event.age_seconds))))
+            : 0;
+        const retryAfter = Math.max(minuteRetry, halfHourRetry);
+        if (retryAfter) return { allowed: false, retryAfter };
+
+        await transaction`insert into play_publish_events (client_key) values (${key})`;
+        return { allowed: true, retryAfter: 0 };
+    });
 }

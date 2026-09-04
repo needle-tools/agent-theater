@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
-import { database } from "$lib/server/database";
+import { claimPublishSlot, database } from "$lib/server/database";
 import { newId, newToken, tokenHash, validateAssets, validateDoc } from "$lib/server/plays";
 import { summarize } from "$lib/collage/playSummary";
 import { env } from "$env/dynamic/private";
@@ -63,7 +63,7 @@ export async function GET({ url }: { url: URL }) {
     } catch (error) { console.error(error); return json({ error: "Play library is unavailable." }, { status: 503 }); }
 }
 
-export const POST: RequestHandler = async ({ request, url }) => {
+export const POST: RequestHandler = async ({ request, url, getClientAddress }) => {
     try {
         const body = await request.json();
         if (!validateDoc(body.doc)) return json({ error: "Invalid play document." }, { status: 400 });
@@ -72,6 +72,13 @@ export const POST: RequestHandler = async ({ request, url }) => {
         const id = newId(); const editToken = newToken();
         const title = String(body.title || "Untitled play").slice(0, 160);
         const visibility = body.visibility === "public" ? "public" : "unlisted";
+        if (visibility === "public") {
+            const limit = await claimPublishSlot(getClientAddress());
+            if (!limit.allowed) return json({
+                error: `Publishing is limited to 5 times per minute and 20 times per 30 minutes. Try again in ${limit.retryAfter} seconds.`,
+                retryAfter: limit.retryAfter,
+            }, { status: 429, headers: { "retry-after": String(limit.retryAfter) } });
+        }
         const summary = summarize(body.doc);
         const { sql, ready } = database(); await ready;
         await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, written_by, chapters, duration_seconds, themes)
