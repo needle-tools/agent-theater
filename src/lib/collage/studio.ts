@@ -23,7 +23,7 @@ import { svgBlob, traceToSvg as traceToSvgPixels, TRACE_EDGE, type TraceOptions 
 import { exportHtml } from "./exportHtml.js";
 import {
     backgroundRemovalError, removeBackground as cutOut,
-    type CutRegion, type CutResult, type Progress,
+    type CutPiece, type CutRegion, type CutResult, type Progress,
 } from "./background.js";
 import {
     collectGarbage, clearDoc, clearImages, clearWings, getImage, loadDoc, loadWings,
@@ -1172,12 +1172,108 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 ...(options.labels ? { labels: options.labels } : {}),
                 ...(typeof options.inset === "number" ? { inset: options.inset } : {}),
             });
+            const nameOf = (index: number) => cells[index]?.label ?? `cell ${index + 1}`;
 
             record("working",
                 `Cutting a sheet into ${cells.length} pieces…`, options.by ?? "human");
 
-            const made: Layer[] = [];
-            for (const [index, cell] of cells.entries()) {
+            /**
+             * The whole sheet through the cutter ONCE, with the grid as regions.
+             *
+             * It used to be a round trip per cell: twenty-five model runs, one
+             * after another, for one 5×5 sheet. That is minutes, and the tool
+             * only waits twenty seconds before saying "still going" — so agents
+             * read it as a failure, retried, and a sheet arrived on the canvas
+             * three times over. The cutter can be told where the subjects are;
+             * telling it the grid is the same sentence, and the sheet comes
+             * back cut in one pass.
+             *
+             * Null when there is nothing to do here — no readable bytes, no
+             * handoff, a sheet that was transparent already, or a deployment
+             * old enough to ignore regions and hand back one cut-out of the
+             * whole sheet. All of those fall through to the cell-by-cell path,
+             * which needs nothing but a canvas.
+             */
+            const inOnePass = async (): Promise<Layer[] | null> => {
+                const bytes = await fetchBlob(url);
+                if (!bytes) return null;
+                let announced = 0;
+                const cut = await cutOut(bytes, {
+                    slice: true,
+                    size: { width: sheet.width, height: sheet.height },
+                    regions: cells.map((cell, index) => ({
+                        x: cell.x, y: cell.y, width: cell.width, height: cell.height,
+                        label: nameOf(index),
+                    })),
+                    onProgress: progress => {
+                        if (!progress.total) return;
+                        const done = Math.floor(((progress.loaded ?? 0) / progress.total) * 4);
+                        if (done <= announced) return;
+                        announced = done;
+                        record("working",
+                            `Fetching the background remover — ${done * 25}%. ` +
+                            `First use downloads the model; later ones are quick.`,
+                            options.by ?? "human");
+                    },
+                });
+                const source = cut.source;
+                if (!cut.ok || !source || !cut.pieces?.length) return null;
+
+                // Back into grid order by where each piece was found rather
+                // than by the order they arrive in: reading order is what the
+                // labels were written in, and it is what the tray lays out.
+                const perCell = new Map<number, CutPiece>();
+                for (const piece of cut.pieces) {
+                    const cx = (piece.x + piece.width / 2) / Math.max(1, source.width);
+                    const cy = (piece.y + piece.height / 2) / Math.max(1, source.height);
+                    let at = cells.findIndex(cell =>
+                        cx >= cell.x && cx <= cell.x + cell.width &&
+                        cy >= cell.y && cy <= cell.y + cell.height);
+                    if (at < 0) {
+                        at = Math.min(cells.length - 1, Math.max(0,
+                            Math.round(cy * options.rows - 0.5) * options.columns +
+                            Math.round(cx * options.columns - 0.5)));
+                    }
+                    // A cell is one thing by construction. If the cutter found
+                    // two islands in it — a figure and a dropped hat — the
+                    // bigger one is the subject.
+                    const standing = perCell.get(at);
+                    if (!standing || piece.width * piece.height > standing.width * standing.height) {
+                        perCell.set(at, piece);
+                    }
+                }
+
+                const cutOuts: Layer[] = [];
+                for (const [index] of cells.entries()) {
+                    const piece = perCell.get(index);
+                    if (!piece) continue;
+                    const src = URL.createObjectURL(piece.blob);
+                    try {
+                        const { layer } = await studio.addImage(src, {
+                            label: nameOf(index),
+                            // Already cut, and one thing: neither the remover
+                            // nor the slicer has anything left to do.
+                            removeBackground: false,
+                            slice: false,
+                            by: options.by,
+                        });
+                        cutOuts.push(layer);
+                    } finally {
+                        URL.revokeObjectURL(src);
+                    }
+                }
+                return cutOuts.length ? cutOuts : null;
+            };
+
+            const wantsCutting = !options.asBackdrop && options.removeBackground !== false;
+            const made: Layer[] = wantsCutting ? (await inOnePass() ?? []) : [];
+
+            // Cell by cell: a canvas crop each, and the remover called once per
+            // cell. Slower by a factor of the grid, and the only way through
+            // when there is no handoff to hand a whole sheet to — and the only
+            // way at all for backdrops, which are trimmed rather than cut.
+            const byHand: Array<[number, typeof cells[number]]> = made.length ? [] : [...cells.entries()];
+            for (const [index, cell] of byHand) {
                 const box = cellPixels(cell, sheet.width, sheet.height);
                 const canvas = document.createElement("canvas");
                 canvas.width = box.width;

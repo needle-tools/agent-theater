@@ -417,6 +417,23 @@ const MAX_BATCH = 40;
 function buildTools(studio: CollageStudio): WebMcpToolDef[] {
     const { collage } = studio;
 
+    /**
+     * Sheets being cut right now, so the same one is never cut twice.
+     *
+     * A cut outlives the call that started it: the tool gives up waiting after
+     * twenty seconds and says so, but the work carries on and its pieces
+     * arrive later. An agent that reads that as a failure — and checks
+     * piece_list, which is still empty, and is sure — retries, and the sheet
+     * lands on the canvas twice. That is not a hypothetical; it has happened
+     * three times over on one sheet.
+     *
+     * So a second call for the same sheet joins the first instead of starting
+     * another, and piece_list says what is still in the oven.
+     */
+    const cutting = new Map<string, { work: Promise<Layer[]>; cells: number; label: string }>();
+    const sheetKey = (url: string, columns: number, rows: number, as: string) =>
+        `${as}:${columns}x${rows}:${url.length}:${url.slice(0, 96)}:${url.slice(-32)}`;
+
     const describeLayer = (layer: Layer) => {
         const where = `at ${Math.round(layer.x)}, ${Math.round(layer.y)}, ${Math.round(layer.width)}×${Math.round(layer.height)}`;
         if (layer.kind === "text") return `${layer.id} — text "${truncate(layer.text, 40)}", ${where}`;
@@ -979,8 +996,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 "One image holding a grid of separate pictures becomes one piece per cell. This is how " +
                 "art written by theater_art_prompt gets onto the canvas: an image model will not hand " +
                 "over nine cut-outs, it hands over one sheet, and this is the other half of that. " +
-                "The grid is divided here and each cell goes through FastCut's remover, which this page " +
-                "runs itself in a hidden frame — there is no second tab to open. " +
+                "The whole sheet goes to FastCut's remover in ONE pass, with the grid telling it where " +
+                "each cell is — this page runs that remover itself, in a hidden frame, so there is no " +
+                "second tab to open and no per-piece round trip. " +
                 "'actors' cuts each cell out of its background so it can stand on a stage; 'backgrounds' " +
                 "keeps each cell whole, because a backdrop IS a background and removing it would leave " +
                 "nothing. Pass the same labels you gave as subjects and every piece arrives named.",
@@ -1027,13 +1045,12 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 const actors = args?.as !== "backgrounds";
 
                 try {
-                    // The grid is cut here, in the page. There is nothing to
-                    // guess: three columns means thirds. Handing the whole
-                    // sheet to the cutter and asking it to find the subjects
-                    // spends a round trip re-deriving what it was already told,
-                    // and when it answers with one object instead of three
-                    // there is nothing to look at and no way to say why.
-                    const work = studio.addSheet(url, {
+                    // The grid goes to the cutter as regions and the whole
+                    // sheet is cut in one pass. It used to be a round trip per
+                    // cell, which is where the minutes went.
+                    const key = sheetKey(url, columns, rows, actors ? "actors" : "backgrounds");
+                    const already = cutting.get(key);
+                    const work = already?.work ?? studio.addSheet(url, {
                         columns, rows, labels,
                         // Everything is cut out, backdrops included: a
                         // generated backdrop is a torn paper card on a white
@@ -1042,12 +1059,25 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         asBackdrop: !actors,
                         by: "agent",
                     });
+                    if (!already) {
+                        cutting.set(key, {
+                            work,
+                            cells: columns * rows,
+                            label: `a ${columns}×${rows} sheet of ${actors ? "actors" : "backdrops"}`,
+                        });
+                        void work.then(() => cutting.delete(key), () => cutting.delete(key));
+                    }
                     const raced = await within(work, () => ok(
-                        `Cutting the sheet — this is taking a while, which on a first call means the ` +
-                        `background remover is still downloading (tens of megabytes, once per browser). ` +
-                        `It is still running. Do NOT call this again with the same sheet: follow it with ` +
-                        `show_watch, then piece_list.`,
-                        { pending: true }));
+                        (already
+                            ? `That sheet is ALREADY being cut — this call joined the one in flight ` +
+                              `rather than starting a second, so nothing has been duplicated. `
+                            : `Cutting the sheet — this is taking a while, which on a first call means the ` +
+                              `background remover is still downloading (tens of megabytes, once per ` +
+                              `browser). `) +
+                        `It is still running and its pieces WILL arrive; piece_list stays empty until ` +
+                        `they do, so an empty canvas here is not a failure. Do not send the sheet again: ` +
+                        `follow it with show_watch, then piece_list.`,
+                        { pending: true, joined: !!already }));
                     if (!("value" in raced)) return raced;
 
                     const made = raced.value;
@@ -1097,8 +1127,21 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                           `Use show_page for a fixed size like a4-portrait.`,
                     layers.length
                         ? `Layers (back to front):\n${layers.map(describeLayer).join("\n")}`
-                        : `The canvas is empty. Add photos with piece_add — backgrounds come off automatically.`,
+                        : cutting.size
+                            ? `Nothing on the canvas yet — but a sheet is being cut right now, so this ` +
+                              `is not the finished picture.`
+                            : `The canvas is empty. Add photos with piece_add — backgrounds come off automatically.`,
                 ];
+                // Said before anything is concluded from an empty canvas: a
+                // sheet still being cut is exactly the state that reads as
+                // "the cut failed" and gets a sheet sent a second time.
+                if (cutting.size) {
+                    parts.push(
+                        `STILL CUTTING: ${[...cutting.values()]
+                            .map(job => `${job.label} (${job.cells} cells)`).join(", ")}. ` +
+                        `Those pieces are not here YET and are not lost — wait with show_watch and ` +
+                        `list again. Do not send the sheet again.`);
+                }
                 if (studio.selection.length) {
                     const chosen = studio.selection.map(id => collage.get(id)).filter(Boolean) as Layer[];
                     parts.push(

@@ -28,6 +28,8 @@ interface FakeOptions {
     failLoading?: boolean;
     /** Pretend the background remover is unreachable. */
     cutUnavailable?: boolean;
+    /** Milliseconds a sheet takes to come back, for the retry tests. */
+    sheetTakes?: number;
 }
 
 function fakeStudio(options: FakeOptions = {}) {
@@ -45,7 +47,10 @@ function fakeStudio(options: FakeOptions = {}) {
     let pagePreset = FREE_PAGE;
     let selection: string[] = [];
 
-    const studio: CollageStudio & { played: Plan[]; shows: string[][]; holds: boolean[] } = {
+    const studio: CollageStudio & {
+        played: Plan[]; shows: string[][]; holds: boolean[];
+        sheets: Array<{ url: string; columns: number; rows: number }>;
+    } = {
         collage,
         images,
         async addImage(url, opts = {}) {
@@ -119,7 +124,14 @@ function fakeStudio(options: FakeOptions = {}) {
         get busyStage() { return null; },
         // The fake has no canvas to draw crops on, so a sheet is reported as
         // arriving whole. The cutting itself is tested against gridCells.
-        async addSheet() { return []; },
+        // Every call is recorded, because how MANY times one sheet is cut is
+        // the whole of the retry question.
+        sheets: [] as Array<{ url: string; columns: number; rows: number }>,
+        async addSheet(url: string, opts: { columns: number; rows: number }) {
+            (studio as any).sheets.push({ url, columns: opts.columns, rows: opts.rows });
+            if (options.sheetTakes) await new Promise(r => setTimeout(r, options.sheetTakes));
+            return [];
+        },
         // The fake plays a whole show instantly, so the tools can be tested for
         // what they say rather than for how long they take.
         holds: [] as boolean[],
@@ -815,6 +827,50 @@ describe("the surface an agent actually sees", () => {
             "theater_art_prompt", "theater_avatar", "theater_background", "theater_batch",
             "theater_clear", "theater_restore", "theater_start",
         ]);
+    });
+
+    it("joins a sheet already being cut instead of cutting it twice", async () => {
+        // The bug: the tool gives up waiting after twenty seconds and says
+        // "still going", the work carries on, and an agent that reads that as
+        // a failure retries — so one sheet arrived on the canvas three times.
+        const { studio, tool } = fakeStudio({ sheetTakes: 40 });
+        const sheet = { url: "https://example.test/bremen.png", columns: 2, rows: 2, as: "actors" };
+
+        const first = tool("piece_sheet").execute(sheet);
+        const second = tool("piece_sheet").execute(sheet);
+        await Promise.all([first, second]);
+
+        expect((studio as any).sheets).toHaveLength(1);
+    });
+
+    it("cuts a different sheet on its own", async () => {
+        const { studio, tool } = fakeStudio({ sheetTakes: 40 });
+        await Promise.all([
+            tool("piece_sheet").execute({ url: "https://example.test/one.png", columns: 2, rows: 2, as: "actors" }),
+            tool("piece_sheet").execute({ url: "https://example.test/two.png", columns: 2, rows: 2, as: "actors" }),
+        ]);
+        expect((studio as any).sheets).toHaveLength(2);
+    });
+
+    it("says a sheet is still being cut, so an empty canvas is not a verdict", async () => {
+        // The other half of the same misdiagnosis: the agent checked
+        // piece_list, saw nothing, and concluded the cut had failed.
+        const { tool } = fakeStudio({ sheetTakes: 60 });
+        const cutting = tool("piece_sheet").execute(
+            { url: "https://example.test/bremen.png", columns: 2, rows: 2, as: "actors" });
+        expect(textOf(await tool("piece_list").execute({}))).toContain("STILL CUTTING");
+        await cutting;
+        expect(textOf(await tool("piece_list").execute({}))).not.toContain("STILL CUTTING");
+    });
+
+    it("cuts again once the first one has finished", async () => {
+        // Joining is for a retry landing on work in flight. A sheet that is
+        // done is done, and asking for it again is asking for it again.
+        const { studio, tool } = fakeStudio({ sheetTakes: 10 });
+        const sheet = { url: "https://example.test/bremen.png", columns: 2, rows: 2, as: "actors" };
+        await tool("piece_sheet").execute(sheet);
+        await tool("piece_sheet").execute(sheet);
+        expect((studio as any).sheets).toHaveLength(2);
     });
 
     it("leaves the authoring features out, not deleted", () => {
