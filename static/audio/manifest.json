@@ -2399,6 +2399,93 @@
 			"mood": ["heavy", "inevitable", "processional"],
 			"description": "Deep war drums in a slow tread under a low shawm drone. An army on the move, or a procession that is not going to stop. Fades at the end, so it wants `fade` rather than `loop`."
 		},
+		"argument": {
+			"role": "cue",
+			"file": "/audio/cues/argument.opus",
+			"seconds": 1.01,
+			"bpm": 120,
+			"mood": ["bickering", "comic", "overlapping"],
+			"description": "Two clarinets talking over each other with a short bassoon interjection. A row, played by instruments rather than voices, so it can run under a narrator without competing with them."
+		},
+		"greeting-1": {
+			"role": "cue",
+			"file": "/audio/cues/greeting-1.opus",
+			"seconds": 1.01,
+			"bpm": 100,
+			"take": "greeting",
+			"mood": ["warm", "brief", "friendly"],
+			"description": "A short rising clarinet phrase over a soft accordion chord. Hello. Five takes, all a second long and all genuinely different."
+		},
+		"greeting-2": {
+			"role": "cue",
+			"file": "/audio/cues/greeting-2.opus",
+			"seconds": 1.01,
+			"bpm": 100,
+			"take": "greeting",
+			"mood": ["warm", "brief", "friendly"],
+			"description": "A short rising clarinet phrase over a soft accordion chord. Hello. Five takes, all a second long and all genuinely different."
+		},
+		"greeting-3": {
+			"role": "cue",
+			"file": "/audio/cues/greeting-3.opus",
+			"seconds": 1.01,
+			"bpm": 100,
+			"take": "greeting",
+			"mood": ["warm", "brief", "friendly"],
+			"description": "A short rising clarinet phrase over a soft accordion chord. Hello. Five takes, all a second long and all genuinely different."
+		},
+		"greeting-4": {
+			"role": "cue",
+			"file": "/audio/cues/greeting-4.opus",
+			"seconds": 1.01,
+			"bpm": 100,
+			"take": "greeting",
+			"mood": ["warm", "brief", "friendly"],
+			"description": "A short rising clarinet phrase over a soft accordion chord. Hello. Five takes, all a second long and all genuinely different."
+		},
+		"greeting-5": {
+			"role": "cue",
+			"file": "/audio/cues/greeting-5.opus",
+			"seconds": 1.01,
+			"bpm": 100,
+			"take": "greeting",
+			"mood": ["warm", "brief", "friendly"],
+			"description": "A short rising clarinet phrase over a soft accordion chord. Hello. Five takes, all a second long and all genuinely different."
+		},
+		"market-haggle": {
+			"role": "cue",
+			"file": "/audio/cues/market-haggle.opus",
+			"seconds": 19.56,
+			"bpm": 140,
+			"mood": ["quick", "bartering", "comic"],
+			"description": "Two oboes trading fast phrases over woodblock taps. Bartering. At twenty seconds it is the longest cue in the library and holds the bed down for all of it, so it suits a whole exchange rather than one line."
+		},
+		"street-bustle-1": {
+			"role": "cue",
+			"file": "/audio/cues/street-bustle-1.opus",
+			"seconds": 4.0,
+			"bpm": 130,
+			"take": "street-bustle",
+			"mood": ["hurrying", "cheerful", "busy"],
+			"description": "A walking upright bass under clipped accordion chords and brushed snare. Four seconds of a street going about its business."
+		},
+		"street-bustle-2": {
+			"role": "cue",
+			"file": "/audio/cues/street-bustle-2.opus",
+			"seconds": 3.52,
+			"bpm": 130,
+			"take": "street-bustle",
+			"mood": ["hurrying", "cheerful", "busy"],
+			"description": "A walking upright bass under clipped accordion chords and brushed snare. Four seconds of a street going about its business."
+		},
+		"street-bustle-long": {
+			"role": "bed",
+			"file": "/audio/music/street-bustle-long.opus",
+			"seconds": 33.62,
+			"bpm": 130,
+			"mood": ["hurrying", "cheerful", "busy"],
+			"description": "A walking upright bass under clipped accordion chords and brushed snare, at thirty-four seconds. A street to play a whole scene under, for the `street` pack's thirty-one silent pieces. Ends within three decibels of its middle, so it very nearly loops."
+		},
 		"bird-chirp": {
 			"role": "cue",
 			"file": "/audio/cues/bird-chirp.opus",
