@@ -19,6 +19,7 @@
      */
     import { alphaFilters, cssColor, outlineFilterSvg, pxUnit, textCss } from "./css.js";
     import { paintOrder } from "./depth.js";
+    import { gripOf, pinched, zoomAbout, type Grip, type View } from "./view.js";
     import { boilFilterSvg } from "./painted.js";
     import { findEffect, particlesFor } from "./effects.js";
     import { autoVoiceFor } from "./characterVoice.js";
@@ -1709,6 +1710,50 @@
         return null;
     }
 
+    /**
+     * Two fingers: the same zoom the wheel does, plus the pan that comes free.
+     *
+     * Live touch points rather than a TouchEvent listener, because everything
+     * else here is pointer events and a second input path would fight the
+     * first for capture. The browser is already told `touch-action: none`, so
+     * the page never takes the gesture for itself.
+     */
+    const touching = new Map<number, { x: number; y: number }>();
+    /** The grip the pinch began with, and the view it began from. */
+    let pinch: { from: Grip; view: View } | null = null;
+
+    /** Both fingers, in viewport coordinates, or null while there is only one. */
+    function grip(): Grip | null {
+        const [a, b] = [...touching.values()];
+        if (!a || !b || !viewport) return null;
+        const rect = viewport.getBoundingClientRect();
+        return gripOf(
+            { x: a.x - rect.left, y: a.y - rect.top },
+            { x: b.x - rect.left, y: b.y - rect.top });
+    }
+
+    /**
+     * The first finger may already have picked something up. A pinch is not a
+     * drag, so whatever it nudged goes back where it was — otherwise every
+     * zoom leaves the piece under your thumb slightly moved.
+     */
+    function abandonDrag() {
+        if (drag?.mode === "move" && moved) {
+            const origins = drag.origins;
+            studio.collage.batch(() => {
+                for (const [id, origin] of origins) studio.collage.update(id, origin);
+            });
+        }
+        drag = null;
+        marquee = null;
+        moved = false;
+    }
+
+    function pinchTo() {
+        const now = grip();
+        if (pinch && now) view = pinched(pinch.view, pinch.from, now);
+    }
+
     function onWheel(event: WheelEvent) {
         // The view is yours even mid-show: the world is one open canvas, and
         // looking around is not touching the play. The camera takes the view
@@ -1716,20 +1761,12 @@
         event.preventDefault();
         stopFlight();
         const rect = viewport!.getBoundingClientRect();
-        const pointerX = event.clientX - rect.left;
-        const pointerY = event.clientY - rect.top;
-        // Zoom about the cursor: the canvas point under it must not move.
-        const factor = Math.exp(-event.deltaY * 0.0015);
-        // Bounded like the resizes are: past 2.5× a sticker is a texture
-        // study, and below a quarter the world is dust. The camera's own
-        // scene framing stays inside this band too.
-        const zoom = Math.min(2.5, Math.max(0.25, view.zoom * factor));
-        const scale = zoom / view.zoom;
-        view = {
-            zoom,
-            x: pointerX - (pointerX - view.x) * scale,
-            y: pointerY - (pointerY - view.y) * scale,
-        };
+        // Zoom about the cursor: the canvas point under it must not move. Same
+        // arithmetic two fingers use, and bounded by the same band.
+        view = zoomAbout(
+            view,
+            { x: event.clientX - rect.left, y: event.clientY - rect.top },
+            Math.exp(-event.deltaY * 0.0015));
     }
 
     function onPointerDown(event: PointerEvent) {
@@ -1748,6 +1785,17 @@
         stopFlight();
         if (event.button === 2) return; // The context menu handler deals with it.
         if (event.button !== 0 && event.button !== 1) return;
+
+        if (event.pointerType === "touch") {
+            touching.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            const both = grip();
+            if (both) {
+                event.preventDefault();
+                abandonDrag();
+                pinch = { from: both, view: { ...view } };
+                return;
+            }
+        }
 
         // A pointer down anywhere but inside the text being typed ends the edit.
         // preventDefault below stops the browser moving focus for us, so this
@@ -1845,6 +1893,13 @@
 
     function onPointerMove(event: PointerEvent) {
         pointer = { x: event.clientX, y: event.clientY };
+        if (event.pointerType === "touch" && touching.has(event.pointerId)) {
+            touching.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            if (pinch) {
+                pinchTo();
+                return;
+            }
+        }
         if (eraseSweep) {
             eraseAt(event.clientX, event.clientY);
             return;
@@ -1988,6 +2043,17 @@
     }
 
     function onPointerUp(event: PointerEvent) {
+        if (event.pointerType === "touch") {
+            touching.delete(event.pointerId);
+            if (pinch && touching.size < 2) {
+                pinch = null;
+                // The finger still down must not carry on as a pan from an
+                // origin recorded two fingers ago.
+                drag = null;
+                studio.save(view);
+                return;
+            }
+        }
         if (eraseSweep) {
             // One save for the whole sweep, not one per casualty.
             eraseSweep = false;
