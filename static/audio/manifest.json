@@ -108,6 +108,40 @@
 			"mood": ["dark", "tense", "hovering"],
 			"description": "Low double bass drone, muted cimbalom tremolo, soft timpani rumble, sustained low brass. The only one that came back at the full length asked for, and the quietest through the middle. Fades to silence at the end, so it wants `fade` rather than `loop`."
 		},
+		"bright-arrival": {
+			"role": "bed",
+			"file": "/audio/music/bright-arrival.opus",
+			"seconds": 45.14,
+			"bpm": 80,
+			"mood": ["bright", "clear", "arriving"],
+			"description": "One bright sustained chord held open, with a soft harp accent and a light chime. Asked for as a short sting for the moment somebody realises something, and it came back as forty-five seconds of that feeling instead — so it is a bed for a scene that has just turned hopeful. Fades at the end."
+		},
+		"climb-steps": {
+			"role": "bed",
+			"file": "/audio/music/climb-steps.opus",
+			"seconds": 29.22,
+			"bpm": 100,
+			"mood": ["effortful", "stepping", "comic"],
+			"description": "An ascending pizzicato ladder over grunting bassoon steps and a woodblock. Effort going somewhere — a climb, a journey, a task being got on with. Ends level with its middle, so it is one of the few beds here that genuinely loops."
+		},
+		"underwater-1": {
+			"role": "bed",
+			"file": "/audio/music/underwater-1.opus",
+			"seconds": 44.43,
+			"bpm": 60,
+			"take": "underwater",
+			"mood": ["submerged", "slow", "damp"],
+			"description": "Muffled bowed marimba, low sustained strings and sparse harp harmonics in a wide damp space. Under the water, which the `ocean` pack had twenty-five pieces and no sound for. Fades at the end."
+		},
+		"underwater-2": {
+			"role": "bed",
+			"file": "/audio/music/underwater-2.opus",
+			"seconds": 47.90,
+			"bpm": 60,
+			"take": "underwater",
+			"mood": ["submerged", "slow", "damp"],
+			"description": "Muffled bowed marimba, low sustained strings and sparse harp harmonics in a wide damp space. Quieter through the middle than `underwater-1` and the easier of the two to speak over. Fades at the end."
+		},
 		"shanty-sea-1": {
 			"role": "bed",
 			"file": "/audio/music/shanty-sea-1.opus",
@@ -1654,6 +1688,307 @@
 			"seconds": 0.84,
 			"mood": ["airy", "light", "quick"],
 			"description": "A small breathed swoosh with a long thin decay, no weight underneath. Much smaller and quieter than `whoosh` — for something little moving, not something big."
+		},
+		"awe-1": {
+			"role": "cue",
+			"file": "/audio/cues/awe-1.opus",
+			"seconds": 2.01,
+			"take": "awe",
+			"mood": ["vast", "still", "humbling"],
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+		},
+		"awe-2": {
+			"role": "cue",
+			"file": "/audio/cues/awe-2.opus",
+			"seconds": 2.01,
+			"take": "awe",
+			"mood": ["vast", "still", "humbling"],
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+		},
+		"awe-3": {
+			"role": "cue",
+			"file": "/audio/cues/awe-3.opus",
+			"seconds": 2.01,
+			"take": "awe",
+			"mood": ["vast", "still", "humbling"],
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+		},
+		"awe-4": {
+			"role": "cue",
+			"file": "/audio/cues/awe-4.opus",
+			"seconds": 2.01,
+			"take": "awe",
+			"mood": ["vast", "still", "humbling"],
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+		},
+		"awe-5": {
+			"role": "cue",
+			"file": "/audio/cues/awe-5.opus",
+			"seconds": 2.01,
+			"take": "awe",
+			"mood": ["vast", "still", "humbling"],
+			"description": "A wide low string chord opening under a distant choir and a single deep bell. Something enormous, and being made small by it — where `choir-wonder` is delight."
+		},
+		"betrayal-1": {
+			"role": "cue",
+			"file": "/audio/cues/betrayal-1.opus",
+			"seconds": 3.94,
+			"take": "betrayal",
+			"mood": ["souring", "cold", "turning"],
+			"description": "A sweet string chord souring into a low brass note under a single muted timpani. The moment an ally stops being one — the beat a fairy tale turns on, and the library had nothing for it."
+		},
+		"betrayal-2": {
+			"role": "cue",
+			"file": "/audio/cues/betrayal-2.opus",
+			"seconds": 3.98,
+			"take": "betrayal",
+			"mood": ["souring", "cold", "turning"],
+			"description": "A sweet string chord souring into a low brass note under a single muted timpani. The moment an ally stops being one — the beat a fairy tale turns on, and the library had nothing for it."
+		},
+		"betrayal-3": {
+			"role": "cue",
+			"file": "/audio/cues/betrayal-3.opus",
+			"seconds": 3.66,
+			"take": "betrayal",
+			"mood": ["souring", "cold", "turning"],
+			"description": "A sweet string chord souring into a low brass note under a single muted timpani. The moment an ally stops being one — the beat a fairy tale turns on, and the library had nothing for it."
+		},
+		"boredom-1": {
+			"role": "cue",
+			"file": "/audio/cues/boredom-1.opus",
+			"seconds": 5.01,
+			"take": "boredom",
+			"mood": ["sagging", "patient", "comic"],
+			"description": "A drooping bassoon phrase repeating over a slow woodblock. Waiting and minding it — `clock-time` marks time passing without complaining about it."
+		},
+		"boredom-2": {
+			"role": "cue",
+			"file": "/audio/cues/boredom-2.opus",
+			"seconds": 5.01,
+			"take": "boredom",
+			"mood": ["sagging", "patient", "comic"],
+			"description": "A drooping bassoon phrase repeating over a slow woodblock. Waiting and minding it — `clock-time` marks time passing without complaining about it."
+		},
+		"boredom-3": {
+			"role": "cue",
+			"file": "/audio/cues/boredom-3.opus",
+			"seconds": 5.01,
+			"take": "boredom",
+			"mood": ["sagging", "patient", "comic"],
+			"description": "A drooping bassoon phrase repeating over a slow woodblock. Waiting and minding it — `clock-time` marks time passing without complaining about it."
+		},
+		"climb-up": {
+			"role": "cue",
+			"file": "/audio/cues/climb-up.opus",
+			"seconds": 5.01,
+			"mood": ["effortful", "stepping", "rising"],
+			"description": "An ascending pizzicato ladder with grunting bassoon steps and a woodblock. Five seconds of getting up something, where the `climb-steps` bed is thirty seconds of the same idea to play a whole journey under."
+		},
+		"forgive-1": {
+			"role": "cue",
+			"file": "/audio/cues/forgive-1.opus",
+			"seconds": 3.08,
+			"take": "forgive",
+			"mood": ["resolving", "warm", "mending"],
+			"description": "A held dissonance settling into a major chord under soft harp. The mend. `sorrowful-cello` grieves and nothing until now repaired anything."
+		},
+		"forgive-2": {
+			"role": "cue",
+			"file": "/audio/cues/forgive-2.opus",
+			"seconds": 2.84,
+			"take": "forgive",
+			"mood": ["resolving", "warm", "mending"],
+			"description": "A held dissonance settling into a major chord under soft harp. The mend. `sorrowful-cello` grieves and nothing until now repaired anything."
+		},
+		"lie-told": {
+			"role": "cue",
+			"file": "/audio/cues/lie-told.opus",
+			"seconds": 3.42,
+			"mood": ["sly", "sweet", "wrong"],
+			"description": "A bright celesta phrase with one sour clarinet note inside it. A wink to the audience that somebody is not telling the truth."
+		},
+		"lonely": {
+			"role": "cue",
+			"file": "/audio/cues/lonely.opus",
+			"seconds": 1.26,
+			"mood": ["bare", "distant", "alone"],
+			"description": "One solo cello line in a large room with silence around it. Being left, which is different from grief: `sorrowful-cello` has somebody to mourn. Came back barely a second long despite being asked for eight."
+		},
+		"longing-1": {
+			"role": "cue",
+			"file": "/audio/cues/longing-1.opus",
+			"seconds": 5.01,
+			"take": "longing",
+			"mood": ["yearning", "unresolved", "tender"],
+			"description": "A solo clarinet phrase rising and hanging over sparse harp. The wish that starts the story, left deliberately unanswered."
+		},
+		"longing-2": {
+			"role": "cue",
+			"file": "/audio/cues/longing-2.opus",
+			"seconds": 3.62,
+			"take": "longing",
+			"mood": ["yearning", "unresolved", "tender"],
+			"description": "A solo clarinet phrase rising and hanging over sparse harp. The wish that starts the story, left deliberately unanswered."
+		},
+		"longing-3": {
+			"role": "cue",
+			"file": "/audio/cues/longing-3.opus",
+			"seconds": 5.01,
+			"take": "longing",
+			"mood": ["yearning", "unresolved", "tender"],
+			"description": "A solo clarinet phrase rising and hanging over sparse harp. The wish that starts the story, left deliberately unanswered."
+		},
+		"menace-near-1": {
+			"role": "cue",
+			"file": "/audio/cues/menace-near-1.opus",
+			"seconds": 3.84,
+			"take": "menace-near",
+			"mood": ["looming", "approaching", "low"],
+			"description": "Low brass swelling nearer over slow timpani steps growing louder. Something coming closer, where `suspense-stalking` circles without arriving."
+		},
+		"menace-near-2": {
+			"role": "cue",
+			"file": "/audio/cues/menace-near-2.opus",
+			"seconds": 4.2,
+			"take": "menace-near",
+			"mood": ["looming", "approaching", "low"],
+			"description": "Low brass swelling nearer over slow timpani steps growing louder. Something coming closer, where `suspense-stalking` circles without arriving."
+		},
+		"panic-1": {
+			"role": "cue",
+			"file": "/audio/cues/panic-1.opus",
+			"seconds": 4.36,
+			"take": "panic",
+			"mood": ["frantic", "scattering", "loud"],
+			"description": "Woodwind runs colliding over hurried pizzicato and a rattling tambourine. Everything at once, where `suspense-crescendo` builds toward one thing."
+		},
+		"panic-2": {
+			"role": "cue",
+			"file": "/audio/cues/panic-2.opus",
+			"seconds": 4.41,
+			"take": "panic",
+			"mood": ["frantic", "scattering", "loud"],
+			"description": "Woodwind runs colliding over hurried pizzicato and a rattling tambourine. Everything at once, where `suspense-crescendo` builds toward one thing."
+		},
+		"panic-3": {
+			"role": "cue",
+			"file": "/audio/cues/panic-3.opus",
+			"seconds": 4.42,
+			"take": "panic",
+			"mood": ["frantic", "scattering", "loud"],
+			"description": "Woodwind runs colliding over hurried pizzicato and a rattling tambourine. Everything at once, where `suspense-crescendo` builds toward one thing."
+		},
+		"pride-small-1": {
+			"role": "cue",
+			"file": "/audio/cues/pride-small-1.opus",
+			"seconds": 5.01,
+			"take": "pride-small",
+			"mood": ["modest", "pleased", "warm"],
+			"description": "A short warm horn phrase with a light triangle and a soft snare tap. A quiet well-done, smaller than `treasure-sparkle`'s reveal and `fly-soar`'s lift."
+		},
+		"pride-small-2": {
+			"role": "cue",
+			"file": "/audio/cues/pride-small-2.opus",
+			"seconds": 3.32,
+			"take": "pride-small",
+			"mood": ["modest", "pleased", "warm"],
+			"description": "A short warm horn phrase with a light triangle and a soft snare tap. A quiet well-done, smaller than `treasure-sparkle`'s reveal and `fly-soar`'s lift."
+		},
+		"pride-small-3": {
+			"role": "cue",
+			"file": "/audio/cues/pride-small-3.opus",
+			"seconds": 3.41,
+			"take": "pride-small",
+			"mood": ["modest", "pleased", "warm"],
+			"description": "A short warm horn phrase with a light triangle and a soft snare tap. A quiet well-done, smaller than `treasure-sparkle`'s reveal and `fly-soar`'s lift."
+		},
+		"relief-resolve-1": {
+			"role": "cue",
+			"file": "/audio/cues/relief-resolve-1.opus",
+			"seconds": 5.01,
+			"take": "relief-resolve",
+			"mood": ["easing", "warm", "settling"],
+			"description": "A settling woodwind cadence over a soft guitar chord and a gentle triangle. It is over, and it was all right — the musical answer to the recorded `phew`."
+		},
+		"relief-resolve-2": {
+			"role": "cue",
+			"file": "/audio/cues/relief-resolve-2.opus",
+			"seconds": 5.01,
+			"take": "relief-resolve",
+			"mood": ["easing", "warm", "settling"],
+			"description": "A settling woodwind cadence over a soft guitar chord and a gentle triangle. It is over, and it was all right — the musical answer to the recorded `phew`."
+		},
+		"relief-resolve-3": {
+			"role": "cue",
+			"file": "/audio/cues/relief-resolve-3.opus",
+			"seconds": 5.01,
+			"take": "relief-resolve",
+			"mood": ["easing", "warm", "settling"],
+			"description": "A settling woodwind cadence over a soft guitar chord and a gentle triangle. It is over, and it was all right — the musical answer to the recorded `phew`."
+		},
+		"shame-1": {
+			"role": "cue",
+			"file": "/audio/cues/shame-1.opus",
+			"seconds": 1.55,
+			"take": "shame",
+			"mood": ["sinking", "quiet", "withdrawn"],
+			"description": "A descending muted viola line over soft low piano. A face turning away, which `disappointed-banjo` does not cover: that one is a failed attempt, this is not wanting to be looked at."
+		},
+		"shame-2": {
+			"role": "cue",
+			"file": "/audio/cues/shame-2.opus",
+			"seconds": 2.01,
+			"take": "shame",
+			"mood": ["sinking", "quiet", "withdrawn"],
+			"description": "A descending muted viola line over soft low piano. A face turning away, which `disappointed-banjo` does not cover: that one is a failed attempt, this is not wanting to be looked at."
+		},
+		"shame-3": {
+			"role": "cue",
+			"file": "/audio/cues/shame-3.opus",
+			"seconds": 1.03,
+			"take": "shame",
+			"mood": ["sinking", "quiet", "withdrawn"],
+			"description": "A descending muted viola line over soft low piano. A face turning away, which `disappointed-banjo` does not cover: that one is a failed attempt, this is not wanting to be looked at."
+		},
+		"striving-climb-1": {
+			"role": "cue",
+			"file": "/audio/cues/striving-climb-1.opus",
+			"seconds": 4.08,
+			"take": "striving-climb",
+			"mood": ["determined", "driving", "steady"],
+			"description": "Woodblock percussion, a melodic bassoon over a pedal drone and muted acoustic guitar, climbing steadily. Setting out and meaning it, where `climb-up` is the effort of a single ascent."
+		},
+		"striving-climb-2": {
+			"role": "cue",
+			"file": "/audio/cues/striving-climb-2.opus",
+			"seconds": 4.1,
+			"take": "striving-climb",
+			"mood": ["determined", "driving", "steady"],
+			"description": "Woodblock percussion, a melodic bassoon over a pedal drone and muted acoustic guitar, climbing steadily. Setting out and meaning it, where `climb-up` is the effort of a single ascent."
+		},
+		"striving-climb-3": {
+			"role": "cue",
+			"file": "/audio/cues/striving-climb-3.opus",
+			"seconds": 3.92,
+			"take": "striving-climb",
+			"mood": ["determined", "driving", "steady"],
+			"description": "Woodblock percussion, a melodic bassoon over a pedal drone and muted acoustic guitar, climbing steadily. Setting out and meaning it, where `climb-up` is the effort of a single ascent."
+		},
+		"suspicion-1": {
+			"role": "cue",
+			"file": "/audio/cues/suspicion-1.opus",
+			"seconds": 1.42,
+			"take": "suspicion",
+			"mood": ["narrow", "questioning", "wary"],
+			"description": "A muted pizzicato phrase ending upward on a single bassoon note. Not trusting somebody, where `think-pondering` is only curiosity."
+		},
+		"suspicion-2": {
+			"role": "cue",
+			"file": "/audio/cues/suspicion-2.opus",
+			"seconds": 2.01,
+			"take": "suspicion",
+			"mood": ["narrow", "questioning", "wary"],
+			"description": "A muted pizzicato phrase ending upward on a single bassoon note. Not trusting somebody, where `think-pondering` is only curiosity."
 		},
 		"bird-chirp": {
 			"role": "cue",
