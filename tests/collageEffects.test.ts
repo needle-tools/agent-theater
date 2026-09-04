@@ -29,3 +29,36 @@ describe("the anger effect", () => {
         expect(particlesFor("sparkles").every(b => b.shape === "star")).toBe(true);
     });
 });
+
+describe("smoke and explosion", () => {
+    it("are both in the catalogue", () => {
+        expect(effectNames()).toEqual(expect.arrayContaining(["smoke", "explosion"]));
+    });
+
+    it("smoke only ever rises", () => {
+        // dy is negative for up. A puff that drifted down would read as ash.
+        const bits = particlesFor("smoke");
+        expect(bits.length).toBeGreaterThan(0);
+        expect(bits.every(b => b.dy < 0)).toBe(true);
+        // Slower than anything else: the longest-lived effect in the set.
+        expect(findEffect("smoke")!.seconds).toBeGreaterThan(findEffect("confetti")!.seconds);
+    });
+
+    it("an explosion is shards AND smoke, not one or the other", () => {
+        for (let run = 0; run < 20; run++) {
+            const bits = particlesFor("explosion");
+            const shards = bits.filter(b => b.shape === "strip");
+            const smoke = bits.filter(b => b.shape === "dot");
+            expect(shards.length).toBeGreaterThan(0);
+            expect(smoke.length).toBeGreaterThan(0);
+            // The smoke outlives the shards, which is what makes it wreckage
+            // rather than confetti fired sideways.
+            const latestShard = Math.max(...shards.map(b => b.delay + b.life));
+            const latestSmoke = Math.max(...smoke.map(b => b.delay + b.life));
+            expect(latestSmoke).toBeGreaterThan(latestShard);
+            // Every smoke bit rises; shards go in all directions.
+            expect(smoke.every(b => b.dy < 0)).toBe(true);
+            expect(shards.some(b => b.dy > 0)).toBe(true);
+        }
+    });
+});
