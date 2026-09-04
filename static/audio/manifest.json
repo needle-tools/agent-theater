@@ -2284,6 +2284,53 @@
 			"mood": ["headlong", "twangy", "fast"],
 			"description": "Reverb-drenched electric guitar picking fast over a tight snare, at forty-nine seconds. A whole chase to play under rather than a sting to fire on one — the longest and most stylistically distant bed in the library."
 		},
+		"alarm-comic-1": {
+			"role": "cue",
+			"file": "/audio/cues/alarm-comic-1.opus",
+			"seconds": 1.52,
+			"take": "alarm-comic",
+			"mood": ["urgent", "comic", "electronic"],
+			"description": "A two-tone synth alarm repeating over a light click. Something going wrong on a machine, played for laughs."
+		},
+		"alarm-comic-2": {
+			"role": "cue",
+			"file": "/audio/cues/alarm-comic-2.opus",
+			"seconds": 1.5,
+			"take": "alarm-comic",
+			"mood": ["urgent", "comic", "electronic"],
+			"description": "A two-tone synth alarm repeating over a light click. Something going wrong on a machine, played for laughs."
+		},
+		"alarm-comic-3": {
+			"role": "cue",
+			"file": "/audio/cues/alarm-comic-3.opus",
+			"seconds": 1.44,
+			"take": "alarm-comic",
+			"mood": ["urgent", "comic", "electronic"],
+			"description": "A two-tone synth alarm repeating over a light click. Something going wrong on a machine, played for laughs."
+		},
+		"ray-zap": {
+			"role": "cue",
+			"file": "/audio/cues/ray-zap.opus",
+			"seconds": 3.46,
+			"mood": ["sharp", "sudden", "electronic"],
+			"description": "One descending synth zap with a short tail. For `weapons/blaster`, `weapons/ray-gun` and `weapons/sword-energy`, which had no sound at all."
+		},
+		"robot-chirp-1": {
+			"role": "cue",
+			"file": "/audio/cues/robot-chirp-1.opus",
+			"seconds": 2.01,
+			"take": "robot-chirp",
+			"mood": ["small", "friendly", "electronic"],
+			"description": "Short square wave bleeps rising and falling over a soft click. A small machine talking — the robot in the `space` pack, and the one on the title card, finally saying something."
+		},
+		"robot-chirp-2": {
+			"role": "cue",
+			"file": "/audio/cues/robot-chirp-2.opus",
+			"seconds": 2.01,
+			"take": "robot-chirp",
+			"mood": ["small", "friendly", "electronic"],
+			"description": "Short square wave bleeps rising and falling over a soft click. A small machine talking — the robot in the `space` pack, and the one on the title card, finally saying something."
+		},
 		"bird-chirp": {
 			"role": "cue",
 			"file": "/audio/cues/bird-chirp.opus",
