@@ -1384,9 +1384,10 @@ describe("casting touches the world only when asked", () => {
 
         const layer = collage.own(tree.id)!;
         expect(layer).toMatchObject({ x: 320, y: 45, width: 100 });
-        // And the membership records no position at all.
+        // The membership writes down where it stands — the chapter's blocking,
+        // for a chapter that asks to be restaged — and nothing else about it.
         const member = collage.getStage(stage.id)!.cast[0];
-        expect(member.x).toBeUndefined();
+        expect(member).toMatchObject({ x: 320, y: 45 });
         expect(member.width).toBeUndefined();
     });
 

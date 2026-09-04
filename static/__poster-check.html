@@ -1,0 +1,42 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/brand.css">
+<style>body{margin:0;background:#333;display:grid;place-items:center;min-height:100vh;gap:20px}canvas{max-width:96vw;box-shadow:0 8px 40px #0008}pre{color:#fdd;font:14px monospace;white-space:pre-wrap;padding:20px}</style>
+</head><body><script type="module">
+try {
+const { Collage } = await import("/src/lib/collage/model.ts");
+const { loadImage } = await import("/src/lib/collage/imaging.ts");
+const { renderPoster, loadPosterMark, POSTER_URL, POSTER_NOTE, POSTER_SIZE } = await import("/src/lib/collage/poster.ts");
+const collage = new Collage();
+const frame = collage.addFrame({ presetId: "og-1200x630", x: 0, y: 0, width: 1200, height: 630 });
+collage.setBackground("#dfe7dc");
+const images = new Map();
+async function add(src, box) {
+  const loaded = await loadImage(src);
+  const layer = collage.addImage({ src, label: src, natural: { width: loaded.width, height: loaded.height }, crop: loaded.crop, x: box.x, y: box.y, width: box.width });
+  if (box.height) collage.update(layer.id, { height: box.height });
+  images.set(layer.id, loaded);
+  return layer.id;
+}
+await add("/troupe/forest/backdrop.webp",  { x: 0, y: 0, width: 1200, height: 630 });
+await add("/troupe/forest/midground.webp", { x: 0, y: 90, width: 1200, height: 540 });
+await add("/troupe/forest/mushroom-toadstool.webp", { x: 150, y: 430, width: 110 });
+await add("/troupe/forest/bench.webp", { x: 900, y: 450, width: 170 });
+const a = await add("/troupe/forest/lantern.webp", { x: 560, y: 420, width: 60 });
+const b = await add("/troupe/forest/fern.webp", { x: 380, y: 470, width: 90 });
+const c = await add("/troupe/forest/acorn.webp", { x: 700, y: 490, width: 55 });
+await add("/troupe/forest/foreground.webp", { x: 0, y: 380, width: 1200, height: 250 });
+const q = new URLSearchParams(location.search);
+const shape = q.get("shape") ?? "og";
+const frames = { og: [1200, 630], tall: [794, 1123], square: [900, 900] };
+const [fw, fh] = frames[shape];
+// The set was laid out for 1200x630; refit the page around it like the app does.
+collage.updateFrame(frame.id, { width: fw, height: fh, x: 600 - fw / 2, y: 315 - fh / 2 });
+const canvas = renderPoster(collage.listFrames()[0], collage.list(), images, {
+  width: POSTER_SIZE.width, height: POSTER_SIZE.height,
+  title: "The Lantern That Would Not Go Out", byline: "a play in three short scenes",
+  leads: [a, b, c], mark: await loadPosterMark(), url: POSTER_URL, note: POSTER_NOTE,
+});
+document.body.append(canvas);
+const label = document.createElement("pre"); label.textContent = shape + " page → " + canvas.width + "×" + canvas.height;
+document.body.append(label);
+} catch (e) { const pre = document.createElement("pre"); pre.textContent = "FAILED: " + (e.stack || e); document.body.append(pre); }
+</script></body></html>

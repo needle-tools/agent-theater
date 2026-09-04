@@ -65,8 +65,12 @@ export type EntranceName = (typeof ENTRANCES)[number];
 export interface Placement {
     id: string;
     /**
-     * Attachment offsets from `on`, when attached. Meaningless otherwise —
-     * a holdover slot from when placements owned positions.
+     * Where this one stood when the chapter was cast — its blocking.
+     *
+     * Recorded rather than obeyed: the world owns positions, and a chapter
+     * plays wherever the pieces are. It is written down so a chapter that asks
+     * to be restaged has somewhere to put them back to, since by chapter three
+     * the walks in chapters one and two have carried everybody elsewhere.
      */
     x?: number;
     y?: number;
@@ -143,6 +147,17 @@ export interface Stage {
     background?: string;
     /** Seconds to hold after the chapter before moving on. */
     hold?: number;
+    /**
+     * Put the cast back where this chapter was blocked before it starts.
+     *
+     * Off by default, because the world is continuous on purpose: a hero who
+     * walked across the paper in chapter one is still there in chapter two,
+     * and that is the whole point. It stops being the point when a chapter was
+     * written against an arrangement the earlier chapters have since moved —
+     * so a chapter can ask for its own arrangement back. Whoever has drifted
+     * fades out, moves, and fades in; nobody is teleported in plain sight.
+     */
+    restage?: boolean;
 }
 
 export interface StageSpec {
@@ -156,6 +171,7 @@ export interface StageSpec {
     tint?: string;
     background?: string;
     hold?: number;
+    restage?: boolean;
 }
 
 /** How much of the camera's movement this plane takes. */

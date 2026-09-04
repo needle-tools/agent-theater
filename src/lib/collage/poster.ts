@@ -18,7 +18,7 @@
  * still reopens as the set the person actually built. Nothing here writes to a
  * layer: what it lays out are throwaway copies.
  */
-import type { Frame, ImageLayer, Layer, Rect } from "./model.js";
+import { findPreset, type Frame, type ImageLayer, type Layer, type Rect } from "./model.js";
 import { renderRegion, type ImageSource } from "./render.js";
 
 /**
@@ -60,10 +60,33 @@ const LEAN = 3.5;
 /** How many come forward. Past three the row is a crowd and nobody is a lead. */
 export const POSTER_LEADS = 3;
 
+/**
+ * The shape a saved play is a picture in.
+ *
+ * One shape for every play, and that shape is the social card's, because this
+ * is the picture that gets pasted into a chat window. A poster that inherited
+ * the PAGE's proportions meant a play laid out on A4 portrait produced a tall
+ * file that every unfurl in the world would then crop to a letterbox — picking
+ * the crop itself, badly. Better to compose for the shape it will be seen in.
+ *
+ * Taken from the preset rather than typed out again: "1200×630, no really" is
+ * already written down once.
+ */
+export const POSTER_SIZE = findPreset("og-1200x630")?.output ?? { width: 1200, height: 630 };
+
 /** Where the site's own card lives — the same file the page unfurls with. */
 export const POSTER_MARK_SRC = "/og.webp";
-/** What the band says about where this opens. */
-export const POSTER_URL = "Load at theater.needle.tools";
+/**
+ * What the band says about where this opens, and what it is.
+ *
+ * Two lines because they answer different questions. The first is where to go.
+ * The second is an invitation and a fact nobody guesses: this is not a picture
+ * OF the play, it IS the play — the whole document rides in the file — and a
+ * poster that does not say so is a poster somebody screenshots instead of
+ * keeping.
+ */
+export const POSTER_URL = "Play at theater.needle.tools";
+export const POSTER_NOTE = "make your own — or load this picture back in";
 
 /**
  * How deep the band is on a poster of this size.
@@ -149,6 +172,31 @@ export function posterCast(
     });
 }
 
+/**
+ * The slice of canvas the poster shows, in canvas units.
+ *
+ * The page is whatever shape somebody chose and the poster is always the
+ * card's shape, so one of them has to give. Neither is allowed to stretch — a
+ * squashed cut-out is the one thing that reads as a bug rather than a
+ * decision — and nothing is allowed to be cropped off either, because the part
+ * that would go is the top or the sides of somebody's set.
+ *
+ * So the page is CONTAINED: scaled to fit and centred, with the paper it sits
+ * on filling whatever is left over. Centred in the picture ABOVE the band
+ * rather than in the whole poster, since the band is laid over the bottom and
+ * a set centred behind it stands with its feet under the paper.
+ */
+export function posterRegion(frame: Rect, width: number, height: number, band: number): Rect {
+    const picture = Math.max(1, height - band);
+    const scale = Math.min(width / Math.max(1, frame.width), picture / Math.max(1, frame.height));
+    return {
+        x: frame.x + frame.width / 2 - width / (2 * scale),
+        y: frame.y + frame.height / 2 - picture / (2 * scale),
+        width: width / scale,
+        height: height / scale,
+    };
+}
+
 /** The site's own card, decoded and ready to stamp. */
 export interface PosterMark {
     image: CanvasImageSource;
@@ -169,6 +217,8 @@ export interface PosterOptions {
     mark?: PosterMark | null;
     /** Where a stranger opens this. */
     url?: string;
+    /** The smaller line under it, saying what the file itself is. */
+    note?: string;
 }
 
 /**
@@ -202,15 +252,15 @@ export function renderPoster(
     const width = Math.max(1, Math.round(options.width));
     const height = Math.max(1, Math.round(options.height));
     const band = bandDepth(width, height);
-    // The poster and the frame are the same shape, so one number converts both
-    // axes between canvas units and poster pixels.
-    const scale = width / Math.max(1, frame.width);
+    // What the poster looks at, and how many canvas units go to a pixel of it.
+    const region = posterRegion(frame, width, height, band);
+    const scale = width / Math.max(1, region.width);
 
     const front = new Set(options.leads ?? []);
     const cast = posterCast(options.leads ?? [], layers, {
-        x: frame.x,
-        y: frame.y,
-        width: frame.width,
+        x: region.x,
+        y: region.y,
+        width: region.width,
         // Short of the band by the height of its torn edge and a little more:
         // the strip is laid OVER the picture, so a cast standing exactly on
         // the band's top line has its feet eaten by the tear.
@@ -221,7 +271,7 @@ export function renderPoster(
     // would print each lead twice, which reads as a mistake rather than as a
     // poster.
     const behind = cast.length ? layers.filter(layer => !front.has(layer.id)) : [...layers];
-    const canvas = renderRegion(frame, behind, images, {
+    const canvas = renderRegion(region, behind, images, {
         width,
         height,
         background: frame.background && frame.background !== "transparent" ? frame.background : paper(),
@@ -232,7 +282,7 @@ export function renderPoster(
     if (cast.length) {
         // Through the same renderer as everything else, so a lead brought
         // forward keeps its outline, its shadow and the way it is mirrored.
-        ctx.drawImage(renderRegion(frame, cast, images, { width, height, background: null }), 0, 0);
+        ctx.drawImage(renderRegion(region, cast, images, { width, height, background: null }), 0, 0);
     }
 
     drawBand(ctx, width, height, band, options);
@@ -301,12 +351,32 @@ function drawBand(
         const room = edge - (width - pad - spare);
         const size = fitFont(ctx, options.url, room, Math.round(band * 0.19), Math.round(band * 0.12), 600, body);
         if (ctx.measureText(options.url).width <= room) {
-            ctx.font = `600 ${size}px ${body}`;
+            const width_ = Math.ceil(ctx.measureText(options.url).width);
+            // The second line is a nicety and goes first when the band is
+            // tight: a poster that says where to play but not that the file
+            // reopens is still a poster; the reverse is a riddle.
+            const note = options.note?.trim();
+            const noteSize = note
+                ? fitFont(ctx, note, room, Math.round(size * 0.76), Math.round(band * 0.1), 400, body)
+                : 0;
+            const showNote = !!note && ctx.measureText(note!).width <= room;
+            const gap = Math.round(band * 0.05);
+            const block = size + (showNote ? gap + noteSize : 0);
+
             ctx.textAlign = "right";
             ctx.textBaseline = "middle";
+            ctx.font = `600 ${size}px ${body}`;
             ctx.fillStyle = fade(ink, 0.62);
-            ctx.fillText(options.url, edge, middle);
-            edge -= Math.ceil(ctx.measureText(options.url).width) + Math.round(band * 0.3);
+            ctx.fillText(options.url, edge, middle - block / 2 + size / 2);
+
+            let widest = width_;
+            if (showNote) {
+                ctx.font = `400 ${noteSize}px ${body}`;
+                ctx.fillStyle = fade(ink, 0.45);
+                ctx.fillText(note!, edge, middle + block / 2 - noteSize / 2);
+                widest = Math.max(widest, Math.ceil(ctx.measureText(note!).width));
+            }
+            edge -= widest + Math.round(band * 0.3);
         }
     }
 

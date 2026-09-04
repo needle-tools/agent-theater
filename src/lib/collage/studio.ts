@@ -16,7 +16,7 @@ import {
 import { arrange as computeLayout, type LayoutMode, type LayoutOptions } from "./layout.js";
 import { loadImage, readPixels, toDataUrl, type LoadedImage } from "./imaging.js";
 import { canvasToBlob, previewDataUrl, renderFrame, renderRegion } from "./render.js";
-import { loadPosterMark, POSTER_LEADS, POSTER_URL, renderPoster } from "./poster.js";
+import { loadPosterMark, POSTER_LEADS, POSTER_NOTE, POSTER_SIZE, POSTER_URL, renderPoster } from "./poster.js";
 import { fontsReady, loadWebFonts, webFontsUsed } from "./webfonts.js";
 import { shapeFromMask, type Shape } from "./silhouette.js";
 import { svgBlob, traceToSvg as traceToSvgPixels, TRACE_EDGE, type TraceOptions } from "./trace.js";
@@ -59,6 +59,9 @@ import { ENDING_FADE_MS, SILENT, type Speaker } from "./audio.js";
  * A dropped beat is a smaller loss; only an asked-for hold should hold a show.
  */
 const SCENE_OVERRUN_MS = 15_000;
+
+/** Each half of a restage: out on their old marks, in on their new ones. */
+const RESTAGE_MS = 450;
 
 export type ExportFormat = "png" | "print" | "html" | "embed";
 
@@ -602,6 +605,37 @@ export function createStudio(collage = new Collage()): CollageStudio {
     };
 
     /**
+     * Put a chapter's cast back where the chapter was blocked.
+     *
+     * They fade out where they have got to, move while nobody can see them,
+     * and fade back in on their marks. A jump cut would be cheaper and would
+     * read as the page glitching.
+     */
+    const restage = async (stage: Stage) => {
+        const moving = stage.cast.filter(member => {
+            const layer = collage.get(member.id);
+            if (!layer || typeof member.x !== "number" || typeof member.y !== "number") return false;
+            return Math.round(layer.x) !== Math.round(member.x)
+                || Math.round(layer.y) !== Math.round(member.y);
+        });
+        if (!moving.length) return;
+
+        const ids = moving.map(member => member.id);
+        const together = (move: "exit" | "enter") =>
+            planScene(ids.map((id, index) => ({
+                id, do: move, duration: RESTAGE_MS, ...(index ? { with: true } : {}),
+            }))).plan;
+
+        await played(together("exit"));
+        if (!wanted) return;
+        collage.batch(() => {
+            for (const member of moving) collage.update(member.id, { x: member.x, y: member.y });
+        });
+        // Present, because they just exited and exited means gone.
+        await played({ ...together("enter"), present: ids });
+    };
+
+    /**
      * The show itself.
      *
      * Each scene is: put the arrivals where they come in from, play the whole
@@ -705,6 +739,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
             if (stage.background !== undefined && stage.background !== collage.background) {
                 collage.setBackground(stage.background);
             }
+
+            if (stage.restage) await restage(stage);
 
             const { approach, beats, hidden } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
             // Arrivals start off stage, then walk the same distance back on.
@@ -1845,13 +1881,6 @@ export function createStudio(collage = new Collage()): CollageStudio {
             const layers = layersOf(frame.id);
             await fontsReady(layers);
 
-            // A preview at screen size rather than print size. This is the part
-            // a person looks at; the part that reopens is exact regardless, and
-            // a 300dpi A4 render would make an eight-megabyte file out of a
-            // collage whose actual contents are two.
-            const size = outputSize(frame, 96);
-            const scale = Math.min(1, 1600 / Math.max(size.width, size.height));
-
             /*
              * A poster rather than a screenshot.
              *
@@ -1874,13 +1903,20 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 creditsFor(stages, id => collage.get(id)?.label ?? null).map(credit => credit.id),
                 POSTER_LEADS);
             const canvas = renderPoster(frame, layers, images, {
-                width: Math.max(1, Math.round(size.width * scale)),
-                height: Math.max(1, Math.round(size.height * scale)),
+                // The card's shape, whatever shape the page is, and at screen
+                // rather than print size: this is the part a person looks at
+                // and pastes into a chat window. The part that REOPENS is
+                // exact regardless — it is the chunk, not the pixels — and a
+                // 300dpi A4 render would make an eight-megabyte file out of a
+                // collage whose actual contents are two.
+                width: POSTER_SIZE.width,
+                height: POSTER_SIZE.height,
                 ...(collage.billing.title?.trim() ? { title: collage.billing.title.trim() } : {}),
                 ...(collage.billing.byline?.trim() ? { byline: collage.billing.byline.trim() } : {}),
                 leads: front,
                 mark: await loadPosterMark(),
                 url: POSTER_URL,
+                note: POSTER_NOTE,
             });
             const png = new Uint8Array(await (await canvasToBlob(canvas, "image/png")).arrayBuffer());
 

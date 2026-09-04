@@ -302,3 +302,75 @@ describe("where a chapter opens", () => {
         expect(studio.openingPositions(two.id).get(wolf.id)).toEqual({ x: 1200, y: 40 });
     });
 });
+
+describe("a chapter that asks for its own blocking back", () => {
+    /** One walker, two chapters, the second restaged. */
+    function drifted() {
+        const studio = createStudio();
+        const wolf = studio.collage.addImage({
+            src: "wolf", label: "wolf", natural: { width: 100, height: 100 },
+            x: 100, y: 40, width: 100,
+        });
+        const one = studio.collage.addStage({
+            name: "the road",
+            cast: [{ id: wolf.id, x: 100, y: 40 }],
+            script: [{ id: wolf.id, do: "walk", to: { x: 600 } }],
+        });
+        const two = studio.collage.addStage({
+            name: "the door",
+            cast: [{ id: wolf.id, x: 100, y: 40 }],
+            script: [{ id: wolf.id, say: "Here I am." }],
+            restage: true,
+        });
+        return { studio, wolf, one, two };
+    }
+
+    async function watch(studio: ReturnType<typeof createStudio>) {
+        vi.useFakeTimers();
+        try {
+            const { duration } = await studio.playShow();
+            await vi.advanceTimersByTimeAsync(duration + 120_000);
+        } finally {
+            vi.useRealTimers();
+        }
+    }
+
+    /** A performer that travels the way the canvas does, and says where he is. */
+    function walking(studio: ReturnType<typeof createStudio>, id: string, seen: number[]) {
+        studio.setPerformer(async plan => {
+            for (const beat of plan.beats) {
+                if (!beat.travel) continue;
+                const layer = studio.collage.get(beat.id);
+                if (layer) {
+                    studio.collage.update(beat.id, {
+                        x: layer.x + beat.travel.dx,
+                        y: layer.y + beat.travel.dy,
+                    });
+                }
+            }
+            seen.push(studio.collage.get(id)!.x);
+        });
+    }
+
+    it("puts them back on their marks before it plays", async () => {
+        const { studio, wolf } = drifted();
+        const seen: number[] = [];
+        walking(studio, wolf.id, seen);
+        await watch(studio);
+
+        // Chapter one walks him to 700; chapter two asks for 100 back and gets
+        // it, in two halves with the move hidden between them.
+        expect(seen).toContain(700);
+        expect(seen.at(-1)).toBe(100);
+    });
+
+    it("leaves a chapter that did not ask alone", async () => {
+        const { studio, wolf, two } = drifted();
+        studio.collage.updateStage(two.id, { restage: false });
+        const seen: number[] = [];
+        walking(studio, wolf.id, seen);
+        await watch(studio);
+        expect(seen).not.toContain(100);
+        expect(seen.at(-1)).toBe(700);
+    });
+});

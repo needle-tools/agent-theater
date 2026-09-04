@@ -778,6 +778,7 @@ export class Collage {
             ...(spec.tint ? { tint: spec.tint } : {}),
             ...(spec.background !== undefined ? { background: spec.background } : {}),
             ...(typeof spec.hold === "number" ? { hold: spec.hold } : {}),
+            ...(typeof spec.restage === "boolean" ? { restage: spec.restage } : {}),
         };
         this.stages.set(stage.id, stage);
         this.emit();
@@ -799,6 +800,7 @@ export class Collage {
             ...(patch.tint !== undefined ? { tint: patch.tint } : {}),
             ...(patch.background !== undefined ? { background: patch.background } : {}),
             ...(typeof patch.hold === "number" ? { hold: patch.hold } : {}),
+            ...(typeof patch.restage === "boolean" ? { restage: patch.restage } : {}),
         };
         this.stages.set(id, next);
         this.emit();

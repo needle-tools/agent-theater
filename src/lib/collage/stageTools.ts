@@ -893,12 +893,21 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                             "to the house colour. A beat can also change it mid-chapter.",
                     },
                     hold: { type: "number", description: "Seconds to wait at the end before moving on." },
+                    restage: {
+                        type: "boolean",
+                        description:
+                            "Put this chapter's cast back where it was blocked before the chapter " +
+                            "starts. Off by default, and worth turning on for a chapter you wrote " +
+                            "before the earlier ones were played: walks and jumps really move the " +
+                            "pieces, so by chapter three everybody is somewhere else. Whoever has " +
+                            "drifted fades out, moves, and fades back in.",
+                    },
                     show: { type: "boolean", description: "Show this scene on the canvas. Default true for a new one." },
                 },
             },
             async execute(args: {
                 id?: string; name?: string; backdrop?: string; music?: string; musicEnd?: string;
-                tint?: string; background?: string; hold?: number; show?: boolean;
+                tint?: string; background?: string; hold?: number; restage?: boolean; show?: boolean;
             }) {
                 const id = str(args?.id);
                 if (id && !collage.getStage(id)) {
@@ -942,6 +951,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     ...(music ? { music: music === "none" ? null : music } : {}),
                     ...(musicEnd ? { musicEnd } : {}),
                     ...(num(args?.hold) ? { hold: Math.max(0, args.hold) } : {}),
+                    ...(typeof args?.restage === "boolean" ? { restage: args.restage } : {}),
                 };
                 const stage = id ? collage.updateStage(id, patch)! : collage.addStage(patch);
                 // A new scene is shown by default: making one and not seeing it
@@ -954,7 +964,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 return ok(
                     `${id ? "Changed" : "Made"} the scene "${stage.name}" as ${stage.id}` +
                     `${stage.backdrop ? `, with ${stage.backdrop} behind it` : ""}` +
-                    `${stage.music ? `, under "${stage.music}"` : ""}. ` +
+                    `${stage.music ? `, under "${stage.music}"` : ""}` +
+                    `${stage.restage ? `, restaged to its own blocking before it plays` : ""}. ` +
                     `Put layers in it with stage_cast.`,
                     { stage });
             },
@@ -1158,7 +1169,19 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     nudged.push(layer.label);
                 }
 
-                const next = collage.updateStage(stage.id, { cast })!;
+                /*
+                 * The blocking, written down as it stands after any placing
+                 * and any nudging. Not used to put anybody anywhere — the
+                 * world owns positions — but a chapter that asks to be
+                 * restaged needs to know what it was written against.
+                 */
+                const blocked = cast.map(member => {
+                    const layer = collage.own(member.id);
+                    return layer
+                        ? { ...member, x: Math.round(layer.x), y: Math.round(layer.y) }
+                        : member;
+                });
+                const next = collage.updateStage(stage.id, { cast: blocked })!;
                 studio.save();
                 studio.record("page-changed",
                     `"${next.name}" now has ${next.cast.length} in it.`, "agent", { stage: next.id });
@@ -1219,7 +1242,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     const who = stage.cast.length
                         ? stage.cast.map(m => describeMember(m, opensWith.get(m.id))).join("; ")
                         : "nobody yet";
-                    return `${stage.id} — "${stage.name}"${stage.id === showing ? "  [on screen]" : ""}` +
+                    return `${stage.id} — "${stage.name}"` +
+                        `${stage.restage ? "  [restaged to its own blocking]" : ""}` +
+                        `${stage.id === showing ? "  [on screen]" : ""}` +
                         `\n    ${who}`;
                 });
                 const billing = collage.billing;
