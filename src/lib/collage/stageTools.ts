@@ -179,7 +179,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "and the name heads the credits at the end. Worth doing: a play that starts by simply " +
                 "beginning is a canvas moving, and one that starts with its name on the screen is a play. " +
                 "The credits themselves are built from the cast — give each one an \"as\" in stage_cast and " +
-                "they are listed as \"grandmother — played by …\". And SIGN YOUR WORK: pass \"credits\" " +
+                "the roll names the part beside its picture. And SIGN YOUR WORK: pass \"credits\" " +
                 "with the maker's lines — who wrote it, who directed, whose paper it is. A play was made " +
                 "by somebody, and the roll is where it says so.",
             inputSchema: {
@@ -1024,7 +1024,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                     type: "string",
                                     description:
                                         "Who this picture is playing — 'the grandmother', 'the wolf'. It " +
-                                        "goes in the credits at the end as \"grandmother — played by …\", " +
+                                        "is what the credits call them at the end, beside their picture, " +
                                         "so cast everybody who should be thanked.",
                                 },
                                 voice: {

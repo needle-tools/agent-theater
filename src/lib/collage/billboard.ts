@@ -206,13 +206,18 @@ export function creditsFor(stages: Stage[], labelOf: (id: string) => string | nu
 /**
  * The roll itself, one line per credit.
  *
- * "played by" rather than a colon or a dash alone, because the sentence is the
- * joke: these are photographs, and saying a photograph *played* the grandmother
- * is what makes the roll read as a curtain call rather than a file listing.
+ * The part alone. It used to read "the grandmother — played by gran.png",
+ * which was meant as the joke — a photograph *playing* somebody — and the joke
+ * turned out to be a file name. The roll shows each part beside the picture
+ * that played it, so the second half was never telling anybody anything they
+ * could not see, and "gran.png" in a curtain call puts the audience back in a
+ * folder.
+ *
+ * A picture nobody cast is credited by its own name, because the alternative
+ * is a blank row.
  */
 export function creditLines(credits: Credit[]): string[] {
-    return credits.map(credit =>
-        credit.role ? `${credit.role} — played by ${credit.actor}` : credit.actor);
+    return credits.map(credit => credit.role || credit.actor);
 }
 
 /**

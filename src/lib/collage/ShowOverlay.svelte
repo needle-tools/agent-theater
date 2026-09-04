@@ -223,9 +223,14 @@
                                     style:rotate="{((index * 137) % 17) - 8}deg"
                                 />
                             {/if}
-                            <p class="credit credit-row__text">
-                                {#if entry.role}{entry.role} — played by {entry.actor}{:else}{entry.actor}{/if}
-                            </p>
+                            <!-- The part, and nothing else. Who played it is
+                                 the picture sitting right next to it, so
+                                 spelling it out only ever added a file name —
+                                 and a file name in a curtain call is the one
+                                 thing that puts the audience back in a folder.
+                                 Without a part there is only the picture's
+                                 name, which is better than an empty row. -->
+                            <p class="credit credit-row__text">{entry.role || entry.actor}</p>
                         </div>
                     {/each}
                     {#if billboard.lines.length}

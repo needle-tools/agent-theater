@@ -450,17 +450,21 @@ describe("the credits", () => {
         script: [],
     });
 
-    it("names who played whom, in the order they first appeared", () => {
+    it("names the parts, in the order they first appeared", () => {
         const credits = creditsFor(
             [stage("s1", [{ id: "a", as: "the grandmother" }, { id: "b", as: "the wolf" }]),
              stage("s2", [{ id: "b" }, { id: "c", as: "the woodsman" }])],
             id => ({ a: "gran.png", b: "wolf.png", c: "axe.png" })[id] ?? null);
 
+        // The part alone. Who played it is the picture beside it in the roll,
+        // and "— played by gran.png" only ever added a file name.
         expect(creditLines(credits)).toEqual([
-            "the grandmother — played by gran.png",
-            "the wolf — played by wolf.png",
-            "the woodsman — played by axe.png",
+            "the grandmother",
+            "the wolf",
+            "the woodsman",
         ]);
+        // The picture is still on the credit, for the roll to show.
+        expect(credits.map(credit => credit.actor)).toEqual(["gran.png", "wolf.png", "axe.png"]);
     });
 
     it("credits somebody once, keeping the first role they were given", () => {
