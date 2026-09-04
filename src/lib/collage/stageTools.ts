@@ -1161,9 +1161,14 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                      * already are", which is usually the right answer — the
                      * person's arrangement is the blocking.
                      */
-                    const layerPatch: Record<string, number | boolean> = {};
+                    const layerPatch: Record<string, number | boolean | null> = {};
                     if (num(member.x)) layerPatch.x = member.x!;
                     if (num(member.y)) layerPatch.y = member.y!;
+                    // Casting somebody AT a spot sets them down out of any
+                    // hand — a person's drag can attach a piece to furniture
+                    // without the agent knowing, and explicit coordinates
+                    // mean "on the paper, here", never "carried".
+                    if (layer.held && (num(member.x) || num(member.y))) layerPatch.held = null;
                     if (num(member.width)) {
                         // Half to half-again per call, like piece_move: every
                         // giant in every play so far was one unchecked width.

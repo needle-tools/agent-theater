@@ -1620,7 +1620,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             description:
                 "Change one layer's position, size, rotation or stacking order, by id. " +
                 "Use `scale` to make it bigger or smaller relative to what it is now (1.5 is half " +
-                "again, 0.5 is half), or `width` for an exact canvas size. Rotation is in degrees.",
+                "again, 0.5 is half), or `width` for an exact canvas size. Rotation is in degrees. " +
+                "Moving a piece that is (held by …) sets it down at the given spot — explicit " +
+                "coordinates always mean the paper, never a hand.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -1641,6 +1643,17 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 for (const key of ["x", "y", "width", "rotation"] as const) {
                     if (num((args as any)[key])) patch[key] = (args as any)[key];
                 }
+                /*
+                 * Placing somebody explicitly SETS THEM DOWN. A piece can end
+                 * up in another's hands without the agent ever asking — the
+                 * person drags a chair onto a desk and the drop-gesture
+                 * attaches it — and until this rule there was no way back:
+                 * every recast and every move was rerouted into hand-offsets,
+                 * which is the "office welded to the desk" report. An agent
+                 * that says "stand HERE" means on the paper, not in a hand.
+                 */
+                const holding = collage.own(found.layer.id)?.held;
+                if (holding && (num(args?.x) || num(args?.y))) patch.held = null;
                 /*
                  * Resizes are clamped to half-to-half-again per call, for the
                  * hand and the agent alike. Every giant in every play so far

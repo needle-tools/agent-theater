@@ -438,6 +438,56 @@ describe("the output page", () => {
     });
 });
 
+describe("held pieces and explicit placement", () => {
+    // The office report: a person's drag can attach a chair to a desk, and
+    // the agent then had no way to ever get it back onto the paper — every
+    // explicit coordinate was rerouted into hand-offsets. The rule now:
+    // explicit coordinates always mean the paper, never a hand.
+    async function withHeld() {
+        const kit = fakeStudio({ coverage: 0.2 });
+        const desk = (await kit.tool("piece_add").execute({
+            url: "https://example.test/desk.png", label: "desk", removeBackground: false,
+        })).structuredContent as any;
+        const chair = (await kit.tool("piece_add").execute({
+            url: "https://example.test/chair.png", label: "chair", removeBackground: false,
+        })).structuredContent as any;
+        kit.collage.update(chair.layer.id, { held: { by: desk.layer.id, x: 10, y: 10 } });
+        return { ...kit, desk: desk.layer.id, chair: chair.layer.id };
+    }
+
+    it("piece_move with explicit coordinates sets a held piece down", async () => {
+        const { tool, collage, chair } = await withHeld();
+        const result = await tool("piece_move").execute({ id: chair, x: 500, y: 300 });
+        expect(result.isError).toBeFalsy();
+        expect(collage.own(chair)!.held).toBeUndefined();
+        expect(collage.own(chair)).toMatchObject({ x: 500, y: 300 });
+    });
+
+    it("piece_move without coordinates leaves a hold alone", async () => {
+        // Resizing a lantern in somebody's hand is not letting go of it.
+        const { tool, collage, chair, desk } = await withHeld();
+        await tool("piece_move").execute({ id: chair, rotation: 15 });
+        expect(collage.own(chair)!.held).toMatchObject({ by: desk });
+    });
+
+    it("stage_cast with explicit coordinates sets a held piece down", async () => {
+        const { tool, collage, chair } = await withHeld();
+        const result = await tool("stage_create").execute({ name: "office" });
+        expect(result.isError).toBeFalsy();
+        await tool("stage_cast").execute({ cast: [{ id: chair, x: 640, y: 420 }] });
+        expect(collage.own(chair)!.held).toBeUndefined();
+    });
+
+    it("stage_cast without coordinates keeps the hold", async () => {
+        // Casting in place is membership, not blocking: whoever is carried
+        // stays carried into the chapter.
+        const { tool, collage, chair, desk } = await withHeld();
+        await tool("stage_create").execute({ name: "office" });
+        await tool("stage_cast").execute({ cast: [{ id: chair }] });
+        expect(collage.own(chair)!.held).toMatchObject({ by: desk });
+    });
+});
+
 describe("selecting and capturing", () => {
     async function withImages(n: number) {
         const kit = fakeStudio({ coverage: 0.2 });

@@ -2545,9 +2545,38 @@
             `width: ${layer.width}px`,
             `height: ${layer.height}px`,
             `transform: rotate(${layer.rotation}deg)${layer.flip ? " scale(-1, 1)" : ""}`,
-            `z-index: ${layer.z}`,
+            `z-index: ${paintZ(layer)}`,
             performedOpacity(layer, layer.style.opacity),
         ].filter(Boolean).join("; ");
+    }
+
+    /**
+     * Paint order: the document's z, doubled — so a held piece can slot in
+     * at its holder's z PLUS ONE. What sits in a hand draws in front of the
+     * hand: the gardener the person tucked behind the desk by accident was
+     * being swallowed whole, and a basket behind its carrier reads as glued
+     * to their back.
+     *
+     * A hand can only LIFT, never bury: the rider keeps its own z when that
+     * is already higher. Without the max, somebody held by a sent-to-back
+     * desk sank to the back of the whole scene with it — and the agent's
+     * perfectly sensible stacking (furniture behind, people in front) was
+     * being thrown away by a relationship a drag created.
+     */
+    function paintZ(layer: Layer): number {
+        if (layer.held) {
+            /*
+             * The holder as RENDERED, not as documented: during a show,
+             * paintOrder reassigns every z, and looking the holder up in
+             * the document mixed two numbering systems — the gardener rode
+             * a desk at document z −2 while the rest of the stage stood at
+             * paint-order 0…190, and she sank behind the whole company.
+             */
+            const holder = layers.find(other => other.id === layer.held!.by)
+                ?? studio.collage.own(layer.held.by);
+            if (holder) return Math.max(layer.z * 2, holder.z * 2 + 1);
+        }
+        return layer.z * 2;
     }
 
     /** The filter chain, for the static child the animated parent transforms. */
@@ -2705,7 +2734,7 @@
             `width: ${layer.width}px`,
             `font-size: ${layer.fontSize}px`,
             `transform: rotate(${layer.rotation}deg)${layer.flip ? " scale(-1, 1)" : ""}`,
-            `z-index: ${layer.z}`,
+            `z-index: ${paintZ(layer)}`,
             indicator ? `filter: ${indicator}` : "",
             performedOpacity(layer, 1),
             ...textCss(layer),
@@ -2734,7 +2763,7 @@
      * keep going. A fixed number on the page would sooner or later be above one
      * of them, and the page would paint over a sticker.
      */
-    const pageZ = $derived(Math.min(0, ...layers.map(l => l.z)) - 1);
+    const pageZ = $derived(Math.min(0, ...layers.map(l => paintZ(l))) - 1);
 
     /** The resize handle only makes sense on exactly one layer. */
     const single = $derived.by(() =>

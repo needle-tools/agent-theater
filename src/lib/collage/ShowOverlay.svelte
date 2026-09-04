@@ -575,6 +575,22 @@
         --paint-filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.45));
     }
 
+    /*
+     * The billboard artwork wears the boil but NOT the worklet's pigment
+     * mask. At the roll's sizes paint(painterly-mask) can come back fully
+     * transparent — the flowering cactus vanished outright at ~105px wide
+     * while wider pieces masked fine — and the pigment lift is too subtle
+     * to read at credit size anyway. `!important` because the painterly
+     * stylesheet applies the mask by loading order, not by a specificity
+     * this scoped rule could politely outrank.
+     */
+    .credit-row__art,
+    .poster__piece,
+    .roll__sigil {
+        mask-image: none !important;
+        -webkit-mask-image: none !important;
+    }
+
     .roll__thanks {
         margin-top: 2.4rem;
         font-style: italic;

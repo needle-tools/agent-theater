@@ -61,8 +61,32 @@ export function paintOrder<T extends Standing>(list: T[]): T[] {
 
     const z = new Map<string, number>();
     sorted.forEach((layer, at) => z.set(layer.id, at * 10));
+
+    /*
+     * Standing ON something paints ABOVE it. The base rule fails at
+     * furniture: a desk's legs give it the lowest base on the stage, so the
+     * whole desk counted as nearest and swallowed everything set on its
+     * face — the sushi roll, the sitters, the surprise box. A piece whose
+     * centre sits inside a MUCH bigger piece's box is on that piece's
+     * surface, and a surface is behind what stands on it, whatever its legs
+     * are doing. Much bigger, so two comparable actors overlapping stay with
+     * the honest base rule.
+     */
+    for (const layer of sorted) {
+        if (layer.held) continue;
+        let lifted = z.get(layer.id)!;
+        for (const support of sorted) {
+            if (support.id === layer.id || support.held) continue;
+            if (area(support) < area(layer) * 3) continue;
+            if (!holds(support, layer)) continue;
+            lifted = Math.max(lifted, z.get(support.id)! + 1);
+        }
+        z.set(layer.id, lifted);
+    }
+
     // A held prop rides in its holder's hand, wherever that hand has got to —
-    // its own base is meaningless while it is being carried.
+    // its own base is meaningless while it is being carried. After the
+    // support lifts, so a basket rides a hand that was itself lifted.
     for (const layer of sorted) {
         const holder = layer.held?.by;
         if (holder && z.has(holder)) z.set(layer.id, z.get(holder)! + 1);
