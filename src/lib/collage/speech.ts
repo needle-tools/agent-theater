@@ -15,11 +15,15 @@ const DUCK_OVER_MS = 900;
 
 /**
  * How long to wait for a voice to START before going on without it.
+ *
  * A suspended audio context answers resume() with a promise that never
- * settles, and it would sit in the queue every bubble waits in — one line that
- * never begins is a scene that never finishes. Shown silently instead.
+ * settles, and it sits in the queue every bubble waits in — so one line that
+ * never begins is a scene with no bubbles at all, since a bubble does not open
+ * until the prompter reaches its line. Short, because there is nothing slow
+ * here to wait for: the voice is synthesised locally, and the one part that
+ * can hang is capped tighter still.
  */
-const VOICE_START_MS = 4000;
+const VOICE_START_MS = 1200;
 
 export interface Speech {
     text: string;

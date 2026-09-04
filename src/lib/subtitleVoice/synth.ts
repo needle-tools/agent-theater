@@ -79,7 +79,7 @@ function context(): AudioContext {
 }
 
 /** Long enough for a context that is going to start; short enough to give up on one that is not. */
-const RESUME_MS = 1500;
+const RESUME_MS = 800;
 
 /**
  * Ask a suspended context to start, and carry on either way. resume() does not
