@@ -26,6 +26,7 @@
     import { prompter } from "$lib/collage/speech";
     import { boilFilterSvg, loadPainterly, PAINTERLY_CSS } from "$lib/collage/painted";
     import { hint } from "$lib/collage/hint";
+    import { setFavicon } from "$lib/favicon";
     import { TROUPE } from "$lib/collage/troupe";
     import { idleSet } from "$lib/collage/idleSet";
     import { MENU_MUSIC_LEVEL, takeNames } from "$lib/collage/audio";
@@ -274,6 +275,19 @@
     $effect(() => {
         document.documentElement.classList.toggle("theatre-watching", showing);
         return () => document.documentElement.classList.remove("theatre-watching");
+    });
+
+    /*
+     * The tab icon carries the curtain state too.
+     *
+     * Same fact as the class above, told to whoever is looking at a background
+     * tab rather than at the page: a show an agent started can run while its
+     * tab is buried behind six others, and the favicon is the only part of the
+     * theatre still on screen.
+     */
+    $effect(() => {
+        setFavicon(showing ? "play" : "idle");
+        return () => setFavicon("idle");
     });
     $effect(() => {
         if (!restored || !MENU_BEDS.length) return;
