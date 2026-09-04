@@ -117,6 +117,9 @@ export function play(plan: Plan, hand: Stagehand): Playing {
     // Taken off stage before the first beat, and put back by their own
     // entrance. Done synchronously, before anything is awaited, so there is not
     // even one frame in which the whole cast is standing there.
+    // Present first, hidden second: an arrival is in both lists — on stage for
+    // this chapter, but not until their own entrance plays.
+    for (const id of plan.present ?? []) hand.setGone(id, false);
     for (const id of plan.hidden ?? []) hand.setGone(id, true);
 
     const finished = (async () => {

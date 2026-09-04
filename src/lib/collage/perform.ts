@@ -818,6 +818,16 @@ export interface Plan {
      * revealed by their own entrance, which the player does as it starts.
      */
     hidden?: string[];
+    /**
+     * Who is on stage when it begins, whatever happened before.
+     *
+     * A character who exits stays gone — that is what exit means — and gone
+     * used to last for the whole show: the wolf left in chapter one and was
+     * invisible in chapter three, silently, since a bubble over somebody who
+     * is not there is not drawn either. A chapter's cast is present when the
+     * chapter opens unless they have an entrance to make.
+     */
+    present?: string[];
 }
 
 /**

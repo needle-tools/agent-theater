@@ -730,7 +730,12 @@ export function createStudio(collage = new Collage()): CollageStudio {
             const { plan } = planScene(
                 aimed(beats, id => collage.get(id) ?? null), timingsFor(stage));
             const began = Date.now();
-            if (plan.beats.length) await played({ ...plan, hidden });
+            // Everyone this chapter is about is on stage for it. Without
+            // saying so, anybody who exited in an earlier chapter stays
+            // invisible for the rest of the show — and invisible is silent
+            // too, since a bubble is not drawn over somebody who is not there.
+            const present = stage.cast.map(member => member.id);
+            if (plan.beats.length) await played({ ...plan, hidden, present });
             if (!wanted) break;
             // The hold, or whatever is left of the minimum — whichever is
             // longer. A scene nobody wrote anything for still has to be looked
@@ -826,7 +831,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
         const bowing = leads(stages, present.map(member => member.id));
         if (bowing.length) {
             const { plan } = planScene(bowing.map(id => ({ id, do: "bow" as const })));
-            if (plan.beats.length) await played(plan);
+            if (plan.beats.length) await played({ ...plan, present: bowing });
         }
         if (!wanted) return;
 
