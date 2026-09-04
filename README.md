@@ -4,17 +4,17 @@
 
 **Tell an AI agent a story. Watch it stage the play.**
 
-Open the page and say *"put on a play about a wolf who is afraid of the dark"*. The agent casts the parts from a drawer of paper cut-outs, dresses the stage, writes the script beat by beat, gives every character a voice, and runs the show while narrating it aloud.
+Open the page and say *"put on a play about a wolf who is afraid of the dark"*. The agent chooses the cast, builds the set, writes the scenes, assigns voices, and runs the show.
 
-You are not watching a chatbot describe a play. The agent is working the actual stage — the same one you can drag pieces around on yourself, at the same time, while it does.
+You and the agent use the same stage. You can move characters and props yourself, ask the agent to take over, or edit the set while it works.
 
-**[Open the theatre →](https://theater.needle.tools)** then ask your agent what it can do here.
+**[Open the theatre →](https://theater.needle.tools)** · [Devpost](https://devpost.com/software/agent-theater) · [Source](https://github.com/needle-tools/agent-theater)
 
 ## About
 
-Agent Theater is an open-source paper theatre where people, kids and AI agents make stories together. You can build and perform by hand, narrate what should happen next, or hand the stage to an agent that can create artwork, cast characters, arrange sets, write dialogue, direct motion, music and effects, and screen the finished show.
+Agent Theater is an open-source paper theatre for making stories with an AI agent. People can build and perform by hand, narrate what should happen next, or ask the agent to create artwork, cast characters, arrange sets, write dialogue, direct motion, add music and effects, and screen the finished show.
 
-WebMCP is what makes that collaboration practical. Staging a play is a stateful creative job — not a sequence of mystery button clicks — so the page exposes meaningful, typed actions directly to the agent. The person and the agent work on the same live stage, see each other's changes, and can pass control back and forth without translating the performance into chat instructions.
+WebMCP gives the agent typed access to the stage rather than relying on UI automation. The interface and the WebMCP tools update the same document, so the person and agent always see the same cast, set, scenes, and script.
 
 Built by [Needle](https://needle.tools). Try it at [theater.needle.tools](https://theater.needle.tools), explore the [source](https://github.com/needle-tools/agent-theater), or read the [MIT License](LICENSE).
 
@@ -23,34 +23,34 @@ Built by [Needle](https://needle.tools). Try it at [theater.needle.tools](https:
 ![A child and an agent building a set, watching a show, telling a story and playing together](docs/modes.webp)
 
 - Build a set from hundreds of stage pieces, or let ChatGPT create your very own set.
-- Let the agent design and screen a show that you can share with the world.
-- Let the agent narrate what you — or your kids — do with the characters.
-- Let the agent play what you — or your kids — narrate.
+- Ask the agent to design and screen a show that you can share.
+- Move the characters yourself while the agent narrates what happens.
+- Narrate a story while the agent performs it with the characters.
 
 ## There's more
 
 ![A world of music, effects, agent tools and shareable plays](docs/more.webp)
 
-- Share your screenplay with the world.
+- Publish and share your screenplay.
 - Motion, music, sounds and special effects — all driven by your agent.
-- The agent can do everything you can do, and more.
+- The agent has the same stage controls as you, plus tools for scripting and playback.
 - And your **personal Codex pet** appears on the stage and directs it! 🪄
 - WebMCP skills for spritesheet generation, storytelling and narration.
-- Download a screenshot and load it back up later — your entire play is saved inside it.
+- Export a screenshot and load it later; the play data is stored inside the PNG.
 
 ## And there's even more
 
 ![A gibberish-speaking creature, a magician's hat and a lively paper stage](docs/even-more.webp)
 
-- A custom gibberish engine for awesome dialogue.
-- A custom Houdini CSS engine for the stop-motion look.
+- A custom gibberish speech engine for character dialogue.
+- A CSS Houdini paint worklet for the stop-motion look.
 - Bonus workbenches for [recording custom motion](https://theater.needle.tools/record), [shaping voices](https://theater.needle.tools/talk) and [tuning the painterly renderer](https://theater.needle.tools/painted).
 
 ## Built for agents first
 
-Agent Theater is a [WebMCP](https://github.com/webmachinelearning/webmcp) app. The page hands the agent its own typed tools instead of making it hunt for buttons.
+Agent Theater is a [WebMCP](https://github.com/webmachinelearning/webmcp) app. It registers typed tools directly in the page for adding and arranging pieces, creating scenes, casting characters, writing scripts, controlling sound and motion, and playing or publishing a show.
 
-That is the whole difference. An agent automating a website normally works from the outside — read the DOM, find something that looks like a button, click it, hope. Staging a play that way is hopeless: *"walk stage left, look surprised, then speak"* is not a sequence of clicks. Here it is one call with a number in it.
+This is a good fit for WebMCP because a direction such as *"walk stage left, look surprised, then speak"* maps to structured stage actions. Both direct manipulation and tool calls change the same underlying document.
 
 Nothing to install, no API key, no server. The tools are there when the page loads.
 
@@ -68,17 +68,17 @@ Nothing to install, no API key, no server. The tools are there when the page loa
 
 ![An oak, a barrel cactus, a campfire, a lighthouse, a teapot, a street lamp, a slice of watermelon and the moon, cut from paper](docs/props.webp)
 
-**615 pieces of art, in 21 packs.** A cast of animals, fairy-tale characters, heroes and villains — and the scenery to put them in: forests, deserts, oceans, streets, kitchens, the night sky. Every piece is a paper cut-out with a name and a description, so an agent picks a mossy boulder on purpose rather than by luck.
+**Almost 600 pieces of art, in 21 packs.** The library includes animals, fairy-tale characters, heroes, villains, backdrops, and scenery for forests, deserts, oceans, streets, homes, and the night sky. Every piece has a name and description that the agent can search.
 
-**A voice for everyone who speaks.** Voices are synthesised and modulated per character — an actor sounds like its drawing suggests, and anything else gets a stable voice dealt from its own name. Nobody who was written a line goes unheard, and the same character sounds the same way every run.
+**A voice for every speaking character.** Voices are synthesised and adjusted per character. Actors receive profiles based on their artwork; other objects receive stable profiles generated from their names.
 
-**168 sounds.** 26 music beds that cross-fade between scenes, 71 stings that land on a beat, 56 effects, and 15 seams — curtain up, drumroll, curtain down.
+**218 sounds.** 38 music beds, 100 cues, 65 sound effects, and 15 transition seams.
 
-**Paper that behaves like paper.** Every piece is drawn through a CSS paint worklet, so edges wander and the ink boils slightly, the way a hand-cut shape does. The cursor is cut from paper too.
+**A paper stop-motion renderer.** A CSS paint worklet varies edges, texture, and ink over time while keeping the original artwork intact.
 
 ## How a play gets made
 
-Thirty-four tools, four families. An agent blocks a scene the way a director does:
+The tools cover the full production workflow:
 
 | | |
 | --- | --- |
@@ -91,4 +91,4 @@ Thirty-four tools, four families. An agent blocks a scene the way a director doe
 
 Shows save, publish and share: `show_save`, `show_publish`, `show_list`, `show_load`. Share URLs are `/p/<id>`.
 
-An agent that cannot draw can still get art: `theater_art_prompt` writes the image-generation prompt in the house style — including the parts a model gets wrong unless told, like the gutters between cells and keeping a character's feet visible so it can walk later.
+For custom artwork, `theater_art_prompt` creates an image-generation prompt in the project's paper-cut style, including the layout constraints needed for animation and spritesheet cutting.
