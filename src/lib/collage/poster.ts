@@ -21,9 +21,17 @@
 import type { Frame, ImageLayer, Layer, Rect } from "./model.js";
 import { renderRegion, type ImageSource } from "./render.js";
 
-/** How much of the poster's height the band along the bottom takes. */
+/**
+ * How deep the band along the bottom is.
+ *
+ * A share of the height, but capped against the WIDTH as well, because
+ * everything on the band is sized off its depth and a portrait page is tall
+ * enough that a sixth of it is a deep strip of very large type on a narrow
+ * sheet — the title would then be shouldered off it entirely by the address
+ * and the stamp. Floored too, so a small poster still has a legible band.
+ */
 const BAND_SHARE = 0.16;
-/** ...and never less than this, so a small poster still has a legible band. */
+const BAND_OF_WIDTH = 0.13;
 const MIN_BAND = 76;
 
 /** The tallest lead, as a share of the picture above the band. */
@@ -40,6 +48,13 @@ const CAST_GAP = -0.04;
 const FLANK_LIFT = 0.05;
 /** Widest the whole row may get, as a share of the picture. */
 const CAST_WIDTH = 0.9;
+/**
+ * How high the torn edge of the band reaches above the band itself, as a share
+ * of it — and, with a little added, how much floor the cast is kept clear of
+ * so nobody is standing ankle-deep in the paper.
+ */
+const DECKLE_RISE = 0.035;
+const FLOOR = DECKLE_RISE + 0.07;
 /** How far each step away from the middle leans, in degrees. */
 const LEAN = 3.5;
 /** How many come forward. Past three the row is a crowd and nobody is a lead. */
@@ -49,6 +64,17 @@ export const POSTER_LEADS = 3;
 export const POSTER_MARK_SRC = "/og.webp";
 /** What the band says about where this opens. */
 export const POSTER_URL = "Load at theater.needle.tools";
+
+/**
+ * How deep the band is on a poster of this size.
+ *
+ * Its own function because everything printed on the band is sized off this
+ * one number, so getting it wrong on one page shape quietly loses the title on
+ * that shape and nowhere else.
+ */
+export function bandDepth(width: number, height: number): number {
+    return Math.round(Math.max(MIN_BAND, Math.min(height * BAND_SHARE, width * BAND_OF_WIDTH)));
+}
 
 /**
  * Where the leads stand on the poster, in canvas units.
@@ -175,7 +201,7 @@ export function renderPoster(
 ): HTMLCanvasElement {
     const width = Math.max(1, Math.round(options.width));
     const height = Math.max(1, Math.round(options.height));
-    const band = Math.round(Math.max(MIN_BAND, height * BAND_SHARE));
+    const band = bandDepth(width, height);
     // The poster and the frame are the same shape, so one number converts both
     // axes between canvas units and poster pixels.
     const scale = width / Math.max(1, frame.width);
@@ -185,7 +211,10 @@ export function renderPoster(
         x: frame.x,
         y: frame.y,
         width: frame.width,
-        height: (height - band) / scale,
+        // Short of the band by the height of its torn edge and a little more:
+        // the strip is laid OVER the picture, so a cast standing exactly on
+        // the band's top line has its feet eaten by the tear.
+        height: (height - band * (1 + FLOOR)) / scale,
     });
 
     // The set, minus whoever is about to step forward. Leaving them in as well
@@ -247,23 +276,38 @@ function drawBand(
     // Below the middle of the strip, not of the band: the deckle eats into the
     // top, so text centred on the band sits high.
     const middle = top + band * 0.53;
+    const body = token("--font-family-body", "system-ui, sans-serif");
+    // The stamp and the address may have this much of the strip and no more.
+    // Whose band it is is not in question — it is the play's, and the play's
+    // name is on the left.
+    const spare = (width - pad * 2) * SIGNATURE_SHARE;
     let edge = width - pad;
 
     if (options.mark) {
-        const markHeight = Math.round(band * 0.5);
-        const markWidth = Math.round(markHeight * (options.mark.width / Math.max(1, options.mark.height)));
+        let markHeight = Math.round(band * 0.5);
+        let markWidth = Math.round(markHeight * (options.mark.width / Math.max(1, options.mark.height)));
+        if (markWidth > spare * 0.45) {
+            markHeight = Math.round(markHeight * ((spare * 0.45) / markWidth));
+            markWidth = Math.round(spare * 0.45);
+        }
         stamp(ctx, options.mark, edge - markWidth, middle - markHeight / 2, markWidth, markHeight, ink);
         edge -= markWidth + Math.round(band * 0.22);
     }
 
-    const body = token("--font-family-body", "system-ui, sans-serif");
     if (options.url) {
-        ctx.font = `600 ${Math.round(band * 0.19)}px ${body}`;
-        ctx.textAlign = "right";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = fade(ink, 0.62);
-        ctx.fillText(options.url, edge, middle);
-        edge -= Math.ceil(ctx.measureText(options.url).width) + Math.round(band * 0.3);
+        // Shrinks to fit what is left of its share, and is dropped outright
+        // rather than shrunk past reading — where to open the play is useful,
+        // and it is never as useful as what the play is called.
+        const room = edge - (width - pad - spare);
+        const size = fitFont(ctx, options.url, room, Math.round(band * 0.19), Math.round(band * 0.12), 600, body);
+        if (ctx.measureText(options.url).width <= room) {
+            ctx.font = `600 ${size}px ${body}`;
+            ctx.textAlign = "right";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = fade(ink, 0.62);
+            ctx.fillText(options.url, edge, middle);
+            edge -= Math.ceil(ctx.measureText(options.url).width) + Math.round(band * 0.3);
+        }
     }
 
     const title = options.title?.trim();
@@ -296,6 +340,8 @@ function drawBand(
 
 /** How often the torn edge is sampled, in poster pixels. */
 const DECKLE_STEP = 26;
+/** Most of the band the stamp and the address may take between them. */
+const SIGNATURE_SHARE = 0.45;
 
 /**
  * The wobble along the top of the band.
@@ -305,7 +351,7 @@ const DECKLE_STEP = 26;
  * is a file that looks edited to every tool that ever compares two of them.
  */
 function deckle(x: number, band: number): number {
-    return (Math.sin(x * 0.11) * 0.6 + Math.sin(x * 0.037 + 1.7) * 0.4) * band * 0.035;
+    return (Math.sin(x * 0.11) * 0.6 + Math.sin(x * 0.037 + 1.7) * 0.4) * band * DECKLE_RISE;
 }
 
 /** The site's card, as a little paper card of its own. */

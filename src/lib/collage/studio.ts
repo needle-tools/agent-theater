@@ -16,6 +16,7 @@ import {
 import { arrange as computeLayout, type LayoutMode, type LayoutOptions } from "./layout.js";
 import { loadImage, readPixels, toDataUrl, type LoadedImage } from "./imaging.js";
 import { canvasToBlob, previewDataUrl, renderFrame, renderRegion } from "./render.js";
+import { loadPosterMark, POSTER_LEADS, POSTER_URL, renderPoster } from "./poster.js";
 import { fontsReady, loadWebFonts, webFontsUsed } from "./webfonts.js";
 import { shapeFromMask, type Shape } from "./silhouette.js";
 import { svgBlob, traceToSvg as traceToSvgPixels, TRACE_EDGE, type TraceOptions } from "./trace.js";
@@ -1728,9 +1729,36 @@ export function createStudio(collage = new Collage()): CollageStudio {
             // collage whose actual contents are two.
             const size = outputSize(frame, 96);
             const scale = Math.min(1, 1600 / Math.max(size.width, size.height));
-            const canvas = renderFrame(frame, layers, images, {
+
+            /*
+             * A poster rather than a screenshot.
+             *
+             * Who the play is about is a thing the document knows — the same
+             * weighing that decides who takes a bow — and a front cover that
+             * ignores it is a wide shot of a stage where the leads are the
+             * size the scene needed them. So they step forward, and the name
+             * goes on a paper band along the bottom.
+             *
+             * On the picture only. Putting a title on the STAGE would be
+             * putting it in the play: the layer would be saved, reopened,
+             * performed and credited, and a title card is not a prop. The
+             * document that travels in the chunk below is untouched, which is
+             * what makes a rearranged cover safe — `openFile` reads the chunk
+             * and rebuilds the set exactly as it stands here.
+             */
+            const stages = collage.listStages();
+            const front = leads(
+                stages,
+                creditsFor(stages, id => collage.get(id)?.label ?? null).map(credit => credit.id),
+                POSTER_LEADS);
+            const canvas = renderPoster(frame, layers, images, {
                 width: Math.max(1, Math.round(size.width * scale)),
                 height: Math.max(1, Math.round(size.height * scale)),
+                ...(collage.billing.title?.trim() ? { title: collage.billing.title.trim() } : {}),
+                ...(collage.billing.byline?.trim() ? { byline: collage.billing.byline.trim() } : {}),
+                leads: front,
+                mark: await loadPosterMark(),
+                url: POSTER_URL,
             });
             const png = new Uint8Array(await (await canvasToBlob(canvas, "image/png")).arrayBuffer());
 
