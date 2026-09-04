@@ -43,6 +43,16 @@
         ]
       },
       {
+        "id": "door-pieces",
+        "label": "Doors & arches",
+        "packs": [
+          "doors"
+        ],
+        "kinds": [
+          "scenery"
+        ]
+      },
+      {
         "id": "flower-pieces",
         "label": "Flowers",
         "packs": [
@@ -131,6 +141,16 @@
         ],
         "kinds": [
           "actor",
+          "scenery"
+        ]
+      },
+      {
+        "id": "tree-pieces",
+        "label": "Trees",
+        "packs": [
+          "trees"
+        ],
+        "kinds": [
           "scenery"
         ]
       }
