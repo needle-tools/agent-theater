@@ -45,6 +45,19 @@ async function json(response: Response) {
     return body;
 }
 
+async function publishResponse(response: Response, by: "human" | "agent", published: boolean) {
+    if (published && response.status === 429) {
+        const retryAfter = Number(response.headers.get("retry-after"));
+        track("play_publish_refused", {
+            by,
+            reason: "rate_limit",
+            status: response.status,
+            retry_after: Number.isFinite(retryAfter) ? retryAfter : undefined,
+        });
+    }
+    return json(response);
+}
+
 export function playId(value: string): string | null {
     return value.trim().match(/(?:\/p\/)?([A-Za-z0-9_-]{10,40})\/?(?:[?#].*)?$/)?.[1] ?? null;
 }
@@ -72,7 +85,7 @@ export async function savePlayOnline(
     }
     const id = options.id;
     const token = id ? localStorage.getItem(TOKEN_PREFIX + id) : null;
-    const result = await json(await fetch(id ? `/api/plays/${encodeURIComponent(id)}` : "/api/plays", {
+    const result = await publishResponse(await fetch(id ? `/api/plays/${encodeURIComponent(id)}` : "/api/plays", {
         method: id ? "PUT" : "POST",
         headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
@@ -80,7 +93,7 @@ export async function savePlayOnline(
             visibility: options.published ? "public" : "unlisted",
             doc: studio.storedDoc!(), assets,
         }),
-    })) as PublishedPlay & { editToken?: string };
+    }), "human", options.published) as PublishedPlay & { editToken?: string };
     if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);
     // A play leaving the tab is the moment somebody decided it was worth
     // keeping. Its shape, never its title — that is theirs.
@@ -141,7 +154,7 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
                 }
                 const id = typeof args?.id === "string" ? args.id : undefined;
                 const token = id ? localStorage.getItem(TOKEN_PREFIX + id) : null;
-                const result = await json(await fetch(id ? `/api/plays/${encodeURIComponent(id)}` : "/api/plays", {
+                const result = await publishResponse(await fetch(id ? `/api/plays/${encodeURIComponent(id)}` : "/api/plays", {
                     method: id ? "PUT" : "POST",
                     headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
                     body: JSON.stringify({
@@ -149,7 +162,7 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
                         visibility: published ? "public" : "unlisted",
                         doc: studio.storedDoc!(), assets,
                     }),
-                }));
+                }), "agent", published);
                 if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);
                 track("play_saved", {
                     by: "agent",
