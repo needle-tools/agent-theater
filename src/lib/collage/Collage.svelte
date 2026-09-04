@@ -49,6 +49,27 @@
      * spinners stay chips — a spinner cannot be a sentence, and an error
      * read aloud by a cheerful mushroom is the wrong messenger.
      */
+    /**
+     * A curtain-side greeting for an arriving audience — dealt from a small
+     * pool so regulars are not welcomed with the same sentence every time.
+     * The count of pieces stays out of it: a theatre invites, it does not
+     * inventory.
+     */
+    function welcome(title: string): string {
+        const chapters = collage.listStages().length;
+        const name = title ? `“${title}”` : "the play";
+        const lines = [
+            `You are right on time — ${name} is about to begin.`,
+            `Take a seat! We would love to play ${name} for you.`,
+            `Welcome, welcome! The company is ready when you are.`,
+            `You made it! ${title ? `${name} awaits.` : "The stage is set."}`,
+            ...(chapters > 1
+                ? [`${name[0].toUpperCase()}${name.slice(1)}, in ${chapters} chapters — ready when you are.`]
+                : []),
+        ];
+        return lines[Math.floor(Math.random() * lines.length)];
+    }
+
     function announce(text: string, { voiced = true } = {}) {
         const show = () => { if (!canvas?.announce(text)) toasts.push(text); };
         /*
@@ -335,7 +356,9 @@
                 // Somebody following a link somebody else sent them: the one
                 // arrival worth telling apart from every other page load.
                 track("play_loaded", { by: "human", source: "link" });
-                toasts.push(`Opened “${play.title}”.`);
+                // Said by a member of the company, in a typed bubble, once the
+                // first gesture unlocks the voice — not printed on a chip.
+                announce(welcome(play.title));
                 canvas?.fitAll();
             } catch (error) {
                 track("play_load_failed", { by: "human", source: "link" });
@@ -988,7 +1011,9 @@
             // did not load at all.
             canvas?.fitAll();
             track("play_loaded", { by: "human", source: "file", pieces: opened });
-            announce(`Opened a saved play — ${opened} pieces.`);
+            // The play announcing itself, in the words a front-of-house would
+            // use — not a piece count.
+            announce(welcome(collage.billing.title ?? ""));
         }
         return rest;
     }
