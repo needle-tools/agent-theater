@@ -10,6 +10,14 @@ You are not watching a chatbot describe a play. The agent is working the actual 
 
 **[Open the theatre →](https://theater.needle.tools)** then ask your agent what it can do here.
 
+## About
+
+Agent Theater is an open-source paper theatre where people, kids and AI agents make stories together. You can build and perform by hand, narrate what should happen next, or hand the stage to an agent that can create artwork, cast characters, arrange sets, write dialogue, direct motion, music and effects, and screen the finished show.
+
+WebMCP is what makes that collaboration practical. Staging a play is a stateful creative job — not a sequence of mystery button clicks — so the page exposes meaningful, typed actions directly to the agent. The person and the agent work on the same live stage, see each other's changes, and can pass control back and forth without translating the performance into chat instructions.
+
+Built by [Needle](https://needle.tools). Try it at [theater.needle.tools](https://theater.needle.tools), explore the [source](https://github.com/needle-tools/agent-theater), or read the [MIT License](LICENSE).
+
 ## Four ways to play
 
 ![A child and an agent building a set, watching a show, telling a story and playing together](docs/modes.webp)
