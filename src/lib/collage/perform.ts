@@ -558,7 +558,7 @@ export function aimed(beats: Beat[], startOf: (id: string) => { x: number; y: nu
         if (!id || !travels) return beat;
 
         const here = now(id);
-        let to = beat.to;
+        let to = beat.by ?? beat.to;
         if (beat.at) {
             to = {
                 ...(typeof beat.at.x === "number" ? { x: beat.at.x - here.x } : {}),
@@ -567,8 +567,8 @@ export function aimed(beats: Beat[], startOf: (id: string) => { x: number; y: nu
         }
         here.x += to?.x ?? 0;
         here.y += to?.y ?? 0;
-        if (!beat.at) return beat;
-        const { at: _target, ...rest } = beat;
+        if (!beat.at && !beat.by) return beat;
+        const { at: _target, by: _distance, ...rest } = beat;
         return { ...rest, to };
     });
 }
@@ -728,6 +728,11 @@ export interface Beat {
      * for "two steps back".
      */
     at?: { x?: number; y?: number };
+    /**
+     * How far to travel from where they are. The same thing `to` has always
+     * meant, under a name that cannot be read as a destination.
+     */
+    by?: { x?: number; y?: number };
     say?: string;
     /** A noise, fired as the beat starts. Rides along with whatever else it does. */
     sound?: string;

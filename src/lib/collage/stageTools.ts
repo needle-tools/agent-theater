@@ -416,9 +416,9 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "show — pass rehearse:false to write it without playing it now. " +
                 `Moves: ${MOVES.join(", ")}. "walk" and "jump" leave the layer where they end: give them ` +
                 "\"at\" to say WHERE on the canvas to end up (the coordinates piece_list and stage_describe " +
-                "report), or \"to\" to say HOW FAR to go from where they are. \"at\" is usually what you " +
-                "want — a scene moves people, so the place somebody started is rarely the place you last " +
-                "saw them. Everything else finishes exactly where it started. A beat's \"take\" picks another " +
+                "report), or \"by\" to say HOW FAR to travel. \"at\" is almost always the one you want. " +
+                "There is no \"to\" — it meant a distance, read like a destination, and walked characters " +
+                "clean off the paper. Everything else finishes exactly where it started. A beat's \"take\" picks another " +
                 "cast member up — it rides along through every later move until a \"drop\" lets it fall. " +
                 "\"with\": true makes a beat run AT THE SAME TIME as the one before it, so two characters " +
                 "can move or speak together. \"walk\" and \"jump\" travel to any canvas point — a hero can " +
@@ -487,13 +487,13 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "not a journey.",
                                     properties: { x: { type: "number" }, y: { type: "number" } },
                                 },
-                                to: {
+                                by: {
                                     type: "object",
                                     description:
                                         "How far a walk or jump travels from where it starts, in canvas " +
-                                        "units — a distance, not a place. \"at\" is the one to reach for " +
-                                        "when you know where somebody should end up; this is for \"two " +
-                                        "steps back\". Ignored when \"at\" is given.",
+                                        "units — a distance, not a place. For \"two steps back\". Use " +
+                                        "\"at\" whenever you know where they should end up. Ignored " +
+                                        "when \"at\" is given.",
                                     properties: { x: { type: "number" }, y: { type: "number" } },
                                 },
                                 camera: {
@@ -694,30 +694,26 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     }
                 }
                 /*
-                 * A walk longer than the world is a misread "to".
+                 * "to" is retired, and refused rather than obeyed.
                  *
-                 * "to" is a distance; agents write the canvas point they want
-                 * to reach, and the character leaves for somewhere off the
-                 * paper. Caught here rather than played, because the play looks
-                 * like an animation bug and nobody suspects the number.
+                 * It meant a distance and read like a destination, and agents
+                 * wrote canvas coordinates into it: a hero standing at 80 sent
+                 * "to the cottage at 2360" walked 2360 further, and every walk
+                 * after it compounded — one saved play has Red Riding Hood
+                 * ending at 6880, 3060 in a world 2880 across. Nothing was
+                 * wrong to see, so nothing was ever fixed. The two meanings now
+                 * have two names, and the old one is an error rather than a
+                 * coin flip. Scripts already saved keep working: they are
+                 * played, not written, and this is the writing path.
                  */
-                const world = collage.listAll();
-                const span = world.length
-                    ? Math.max(
-                        Math.max(...world.map(l => l.x + l.width)) - Math.min(...world.map(l => l.x)),
-                        Math.max(...world.map(l => l.y + l.height)) - Math.min(...world.map(l => l.y)))
-                    : 0;
-                const tooFar = Math.max(2000, span * 1.5);
                 for (const [index, beat] of beats.entries()) {
-                    if (!beat?.to || beat.at) continue;
-                    const dx = num(beat.to.x) ? beat.to.x : 0;
-                    const dy = num(beat.to.y) ? beat.to.y : 0;
-                    const journey = Math.max(Math.abs(dx), Math.abs(dy));
-                    if (journey <= tooFar) continue;
+                    if (!beat?.to) continue;
+                    const to = beat.to as { x?: number; y?: number };
                     handErrors.push(
-                        `beat ${index + 1}: "to" travels ${Math.round(journey)}, further than the whole ` +
-                        `set (${Math.round(span)} across). "to" is a DISTANCE from where they stand — ` +
-                        `if you meant the canvas point, write "at": {x: ${Math.round(dx)}} instead`);
+                        `beat ${index + 1}: there is no "to" any more, because it meant a distance and ` +
+                        `read like a place. Say which you meant: "at" for where they end up on the ` +
+                        `canvas (${JSON.stringify(to)} as a POINT), or "by" for how far they travel ` +
+                        `(${JSON.stringify(to)} as a DISTANCE)`);
                 }
                 if (handErrors.length) {
                     return fail(["The scene has problems:", ...handErrors].join("\n"));

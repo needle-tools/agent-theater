@@ -1095,10 +1095,10 @@ describe("wearing another picture", () => {
     });
 });
 
-describe("walking further than the world", () => {
-    it("refuses a distance that is really a destination", async () => {
-        // The number reads fine and plays as a character leaving for nowhere,
-        // which looks like an animation bug rather than a misread field.
+describe("saying where a walk ends", () => {
+    it("refuses the old \"to\", which meant two things at once", async () => {
+        // It was a distance and read like a destination, so agents wrote canvas
+        // coordinates into it and characters walked clean off the paper.
         const { studio, collage } = fakeStudio();
         const wolf = collage.addImage({ src: "w", natural: { width: 100, height: 100 }, x: 1200, y: 0 });
         const stage = collage.addStage({ name: "the road" });
@@ -1112,6 +1112,7 @@ describe("walking further than the world", () => {
         });
         expect(result.isError).toBe(true);
         expect(textOf(result)).toContain('"at"');
+        expect(textOf(result)).toContain('"by"');
     });
 
     it("allows the same journey when it is written as a destination", async () => {
@@ -1129,7 +1130,7 @@ describe("walking further than the world", () => {
         expect(result.isError).toBeUndefined();
     });
 
-    it("leaves an ordinary walk alone", async () => {
+    it("takes a distance when it is called a distance", async () => {
         const { studio, collage } = fakeStudio();
         const wolf = collage.addImage({ src: "w", natural: { width: 100, height: 100 }, x: 1200, y: 0 });
         const stage = collage.addStage({ name: "the road" });
@@ -1139,9 +1140,10 @@ describe("walking further than the world", () => {
         const result = await script.execute({
             stage: stage.id,
             rehearse: false,
-            beats: [{ id: wolf.id, do: "walk", to: { x: 600 } }],
+            beats: [{ id: wolf.id, do: "walk", by: { x: 600 } }],
         });
         expect(result.isError).toBeUndefined();
+        expect(collage.getStage(stage.id)!.script[0].by).toEqual({ x: 600 });
     });
 });
 

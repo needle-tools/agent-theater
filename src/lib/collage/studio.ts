@@ -612,11 +612,23 @@ export function createStudio(collage = new Collage()): CollageStudio {
      * read as the page glitching.
      */
     const restage = async (stage: Stage) => {
-        const moving = stage.cast.filter(member => {
-            const layer = collage.get(member.id);
-            if (!layer || typeof member.x !== "number" || typeof member.y !== "number") return false;
-            return Math.round(layer.x) !== Math.round(member.x)
-                || Math.round(layer.y) !== Math.round(member.y);
+        // The chapter's own blocking, or failing that where the piece stood at
+        // curtain-up. A play written before casting wrote positions down has
+        // no blocking to go back to, and the world as the agent last saw it is
+        // the arrangement it wrote every chapter against anyway.
+        const curtainUp = new Map((preshow ?? []).map(spot => [spot.id, spot]));
+        const marks = stage.cast.map(member => {
+            const mark = typeof member.x === "number" && typeof member.y === "number"
+                ? { x: member.x, y: member.y }
+                : curtainUp.get(member.id);
+            return mark ? { id: member.id, ...mark } : null;
+        }).filter(Boolean) as Array<{ id: string; x: number; y: number }>;
+
+        const moving = marks.filter(mark => {
+            const layer = collage.get(mark.id);
+            return !!layer
+                && (Math.round(layer.x) !== Math.round(mark.x)
+                    || Math.round(layer.y) !== Math.round(mark.y));
         });
         if (!moving.length) return;
 
