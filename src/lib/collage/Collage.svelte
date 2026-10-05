@@ -1086,6 +1086,70 @@
                 host.y = best.y / h * 100;
             }
         }
+        return layoutIntroBubbles(placed, savedBounds);
+    }
+
+    function layoutIntroBubbles(props: typeof scatter, savedBounds: DOMRect[]) {
+        if (props.length < 4 || window.innerWidth >= 1300) return props;
+        const w = window.innerWidth, h = window.innerHeight;
+        const vmin = Math.min(w, h);
+        const sizeOf = (prop: typeof props[number]) => Math.max(72, prop.size * vmin / 100);
+        const box = (x: number, y: number, width: number, height: number) =>
+            new DOMRect(x - width / 2, y - height / 2, width, height);
+        const overlap = (a: DOMRect, b: DOMRect) =>
+            Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+            Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+        const roles = [0, Math.floor(props.length / 2), 1, props.length - 1];
+        const dimensions = [[210, 80], [290, 120], [260, 210], [Math.min(260, w * 0.32) + 24, 225]];
+        const targets = [[0.68, 0.34], [0.28, 0.48], [0.75, 0.72], [0.35, 0.72]];
+        const reserved: DOMRect[] = [];
+        const placed = props.map(prop => ({ ...prop }));
+        for (const [order, index] of roles.entries()) {
+            const prop = placed[index];
+            const [bubbleWidth, bubbleHeight] = dimensions[order];
+            const size = sizeOf(prop);
+            let best: { x: number; y: number; score: number; bubble: DOMRect; sticker: DOMRect } | null = null;
+            for (let x = 0.17; x <= 0.79; x += 0.06) {
+                for (let y = 0.27; y <= 0.81; y += 0.06) {
+                    const cx = x * w, cy = y * h;
+                    const sticker = box(cx, cy, size + 18, size + 18);
+                    const bubble = box(cx, cy - size / 2 - 14 - bubbleHeight / 2, bubbleWidth, bubbleHeight);
+                    if (bubble.left < 16 || bubble.right > w - 76 || bubble.top < 18 ||
+                        sticker.bottom > h - 110) continue;
+                    const collision = reserved.reduce((sum, rect) => sum + overlap(rect, bubble) + overlap(rect, sticker), 0);
+                    const withSaved = savedBounds.reduce((sum, rect) => sum + overlap(rect, bubble) + overlap(rect, sticker), 0);
+                    const score = collision * 100 + withSaved * 20 +
+                        (Math.abs(x - targets[order][0]) + Math.abs(y - targets[order][1])) * 1000;
+                    if (!best || score < best.score) best = { x: cx, y: cy, score, bubble, sticker };
+                }
+            }
+            if (!best) continue;
+            prop.x = best.x / w * 100;
+            prop.y = best.y / h * 100;
+            reserved.push(best.bubble, best.sticker);
+        }
+        // Quiet stickers yield to the cards; speaking stickers keep their anchors.
+        for (const prop of placed.filter((_, index) => !roles.includes(index))) {
+            const size = sizeOf(prop);
+            const current = box(prop.x * w / 100, prop.y * h / 100, size + 12, size + 12);
+            if (!reserved.some(rect => overlap(rect, current) > 0) &&
+                !savedBounds.some(rect => overlap(rect, current) > 0)) {
+                reserved.push(current);
+                continue;
+            }
+            const spots = [0.18, 0.3, 0.42, 0.54, 0.66, 0.78].flatMap(y =>
+                [0.14, 0.26, 0.38, 0.5, 0.62, 0.74, 0.86].map(x => ({ x, y })));
+            const free = spots.find(({ x, y }) => {
+                const rect = box(x * w, y * h, size + 12, size + 12);
+                return rect.left > 12 && rect.right < w - 76 && rect.top > 70 && rect.bottom < h - 110 &&
+                    [...reserved, ...savedBounds].every(other => overlap(rect, other) === 0);
+            });
+            if (free) {
+                prop.x = free.x * 100;
+                prop.y = free.y * 100;
+            }
+            reserved.push(box(prop.x * w / 100, prop.y * h / 100, size + 12, size + 12));
+        }
         return placed;
     }
 
