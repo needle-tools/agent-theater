@@ -26,12 +26,12 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
         if (!validateDoc(body.doc)) return json({ error: "Invalid play document." }, { status: 400 });
         if (!validateAssets(body.doc, body.assets)) return json({ error: "Invalid or incomplete asset map." }, { status: 400 });
         const { sql, ready } = database(); await ready;
-        const [existing] = await sql`select edit_token_hash from plays where id = ${params.id}`;
+        const [existing] = await sql`select edit_token_hash, visibility from plays where id = ${params.id}`;
         if (!existing) return json({ error: "Play not found." }, { status: 404 });
         if (!owns(token, existing.edit_token_hash)) return json({ error: "The edit token is missing or invalid." }, { status: 403 });
         const title = String(body.title || "Untitled play").slice(0, 160);
         const visibility = body.visibility === "public" ? "public" : "unlisted";
-        if (visibility === "public") {
+        if (visibility === "public" && existing.visibility !== "public") {
             const limit = await claimPublishSlot(getClientAddress());
             if (!limit.allowed) return json({
                 error: `Publishing is limited to 5 times per minute and 20 times per 30 minutes. Try again in ${limit.retryAfter} seconds.`,

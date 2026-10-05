@@ -248,7 +248,7 @@
     async function persistPlay(): Promise<PublishedPlay> {
         const remembered = rememberedPlay();
         const owned = remembered && canEditPlay(remembered.id) ? remembered.id : undefined;
-        const play = await savePlayOnline(studio, { published: false, id: owned });
+        const play = await savePlayOnline(studio, { published: true, id: owned });
         try { localStorage.setItem(CURRENT_PLAY_KEY, JSON.stringify(play)); } catch { /* optional */ }
         return play;
     }
@@ -260,7 +260,7 @@
         try {
             await persistPlay();
             toast.close();
-            announce("Saved online.", { voiced: false });
+            announce("Saved publicly online.", { voiced: false });
         } catch (error) {
             toast.close();
             track("play_save_failed", { by: "human", where: "online", reason: message(error).slice(0, 120) });
@@ -1449,10 +1449,10 @@
             <img src="/toolbar/loading-icon.webp" alt="" draggable="false" />
             {#if resetArmed}<span class="reset-stage-tool__warning">Click again to start over.</span>{/if}
         </button>
-        <button class="file-tool file-tool--share" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Save online and share a link."} onclick={sharePlay}>
+        <button class="file-tool file-tool--share" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Publish online and share a link."} onclick={sharePlay}>
             <img src="/toolbar/share.webp" alt="" draggable="false" />
         </button>
-        <button class="file-tool" disabled={!layers.length || sharing} aria-label="Save play online" use:hint={sharing ? "Saving online…" : "Save this play online as an unlisted link."} onclick={saveOnline}>
+        <button class="file-tool" disabled={!layers.length || sharing} aria-label="Save play publicly online" use:hint={sharing ? "Saving online…" : "Save this play publicly online."} onclick={saveOnline}>
             <img src={layers.length ? "/toolbar/save.webp" : "/toolbar/save-disabled.webp"} alt="" draggable="false" />
         </button>
         {#if fileToolError}

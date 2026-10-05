@@ -75,6 +75,40 @@ export function database() {
             )`;
         await client!`create index if not exists play_publish_events_client_time
             on play_publish_events (client_key, published_at desc)`;
+
+        // One-time release of the nine unlisted plays reported on 2026-10-05.
+        // Run only during October 5–6 in Berlin. The creation cutoff excludes
+        // anything saved after that report, and the ledger stops later restarts
+        // from making a play public again if its owner makes it unlisted.
+        const now = Date.now();
+        if (now >= Date.parse("2026-10-04T22:00:00Z")
+            && now < Date.parse("2026-10-06T22:00:00Z")) {
+            const migration = "publish-nine-existing-plays-2026-10-05";
+            const cutoff = "2026-10-05T09:56:13Z";
+            await client!`create table if not exists play_data_migrations (
+                name text primary key,
+                applied_at timestamptz not null default now()
+            )`;
+            await client!.begin(async tx => {
+                const claimed = await tx`insert into play_data_migrations (name)
+                    values (${migration}) on conflict do nothing returning name`;
+                if (!claimed.length) return;
+                const candidates = await tx`select id from plays
+                    where visibility = 'unlisted' and created_at <= ${cutoff}::timestamptz
+                    for update`;
+                if (candidates.length !== 9) {
+                    await tx`delete from play_data_migrations where name = ${migration}`;
+                    console.warn("[plays] One-time publish skipped: expected nine pre-existing unlisted plays.", {
+                        found: candidates.length,
+                    });
+                    return;
+                }
+                const updated = await tx`update plays set visibility = 'public', updated_at = now()
+                    where visibility = 'unlisted' and created_at <= ${cutoff}::timestamptz
+                    returning id`;
+                console.info("[plays] One-time publish completed.", { count: updated.length });
+            });
+        }
     })();
     return { sql: client, ready };
 }
