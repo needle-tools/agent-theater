@@ -310,6 +310,13 @@
     const layers = $derived.by(() => (version, collage.list()));
     const frames = $derived.by(() => (version, collage.listFrames()));
     const empty = $derived(!layers.length && !frames.length);
+    const hasChapter = $derived.by(() => (version, collage.listStages().length > 0));
+    let arrangementIntro = $state(false);
+    const introActive = $derived(!hasChapter && (empty || arrangementIntro));
+
+    $effect(() => {
+        if (arrangementIntro && (hasChapter || (restored && empty))) arrangementIntro = false;
+    });
 
     /**
      * House music for the page: a SET of the menu-theatre beds, dealt at
@@ -393,7 +400,8 @@
             const count = await studio.restore();
             if (count) {
                 track("play_restored", { by: "human", pieces: count });
-                announce(`Picked up where you left off — ${count} layer${count === 1 ? "" : "s"}.`);
+                if (collage.listStages().length)
+                    announce(`Picked up where you left off — ${count} layer${count === 1 ? "" : "s"}.`);
                 canvas?.fitAll();
             }
         } catch (error) {
@@ -413,7 +421,7 @@
                 canvas?.fitAll();
                 if (new URL(location.href).searchParams.get("autoplay") === "1" && collage.listStages().length) {
                     void studio.playShow(undefined, { by: "human" });
-                } else {
+                } else if (collage.listStages().length) {
                     // A normal shared link opens ready to watch, with a welcome.
                     announce(welcome(play.title));
                 }
@@ -425,12 +433,17 @@
                 toasts.push(error instanceof Error ? error.message : "The shared play could not be loaded.", "error");
             }
         }
-        restored = true;
-        // Only onto a genuinely empty stage, and computed on the client so the
-        // arrangement is fresh each visit without upsetting hydration.
-        if (!collage.listAll().length && TROUPE.length) {
+        // An unscripted saved arrangement is still an invitation to make a
+        // play. Keep its stickers, supply enough temporary ones to reach seven,
+        // and let the opening bubbles speak from those temporary stickers.
+        const savedStickers = collage.listAll().filter(layer => layer.kind === "image").length;
+        if (!collage.listStages().length && (savedStickers || collage.listFrames().length) && TROUPE.length) {
+            arrangementIntro = true;
+            scatter = strewn(Math.max(4, 7 - savedStickers));
+        } else if (!collage.listAll().length && !collage.listStages().length && TROUPE.length) {
             scatter = strewn();
         }
+        restored = true;
         // Always ticking, not only when the page opened empty: the canvas can
         // BECOME empty again (a clear, the agent's theater_clear), and the
         // restock guards itself against a non-empty stage anyway.
@@ -486,8 +499,8 @@
         {
             // Punctuation is the pause syntax: the typed reveal and the voice
             // both breathe after . — ! ? — so short sentences pace themselves.
-            say: "Arrange us however you like, then ask ChatGPT for a play — " +
-                "it reads the stage. Have fun!",
+            say: "Arrange us, then send this page to ChatGPT for an interactive play. " +
+                "Click to copy the prompt!",
             voice: { speed: 1, age: 0.5, tone: 0.58 }, band: 47, aside: true, copies: true,
         },
     ];
@@ -501,7 +514,7 @@
      * the text so only this bubble comes back rather than the prop under it.
      */
     async function copyBriefing(key: string) {
-        let line = "Copied! Paste it into the ChatGPT app and we'll take it from there.";
+        let line = "Copied! Paste it into ChatGPT to start your interactive play.";
         if (!await copyText(briefing(location.origin))) {
             line = "This browser blocked copying. Try the site on HTTPS or localhost.";
         }
@@ -579,7 +592,7 @@
      * minute arranging ferns.
      */
     $effect(() => {
-        idleSet.props = empty
+        idleSet.props = introActive
             ? scatter.map(prop => ({
                 piece: prop.id.split("#")[0],
                 x: Math.round(prop.x),
@@ -720,7 +733,7 @@
     }
 
     function swapOneProp() {
-        if (!empty || heldProp || !scatter.length) return;
+        if (!introActive || heldProp || !scatter.length) return;
         // Never a prop the person has touched: they put it there, and a page
         // that swaps out something you placed is a page that undoes you.
         const quiet = scatter.filter(prop => !prop.say && !prop.touched);
@@ -751,7 +764,7 @@
      * state has to teach: this surface is for putting things on.
      */
     function conjureProp(event: MouseEvent) {
-        if (!empty || !restored || !pageEl || !TROUPE.length) return;
+        if (!introActive || !restored || !pageEl || !TROUPE.length) return;
         const target = event.target as HTMLElement;
         if (!pageEl.contains(target)) return;
         if (target.closest(".strewn__prop, button, a, input, [data-edit-trigger], .panel")) return;
@@ -883,7 +896,7 @@
 
     $effect(() => {
         void version;
-        if (!empty && restored && scatter.length && !adopting) void adoptScatter();
+        if (!introActive && restored && scatter.length && !adopting) void adoptScatter();
     });
 
     /*
@@ -897,13 +910,13 @@
      */
     $effect(() => {
         void version;
-        if (!empty || !restored || scatter.length || !TROUPE.length) return;
+        if (!empty || hasChapter || !restored || scatter.length || !TROUPE.length) return;
         // A person's clear gets a short bare-stage beat; an agent's clear gets
         // half a minute — it cleared in order to BUILD, and dealing props onto
         // its clean paper mid-build reads as the page refusing the clear.
         const wait = idleSet.clearedBy === "agent" ? 30_000 : 5000;
         const timer = setTimeout(() => {
-            if (empty && !scatter.length) {
+            if (empty && !hasChapter && !scatter.length) {
                 idleSet.clearedBy = null;
                 scatter = strewn();
             }
@@ -911,7 +924,7 @@
         return () => clearTimeout(timer);
     });
 
-    function strewn() {
+    function strewn(count = 9) {
         // A ring around the middle, jittered — the middle belongs to the
         // invitation, and a ring reads as "arranged by someone" where a
         // uniform scatter reads as "spilled".
@@ -925,7 +938,7 @@
         const scenery = pool.filter(piece => piece.kind === "scenery").sort(() => Math.random() - 0.5);
         const picked = [...actors.slice(0, 2), ...scenery.slice(0, 7)]
             .sort(() => Math.random() - 0.5)
-            .slice(0, 9);
+            .slice(0, count);
         const clamp = (value: number, low: number, high: number) =>
             Math.min(high, Math.max(low, value));
         const strewn = picked.map((piece, index) => {
@@ -1007,10 +1020,11 @@
             });
         }
         // Give the video its own quiet sticker, below the spoken lines.
-        if (strewn[2]) {
-            strewn[2].videoHost = true;
-            strewn[2].x = (Math.max(140, window.innerWidth * 0.25) / window.innerWidth) * 100;
-            strewn[2].y = 65;
+        const videoSticker = strewn.at(-1);
+        if (videoSticker) {
+            videoSticker.videoHost = true;
+            videoSticker.x = (Math.max(140, window.innerWidth * 0.25) / window.innerWidth) * 100;
+            videoSticker.y = 65;
         }
         // Nobody starts on top of anybody: overlap is fine once a person has
         // made it — that is theirs — but at spawn it just reads as a glitch.
@@ -1241,8 +1255,8 @@
 <div
     class="page"
     class:page--shared={sharedView}
-    class:page--intro={empty && scatter.length > 0}
-    class:page--intro-pending={empty && scatter.length === 0}
+    class:page--intro={introActive && scatter.length > 0}
+    class:page--intro-pending={!restored || (introActive && scatter.length === 0)}
     style:--paper={paperColour || null}
     bind:this={pageEl}
     role="region"
@@ -1262,7 +1276,7 @@
     <!-- The house lights, before anything is on. Kept mounted and faded rather
          than added and removed, so the first picture dropped in does not make
          the light behind it blink out. -->
-    <div class="houselights" class:houselights--off={!empty} aria-hidden="true"></div>
+    <div class="houselights" class:houselights--off={!introActive} aria-hidden="true"></div>
 
     {#if scatter.length}
         <!-- Fades with the house lights rather than unmounting, so the first
@@ -1280,7 +1294,7 @@
              until their twin layers are all beneath them, or the handover
              reads as everything blinking. The bubbles below DO fade at once —
              they are the page's copy, and the copy leaving is the point. -->
-        <div class="strewn" class:strewn--away={!empty && !adopting}>
+        <div class="strewn" class:strewn--away={!introActive && !adopting}>
             {#each scatter as prop (prop.key)}
                 <div
                     class="strewn__prop"
@@ -1350,7 +1364,7 @@
              becomes a delay before joining the prompter's queue instead, and
              the queue decides the rest — one line at a time, because two of
              them at once is a noise rather than a page. -->
-        <div class="strewn-bubbles" class:strewn--away={!empty}>
+        <div class="strewn-bubbles" class:strewn--away={!introActive}>
             <!-- Keyed on the line as well as the prop: the copy bubble swaps
                  its text for a confirmation, and `said` types whatever it finds
                  at mount — so the bubble has to come back, while the prop
@@ -1366,8 +1380,8 @@
                     {...prop.copies ? { "data-hint-click-feedback": "" } : {}}
                     use:hint={prop.copies
                         ? (prop.copied
-                            ? "Copied. Paste it into the ChatGPT app."
-                            : "Click to copy the starting prompt, then paste it into the ChatGPT app.")
+                            ? "Copied. Paste it into ChatGPT to start your interactive play."
+                            : "Click to copy this page's prompt, then paste it into ChatGPT for an interactive play.")
                         : ""}
                     style:left="{prop.x}%"
                     style:top="{prop.y}%"
@@ -1391,7 +1405,7 @@
                     <SubtitleVoiceMenu text={prop.say ?? ""} voiceKey={prop.id} />
                 </svelte:element>
             {/each}
-            {#if empty && suggestedPlays.length && scatter[1] && storyReadyFor === scatter[0]?.key}
+            {#if introActive && suggestedPlays.length && scatter[1] && storyReadyFor === scatter[0]?.key}
                 <div class="story-bubble" aria-label="Stories to watch"
                     style:left="{scatter[1].x}%"
                     style:top="{scatter[1].y}%"
@@ -1409,13 +1423,13 @@
                     </ul>
                 </div>
             {/if}
-            {#if empty && scatter[2] && suggestedPlaysLoaded && storyReadyFor === scatter[0]?.key
+            {#if introActive && scatter.length >= 4 && suggestedPlaysLoaded && storyReadyFor === scatter[0]?.key
                 && (!suggestedPlays.length || storyLinkReadyFor === scatter[0]?.key)}
                 {#key scatter[0].key}
                     <div class="video-bubble" aria-label="Agent Theater video"
-                        style:left="{scatter[2].x}%"
-                        style:top="{scatter[2].y}%"
-                        style:--rise="calc(max(72px, {scatter[2].size}vmin) * {(scatter[2].aspect ?? 1) / 2} + 14px)"
+                        style:left="{scatter[scatter.length - 1].x}%"
+                        style:top="{scatter[scatter.length - 1].y}%"
+                        style:--rise="calc(max(72px, {scatter[scatter.length - 1].size}vmin) * {(scatter[scatter.length - 1].aspect ?? 1) / 2} + 14px)"
                     >
                         <span>See the theater in action</span>
                         <iframe
@@ -1432,7 +1446,7 @@
         </div>
     {/if}
 
-    {#if empty && restored}
+    {#if introActive && restored}
         <!-- The watermark prompt is retired: the intro bubbles teach the flow
              and the question-mark cut-out holds the copyable briefing. What
              remains in the middle is the one line phones need. -->
@@ -1925,6 +1939,7 @@
     .strewn__bubble--copy {
         pointer-events: auto;
         font: inherit;
+        font-weight: 700;
         cursor: var(--cursor-pointer, pointer);
         appearance: none;
         -webkit-appearance: none;

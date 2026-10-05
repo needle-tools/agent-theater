@@ -441,6 +441,7 @@
     .pile:hover,
     .pile:focus-visible {
         translate: 0 -2px;
+        z-index: 1;
     }
 
     .pile:active {
@@ -451,6 +452,12 @@
         position: relative;
         width: 93px;
         height: 84px;
+        transition: scale 0.18s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .pile:hover .pile__stack,
+    .pile:focus-visible .pile__stack {
+        scale: 1.3;
     }
 
     .pile__stack img {

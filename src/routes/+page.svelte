@@ -43,12 +43,12 @@
         type="button"
         class="help-trigger"
         data-hint-click-feedback
-        aria-label="Copy the prompt"
+        aria-label="Copy this page's ChatGPT prompt"
         use:hint={promptCopyState === "copied"
-            ? "Prompt copied — paste it into your AI agent."
+            ? "Copied. Paste it into ChatGPT to start your interactive play."
             : promptCopyState === "failed"
                 ? "Couldn’t copy the prompt. Please try again."
-                : "Create short papercut theater pieces together with your AI agent. Made by Needle. Click to copy the starting prompt."}
+                : "Send this page to ChatGPT for an interactive play. Click to copy the prompt."}
         onclick={copyPrompt}
     >
         <!-- Painted like everything else on the page: the same worklet, the
@@ -88,8 +88,7 @@
         background: var(--surface-page);
     }
 
-    /* Question mark, recorder, then GitHub: three loose paper cut-outs with
-       generous touch targets and no toolbar chrome. */
+    /* Corner cut-outs have generous touch targets and no toolbar chrome. */
     .help-trigger,
     .record-trigger {
         position: fixed;
@@ -130,8 +129,8 @@
         pointer-events: none;
     }
 
-    .help-trigger { right: 12px; bottom: 204px; }
-    .record-trigger { right: 12px; bottom: 140px; }
+    .help-trigger { right: 12px; bottom: 140px; }
+    .record-trigger { display: none; }
 
     .help-trigger:hover,
     .record-trigger:hover {
@@ -189,17 +188,5 @@
         --paint-at: -0.21s;
     }
 
-    /* No recorder on a phone: the gesture paddock needs a pointer and a
-       desk. The question mark keeps its spot — and slides over to close the
-       gap the recorder leaves. */
-    @media (max-width: 700px) {
-        .record-trigger {
-            display: none;
-        }
-
-        .help-trigger {
-            bottom: 140px;
-        }
-    }
 
 </style>
