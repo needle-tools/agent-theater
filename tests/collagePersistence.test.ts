@@ -35,6 +35,25 @@ beforeEach(() => {
 });
 
 describe("starting a separate play", () => {
+    it("restores the previous cast and scene from the local undo", async () => {
+        const studio = createStudio();
+        const ghost = studio.collage.addImage({
+            src: "/troupe/ghost.webp", label: "Ghost", natural: { width: 100, height: 100 },
+        });
+        const scene = studio.collage.addStage({ name: "Halloween" });
+        studio.collage.updateStage(scene.id, {
+            cast: [{ id: ghost.id, as: "friendly ghost" }],
+            script: [{ id: ghost.id, say: "Hello" }],
+        });
+
+        await studio.clear();
+        expect(studio.collage.listAll()).toHaveLength(0);
+        expect(studio.collage.listStages()).toHaveLength(0);
+        expect(await studio.restoreFromWings()).toBe(1);
+        expect(studio.collage.get(ghost.id)?.label).toBe("Ghost");
+        expect(studio.collage.getStage(scene.id)?.script).toHaveLength(1);
+    });
+
     it("keeps even a title-only play locally and restores it without an upload", async () => {
         const studio = createStudio();
         studio.collage.setBilling({ title: "Previous play" });

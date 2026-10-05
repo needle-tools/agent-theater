@@ -741,6 +741,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `     to also rearrange the world. Give each an entrance and an "as" naming who they`,
                     `     play.`,
                     `  6. stage_script — moves, lines, sounds and camera moves, in order.`,
+                    `     Keep the cast in view with camera on:"all" or a group. A single-id shot`,
+                    `     hides everyone else; make it brief and return to the group before dialogue`,
+                    `     continues. End each scene with an on:"all" shot.`,
                     `  7. show_play. It returns at once with the timings; narrate over the top of it.`,
                     ``,
                     `WHAT ELSE TO KNOW`,
@@ -835,13 +838,13 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
         },
         {
             name: "theater_clear",
-            title: "Clear the whole stage",
-            annotations: { readOnlyHint: false, destructiveHint: true },
+            title: "Start a new local play",
+            annotations: { readOnlyHint: false, destructiveHint: false },
             description:
-                "Start a separate new play on this canvas. The current pieces, scenes, script and " +
-                "title are saved locally in the wings before the canvas is cleared; theater_restore " +
-                "can bring them back while the canvas is empty. This does not upload or publish " +
-                "anything. If the browser cannot keep the local undo, clearing is refused. " +
+                "Start a separate new play on this canvas. Before changing the canvas, this tool " +
+                "saves the current pieces, scenes, script and title locally for theater_restore. " +
+                "It refuses to proceed if that local undo cannot be saved. The previous play can " +
+                "be restored while the new canvas is empty. Nothing is uploaded or published. " +
                 "The canvas stays empty for 30 seconds, then a fresh sticker scatter appears.",
             inputSchema: { type: "object", properties: {} },
             async execute() {

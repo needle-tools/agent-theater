@@ -902,7 +902,7 @@ describe("the surface an agent actually sees", () => {
         expect(names).toEqual([
             "piece_add", "piece_copy", "piece_list", "piece_move", "piece_remove", "piece_say",
             "piece_sheet", "piece_text",
-            "show_list", "show_load", "show_look", "show_play", "show_publish", "show_save",
+            "show_fullscreen", "show_list", "show_load", "show_look", "show_play", "show_publish", "show_save",
             "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",
             "theater_art_prompt", "theater_avatar", "theater_background", "theater_batch",
@@ -1276,6 +1276,14 @@ describe("arriving at a page that already has a play on it", () => {
         expect(text).toContain("Do not save or publish the previous play as a precaution");
     });
 
+    it("marks the locally undoable fresh start as a write, not a destructive action", () => {
+        const { studio } = fakeStudio();
+        const fresh = createCollageTools(studio).find(tool => tool.name === "theater_clear")!;
+        expect(fresh.title).toBe("Start a new local play");
+        expect(fresh.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+        expect(fresh.description).toContain("refuses to proceed if that local undo cannot be saved");
+    });
+
     it("says it again on the way past, for an agent that never asked", async () => {
         // The nudge is appended to the FIRST reply of a page load, whatever was
         // called — the only thing a page can be sure an agent reads. That
@@ -1443,6 +1451,45 @@ describe("the troupe drawer", () => {
         const result = await drawer(studio).execute({ add: ["forest/lantern", "forest/dragon"] });
         expect(result.isError).toBe(true);
         expect(studio.collage.listAll()).toHaveLength(0);
+    });
+});
+
+describe("fullscreen playback", () => {
+    it("explains when the embedded browser forbids fullscreen", async () => {
+        const { studio } = fakeStudio();
+        vi.stubGlobal("document", {
+            documentElement: { requestFullscreen: vi.fn() },
+            fullscreenEnabled: false,
+            fullscreenElement: null,
+        });
+        try {
+            const tool = createCollageTools(studio).find(t => t.name === "show_fullscreen")!;
+            const result = await tool.execute({});
+            expect(result.isError).toBe(true);
+            expect(result.content[0]).toMatchObject({ type: "text", text: expect.stringContaining("embedded view") });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it("explains the need for a click instead of claiming fullscreen worked", async () => {
+        const { studio } = fakeStudio();
+        const requestFullscreen = vi.fn();
+        vi.stubGlobal("document", {
+            documentElement: { requestFullscreen },
+            fullscreenEnabled: true,
+            fullscreenElement: null,
+        });
+        vi.stubGlobal("navigator", { userActivation: { isActive: false } });
+        try {
+            const tool = createCollageTools(studio).find(t => t.name === "show_fullscreen")!;
+            const result = await tool.execute({});
+            expect(result.isError).toBe(true);
+            expect(result.content[0]).toMatchObject({ type: "text", text: expect.stringContaining("direct click") });
+            expect(requestFullscreen).not.toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 });
 

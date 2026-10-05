@@ -15,7 +15,7 @@
  */
 import { TROUPE, TROUPE_PACKS, TROUPE_SHEETS, type TroupePiece } from "./troupe.js";
 import { STAGE_WIDTH, type CollageStudio } from "./studio.js";
-import { arrangementCentre, clearSpot, peerWidth, tamedWidth } from "./placement.js";
+import { arrangementCentre, clearSpot, clearRectSpot, peerWidth, tamedWidth } from "./placement.js";
 import type { ToolResult, WebMcpToolDef } from "./tools.js";
 
 const ok = (text: string, structured?: object): ToolResult => ({
@@ -139,10 +139,18 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
                     y: spot.y - width / 2,
                     by: "agent",
                 });
-                // Widths match, heights may not: a pencil at sheep-width is a
-                // tower. Rein tall or tiny newcomers toward the peers' height.
+                // The real cut-out aspect is only known after loading. Size it
+                // first, then place its full rectangle clear of existing art.
                 const tamed = tamedWidth(layer, world);
-                if (tamed !== null) studio.collage.update(layer.id, { width: tamed });
+                const finalWidth = tamed ?? layer.width;
+                const finalHeight = layer.height * finalWidth / layer.width;
+                const clear = clearRectSpot(world, arrangementCentre(world),
+                    { width: finalWidth, height: finalHeight });
+                studio.collage.update(layer.id, {
+                    width: finalWidth,
+                    x: clear.x - finalWidth / 2,
+                    y: clear.y - finalHeight / 2,
+                });
                 added.push({ id: layer.id, label: piece.id, kind: piece.kind });
             }
 

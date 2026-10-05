@@ -270,6 +270,36 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             },
         },
         {
+            name: "show_fullscreen",
+            title: "Show the theater fullscreen",
+            annotations: { readOnlyHint: false },
+            description:
+                "Ask the browser to show this theater page fullscreen, useful during playback. " +
+                "The browser may require a direct click in the theater tab and may disallow " +
+                "fullscreen inside an embedded browser. If it cannot enter fullscreen, this " +
+                "tool explains why; playback is unaffected.",
+            inputSchema: { type: "object", properties: {} },
+            async execute() {
+                if (typeof document === "undefined" || !document.documentElement?.requestFullscreen) {
+                    return fail("Fullscreen is unavailable in this browser. The show can still play in the current view.");
+                }
+                if (document.fullscreenElement) return ok("The theater is already fullscreen.");
+                if (!document.fullscreenEnabled) {
+                    return fail("This browser or embedded view does not allow this page to enter fullscreen. Open the theater in its own tab, or use the browser's fullscreen control. Playback is unaffected.");
+                }
+                if (navigator.userActivation && !navigator.userActivation.isActive) {
+                    return fail("The browser requires a direct click in the theater page to enter fullscreen. Click the page's fullscreen control; playback is unaffected.");
+                }
+                try {
+                    await document.documentElement.requestFullscreen();
+                    return ok("The theater is now fullscreen.");
+                } catch (error) {
+                    const reason = error instanceof Error ? error.message : String(error);
+                    return fail(`The browser declined fullscreen (${reason}). Click the theater's fullscreen control or use the browser's fullscreen button. Playback is unaffected.`);
+                }
+            },
+        },
+        {
             name: "show_play",
             title: "Put the show on",
             description:
@@ -508,7 +538,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                 camera: {
                                     type: "object",
                                     description:
-                                        "Move the view to frame pieces. The move takes the beat's whole " +
+                                        "Move the view to frame pieces. Use on:'all' for the whole " +
+                                        "cast at the start and end of a scene. A single id can put " +
+                                        "everyone else offscreen; use it only for a brief close-up, " +
+                                        "then return to on:'all' or a group. The move takes the beat's whole " +
                                         "\"duration\": 600ms = fast cut, 3000ms = drift, 8000ms = slow " +
                                         "zoom. Use slow moves often, not only cuts. Add \"with\": true to " +
                                         "move the camera WHILE the previous beat plays, e.g. a slow " +
@@ -519,7 +552,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                     properties: {
                                         on: {
                                             description:
-                                                "Layer ids to frame, or \"all\" for the whole scene.",
+                                                "Layer ids to frame, or \"all\" for the whole scene. Prefer \"all\" or a group when several characters matter.",
                                             oneOf: [
                                                 { type: "array", items: { type: "string" } },
                                                 { type: "string", enum: ["all"] },
@@ -529,7 +562,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                             type: "number",
                                             description:
                                                 "How much of the view they fill. 1 is snug (default), 0.6 " +
-                                                "leaves air around them, 1.4 is a close-up that crops.",
+                                                "leaves air around them, 1.4 is a close-up that crops other characters. Prefer 0.6–0.85 for a group.",
                                         },
                                         easing: {
                                             type: "string",
@@ -811,8 +844,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 }
                 if (!beats.some(beat => beat?.camera)) {
                     thin.push(
-                        `No camera moves. Pull back to establish where we are, push in on whoever is ` +
-                        `speaking when it matters — it is what makes this a scene instead of a diagram.`);
+                        `No camera moves. Establish the whole cast with on:"all"; use brief ` +
+                        `close-ups only when a moment needs one, then return to the group.`);
                 }
                 const lines = beats.filter(beat => str(beat?.say));
                 if (lines.length && lines.every(beat => str(beat.say).length < 40)) {

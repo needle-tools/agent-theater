@@ -12,7 +12,7 @@
  *   stickers is the one thing every add used to produce, and un-stacking
  *   them is a chore nobody asked for.
  */
-import type { Layer } from "./model.js";
+import { bounds, type Layer } from "./model.js";
 
 /** Median width of the sticker-sized image pieces on the canvas. */
 export function peerWidth(layers: Layer[], fallback: number, ceiling = 900): number {
@@ -51,6 +51,39 @@ export function clearSpot(
         }
     }
     return near;
+}
+
+/** Find room for the actual visible rectangle of a new cut-out. */
+export function clearRectSpot(
+    layers: Layer[],
+    near: { x: number; y: number },
+    size: { width: number; height: number },
+    gap = 24,
+): { x: number; y: number } {
+    const others = layers.map(bounds);
+    const free = (x: number, y: number) => others.every(other =>
+        x + size.width / 2 + gap <= other.x ||
+        x - size.width / 2 - gap >= other.x + other.width ||
+        y + size.height / 2 + gap <= other.y ||
+        y - size.height / 2 - gap >= other.y + other.height);
+    if (free(near.x, near.y)) return near;
+    const stride = Math.max(size.width, size.height, 100) * 0.6;
+    for (let ring = 1; ring <= 32; ring++) {
+        const reach = ring * stride;
+        const steps = Math.max(12, Math.ceil(2 * Math.PI * reach / stride));
+        for (let step = 0; step < steps; step++) {
+            const angle = (step / steps) * Math.PI * 2 + ring * 0.7;
+            const x = near.x + Math.cos(angle) * reach;
+            const y = near.y + Math.sin(angle) * reach;
+            if (free(x, y)) return { x, y };
+        }
+    }
+    // The normal search covers even busy stages. A finite fallback still keeps
+    // the newcomer separate from everything already on the paper.
+    return {
+        x: Math.max(...others.map(other => other.x + other.width), near.x) + gap + size.width / 2,
+        y: near.y,
+    };
 }
 
 /**
