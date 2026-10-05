@@ -312,10 +312,11 @@
     const empty = $derived(!layers.length && !frames.length);
     const hasChapter = $derived.by(() => (version, collage.listStages().length > 0));
     let arrangementIntro = $state(false);
-    const introActive = $derived(!hasChapter && (empty || arrangementIntro));
-
-    $effect(() => {
-        if (arrangementIntro && (hasChapter || (restored && empty))) arrangementIntro = false;
+    let originalLayerIds = new Set<string>();
+    const introActive = $derived.by(() => {
+        void version;
+        return !hasChapter && (empty || (arrangementIntro &&
+            collage.listAll().every(layer => originalLayerIds.has(layer.id))));
     });
 
     /**
@@ -400,7 +401,7 @@
         // Restore before registering tools: an agent that calls describe on the
         // first turn should see the collage the person left, not an empty one.
         try {
-            const count = fresh ? 0 : await studio.restore();
+            const count = fresh || shared ? 0 : await studio.restore();
             if (count) {
                 track("play_restored", { by: "human", pieces: count });
                 if (collage.listStages().length)
@@ -435,16 +436,12 @@
                 toasts.push(error instanceof Error ? error.message : "The shared play could not be loaded.", "error");
             }
         }
-        // An unscripted saved arrangement is still an invitation to make a
-        // play. Keep its stickers, supply enough temporary ones to reach seven,
-        // and let the opening bubbles speak from those temporary stickers.
-        const savedStickers = collage.listAll().filter(layer => layer.kind === "image").length;
-        if (!collage.listStages().length && (savedStickers || collage.listFrames().length) && TROUPE.length) {
+        if (!shared && !collage.listStages().length && collage.listAll().length && TROUPE.length) {
+            originalLayerIds = new Set(collage.listAll().map(layer => layer.id));
             arrangementIntro = true;
             await tick();
-            const blocked = [...(pageEl?.querySelectorAll<HTMLElement>(".layer[data-layer]") ?? [])]
-                .map(element => element.getBoundingClientRect());
-            scatter = strewn(Math.max(4, 7 - savedStickers), blocked);
+            scatter = introForArrangement();
+            syncSavedAnchors();
         } else if (!collage.listAll().length && !collage.listStages().length && TROUPE.length) {
             scatter = strewn();
         }
@@ -588,6 +585,8 @@
         touched?: boolean;
         /** Carries the video bubble in the opening scene. */
         videoHost?: boolean;
+        /** An existing canvas layer: it hosts a bubble but is never drawn twice. */
+        saved?: boolean;
     }>>([]);
 
     /*
@@ -598,7 +597,7 @@
      */
     $effect(() => {
         idleSet.props = introActive
-            ? scatter.map(prop => ({
+            ? scatter.filter(prop => !prop.saved).map(prop => ({
                 piece: prop.id.split("#")[0],
                 x: Math.round(prop.x),
                 y: Math.round(prop.y),
@@ -741,7 +740,7 @@
         if (!introActive || heldProp || !scatter.length) return;
         // Never a prop the person has touched: they put it there, and a page
         // that swaps out something you placed is a page that undoes you.
-        const quiet = scatter.filter(prop => !prop.say && !prop.touched);
+        const quiet = scatter.filter(prop => !prop.saved && !prop.say && !prop.touched);
         if (!quiet.length) return;
         const used = new Set(scatter.map(prop => prop.file));
         const fresh = propPool().filter(piece => !used.has(piece.file));
@@ -798,6 +797,7 @@
 
     onDestroy(() => {
         if (restock) clearTimeout(restock);
+        if (savedAnchorFrame) cancelAnimationFrame(savedAnchorFrame);
         clearTimeout(fileToolErrorTimer);
         clearInterval(fileToolTypingTimer);
     });
@@ -865,7 +865,7 @@
     async function adoptScatter() {
         if (adopting || !scatter.length) return;
         adopting = true;
-        const props = scatter;
+        const props = scatter.filter(prop => !prop.saved);
         try {
             const w = window.innerWidth;
             const h = window.innerHeight;
@@ -1087,6 +1087,118 @@
             }
         }
         return placed;
+    }
+
+    function introForArrangement() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const margin = 18;
+        const overlap = (a: DOMRect, b: DOMRect) =>
+            Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+            Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+        const saved = collage.listAll().filter(layer => layer.kind === "image").flatMap(layer => {
+            const element = pageEl?.querySelector<HTMLElement>(`[data-layer="${CSS.escape(layer.id)}"]`);
+            if (!element) return [];
+            const rect = element.getBoundingClientRect();
+            return rect.width && rect.height ? [{ layer, rect }] : [];
+        });
+        const bounds = saved.map(item => item.rect);
+        const candidates = saved.filter(({ rect }) =>
+            rect.left >= margin && rect.right <= w - 76 &&
+            rect.top >= margin && rect.bottom <= h - 90 &&
+            bounds.every(other => other === rect || overlap(rect, other) === 0));
+        const roles = [0, 1, 4, 8];
+        const generated = strewn(9, bounds);
+        const used = new Set<string>();
+        const bubbleSize = (role: number) => role === 8 ? [285, 210] : role === 0 ? [210, 80] : [290, 115];
+        const occupied: DOMRect[] = [];
+        for (const role of roles) {
+            const [width, height] = bubbleSize(role);
+            const best = candidates
+                .filter(({ layer, rect }) => {
+                    if (used.has(layer.id)) return false;
+                    const bubble = new DOMRect(rect.left + rect.width / 2 - width / 2,
+                        rect.top - height - 14, width, height);
+                    return bubble.left >= margin && bubble.right <= w - 76 && bubble.top >= margin &&
+                        bounds.every(other => other === rect || overlap(bubble, other) === 0) &&
+                        occupied.every(other => overlap(bubble, other) === 0);
+                })
+                .sort((a, b) => {
+                    const target = role === 8 ? 0.55 : role === 1 ? 0.7 : role === 0 ? 0.25 : 0.45;
+                    return Math.abs((a.rect.top / h) - target) - Math.abs((b.rect.top / h) - target);
+                })[0];
+            if (!best) continue;
+            const { layer, rect } = best;
+            used.add(layer.id);
+            occupied.push(new DOMRect(rect.left + rect.width / 2 - width / 2,
+                rect.top - height - 14, width, height));
+            generated[role] = {
+                ...generated[role], saved: true, key: `saved-${layer.id}`,
+                id: layer.id, file: "", enterAt: 0,
+                x: (rect.left + rect.width / 2) / w * 100,
+                y: (rect.top + rect.height / 2) / h * 100,
+                size: rect.width / Math.min(w, h) * 100,
+                aspect: rect.height / rect.width,
+            };
+        }
+        const needed = Math.max(0, 7 - saved.length);
+        const essential = [generated[0], generated[1], generated[4], generated[8]];
+        const missing = essential.filter(prop => !prop.saved).length;
+        const fillers = generated.filter((_, index) => !roles.includes(index))
+            .slice(0, Math.max(0, needed - missing));
+        const result = [essential[0], essential[1], ...fillers, essential[2], essential[3]];
+        // Place only the new stickers. Saved positions are never changed.
+        const obstacles = [...bounds, ...occupied];
+        for (const prop of result) {
+            if (prop.saved) continue;
+            const size = Math.max(72, prop.size * Math.min(w, h) / 100);
+            const [bubbleW, bubbleH] = prop.videoHost ? bubbleSize(8) : prop.say ? bubbleSize(prop.sayOrder === 0 ? 0 : 4) : [0, 0];
+            const fits = (x: number, y: number) => {
+                const sticker = new DOMRect(x - size / 2, y - size / 2, size, size);
+                const bubble = bubbleW ? new DOMRect(x - bubbleW / 2, y - size / 2 - bubbleH - 14, bubbleW, bubbleH) : null;
+                return sticker.left >= margin && sticker.right <= w - 76 &&
+                    sticker.top >= Math.min(h * 0.22, 125) &&
+                    sticker.bottom <= h - Math.min(h * 0.46, w <= 700 ? 160 : 330) &&
+                    (!bubble || bubble.top >= margin) &&
+                    obstacles.every(other => overlap(sticker, other) === 0 && (!bubble || overlap(bubble, other) === 0));
+            };
+            const positions = [[prop.x * w / 100, prop.y * h / 100],
+                ...[30, 42, 54, 66, 78].flatMap(y => [18, 30, 42, 54, 66, 78].map(x => [x * w / 100, y * h / 100]))];
+            const spot = positions.find(([x, y]) => fits(x, y));
+            if (spot) { prop.x = spot[0] / w * 100; prop.y = spot[1] / h * 100; }
+            const x = prop.x * w / 100, y = prop.y * h / 100;
+            obstacles.push(new DOMRect(x - size / 2, y - size / 2, size, size));
+            if (bubbleW) obstacles.push(new DOMRect(x - bubbleW / 2, y - size / 2 - bubbleH - 14, bubbleW, bubbleH));
+        }
+        return result;
+    }
+
+    let savedAnchorFrame = 0;
+    function syncSavedAnchors() {
+        if (!introActive || !scatter.some(prop => prop.saved)) {
+            savedAnchorFrame = 0;
+            return;
+        }
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        let changed = false;
+        const next = scatter.map(prop => {
+            if (!prop.saved) return prop;
+            const element = pageEl?.querySelector<HTMLElement>(`[data-layer="${CSS.escape(prop.id)}"]`);
+            if (!element) return prop;
+            const rect = element.getBoundingClientRect();
+            const x = (rect.left + rect.width / 2) / w * 100;
+            const y = (rect.top + rect.height / 2) / h * 100;
+            const size = rect.width / Math.min(w, h) * 100;
+            const aspect = rect.height / Math.max(rect.width, 1);
+            if (Math.abs(prop.x - x) < 0.02 && Math.abs(prop.y - y) < 0.02 &&
+                Math.abs(prop.size - size) < 0.02 && Math.abs((prop.aspect ?? 1) - aspect) < 0.02)
+                return prop;
+            changed = true;
+            return { ...prop, x, y, size, aspect };
+        });
+        if (changed) scatter = next;
+        savedAnchorFrame = requestAnimationFrame(syncSavedAnchors);
     }
 
 
@@ -1334,7 +1446,7 @@
     <!-- The house lights, before anything is on. Kept mounted and faded rather
          than added and removed, so the first picture dropped in does not make
          the light behind it blink out. -->
-    <div class="houselights" class:houselights--off={!introActive} aria-hidden="true"></div>
+    <div class="houselights" class:houselights--off={!introActive || arrangementIntro} aria-hidden="true"></div>
 
     {#if scatter.length}
         <!-- Fades with the house lights rather than unmounting, so the first
@@ -1354,6 +1466,7 @@
              they are the page's copy, and the copy leaving is the point. -->
         <div class="strewn" class:strewn--away={!introActive && !adopting}>
             {#each scatter as prop (prop.key)}
+                {#if !prop.saved}
                 <div
                     class="strewn__prop"
                     class:strewn__prop--held={heldProp?.id === prop.id}
@@ -1402,6 +1515,7 @@
                         }}
                     />
                 </div>
+                {/if}
             {/each}
         </div>
 
