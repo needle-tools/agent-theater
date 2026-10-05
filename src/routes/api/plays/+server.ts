@@ -4,7 +4,6 @@ import { claimPublishSlot, database } from "$lib/server/database";
 import { newId, newToken, tokenHash, validateAssets, validateDoc } from "$lib/server/plays";
 import { summarize } from "$lib/collage/playSummary";
 import { env } from "$env/dynamic/private";
-import { dev } from "$app/environment";
 import { devPlay } from "$lib/server/devPlay";
 
 export const prerender = false;
@@ -21,25 +20,29 @@ export const prerender = false;
  * with something that might run five is worse than answering with less.
  */
 export async function GET({ url }: { url: URL }) {
-    // Local development can run without the optional publishing database.
-    // An empty public shelf is a valid result for a read-only listing.
-    if (!env.DATABASE_URL) return json({ plays: dev ? [devPlay(url.origin)] : [], unavailable: true });
+    const q = url.searchParams;
+    const number = (name: string) => {
+        const raw = q.get(name);
+        if (raw === null || raw.trim() === "") return null;
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : null;
+    };
+    const limit = Math.max(1, Math.min(50, Number(q.get("limit")) || 20));
+    const minChapters = Math.max(0, Math.trunc(number("minChapters") ?? 1));
+    const maxChapters = number("maxChapters");
+    const minSeconds = number("minSeconds");
+    const maxSeconds = number("maxSeconds");
+    const title = (q.get("title") ?? "").trim().slice(0, 120);
+    const theme = (q.get("theme") ?? "").trim().toLowerCase().slice(0, 40);
+    const sampleFits = !title && !theme && minChapters <= 1
+        && maxChapters === null && minSeconds === null && maxSeconds === null;
+
+    if (!env.DATABASE_URL) {
+        console.warn("[plays] DATABASE_URL is not configured; returning the sample play for the public shelf.");
+        return json({ plays: sampleFits ? [devPlay(url.origin)] : [], unavailable: true });
+    }
     try {
         const { sql, ready } = database(); await ready;
-        const q = url.searchParams;
-        const number = (name: string) => {
-            const raw = q.get(name);
-            if (raw === null || raw.trim() === "") return null;
-            const value = Number(raw);
-            return Number.isFinite(value) ? value : null;
-        };
-        const limit = Math.max(1, Math.min(50, Number(q.get("limit")) || 20));
-        const minChapters = Math.max(0, Math.trunc(number("minChapters") ?? 1));
-        const maxChapters = number("maxChapters");
-        const minSeconds = number("minSeconds");
-        const maxSeconds = number("maxSeconds");
-        const title = (q.get("title") ?? "").trim().slice(0, 120);
-        const theme = (q.get("theme") ?? "").trim().toLowerCase().slice(0, 40);
 
         const rows = await sql`
             select id, title, chapters, duration_seconds, themes, created_at, updated_at
@@ -53,19 +56,31 @@ export async function GET({ url }: { url: URL }) {
               ${theme ? sql`and ${theme} = any(themes)` : sql``}
             order by created_at desc limit ${limit}`;
 
+        if (!rows.length) {
+            const counts = sampleFits
+                ? await sql`select visibility, count(*)::int as count from plays group by visibility`
+                : [];
+            console.info("[plays] No public plays matched the list request; returning sample when eligible.", {
+                minChapters, filtered: !sampleFits, counts,
+            });
+        }
+
         return json({
-            plays: rows.map(row => ({
+            plays: (rows.length ? rows : sampleFits ? [devPlay(url.origin)] : []).map(row => ({
                 id: row.id,
                 title: row.title,
                 chapters: row.chapters ?? 0,
-                seconds: row.duration_seconds,
+                seconds: "duration_seconds" in row ? row.duration_seconds : row.seconds,
                 themes: row.themes ?? [],
                 created_at: row.created_at,
                 updated_at: row.updated_at,
                 url: `${url.origin}/p/${row.id}`,
             })),
         });
-    } catch (error) { console.error(error); return json({ error: "Play library is unavailable." }, { status: 503 }); }
+    } catch (error) {
+        console.error("[plays] Public play listing failed.", error);
+        return json({ error: "Play library is unavailable." }, { status: 503 });
+    }
 }
 
 export const POST: RequestHandler = async ({ request, url, getClientAddress }) => {

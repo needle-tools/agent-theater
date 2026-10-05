@@ -13,9 +13,10 @@
      */
     import { onMount } from "svelte";
     import { goto } from "$app/navigation";
+    import { page } from "$app/state";
 
     let { data } = $props();
-    const target = $derived(`/?play=${encodeURIComponent(data.id)}`);
+    const target = $derived(`/?play=${encodeURIComponent(data.id)}${page.url.searchParams.get("autoplay") === "1" ? "&autoplay=1" : ""}`);
 
     onMount(() => { void goto(target, { replaceState: true }); });
 </script>

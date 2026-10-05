@@ -19,7 +19,7 @@
     import StageBar from "$lib/collage/StageBar.svelte";
     import AgentActivity from "$lib/collage/AgentActivity.svelte";
     import Toasts, { createToasts } from "$lib/collage/Toasts.svelte";
-    import { createStudio, download, FREE_PAGE } from "$lib/collage/studio";
+    import { createStudio, FREE_PAGE } from "$lib/collage/studio";
     import { createCollageTools } from "$lib/collage/tools";
     import { registerTools } from "$lib/webmcp";
     import { said } from "$lib/collage/typed";
@@ -127,6 +127,8 @@
     let armHandled = false;
     let clearArmed = $state(false);
     let clearTimer: ReturnType<typeof setTimeout> | undefined;
+    let resetArmed = $state(false);
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
     let fullAudio = $state(true);
 
     function toggleAudio() {
@@ -151,6 +153,26 @@
         idleSet.clearedBy = "human";
         track("play_cleared", { by: "human", pieces: collage.listAll().length });
         await studio.clear();
+    }
+
+    async function resetStage() {
+        if (!resetArmed) {
+            resetArmed = true;
+            resetTimer = setTimeout(() => (resetArmed = false), 5000);
+            return;
+        }
+        resetArmed = false;
+        clearTimeout(resetTimer);
+        disarmClear();
+        studio.stopShow("human");
+        scatter = [];
+        storyReadyFor = null;
+        await studio.clear();
+        idleSet.clearedBy = null;
+        sharedView = false;
+        if (new URL(location.href).searchParams.has("play"))
+            history.replaceState(history.state, "", location.pathname);
+        if (TROUPE.length) scatter = strewn();
     }
 
     function armDown(event: PointerEvent) {
@@ -182,7 +204,6 @@
      * desktop it changes nothing.
      */
     let sharedView = $state(false);
-    let fileInput: HTMLInputElement | null = $state(null);
     let restored = $state(false);
     let sharing = $state(false);
     let fileToolError = $state<{ tool: "share" | "save"; text: string; revealed: string } | null>(null);
@@ -221,15 +242,37 @@
         }
     }
 
+    async function persistPlay(): Promise<PublishedPlay> {
+        const remembered = rememberedPlay();
+        const owned = remembered && canEditPlay(remembered.id) ? remembered.id : undefined;
+        const play = await savePlayOnline(studio, { published: false, id: owned });
+        try { localStorage.setItem(CURRENT_PLAY_KEY, JSON.stringify(play)); } catch { /* optional */ }
+        return play;
+    }
+
+    async function saveOnline() {
+        if (!collage.listAll().length || sharing) return;
+        sharing = true;
+        const toast = toasts.push("Saving online…", "busy");
+        try {
+            await persistPlay();
+            toast.close();
+            announce("Saved online.", { voiced: false });
+        } catch (error) {
+            toast.close();
+            track("play_save_failed", { by: "human", where: "online", reason: message(error).slice(0, 120) });
+            showFileToolError("save", "We couldn’t save the play online. Please try again.");
+        } finally {
+            sharing = false;
+        }
+    }
+
     async function sharePlay() {
         if (!collage.listAll().length || sharing) return;
         sharing = true;
         const toast = toasts.push("Making a share link…", "busy");
         try {
-            const remembered = rememberedPlay();
-            const owned = remembered && canEditPlay(remembered.id) ? remembered.id : undefined;
-            const play = await savePlayOnline(studio, { published: false, id: owned });
-            try { localStorage.setItem(CURRENT_PLAY_KEY, JSON.stringify(play)); } catch { /* optional */ }
+            const play = await persistPlay();
             toast.close();
 
             if (navigator.share) {
@@ -377,10 +420,13 @@
                 // Somebody following a link somebody else sent them: the one
                 // arrival worth telling apart from every other page load.
                 track("play_loaded", { by: "human", source: "link" });
-                // Said by a member of the company, in a typed bubble, once the
-                // first gesture unlocks the voice — not printed on a chip.
-                announce(welcome(play.title));
                 canvas?.fitAll();
+                if (new URL(location.href).searchParams.get("autoplay") === "1" && collage.listStages().length) {
+                    void studio.playShow(undefined, { by: "human" });
+                } else {
+                    // A normal shared link opens ready to watch, with a welcome.
+                    announce(welcome(play.title));
+                }
             } catch (error) {
                 track("play_load_failed", { by: "human", source: "link" });
                 // The full chrome comes back: a person whose play did not
@@ -954,26 +1000,6 @@
 
 
 
-    /** Save the whole collage as a picture that opens again. */
-    async function saveToFile() {
-        if (!collage.list().length) {
-            announce("Nothing to save yet — begin with a troupe piece or ask an agent to stage a story.");
-            return;
-        }
-        const toast = toasts.push("Packing it up…", "busy");
-        try {
-            const { blob, filename } = await studio.saveFile();
-            download(blob, filename);
-            track("play_saved", { by: "human", where: "file", pieces: collage.listAll().length });
-            toast.close();
-            announce(`Saved ${filename} — open it from Theater options to keep working.`);
-        } catch (error) {
-            toast.close();
-            track("play_save_failed", { by: "human", where: "file", reason: message(error).slice(0, 120) });
-            showFileToolError("save", "We couldn’t save the play to your device. Please try again.");
-        }
-    }
-
     /**
      * A saved play is a PNG that carries the editable document inside it.
      * Ordinary PNGs are not accepted here: artwork comes from the troupe,
@@ -1189,7 +1215,7 @@
         // file that cannot be opened again, which is the opposite of what the
         // keystroke means here.
         event.preventDefault();
-        void saveToFile();
+        void saveOnline();
     }}
 />
 
@@ -1353,7 +1379,7 @@
                 >
                     <span>Or watch a community story:</span>
                     {#each suggestedPlays as play (play.id)}
-                        <a href="/p/{encodeURIComponent(play.id)}">{play.title || "Untitled story"}</a>
+                        <a href="/p/{encodeURIComponent(play.id)}?autoplay=1">{play.title || "Untitled story"}</a>
                     {/each}
                 </div>
             {/if}
@@ -1405,14 +1431,21 @@
             <img src="/toolbar/clear-bin.webp" alt="" draggable="false" />
             {#if clearArmed}<span class="clear-stage-tool__warning">Click again to clear everything.</span>{/if}
         </button>
+        <button
+            class="file-tool reset-stage-tool"
+            class:reset-stage-tool--armed={resetArmed}
+            aria-label={resetArmed ? "Click again to return to the starting stage" : "Return to the starting stage"}
+            use:hint={resetArmed ? "Click once more to start over." : "Start over with fresh stickers and intro bubbles."}
+            onclick={resetStage}
+        >
+            <img src="/toolbar/loading-icon.webp" alt="" draggable="false" />
+            {#if resetArmed}<span class="reset-stage-tool__warning">Click again to start over.</span>{/if}
+        </button>
         <button class="file-tool file-tool--share" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Save online and share a link."} onclick={sharePlay}>
             <img src="/toolbar/share.webp" alt="" draggable="false" />
         </button>
-        <button class="file-tool" disabled={!layers.length} aria-label="Save play" use:hint={"Save this play on disc."} onclick={saveToFile}>
+        <button class="file-tool" disabled={!layers.length || sharing} aria-label="Save play online" use:hint={sharing ? "Saving online…" : "Save this play online as an unlisted link."} onclick={saveOnline}>
             <img src={layers.length ? "/toolbar/save.webp" : "/toolbar/save-disabled.webp"} alt="" draggable="false" />
-        </button>
-        <button class="file-tool" aria-label="Load play" use:hint={"Load a saved play."} onclick={() => fileInput?.click()}>
-            <img src="/toolbar/loading-icon.webp" alt="" draggable="false" />
         </button>
         {#if fileToolError}
             <button
@@ -1457,18 +1490,6 @@
 
     <Toasts items={toasts.items} onDismiss={toasts.dismiss} />
 
-    <input
-        class="file"
-        type="file"
-        accept=".play.png,.collage.png,image/png"
-        bind:this={fileInput}
-        onchange={e => {
-            const input = e.currentTarget as HTMLInputElement;
-            addFiles(input.files ?? []);
-            // Let the same file be chosen twice in a row.
-            input.value = "";
-        }}
-    />
 </div>
 
 <style>
@@ -2024,14 +2045,14 @@
         filter: blur(0);
     }
 
-    .clear-stage-tool { position: relative; }
+    .clear-stage-tool, .reset-stage-tool { position: relative; }
 
-    .clear-stage-tool--armed {
+    .clear-stage-tool--armed, .reset-stage-tool--armed {
         background: color-mix(in srgb, var(--accent-error, #D93A62) 10%, transparent);
         border-radius: 12px;
     }
 
-    .clear-stage-tool__warning {
+    .clear-stage-tool__warning, .reset-stage-tool__warning {
         position: absolute;
         top: calc(100% + 10px);
         left: 0;

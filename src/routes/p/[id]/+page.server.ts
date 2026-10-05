@@ -1,8 +1,6 @@
 import type { PageServerLoad } from "./$types";
 import { database } from "$lib/server/database";
 import { describePlay } from "$lib/collage/playSummary";
-import { dev } from "$app/environment";
-import { env } from "$env/dynamic/private";
 import { DEV_PLAY_DOC, DEV_PLAY_ID, devPlay } from "$lib/server/devPlay";
 
 export const prerender = false;
@@ -25,7 +23,7 @@ export const prerender = false;
  * was would be protecting nobody from anything.
  */
 export const load: PageServerLoad = async ({ params, url }) => {
-    if (dev && !env.DATABASE_URL && params.id === DEV_PLAY_ID) {
+    if (params.id === DEV_PLAY_ID) {
         const play = devPlay(url.origin);
         return { id: params.id, card: {
             title: play.title,
