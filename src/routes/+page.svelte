@@ -134,8 +134,8 @@
         pointer-events: none;
     }
 
-    .help-trigger { right: 140px; }
-    .record-trigger { right: 76px; }
+    .help-trigger { right: 204px; }
+    .record-trigger { right: 140px; }
 
     .help-trigger:hover,
     .record-trigger:hover {
@@ -153,6 +153,19 @@
         height: 48px;
         object-fit: contain;
         pointer-events: none;
+    }
+
+    :global(.canvas-shell:has(.page--intro)) .help-trigger {
+        animation: intro-corner 0.5s 4.7s both;
+    }
+
+    :global(.canvas-shell:has(.page--intro)) .record-trigger {
+        animation: intro-corner 0.5s 4.9s both;
+    }
+
+    @keyframes intro-corner {
+        from { opacity: 0; visibility: hidden; }
+        to { opacity: 1; visibility: visible; }
     }
 
     /*
@@ -183,7 +196,7 @@
         }
 
         .help-trigger {
-            right: 76px;
+            right: 140px;
         }
     }
 

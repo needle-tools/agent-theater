@@ -4,6 +4,8 @@ import { claimPublishSlot, database } from "$lib/server/database";
 import { newId, newToken, tokenHash, validateAssets, validateDoc } from "$lib/server/plays";
 import { summarize } from "$lib/collage/playSummary";
 import { env } from "$env/dynamic/private";
+import { dev } from "$app/environment";
+import { devPlay } from "$lib/server/devPlay";
 
 export const prerender = false;
 
@@ -19,6 +21,9 @@ export const prerender = false;
  * with something that might run five is worse than answering with less.
  */
 export async function GET({ url }: { url: URL }) {
+    // Local development can run without the optional publishing database.
+    // An empty public shelf is a valid result for a read-only listing.
+    if (!env.DATABASE_URL) return json({ plays: dev ? [devPlay(url.origin)] : [], unavailable: true });
     try {
         const { sql, ready } = database(); await ready;
         const q = url.searchParams;

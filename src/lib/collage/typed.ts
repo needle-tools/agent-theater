@@ -128,6 +128,7 @@ export function said(
     node: HTMLElement,
     options: {
         voice?: SubtitleVoice; strong?: string; after?: number; fallback?: number;
+        complete?: () => void;
         /**
          * Say it again, aloud, once there is somebody to hear it.
          *
@@ -165,7 +166,10 @@ export function said(
         // Left standing and complete. These bubbles are not a scene's
         // dialogue — they are the page talking about itself, and the words
         // have to still be there for somebody who looked up late.
-        end: () => layOut(node, full, full.length, strong),
+        end: () => {
+            layOut(node, full, full.length, strong);
+            options.complete?.();
+        },
         ...(typeof options.fallback === "number" ? { fallback: options.fallback } : {}),
     });
 
@@ -185,7 +189,10 @@ export function said(
             if (gone) return;
             at++;
             layOut(node, full, at, strong);
-            if (at >= full.length) return;
+            if (at >= full.length) {
+                options.complete?.();
+                return;
+            }
             ticking = setTimeout(step, delayAfter(full[at - 1], perChar, 300));
         };
         ticking = setTimeout(step, perChar);
@@ -193,6 +200,21 @@ export function said(
 
     const join = setTimeout(() => {
         if (gone) return;
+        // Audio cannot start before a gesture. Show each intro line on its own
+        // fast text clock instead of putting it through the speech queue's
+        // much longer reading-time fallback. The voice can replay on touch.
+        if (!prompter.touched) {
+            typeAlone();
+            if (options.replay && options.voice && !prompter.mute) {
+                stopWaiting = prompter.onTouch(() => {
+                    if (!gone) {
+                        clearTimeout(ticking);
+                        void say();
+                    }
+                });
+            }
+            return;
+        }
         // Decided here rather than at mount: on a page that IS going to speak,
         // the model is usually still loading at mount and `mute` only settles
         // into its final answer a moment later.

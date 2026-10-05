@@ -41,6 +41,25 @@
     const studio = createStudio();
     const collage = studio.collage;
     const toasts = createToasts();
+    let suggestedPlays = $state<Array<{ id: string; title: string }>>([]);
+    let storyReadyFor = $state<string | null>(null);
+
+    async function loadSuggestedPlays() {
+        try {
+            const response = await fetch("/api/plays?limit=50");
+            if (!response.ok) return;
+            const data = await response.json();
+            const plays: Array<{ id: string; title: string }> = Array.isArray(data.plays) ? data.plays : [];
+            const shuffled = [...plays];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            suggestedPlays = shuffled.slice(0, Math.min(plays.length, 1 + Math.floor(Math.random() * 3)));
+        } catch {
+            // The stage remains usable when the public library is offline.
+        }
+    }
 
     /**
      * Say a page line the way the CAST says lines: a bubble on a random
@@ -329,6 +348,7 @@
     });
 
     onMount(async () => {
+        void loadSuggestedPlays();
         // Not awaited: the props are on screen before this resolves, and they
         // are meant to be — the boil arriving a beat late is a picture that
         // starts breathing, where blocking on it would be nine holes.
@@ -409,7 +429,7 @@
 
 
     /**
-     * Three lines, three voices, and they wait for each other.
+     * Two spoken lines, with the story link following them.
      *
      * The page is the first thing anybody hears this app do, so it is also
      * where the promise is made: the props talk, one at a time, in voices that
@@ -433,10 +453,6 @@
             say: "Arrange us however you like, then ask ChatGPT for a play — " +
                 "it reads the stage. Have fun!",
             voice: { speed: 1, age: 0.5, tone: 0.58 }, band: 47, aside: true, copies: true,
-        },
-        {
-            say: "Drag me somewhere! The piles down there deal more of us.",
-            voice: { speed: 1.15, age: 0.18, tone: 0.7 }, band: 78, aside: false,
         },
     ];
 
@@ -890,7 +906,7 @@
          *
          * A centred block of text over a scattered set read as a website; the
          * same words in speech bubbles read as the set talking, which is what
-         * the whole page is about. Three props get lines — spread around the
+         * the whole page is about. Two props get lines — spread around the
          * ring by index, pulled down far enough that a bubble pointing up
          * stays on screen — and the rest stay quiet.
          */
@@ -904,7 +920,7 @@
          * (nudged off the centre so the prompt stays clear) but is pulled to
          * a fixed height, jittered just enough to stay looking strewn.
          */
-        const speakers = [0, Math.floor(strewn.length / 2), strewn.length - 1];
+        const speakers = [0, Math.floor(strewn.length / 2)];
         for (const [which, line] of PAGE_LINES.entries()) {
             const prop = strewn[speakers[which]];
             if (!prop) break;
@@ -1180,6 +1196,7 @@
 <div
     class="page"
     class:page--shared={sharedView}
+    class:page--intro={empty && scatter.length > 0}
     style:--paper={paperColour || null}
     bind:this={pageEl}
     role="region"
@@ -1316,14 +1333,30 @@
                         voice: prop.sayVoice,
                         // An answer to a click waits for nothing; the page's
                         // own lines still arrive one after another.
-                        after: prop.copied ? 0 : (prop.enterAt ?? 0) + 500 + (prop.sayOrder ?? 0) * 700,
+                        after: prop.copied ? 0 : Math.max(...scatter.map(piece => piece.enterAt ?? 0)) + 500 + (prop.sayOrder ?? 0) * 700,
                         replay: true,
+                        complete: () => {
+                            if (prop.sayOrder === PAGE_LINES.length - 1)
+                                storyReadyFor = scatter[0]?.key ?? null;
+                        },
                     }}
                 >
                     {prop.say}
                     <SubtitleVoiceMenu text={prop.say ?? ""} voiceKey={prop.id} />
                 </svelte:element>
             {/each}
+            {#if empty && suggestedPlays.length && scatter[1] && storyReadyFor === scatter[0]?.key}
+                <div class="story-bubble" aria-label="Stories to watch"
+                    style:left="{scatter[1].x}%"
+                    style:top="{scatter[1].y}%"
+                    style:--rise="calc(max(72px, {scatter[1].size}vmin) * {(scatter[1].aspect ?? 1) / 2} + 14px)"
+                >
+                    <span>Or watch a community story:</span>
+                    {#each suggestedPlays as play (play.id)}
+                        <a href="/p/{encodeURIComponent(play.id)}">{play.title || "Untitled story"}</a>
+                    {/each}
+                </div>
+            {/if}
         </div>
     {/if}
 
@@ -1381,17 +1414,6 @@
         <button class="file-tool" aria-label="Load play" use:hint={"Load a saved play."} onclick={() => fileInput?.click()}>
             <img src="/toolbar/loading-icon.webp" alt="" draggable="false" />
         </button>
-        <button
-            class="file-tool audio-tool"
-            class:audio-tool--quiet={!fullAudio}
-            aria-label={fullAudio ? "Turn off music and quiet voices" : "Turn music and voices back up"}
-            aria-pressed={!fullAudio}
-            use:hint={fullAudio ? "Quiet the music and voices. Effects stay." : "Bring the music and voices back."}
-            onclick={toggleAudio}
-        >
-            <img class="audio-tool__icon audio-tool__icon--on" src="/toolbar/audio-enabled.webp" alt="" draggable="false" />
-            <img class="audio-tool__icon audio-tool__icon--off" src="/toolbar/audio-disabled.webp" alt="" draggable="false" />
-        </button>
         {#if fileToolError}
             <button
                 class="file-tool-error file-tool-error--{fileToolError.tool}"
@@ -1402,6 +1424,18 @@
             ><span class="file-tool-error__copy"><span class="file-tool-error__measure">{fileToolError.text}</span><span class="file-tool-error__text">{fileToolError.revealed}</span></span></button>
         {/if}
     </div>
+
+    <button
+        class="file-tool audio-tool"
+        class:audio-tool--quiet={!fullAudio}
+        aria-label={fullAudio ? "Turn off music and quiet voices" : "Turn music and voices back up"}
+        aria-pressed={!fullAudio}
+        use:hint={fullAudio ? "Quiet the music and voices. Effects stay." : "Bring the music and voices back."}
+        onclick={toggleAudio}
+    >
+        <img class="audio-tool__icon audio-tool__icon--on" src="/toolbar/audio-enabled.webp" alt="" draggable="false" />
+        <img class="audio-tool__icon audio-tool__icon--off" src="/toolbar/audio-disabled.webp" alt="" draggable="false" />
+    </button>
 
 
     <!-- The auditorium: vignette, title card, credits. Nothing while the
@@ -1615,6 +1649,53 @@
         z-index: 3;
         pointer-events: none;
         transition: opacity 0.8s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .story-bubble {
+        position: absolute;
+        translate: -50% calc(-100% - var(--rise, 60px));
+        width: min(230px, 40vw);
+        padding: 0.65em 0.9em;
+        border: 1.5px solid var(--text-primary);
+        border-radius: 0.9em;
+        background: var(--surface-page-elevated, #fff);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        line-height: 1.4;
+        pointer-events: auto;
+        rotate: 3deg;
+        animation: bubble-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    }
+
+    .story-bubble::after {
+        content: "";
+        position: absolute;
+        left: calc(50% - 8.5px);
+        bottom: -10px;
+        width: 17px;
+        height: 17px;
+        border-right: 1.5px solid var(--text-primary);
+        border-bottom: 1.5px solid var(--text-primary);
+        background: inherit;
+        rotate: 45deg;
+    }
+
+    .story-bubble span,
+    .story-bubble a { display: block; }
+    .story-bubble a { margin-top: 0.35em; color: inherit; text-decoration: underline; }
+    .story-bubble a:hover { text-decoration-thickness: 2px; }
+
+    .page--intro .file-tools {
+        animation: intro-chrome 0.5s 4.15s both;
+    }
+
+    :global(.page--intro .shelf) {
+        animation: intro-chrome 0.5s 4.45s both;
+    }
+
+    @keyframes intro-chrome {
+        from { opacity: 0; visibility: hidden; }
+        to { opacity: 1; visibility: visible; }
     }
 
     .strewn__bubble {
@@ -1908,7 +1989,20 @@
         pointer-events: none;
     }
 
-    .audio-tool { position: relative; }
+    .audio-tool {
+        position: fixed;
+        right: 76px;
+        bottom: 12px;
+        z-index: 30;
+        width: 52px;
+        height: 52px;
+        transition: opacity 0.4s, scale 0.16s;
+    }
+
+    .page--intro .audio-tool { animation: intro-chrome 0.5s 4.65s both; }
+    :global(html.theatre-watching) .audio-tool { opacity: 0.3; }
+    :global(html.theatre-watching) .audio-tool:hover { opacity: 1; }
+    :global(html.theatre-card) .audio-tool { opacity: 0; pointer-events: none; }
 
     .audio-tool__icon {
         position: absolute;

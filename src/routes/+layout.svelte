@@ -204,6 +204,15 @@
         transition-duration: 0.16s, 0.4s;
     }
 
+    :global(html:has(.page--intro)) .github-corner {
+        animation: github-intro 0.5s 5.1s both;
+    }
+
+    @keyframes github-intro {
+        from { opacity: 0; visibility: hidden; }
+        to { opacity: 1; visibility: visible; }
+    }
+
     /* A murmur while a show plays; the theatre posts the state on the root. */
     :global(html.theatre-watching) .github-corner {
         opacity: 0.3;
