@@ -34,7 +34,7 @@ import { packCollage, readCollage, type CollageAsset } from "./collageFile.js";
 import { renamedIn } from "./stage.js";
 import { cellPixels, gridCells, paperBox } from "./sheet.js";
 import {
-    BLACKOUT_MS, CREDIT_HOUSE_ROWS, creditsDuration, creditsFor, leads, performers, TITLE_MS,
+    BLACKOUT_MS, CREDIT_HOUSE_ROWS, compactCredits, creditsDuration, creditsFor, leads, performers, TITLE_MS,
     WAIT_FOR_AUDIENCE_MS, type Billboard,
 } from "./billboard.js";
 
@@ -967,7 +967,8 @@ export function createStudio(collage = new Collage()): CollageStudio {
         // film ends and the reason the fade is longer than a scene change's.
         // The cast first — each with their own picture, rows alternating
         // sides — then the makers as plain lines: who was in it, who made it.
-        const entries = credits.map(credit => {
+        const { shown, lines, remaining } = compactCredits(credits, makers);
+        const entries = shown.map(credit => {
             const layer = collage.get(credit.id);
             return {
                 role: credit.role,
@@ -975,13 +976,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 src: layer?.kind === "image" && layer.src ? layer.src : null,
             };
         });
-        const rows = entries.length + makers.length + CREDIT_HOUSE_ROWS;
+        const rows = entries.length + lines.length + (remaining ? 1 : 0) + CREDIT_HOUSE_ROWS;
         speaker.fadeMusic(Math.min(ENDING_FADE_MS, creditsDuration(rows)));
         await holdBillboard({
             kind: "credits",
             ...(collage.billing.title ? { title: collage.billing.title } : {}),
             entries,
-            lines: makers,
+            ...(remaining ? { remaining } : {}),
+            lines,
             duration: creditsDuration(rows),
         });
     };

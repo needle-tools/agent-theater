@@ -258,6 +258,11 @@
                             style:animation-delay="{((billboard.entries?.length ?? 0) + index) * CREDIT_LINE_MS * 0.25}ms"
                         >{line}</p>
                     {/each}
+                    {#if billboard.remaining}
+                        <p class="credit roll__more"
+                            style:animation-delay="{((billboard.entries?.length ?? 0) + billboard.lines.length) * CREDIT_LINE_MS * 0.25}ms"
+                        >and {billboard.remaining} more credits</p>
+                    {/if}
                     <!-- The house bow, on every roll: the Needle cactus and the
                          paper it is all cut from. The one clickable thing in the
                          auditorium, and it goes home. -->
@@ -266,7 +271,7 @@
                         href="https://needle.tools"
                         target="_blank"
                         rel="noopener"
-                        style:animation-delay="{((billboard.entries?.length ?? 0) + billboard.lines.length) * CREDIT_LINE_MS * 0.25}ms"
+                        style:animation-delay="{((billboard.entries?.length ?? 0) + (billboard.remaining ? 1 : 0) + billboard.lines.length) * CREDIT_LINE_MS * 0.25}ms"
                     >
                         <img
                             class="roll__sigil painted painted--boil painted--calm"
@@ -278,7 +283,7 @@
                     </a>
                     <p
                         class="credit roll__thanks"
-                        style:animation-delay="{((billboard.entries?.length ?? 0) + billboard.lines.length + 1) * CREDIT_LINE_MS * 0.25}ms"
+                        style:animation-delay="{((billboard.entries?.length ?? 0) + (billboard.remaining ? 1 : 0) + billboard.lines.length + 1) * CREDIT_LINE_MS * 0.25}ms"
                     >Thank you for playing.</p>
                 </div>
             </div>
@@ -476,6 +481,11 @@
         line-height: 1.35;
         text-wrap: balance;
         animation: rise 0.6s cubic-bezier(0.2, 0, 0, 1) both;
+    }
+
+    .roll__more {
+        margin-block: 0.6rem 1.1rem;
+        font-style: italic;
     }
 
     /*

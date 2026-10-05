@@ -4,7 +4,7 @@ import { castOf, renamedIn, type EntranceName, type Stage } from "../src/lib/col
 import { buildUp, entering, filmed, handOff, sceneBeats } from "../src/lib/collage/show.js";
 import { plan as planBeats, type Beat } from "../src/lib/collage/perform.js";
 import { SOUNDS, findSound, soundCatalogue, soundNames } from "../src/lib/collage/audio.js";
-import { creditLines, creditsFor, leads, performers } from "../src/lib/collage/billboard.js";
+import { compactCredits, creditLines, creditsFor, leads, performers } from "../src/lib/collage/billboard.js";
 
 /**
  * Scenes.
@@ -444,6 +444,17 @@ describe("a scene that travels", () => {
 });
 
 describe("the credits", () => {
+    it("uses one summary row when the cast exceeds ten", () => {
+        const cast = Array.from({ length: 14 }, (_, index) => ({
+            id: `actor-${index}`, role: `part ${index}`, actor: `art-${index}`,
+        }));
+        expect(compactCredits(cast.slice(0, 10), [])).toEqual({ shown: cast.slice(0, 10), lines: [], remaining: 0 });
+        expect(compactCredits(cast, [])).toEqual({ shown: cast.slice(0, 9), lines: [], remaining: 5 });
+        expect(compactCredits(cast, ["director", "writer"])).toEqual({
+            shown: cast.slice(0, 7), lines: ["director", "writer"], remaining: 7,
+        });
+    });
+
     const stage = (id: string, cast: { id: string; as?: string }[]): Stage => ({
         id, name: id, backdrop: null,
         cast: cast.map(member => ({ ...member, x: 0, y: 0 })),

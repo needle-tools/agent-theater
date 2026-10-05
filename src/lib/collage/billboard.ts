@@ -38,6 +38,8 @@ export type Billboard =
         title?: string;
         /** The cast, each with their picture — drawn as alternating rows. */
         entries?: CreditEntry[];
+        /** Credits condensed into one final row when the roll exceeds ten. */
+        remaining?: number;
         /** Plain lines after the cast: the makers, the thanks. */
         lines: string[];
         duration: number;
@@ -51,6 +53,17 @@ export interface Credit {
     role: string | null;
     /** The picture doing the playing — its label, usually the file it came from. */
     actor: string;
+}
+
+/** At most ten cast and maker rows together, including an overflow summary. */
+export function compactCredits(credits: Credit[], makers: string[], maxRows = 10): {
+    shown: Credit[]; lines: string[]; remaining: number;
+} {
+    if (credits.length + makers.length <= maxRows)
+        return { shown: credits, lines: makers, remaining: 0 };
+    const lines = makers.slice(0, Math.max(0, maxRows - 1));
+    const shown = credits.slice(0, Math.max(0, maxRows - 1 - lines.length));
+    return { shown, lines, remaining: credits.length + makers.length - shown.length - lines.length };
 }
 
 /**
