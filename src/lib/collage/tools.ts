@@ -338,16 +338,29 @@ let knownClips: Set<string> | null = null;
  *    changes stay quick but can still be followed by the person watching.
  */
 function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef {
-    const byName = new Map(tools.map(tool => [tool.name, tool]));
+    // A batch hides its individual calls from the browser's per-tool review.
+    // Keep publication, replacement, deletion and large image arguments as
+    // separate calls so their real effects are visible before they run.
+    const separate = new Set([
+        "show_save", "show_publish", "show_load", "theater_clear", "theater_restore",
+        "piece_remove", "stage_remove", "piece_add", "piece_sheet", "theater_avatar",
+        "show_play", "show_stop", "piece_say",
+    ]);
+    const byName = new Map(tools.filter(tool => !separate.has(tool.name))
+        .map(tool => [tool.name, tool]));
     return {
         name: "theater_batch",
-        title: "Run several theater tools as one batch",
+        title: "Batch local stage edits",
+        annotations: { readOnlyHint: false },
         description:
-            "Run a list of theater tools in order, in one call. Use it whenever you know more than one step " +
-            "in advance — adding a cast, moving several pieces, or building and scripting scenes — because it is one round trip " +
-            "instead of six, it undoes as a single step, and the canvas deals the changes 125ms apart. Each step " +
-            "is { tool, args } exactly as you would have called it. Steps see what earlier steps did, so ids " +
-            "from a piece_add step are usable later in the same batch.",
+            "Run up to 40 ordinary stage-editing tool calls in order on this canvas, such as " +
+            "moving pieces, casting, and writing scripts with rehearse:false. The edits share " +
+            "one undo step and appear " +
+            "125ms apart. Each step is { tool, args }. Use separate calls when a later step " +
+            "needs an id returned by an earlier step; the batch does not substitute ids. " +
+            "Online save/publish, replacing or clearing a play, deletions, live playback, " +
+            "and image imports must be " +
+            "called separately so their effects can be reviewed individually.",
         inputSchema: {
             type: "object",
             properties: {
@@ -387,7 +400,12 @@ function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef
             if (unknown.length) {
                 return fail(
                     `${unknown.map(s => `"${str(s?.tool) || "(missing)"}"`).join(", ")} — not a tool that can ` +
-                    `run in a batch. Available: ${[...byName.keys()].join(", ")}.`);
+                    `run in a batch. Call restricted tools separately. Batchable: ${[...byName.keys()].join(", ")}.`);
+            }
+            if (steps.some(step => step.tool === "stage_script" &&
+                (!step.args || typeof step.args !== "object" ||
+                    (step.args as { rehearse?: boolean }).rehearse !== false))) {
+                return fail(`In a batch, stage_script needs rehearse:false so playback stays a separate call.`);
             }
 
             const stopOnError = bool(args?.stopOnError, true);
@@ -646,17 +664,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     ``,
                     `YOUR FLOATING AVATAR`,
                     `  Currently using ${avatar.name}${avatarState.default ? " (bundled default)" : " (the user's saved selection)"}.`,
-                    `  If filesystem permissions allow, set the little agent on the stage to the user's`,
-                    `  ACTUAL selected Codex pet with theater_avatar. Do not pick another installed pet.`,
-                    `  Find selected-avatar-id in ~/.codex/config.toml. Its matching artwork is normally`,
-                    `  inside /Applications/ChatGPT.app/Contents/Resources/app.asar under`,
-                    `  webview/assets/<selected-id>-spritesheet*.webp; an already extracted copy or the`,
-                    `  selected pet's folder under ~/.codex/pets is equally good. Read the local image`,
-                    `  bytes, base64-encode them as a data:image/webp;base64 URL, and pass the whole`,
-                    `  spritesheet unchanged. A local path or HTTPS URL will not work here.`,
-                    `  For example, selected-avatar-id = "seedy" means use Seedy's spritesheet, even if`,
-                    `  Clippy or another pet is also installed. If you cannot read those paths, leave`,
-                    `  Codey, the bundled default, alone; this is optional and must not hold up the play.`,
+                    `  The avatar is optional. Only call theater_avatar if the person asks to change it;`,
+                    `  its custom-image input can be large and is unrelated to staging the play.`,
                     ``,
                     `THE ONE THING TO GET RIGHT`,
                     `  A set is BUILT, not painted. Do not ask an image model for "a forest" and use what`,
@@ -781,10 +790,12 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "theater_avatar",
             title: "Use the person's selected Codex pet",
             description:
-                "Set the floating agent to the user's actual selected Codex pet spritesheet. Call only " +
-                "when local permissions let you discover and read that selected pet; pass the unchanged " +
-                "local bytes as a data:image URL. Pass url 'default' to use bundled Codey. The standard " +
-                "Codex pet grid is 8 columns by 11 rows.",
+                "Optional: change the floating avatar when the person asks. Pass url 'default' " +
+                "for bundled Codey, or the person's selected Codex pet sheet as a complete " +
+                "data:image/webp;base64 URL. This reads a local pet file and sends its bytes " +
+                "in the tool call; large sheets may exceed browser review limits. Do not choose " +
+                "another installed pet without the person's direction. If available, " +
+                "~/.codex/config.toml names the selected-avatar-id. Standard grids are 8 by 11.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -1043,29 +1054,22 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "piece_sheet",
             title: "Cut a sheet into pieces",
             description:
-                "One image holding a grid of separate pictures becomes one piece per cell. This is how " +
-                "art written by theater_art_prompt gets onto the canvas: an image model will not hand " +
-                "over nine cut-outs, it hands over one sheet, and this is the other half of that. " +
-                "The whole sheet goes to FastCut's remover in ONE pass, with the grid telling it where " +
-                "each cell is — this page runs that remover itself, in a hidden frame, so there is no " +
-                "second tab to open and no per-piece round trip. " +
-                "'actors' turns each cell into a movable cut-out. 'backgrounds' also removes the white " +
-                "sheet surround, but keeps the artwork inside each cell together as one backdrop rather " +
-                "than splitting it into separate objects. Pass the same labels you gave as subjects and " +
-                "every piece arrives named.",
+                "Add a grid image to this canvas as separate pieces, one per cell. The image pixels " +
+                "are passed to a FastCut iframe on a separate Needle-hosted origin for background removal; this " +
+                "tool does not publish the play. Use 'actors' for movable characters or scenery and " +
+                "'backgrounds' for whole scene images. Pass labels in reading order to name the pieces. " +
+                "For large sheets, upload the raw image to POST /api/sheets first and pass its short " +
+                "URL here; avoid putting multi-megabyte base64 data in a tool argument.",
             inputSchema: {
                 type: "object",
                 properties: {
                     url: {
                         type: "string",
                         description:
-                            "http(s), data:, or /api/sheets/ URL of the sheet. To keep large image bytes " +
-                            "out of a WebMCP tool call, upload the raw PNG/WebP bytes to POST /api/sheets first " +
-                            "(Content-Type: image/png or image/webp; 5 MB maximum). Pass the short url " +
-                            "from its JSON response here. It expires after two hours. For art served from a LOCAL or " +
-                            "temporary server (127.0.0.1, localhost tunnels), pass a data: URL " +
-                            "instead — a local http image often loads but cannot be read back " +
-                            "for cutting (CORS), and the cut dies after this call has answered.",
+                            "Image URL: http(s), a small data:image/ URL, or /api/sheets/<id>. " +
+                            "For a large PNG/WebP, POST its raw bytes to /api/sheets (5 MB maximum) " +
+                            "and use the returned URL within two hours. Other origins must allow CORS " +
+                            "so the image can be cut.",
                     },
                     columns: { type: "number", description: "Cells across." },
                     rows: { type: "number", description: "Cells down." },
@@ -1262,10 +1266,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "piece_add",
             title: "Add an image to the collage",
             description:
-                "Put an image on the canvas from an http(s) or data: URL. " +
-                "The background is removed automatically: this page runs FastCut's own remover in a hidden " +
-                "frame, so the cut IS FastCut — do not open it in another tab first, just pass the original " +
-                "photo. " +
+                "Put an image on the canvas from an http(s), data:image/, or /api/sheets/ URL. " +
+                "The background is removed automatically by default: its pixels are passed to " +
+                "a FastCut iframe on a separate Needle-hosted origin. This changes the local " +
+                "canvas; it does not publish the play. FastCut is already embedded; do not open it in another tab first. " +
                 "An image that is already transparent is left alone. Pass removeBackground: false to keep a " +
                 "background on purpose. The result says what happened, and what to do if the cut could not run. " +
                 "A picture holding several distinct objects — a poster, a sheet of stickers, things laid out " +
@@ -1279,7 +1283,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             inputSchema: {
                 type: "object",
                 properties: {
-                    url: { type: "string", description: "http(s) or data: URL of the original photo — no need to cut it out first." },
+                    url: { type: "string", description: "Image URL: http(s), a small data:image/ URL, or /api/sheets/<id>." },
                     label: { type: "string", description: "A name you will recognise later, e.g. 'red sneaker'." },
                     removeBackground: { type: "boolean", description: "Default true. Set false only to keep the background deliberately." },
                     x: { type: "number", description: "Canvas x. Omit to place it automatically." },
@@ -1326,9 +1330,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 regions?: Array<{ x?: number; y?: number; width?: number; height?: number; label?: string }>;
             }) {
                 const url = str(args?.url);
-                if (!url) return fail(`Pass a "url" — http(s) or data:.`);
-                if (!/^(https?:|data:image\/)/i.test(url))
-                    return fail(`"${truncate(url, 60)}" is not an image URL. Use http(s), or a data:image/… URL.`);
+                if (!url) return fail(`Pass a "url" — http(s), data:image/, or /api/sheets/.`);
+                if (!/^(https?:|data:image\/|\/api\/sheets\/[0-9a-f]{32}\.(?:png|webp)$)/i.test(url))
+                    return fail(`"${truncate(url, 60)}" is not an image URL. Use http(s), data:image/…, or /api/sheets/….`);
 
                 // Boxes are fractions, and one given in pixels would silently
                 // land off the edge of the image rather than failing, so it is

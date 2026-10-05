@@ -50,12 +50,11 @@ export function createTroupeTool(studio: CollageStudio): WebMcpToolDef | null {
     return {
         name: "theater_troupe",
         title: "Ready-made art, already cut",
+        annotations: { readOnlyHint: false },
         description:
-            "Pregenerated, precut art that ships with this theatre — no generation, no waiting, no " +
-            "cutting. Call with no arguments for the catalogue; pass add: [ids] to put pieces on the " +
-            "canvas, ready to cast. CHECK THIS BEFORE GENERATING ART: a pack that fits the story " +
-            "saves minutes per sheet, and those minutes belong to the story. Pieces sharing a take " +
-            "are the same character in different poses, made for \"becomes\".",
+            "List the built-in cut-out art with no arguments. Pass add: [ids] to place selected " +
+            "pieces on this local canvas, ready to cast. This does not upload or publish anything. " +
+            "Pieces sharing a take are the same character in different poses.",
         inputSchema: {
             type: "object",
             properties: {

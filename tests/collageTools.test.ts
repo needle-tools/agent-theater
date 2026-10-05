@@ -311,6 +311,14 @@ describe("adding images", () => {
         expect(textOf(result)).toContain("800×600px");
     });
 
+    it("accepts a short same-origin sheet URL without putting image bytes in the tool call", async () => {
+        const { tool, studio } = fakeStudio();
+        const url = `/api/sheets/${"a".repeat(32)}.png`;
+        expect((await tool("piece_add").execute({ url })).isError).toBeFalsy();
+        await tool("piece_sheet").execute({ url, columns: 2, rows: 2, as: "actors" });
+        expect(studio.sheets[0].url).toBe(url);
+    });
+
     it("removes the background by default, without being asked", async () => {
         const { tool, cuts } = fakeStudio({ coverage: 1 });
         const result = await tool("piece_add").execute({ url: "https://example.test/photo.jpg" });
@@ -837,6 +845,29 @@ describe("running several tools at once", () => {
         expect(collage.get(id)!.x).toBe(x);
     });
 
+    it("keeps uploads and destructive actions out of a local edit batch", async () => {
+        const { studio, collage, id } = await withText();
+        const batch = createCollageTools(studio).find(tool => tool.name === "theater_batch")!;
+        const x = collage.get(id)!.x;
+        for (const restricted of ["show_save", "show_publish", "show_load", "theater_clear", "piece_sheet"]) {
+            const result = await batch.execute({ steps: [
+                { tool: "piece_move", args: { id, x: 700 } },
+                { tool: restricted, args: {} },
+            ] });
+            expect(result.isError).toBe(true);
+            expect(textOf(result)).toContain("Call restricted tools separately");
+            expect(collage.get(id)!.x).toBe(x);
+        }
+    });
+
+    it("requires script rehearsals to be a separate playback call", async () => {
+        const { studio } = await withText();
+        const batch = createCollageTools(studio).find(tool => tool.name === "theater_batch")!;
+        const result = await batch.execute({ steps: [{ tool: "stage_script", args: { beats: [] } }] });
+        expect(result.isError).toBe(true);
+        expect(textOf(result)).toContain("rehearse:false");
+    });
+
     it("refuses to nest itself", async () => {
         const { batch } = await withText();
         const result = await batch.execute({ steps: [{ tool: "theater_batch", args: { steps: [] } }] });
@@ -996,13 +1027,11 @@ describe("the guide", () => {
         };
     };
 
-    it("offers the actual selected Codex pet only when its local sheet is readable", async () => {
+    it("keeps optional avatar setup out of the path of staging a play", async () => {
         const { studio } = fakeStudio();
         const { text } = await guideOf(studio);
-        expect(text).toContain("ACTUAL selected Codex pet");
-        expect(text).toContain("selected-avatar-id");
-        expect(text).toContain("data:image/webp;base64");
-        expect(text).toContain("Codey, the bundled default");
+        expect(text).toContain("Only call theater_avatar if the person asks");
+        expect(text).not.toContain("~/.codex/config.toml");
     });
 
     it("sends an empty canvas to the artwork, not to the scenes", async () => {

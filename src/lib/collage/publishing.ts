@@ -126,10 +126,14 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
     const save = (published: boolean): WebMcpToolDef => ({
         name: published ? "show_publish" : "show_save",
         title: published ? "Publish this play" : "Save this play online",
-        annotations: { readOnlyHint: false },
+        annotations: { readOnlyHint: false, consequentialHint: true },
         description: published
-            ? "Publish the current play to the shared library and return a shareable URL."
-            : "Save the current play online as an unlisted shareable link. Reuses its edit token when id is supplied.",
+            ? "Upload the current play and its custom images to the theater server as public, " +
+              "then return its share URL. Only plays with a script appear in the community " +
+              "library. This is an online publication, not a local backup."
+            : "Upload the current play and its custom images to the theater server as an unlisted " +
+              "shareable link. It is online and accessible to anyone with the link, but is not listed " +
+              "in the community library. Supply an existing id to update that online play.",
         inputSchema: {
             type: "object",
             properties: {
@@ -231,8 +235,10 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
     }, {
         name: "show_load",
         title: "Load a published play",
-        annotations: { readOnlyHint: false, destructiveHint: true },
-        description: "Replace the current canvas with a published or unlisted play by id or share URL.",
+        annotations: { readOnlyHint: false, destructiveHint: true, consequentialHint: true },
+        description: "Download a published or unlisted play by id or share URL and replace the " +
+            "current canvas. Existing unsaved work on this canvas may be lost, so use this only " +
+            "when replacement was requested. This does not publish either play.",
         inputSchema: { type: "object", properties: { id: { type: "string", description: "Play id or /p/<id> URL." } }, required: ["id"] },
         async execute(args: { id?: string }) {
             try {

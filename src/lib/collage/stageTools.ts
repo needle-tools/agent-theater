@@ -1275,11 +1275,11 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
         {
             name: "stage_describe",
             title: "The scenes",
-            annotations: { readOnlyHint: true },
+            annotations: { readOnlyHint: false },
             description:
-                "Every chapter, who is in it, and which one is selected. Comes before changing a chapter, " +
-                "the way piece_list comes before changing the canvas. Pass 'show' to point the canvas at " +
-                "a chapter, or 'none' to stand back — the world stays visible either way.",
+                "List every chapter, its cast, and the selected chapter. With no arguments this only " +
+                "reads the canvas. Passing 'show' changes which chapter is displayed; pass 'none' " +
+                "to show the whole canvas.",
             inputSchema: {
                 type: "object",
                 properties: {
