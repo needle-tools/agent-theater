@@ -3,14 +3,15 @@ import { json } from "@sveltejs/kit";
 import { claimPublishSlot, database } from "$lib/server/database";
 import { owns, resolveAssets, validateAssets, validateDoc } from "$lib/server/plays";
 import { summarize } from "$lib/collage/playSummary";
-import { DEV_PLAY_DOC, DEV_PLAY_ID, devPlay } from "$lib/server/devPlay";
+import { devPlayDoc, devPlays } from "$lib/server/devPlay";
 import { dev } from "$app/environment";
 
 export const prerender = false;
 
 export const GET: RequestHandler = async ({ params, url }) => {
-    if (dev && params.id === DEV_PLAY_ID)
-        return json({ ...devPlay(url.origin), doc: DEV_PLAY_DOC });
+    const sample = dev ? devPlayDoc(params.id) : null;
+    if (sample)
+        return json({ ...devPlays(url.origin).find(play => play.id === params.id), doc: sample });
     try {
         const { sql, ready } = database(); await ready;
         const [play] = await sql`select id, title, visibility, doc, assets, chapters, duration_seconds, themes, created_at, updated_at from plays where id = ${params.id}`;

@@ -127,10 +127,7 @@
     let armFrom: { x: number; y: number } | null = $state(null);
     /** The drag already armed it, so the click that follows must not toggle. */
     let armHandled = false;
-    let clearArmed = $state(false);
-    let clearTimer: ReturnType<typeof setTimeout> | undefined;
-    let resetArmed = $state(false);
-    let resetTimer: ReturnType<typeof setTimeout> | undefined;
+    let clearing = $state(false);
     let fullAudio = $state(true);
 
     function toggleAudio() {
@@ -139,43 +136,31 @@
         prompter.setLevel(fullAudio ? 1 : 0.1);
     }
 
-    function disarmClear() {
-        clearArmed = false;
-        clearTimeout(clearTimer);
-    }
-
     async function clearStage() {
-        if (!clearArmed) {
-            clearArmed = true;
-            clearTimer = setTimeout(disarmClear, 5000);
-            return;
-        }
-        disarmClear();
+        if (clearing) return;
+        clearing = true;
         studio.stopShow("human");
         idleSet.clearedBy = "human";
         track("play_cleared", { by: "human", pieces: collage.listAll().length });
-        await studio.clear();
+        try { await studio.clear(); }
+        finally { clearing = false; }
     }
 
     async function resetStage() {
-        if (!resetArmed) {
-            resetArmed = true;
-            resetTimer = setTimeout(() => (resetArmed = false), 5000);
-            return;
-        }
-        resetArmed = false;
-        clearTimeout(resetTimer);
-        disarmClear();
+        if (clearing) return;
+        clearing = true;
         studio.stopShow("human");
         scatter = [];
         storyReadyFor = null;
         storyLinkReadyFor = null;
-        await studio.clear();
-        idleSet.clearedBy = null;
-        sharedView = false;
-        if (new URL(location.href).searchParams.has("play"))
-            history.replaceState(history.state, "", location.pathname);
-        if (TROUPE.length) scatter = strewn();
+        try {
+            await studio.clear();
+            idleSet.clearedBy = null;
+            sharedView = false;
+            if (new URL(location.href).searchParams.has("play"))
+                history.replaceState(history.state, "", location.pathname);
+            if (TROUPE.length) scatter = strewn();
+        } finally { clearing = false; }
     }
 
     function armDown(event: PointerEvent) {
@@ -216,7 +201,6 @@
     function showFileToolError(tool: "share" | "save", text: string) {
         clearTimeout(fileToolErrorTimer);
         clearInterval(fileToolTypingTimer);
-        clearTimeout(clearTimer);
         const showImmediately = matchMedia("(prefers-reduced-motion: reduce)").matches;
         fileToolError = { tool, text, revealed: showImmediately ? text : "" };
         if (!showImmediately) {
@@ -1382,13 +1366,12 @@
                         voice: { speed: 1.1, age: 0.22, tone: 0.68 },
                         replay: true,
                         complete: () => { storyLinkReadyFor = scatter[0]?.key ?? null; },
-                    }}>Or watch a community story:</span>
-                    {#each suggestedPlays as play (play.id)}
-                        <a
-                            class:story-link--ready={storyLinkReadyFor === scatter[0]?.key}
-                            href="/p/{encodeURIComponent(play.id)}?autoplay=1"
-                        >{play.title || "Untitled story"}</a>
-                    {/each}
+                    }}>Or watch a community play:</span>
+                    <ul class:story-list--ready={storyLinkReadyFor === scatter[0]?.key}>
+                        {#each suggestedPlays as play (play.id)}
+                            <li><a href="/p/{encodeURIComponent(play.id)}?autoplay=1">{play.title || "Untitled story"}</a></li>
+                        {/each}
+                    </ul>
                 </div>
             {/if}
         </div>
@@ -1430,24 +1413,21 @@
         </button>
         <button
             class="file-tool clear-stage-tool"
-            class:clear-stage-tool--armed={clearArmed}
-            disabled={!layers.length}
-            aria-label={clearArmed ? "Click again to clear the whole stage" : "Clear the stage"}
-            use:hint={clearArmed ? "Click once more to clear everything." : "Clear the whole stage."}
+            disabled={!layers.length || clearing}
+            aria-label="Clear the stage"
+            use:hint={"Clear the whole stage."}
             onclick={clearStage}
         >
             <img src="/toolbar/clear-bin.webp" alt="" draggable="false" />
-            {#if clearArmed}<span class="clear-stage-tool__warning">Click again to clear everything.</span>{/if}
         </button>
         <button
             class="file-tool reset-stage-tool"
-            class:reset-stage-tool--armed={resetArmed}
-            aria-label={resetArmed ? "Click again to return to the starting stage" : "Return to the starting stage"}
-            use:hint={resetArmed ? "Click once more to start over." : "Start over with fresh stickers and intro bubbles."}
+            disabled={clearing}
+            aria-label="Return to the starting stage"
+            use:hint={"Start over with fresh stickers and intro bubbles."}
             onclick={resetStage}
         >
             <img src="/toolbar/loading-icon.webp" alt="" draggable="false" />
-            {#if resetArmed}<span class="reset-stage-tool__warning">Click again to start over.</span>{/if}
         </button>
         <button class="file-tool file-tool--share" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Publish online and share a link."} onclick={sharePlay}>
             <img src="/toolbar/share.webp" alt="" draggable="false" />
@@ -1709,17 +1689,22 @@
         rotate: 45deg;
     }
 
-    .story-bubble span,
-    .story-bubble a { display: block; }
-    .story-bubble a {
-        margin-top: 0.35em;
-        color: inherit;
-        text-decoration: underline;
+    .story-bubble span { display: block; }
+    .story-bubble ul {
+        margin: 0.35em 0 0;
+        padding-left: 1.25em;
+        list-style: disc;
         visibility: hidden;
         opacity: 0;
         transition: opacity 0.2s;
     }
-    .story-bubble a.story-link--ready { visibility: visible; opacity: 1; }
+    .story-bubble ul.story-list--ready { visibility: visible; opacity: 1; }
+    .story-bubble li { list-style-type: disc; }
+    .story-bubble li + li { margin-top: 0.3em; }
+    .story-bubble a {
+        color: inherit;
+        text-decoration: underline;
+    }
     .story-bubble a:hover { text-decoration-thickness: 2px; }
 
     .page--intro .file-tools {
@@ -2061,66 +2046,6 @@
         filter: blur(0);
     }
 
-    .clear-stage-tool, .reset-stage-tool { position: relative; }
-
-    .clear-stage-tool--armed, .reset-stage-tool--armed {
-        background: color-mix(in srgb, var(--accent-error, #D93A62) 10%, transparent);
-        border-radius: 12px;
-    }
-
-    .reset-stage-tool--armed {
-        background: color-mix(in srgb, var(--text-primary) 7%, transparent);
-    }
-
-    .clear-stage-tool__warning, .reset-stage-tool__warning {
-        position: absolute;
-        top: calc(100% + 10px);
-        left: 0;
-        width: max-content;
-        max-width: min(240px, calc(100vw - 32px));
-        padding: 0.55em 0.8em;
-        border: 1.5px solid var(--accent-error, #D93A62);
-        border-radius: 0.9em;
-        background: var(--surface-page-elevated, #fff);
-        color: var(--accent-error, #D93A62);
-        font: inherit;
-        line-height: 1.35;
-        text-align: left;
-        pointer-events: none;
-        filter: drop-shadow(0 4px 10px rgba(34, 44, 32, 0.14));
-        animation: file-error-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
-    }
-
-    .reset-stage-tool__warning {
-        border-color: var(--text-primary);
-        color: var(--text-primary);
-    }
-
-    :global(html.painterly) .clear-stage-tool__warning,
-    :global(html.painterly) .reset-stage-tool__warning {
-        background-image:
-            paint(painterly-wash),
-            linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
-    }
-
-    .clear-stage-tool__warning::before,
-    .reset-stage-tool__warning::before {
-        content: "";
-        position: absolute;
-        top: -6px;
-        left: 18px;
-        width: 11px;
-        height: 11px;
-        rotate: 45deg;
-        background: inherit;
-        border-top: 1.5px solid var(--accent-error, #D93A62);
-        border-left: 1.5px solid var(--accent-error, #D93A62);
-    }
-
-    .reset-stage-tool__warning::before {
-        border-color: var(--text-primary);
-    }
-
     .file-tool-error {
         position: absolute;
         top: calc(100% + 10px);
@@ -2183,9 +2108,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-        .file-tool-error,
-        .clear-stage-tool__warning,
-        .reset-stage-tool__warning { animation: none; }
+        .file-tool-error { animation: none; }
     }
 
     /*

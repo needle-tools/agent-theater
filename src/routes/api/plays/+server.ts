@@ -5,7 +5,7 @@ import { newId, newToken, tokenHash, validateAssets, validateDoc } from "$lib/se
 import { summarize } from "$lib/collage/playSummary";
 import { env } from "$env/dynamic/private";
 import { dev } from "$app/environment";
-import { devPlay } from "$lib/server/devPlay";
+import { devPlays } from "$lib/server/devPlay";
 
 export const prerender = false;
 
@@ -40,7 +40,7 @@ export async function GET({ url }: { url: URL }) {
 
     if (!env.DATABASE_URL) {
         console.warn("[plays] DATABASE_URL is not configured.");
-        if (dev) return json({ plays: sampleFits ? [devPlay(url.origin)] : [], unavailable: true });
+        if (dev) return json({ plays: sampleFits ? devPlays(url.origin).slice(0, limit) : [], unavailable: true });
         return json({ error: "Play library is unavailable." }, { status: 503 });
     }
     try {
@@ -68,7 +68,7 @@ export async function GET({ url }: { url: URL }) {
         }
 
         return json({
-            plays: (rows.length ? rows : dev && sampleFits ? [devPlay(url.origin)] : []).map(row => ({
+            plays: (rows.length ? rows : dev && sampleFits ? devPlays(url.origin).slice(0, limit) : []).map(row => ({
                 id: row.id,
                 title: row.title,
                 chapters: row.chapters ?? 0,

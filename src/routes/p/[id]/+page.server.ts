@@ -1,7 +1,7 @@
 import type { PageServerLoad } from "./$types";
 import { database } from "$lib/server/database";
 import { describePlay } from "$lib/collage/playSummary";
-import { DEV_PLAY_DOC, DEV_PLAY_ID, devPlay } from "$lib/server/devPlay";
+import { devPlayDoc, devPlays } from "$lib/server/devPlay";
 import { dev } from "$app/environment";
 
 export const prerender = false;
@@ -24,11 +24,12 @@ export const prerender = false;
  * was would be protecting nobody from anything.
  */
 export const load: PageServerLoad = async ({ params, url }) => {
-    if (dev && params.id === DEV_PLAY_ID) {
-        const play = devPlay(url.origin);
+    const sample = dev ? devPlayDoc(params.id) : null;
+    if (sample) {
+        const play = devPlays(url.origin).find(item => item.id === params.id)!;
         return { id: params.id, card: {
             title: play.title,
-            description: describePlay(play, DEV_PLAY_DOC.billing?.byline),
+            description: describePlay(play, sample.billing?.byline),
             url: play.url,
         } };
     }
