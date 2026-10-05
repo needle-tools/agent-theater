@@ -37,7 +37,7 @@ export function invitation(origin: string): string {
  */
 export function briefing(origin: string): string {
     return (
-        `Open ${origin} and load its WebMCP tools — it is a theatre and you are directing. ` +
+        `Open ${origin.replace(/\/$/, "")}/?new and load its WebMCP tools — it is a theatre and you are directing. ` +
         `Call theater_start first: it says what is already on the stage and what to do next. ` +
         `Then look at theater_troupe (ready-cut art packs) and PITCH me 1–3 stories you could ` +
         `stage with what is there — a line each, naming the pack — so I can pick or redirect. ` +

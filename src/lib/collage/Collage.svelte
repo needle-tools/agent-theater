@@ -11,7 +11,7 @@
      * button in the corner. Everything that acts on a single picture is at the
      * pointer; everything global is behind the button.
      */
-    import { onDestroy, onMount } from "svelte";
+    import { onDestroy, onMount, tick } from "svelte";
     import CollageCanvas from "$lib/collage/CollageCanvas.svelte";
     import PackShelf from "$lib/collage/PackShelf.svelte";
     import { playInteractionSound } from "$lib/collage/interactionSounds.js";
@@ -389,6 +389,9 @@
 
     onMount(async () => {
         void loadSuggestedPlays();
+        const params = new URL(location.href).searchParams;
+        const shared = params.get("play");
+        const fresh = params.has("new") && !shared;
         // Not awaited: the props are on screen before this resolves, and they
         // are meant to be — the boil arriving a beat late is a picture that
         // starts breathing, where blocking on it would be nine holes.
@@ -397,7 +400,7 @@
         // Restore before registering tools: an agent that calls describe on the
         // first turn should see the collage the person left, not an empty one.
         try {
-            const count = await studio.restore();
+            const count = fresh ? 0 : await studio.restore();
             if (count) {
                 track("play_restored", { by: "human", pieces: count });
                 if (collage.listStages().length)
@@ -407,7 +410,6 @@
         } catch (error) {
             console.warn("[collage] could not restore the saved collage:", error);
         }
-        const shared = new URL(location.href).searchParams.get("play");
         if (shared) {
             sharedView = true;
             try {
@@ -439,7 +441,10 @@
         const savedStickers = collage.listAll().filter(layer => layer.kind === "image").length;
         if (!collage.listStages().length && (savedStickers || collage.listFrames().length) && TROUPE.length) {
             arrangementIntro = true;
-            scatter = strewn(Math.max(4, 7 - savedStickers));
+            await tick();
+            const blocked = [...(pageEl?.querySelectorAll<HTMLElement>(".layer[data-layer]") ?? [])]
+                .map(element => element.getBoundingClientRect());
+            scatter = strewn(Math.max(4, 7 - savedStickers), blocked);
         } else if (!collage.listAll().length && !collage.listStages().length && TROUPE.length) {
             scatter = strewn();
         }
@@ -924,7 +929,7 @@
         return () => clearTimeout(timer);
     });
 
-    function strewn(count = 9) {
+    function strewn(count = 9, savedBounds: DOMRect[] = []) {
         // A ring around the middle, jittered — the middle belongs to the
         // invitation, and a ring reads as "arranged by someone" where a
         // uniform scatter reads as "spilled".
@@ -1023,12 +1028,65 @@
         const videoSticker = strewn.at(-1);
         if (videoSticker) {
             videoSticker.videoHost = true;
-            videoSticker.x = (Math.max(140, window.innerWidth * 0.25) / window.innerWidth) * 100;
-            videoSticker.y = 65;
+            videoSticker.x = 50;
+            videoSticker.y = 58;
         }
         // Nobody starts on top of anybody: overlap is fine once a person has
         // made it — that is theirs — but at spawn it just reads as a glitch.
-        return separate(strewn);
+        const placed = separate(strewn);
+        const host = placed.at(-1);
+        if (host) {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const stickerSize = Math.max(72, (host.size / 100) * Math.min(w, h));
+            const videoWidth = Math.min(h <= 700 ? 200 : 260, w * 0.32) + 24;
+            const videoHeight = (videoWidth - 24) * 9 / 16 + 55;
+            const rise = stickerSize / 2 + 14;
+            const rect = (x: number, y: number, width: number, height: number) => ({
+                left: x - width / 2, right: x + width / 2,
+                top: y - height / 2, bottom: y + height / 2,
+            });
+            const obstacles = [
+                ...savedBounds,
+                ...placed.slice(0, -1).flatMap(prop => {
+                    const x = prop.x * w / 100;
+                    const y = prop.y * h / 100;
+                    const size = Math.max(72, prop.size * Math.min(w, h) / 100);
+                    const sticker = rect(x, y, size + 24, size + 24);
+                    if (!prop.say && prop !== placed[1]) return [sticker];
+                    const bubbleWidth = prop.titleCard ? 210 : prop.say ? 290 : 260;
+                    const bubbleHeight = prop.titleCard ? 80 : prop.say ? 110 : 195;
+                    const bubbleBottom = y - size / 2 - 14;
+                    return [sticker, rect(x, bubbleBottom - bubbleHeight / 2, bubbleWidth, bubbleHeight)];
+                }),
+            ];
+            const overlap = (a: typeof obstacles[number], b: typeof obstacles[number]) =>
+                Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) *
+                Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+            const bottom = Math.min(h * 0.46, w <= 700 ? 160 : 330);
+            const maxY = h - bottom - stickerSize / 2 - 8;
+            let best: { x: number; y: number; score: number } | null = null;
+            for (const xPct of [50, 45, 55, 40, 60, 35, 65, 30, 70]) {
+                for (const yPct of [58, 54, 62, 50, 46, 42]) {
+                    const x = xPct * w / 100;
+                    const y = Math.min(yPct * h / 100, maxY);
+                    const bubbleBottom = y - rise;
+                    const bubble = rect(x, bubbleBottom - videoHeight / 2, videoWidth, videoHeight);
+                    const sticker = rect(x, y, stickerSize + 24, stickerSize + 24);
+                    if (bubble.top < 16 || bubble.left < 16 || bubble.right > w - 76) continue;
+                    const score = obstacles.reduce((sum, obstacle) =>
+                        sum + overlap(bubble, obstacle) + overlap(sticker, obstacle), 0);
+                    if (!best || score < best.score) best = { x, y, score };
+                    if (score === 0) break;
+                }
+                if (best?.score === 0) break;
+            }
+            if (best) {
+                host.x = best.x / w * 100;
+                host.y = best.y / h * 100;
+            }
+        }
+        return placed;
     }
 
 
@@ -1832,6 +1890,10 @@
         .video-bubble {
             width: min(220px, calc(100vw - 110px));
         }
+    }
+
+    @media (max-height: 700px) {
+        .video-bubble { width: min(200px, 32vw); }
     }
 
     @media (prefers-reduced-motion: reduce) {
