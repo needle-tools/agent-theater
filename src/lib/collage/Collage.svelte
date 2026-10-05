@@ -33,6 +33,7 @@
     import { beginAgentActivity, completeAgentActivity } from "$lib/room/activity";
     import { canEditPlay, CURRENT_PLAY_KEY, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
     import { briefing } from "$lib/collage/invitation";
+    import { copyText } from "$lib/collage/clipboard";
     import { prewarm } from "$lib/collage/background";
     import SubtitleVoiceMenu from "$lib/subtitleVoice/SubtitleVoiceMenu.svelte";
     import type { SubtitleVoice } from "$lib/subtitleVoice";
@@ -43,6 +44,7 @@
     const toasts = createToasts();
     let suggestedPlays = $state<Array<{ id: string; title: string }>>([]);
     let storyReadyFor = $state<string | null>(null);
+    let storyLinkReadyFor = $state<string | null>(null);
 
     async function loadSuggestedPlays() {
         try {
@@ -167,6 +169,7 @@
         studio.stopShow("human");
         scatter = [];
         storyReadyFor = null;
+        storyLinkReadyFor = null;
         await studio.clear();
         idleSet.clearedBy = null;
         sharedView = false;
@@ -512,10 +515,8 @@
      */
     async function copyBriefing(key: string) {
         let line = "Copied! Paste it into the ChatGPT app and we'll take it from there.";
-        try {
-            await navigator.clipboard.writeText(briefing(location.origin));
-        } catch {
-            line = "The clipboard said no — the ? in the corner has the prompt too.";
+        if (!await copyText(briefing(location.origin))) {
+            line = "This browser blocked copying. Try the site on HTTPS or localhost.";
         }
         scatter = scatter.map(prop =>
             (prop.key === key ? { ...prop, say: line, copied: true } : prop));
@@ -1377,9 +1378,16 @@
                     style:top="{scatter[1].y}%"
                     style:--rise="calc(max(72px, {scatter[1].size}vmin) * {(scatter[1].aspect ?? 1) / 2} + 14px)"
                 >
-                    <span>Or watch a community story:</span>
+                    <span use:said={{
+                        voice: { speed: 1.1, age: 0.22, tone: 0.68 },
+                        replay: true,
+                        complete: () => { storyLinkReadyFor = scatter[0]?.key ?? null; },
+                    }}>Or watch a community story:</span>
                     {#each suggestedPlays as play (play.id)}
-                        <a href="/p/{encodeURIComponent(play.id)}?autoplay=1">{play.title || "Untitled story"}</a>
+                        <a
+                            class:story-link--ready={storyLinkReadyFor === scatter[0]?.key}
+                            href="/p/{encodeURIComponent(play.id)}?autoplay=1"
+                        >{play.title || "Untitled story"}</a>
                     {/each}
                 </div>
             {/if}
@@ -1681,7 +1689,7 @@
         border-radius: 0.9em;
         background: var(--surface-page-elevated, #fff);
         color: var(--text-primary);
-        font-size: 0.9rem;
+        font-size: clamp(0.9rem, 0.85rem + 0.3vw, 1rem);
         line-height: 1.4;
         pointer-events: auto;
         rotate: 3deg;
@@ -1703,7 +1711,15 @@
 
     .story-bubble span,
     .story-bubble a { display: block; }
-    .story-bubble a { margin-top: 0.35em; color: inherit; text-decoration: underline; }
+    .story-bubble a {
+        margin-top: 0.35em;
+        color: inherit;
+        text-decoration: underline;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .story-bubble a.story-link--ready { visibility: visible; opacity: 1; }
     .story-bubble a:hover { text-decoration-thickness: 2px; }
 
     .page--intro .file-tools {
@@ -1711,7 +1727,7 @@
     }
 
     :global(.page--intro .shelf) {
-        animation: intro-chrome 0.5s 4.45s both;
+        animation: intro-chrome 0.5s 7s both;
     }
 
     @keyframes intro-chrome {
@@ -2052,6 +2068,10 @@
         border-radius: 12px;
     }
 
+    .reset-stage-tool--armed {
+        background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+    }
+
     .clear-stage-tool__warning, .reset-stage-tool__warning {
         position: absolute;
         top: calc(100% + 10px);
@@ -2071,13 +2091,20 @@
         animation: file-error-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
     }
 
-    :global(html.painterly) .clear-stage-tool__warning {
+    .reset-stage-tool__warning {
+        border-color: var(--text-primary);
+        color: var(--text-primary);
+    }
+
+    :global(html.painterly) .clear-stage-tool__warning,
+    :global(html.painterly) .reset-stage-tool__warning {
         background-image:
             paint(painterly-wash),
             linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
     }
 
-    .clear-stage-tool__warning::before {
+    .clear-stage-tool__warning::before,
+    .reset-stage-tool__warning::before {
         content: "";
         position: absolute;
         top: -6px;
@@ -2088,6 +2115,10 @@
         background: inherit;
         border-top: 1.5px solid var(--accent-error, #D93A62);
         border-left: 1.5px solid var(--accent-error, #D93A62);
+    }
+
+    .reset-stage-tool__warning::before {
+        border-color: var(--text-primary);
     }
 
     .file-tool-error {
@@ -2153,7 +2184,8 @@
 
     @media (prefers-reduced-motion: reduce) {
         .file-tool-error,
-        .clear-stage-tool__warning { animation: none; }
+        .clear-stage-tool__warning,
+        .reset-stage-tool__warning { animation: none; }
     }
 
     /*

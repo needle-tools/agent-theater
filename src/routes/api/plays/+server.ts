@@ -4,6 +4,7 @@ import { claimPublishSlot, database } from "$lib/server/database";
 import { newId, newToken, tokenHash, validateAssets, validateDoc } from "$lib/server/plays";
 import { summarize } from "$lib/collage/playSummary";
 import { env } from "$env/dynamic/private";
+import { dev } from "$app/environment";
 import { devPlay } from "$lib/server/devPlay";
 
 export const prerender = false;
@@ -38,8 +39,9 @@ export async function GET({ url }: { url: URL }) {
         && maxChapters === null && minSeconds === null && maxSeconds === null;
 
     if (!env.DATABASE_URL) {
-        console.warn("[plays] DATABASE_URL is not configured; returning the sample play for the public shelf.");
-        return json({ plays: sampleFits ? [devPlay(url.origin)] : [], unavailable: true });
+        console.warn("[plays] DATABASE_URL is not configured.");
+        if (dev) return json({ plays: sampleFits ? [devPlay(url.origin)] : [], unavailable: true });
+        return json({ error: "Play library is unavailable." }, { status: 503 });
     }
     try {
         const { sql, ready } = database(); await ready;
@@ -60,13 +62,13 @@ export async function GET({ url }: { url: URL }) {
             const counts = sampleFits
                 ? await sql`select visibility, count(*)::int as count from plays group by visibility`
                 : [];
-            console.info("[plays] No public plays matched the list request; returning sample when eligible.", {
+            console.info("[plays] No public plays matched the list request.", {
                 minChapters, filtered: !sampleFits, counts,
             });
         }
 
         return json({
-            plays: (rows.length ? rows : sampleFits ? [devPlay(url.origin)] : []).map(row => ({
+            plays: (rows.length ? rows : dev && sampleFits ? [devPlay(url.origin)] : []).map(row => ({
                 id: row.id,
                 title: row.title,
                 chapters: row.chapters ?? 0,

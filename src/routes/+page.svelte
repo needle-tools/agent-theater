@@ -14,16 +14,12 @@
     import Collage from "$lib/collage/Collage.svelte";
     import { hint } from "$lib/collage/hint";
     import { briefing } from "$lib/collage/invitation";
+    import { copyText } from "$lib/collage/clipboard";
 
     let promptCopyState = $state<"idle" | "copied" | "failed">("idle");
 
     async function copyPrompt() {
-        try {
-            await navigator.clipboard.writeText(briefing(location.origin));
-            promptCopyState = "copied";
-        } catch {
-            promptCopyState = "failed";
-        }
+        promptCopyState = await copyText(briefing(location.origin)) ? "copied" : "failed";
         setTimeout(() => (promptCopyState = "idle"), 2200);
     }
 </script>

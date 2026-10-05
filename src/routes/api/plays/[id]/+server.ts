@@ -4,11 +4,12 @@ import { claimPublishSlot, database } from "$lib/server/database";
 import { owns, resolveAssets, validateAssets, validateDoc } from "$lib/server/plays";
 import { summarize } from "$lib/collage/playSummary";
 import { DEV_PLAY_DOC, DEV_PLAY_ID, devPlay } from "$lib/server/devPlay";
+import { dev } from "$app/environment";
 
 export const prerender = false;
 
 export const GET: RequestHandler = async ({ params, url }) => {
-    if (params.id === DEV_PLAY_ID)
+    if (dev && params.id === DEV_PLAY_ID)
         return json({ ...devPlay(url.origin), doc: DEV_PLAY_DOC });
     try {
         const { sql, ready } = database(); await ready;
