@@ -184,9 +184,9 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
     return [save(false), save(true), {
         name: "show_list",
         title: "List published plays",
-        description: "Find public plays made here — id, title, how many chapters, how long, "
-            + "which troupe packs, and the shareable URL. Only plays with at least one chapter "
-            + "are listed: a canvas somebody saved without scripting it is not something to load. "
+        description: "Find public scripted plays made here — id, title, how many chapters, how long, "
+            + "which troupe packs, and the shareable URL. Arrangements and tableaux without "
+            + "scripted beats remain available by direct link, but are not listed. "
             + "Narrow with title, theme, chapter count or length before loading anything.",
         inputSchema: {
             type: "object",
@@ -198,7 +198,7 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
                     description: "A troupe pack the play draws on — \"fairy-tale\", \"ocean\", "
                         + "\"villains\", \"forest\". One at a time.",
                 },
-                minChapters: { type: "number", description: "Default 1. Pass 0 to include unscripted canvases." },
+                minChapters: { type: "number", description: "Default 1. All results still require a script." },
                 maxChapters: { type: "number", description: "For finding something short to look at." },
                 minSeconds: { type: "number", description: "Runtime in seconds, holds included." },
                 maxSeconds: { type: "number", description: "Runtime in seconds. Plays saved before lengths were recorded are skipped when this is set." },
@@ -224,7 +224,7 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
                         const themes = play.themes?.length ? ` — ${play.themes.join(", ")}` : "";
                         return `${play.id} — ${play.title} — ${chapters}, ${length}${themes} — ${play.url}`;
                     }).join("\n")
-                    : "No published play matches that. Try fewer filters, or minChapters: 0 to include unscripted canvases.";
+                    : "No scripted public play matches that. Try fewer filters.";
                 return { content: [{ type: "text", text }], structuredContent: data };
             } catch (error) { return { content: [{ type: "text", text: String(error) }], isError: true }; }
         },

@@ -2,9 +2,9 @@
     /**
      * The sticker drawers, sitting where you can reach them.
      *
-     * Each configured shelf group is a little pile of stickers at the bottom
-     * edge. Each pile shows the exact sticker a drag will deal; clicking it
-     * shuffles that preview. The root manifest owns the order and theme list.
+     * Five display stacks cover the stickers at the bottom edge. Each stack
+     * shows the exact sticker a drag will deal; clicking advances the preview.
+     * The root manifest still owns the art categories and metadata.
      * The pieces arrive as real layers — the same ones theater_troupe deals —
      * so an agent looking at the canvas sees exactly what was arranged.
      *
@@ -18,7 +18,8 @@
      * a quick source of surprises rather than a catalogue to browse.
      */
     import { onDestroy } from "svelte";
-    import { TROUPE, TROUPE_SHELF, type TroupePiece } from "./troupe.js";
+    import { type TroupePiece } from "./troupe.js";
+    import { shelfStacks } from "./shelfStacks.js";
     import { STAGE_WIDTH, type CollageStudio } from "./studio.js";
     import { idleSet } from "./idleSet.js";
     import { tamedWidth } from "./placement.js";
@@ -48,39 +49,16 @@
         return studio.onShowChanged(() => (showing = !!studio.showing));
     });
 
-    let shelfMode = $state<"assorted" | "themes">("assorted");
-    const packs = $derived.by(() => TROUPE_SHELF[shelfMode]
-        .map(group => ({
-            ...group,
-            pieces: TROUPE.filter(piece =>
-                group.packs.includes(piece.pack) && group.kinds.includes(piece.kind)),
-        }))
-        .filter(group => group.pieces.length));
+    const packs = shelfStacks();
     let nextByPack = $state<Record<string, string>>({});
 
-    /*
-     * A thought per pile, keyed by the PILE's id.
-     *
-     * These used to be keyed by pack name — animals, forest, office — while the
-     * lookup below passes a shelf group id. Nothing ever matched, so all of them
-     * fell through to the same fallback and every pile in the drawer wondered
-     * the same thing at you. Both tabs are covered: the eight everyday piles and
-     * the five themes, so the fallback is a safety net rather than the norm.
-     */
+    /** Direct instructions for each display stack. */
     const PACK_THOUGHTS: Record<string, string> = {
-        cast: "Who walks on first? %wait5% Someone here wants something badly... // Maybe two of them have already met.",
-        creatures: "What if a creature wandered in? %wait5% Maybe it knows the way home... // Or perhaps it has something to say.",
-        nature: "What could be waiting in the woods? %wait5% A trail appears where none was before... // Maybe the trees remember everything.",
-        "water-sky": "Something strange washes ashore... %wait5% What is moving beneath the waves? // Perhaps the tide brought a message.",
-        indoors: "A quiet room can hold a big secret... %wait5% Who left the light on? // Perhaps something here is not where it belongs.",
-        props: "Whose hand does this belong in? %wait5% Someone will want this back... // Maybe it was left behind on purpose.",
-        street: "Where might the road lead next? %wait5% A storm could be coming... // Maybe this place has been forgotten.",
-        "night-space": "The lights go out, and then? %wait5% Something is awake up there... // Maybe nobody else has noticed yet.",
-        "birthday-party": "Who forgot to send an invitation? %wait5% One guest is not what they seem... // Maybe the surprise is on the host.",
-        "lost-and-found": "Everything here belonged to somebody... %wait5% Who has been looking for this? // Maybe it was never lost at all.",
-        "moon-magic": "The moon is paying attention... %wait5% What was promised under it? // Maybe it wants something back.",
-        "pirate-cove": "What did the tide leave behind? %wait5% Somebody buried this and lied about it... // Maybe the map is wrong on purpose.",
-        "whimsical-kingdom": "Perhaps an old spell wakes up... %wait5% Who has been waiting in the tower? // Maybe the crown chose the wrong hero.",
+        "cast-creatures": "Drag a character onto the stage. Click to see another.",
+        "nature-water": "Drag scenery onto the stage. Click to see another.",
+        "rooms-props": "Drag a prop onto the stage. Click to see another.",
+        "street-night": "Drag a sticker onto the stage. Click to see another.",
+        "themes-more": "Drag a sticker onto the stage. Click to see another.",
     };
 
     /** The pile shows stickers, not stage slices — a backdrop face-down on a
@@ -206,10 +184,10 @@
         return stickers[hash % stickers.length];
     }
 
-    function randomizeNext(pack: ShelfPack): void {
+    function advanceNext(pack: ShelfPack): void {
         const current = nextSticker(pack);
-        const alternatives = stickersOf(pack.pieces).filter(piece => piece.id !== current.id);
-        const next = alternatives[Math.floor(Math.random() * alternatives.length)] ?? current;
+        const stickers = stickersOf(pack.pieces);
+        const next = stickers[(stickers.findIndex(piece => piece.id === current.id) + 1) % stickers.length];
         nextByPack[pack.id] = next.id;
     }
 
@@ -297,11 +275,11 @@
             // Dropped on the canvas: consume this preview and deal the next.
             void addPiece(piece, toCanvas(event.clientX, event.clientY));
             const pack = packs.find(candidate => candidate.id === packId);
-            if (pack) randomizeNext(pack);
+            if (pack) advanceNext(pack);
         } else if (!wandered) {
-            // Clicking is a shuffle, not an add: show another exact preview.
+            // Clicking advances the preview without adding a sticker.
             const pack = packs.find(candidate => candidate.id === packId);
-            if (pack) randomizeNext(pack);
+            if (pack) advanceNext(pack);
         }
         playInteractionSound("putdown", studio.speaker.ready);
     }
@@ -325,32 +303,25 @@
         role="group"
         aria-label="Sticker packs"
     >
-        {#if false}
-            <div class="shelf__modes" role="group" aria-label="Sort sticker piles">
-                <button
-                    class:active={shelfMode === "assorted"}
-                    aria-pressed={shelfMode === "assorted"}
-                    onclick={() => (shelfMode = "assorted")}
-                >Assorted</button>
-                <button
-                    class:active={shelfMode === "themes"}
-                    aria-pressed={shelfMode === "themes"}
-                    onclick={() => (shelfMode = "themes")}
-                >Themes</button>
-            </div>
-        {/if}
-        <div class="piles">
+        <div class="shelf__row">
+          <div class="shelf__prompt" aria-hidden="true">
+            <span>Drag to add</span>
+            <svg viewBox="0 0 30 16" fill="none" aria-hidden="true">
+              <path d="M1 8h26m-7-6 7 6-7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="piles">
             {#each packs as pack (pack.id)}
                 {@const piece = nextSticker(pack)}
                 <button
                     class="pile"
                     aria-label="Drag this {pack.label} sticker, or click to see another"
-                    use:hint={PACK_THOUGHTS[pack.id] ?? "What story could this begin?"}
+                    use:hint={PACK_THOUGHTS[pack.id] ?? "Drag onto the stage. Click to see another."}
                     onpointerdown={event => startPackDrag(event, pack)}
                     onkeydown={event => {
                         if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            randomizeNext(pack);
+                            advanceNext(pack);
                         }
                     }}
                 >
@@ -359,6 +330,7 @@
                     </span>
                 </button>
             {/each}
+          </div>
         </div>
     </div>
 
@@ -422,30 +394,26 @@
         padding: 4px;
     }
 
-    .shelf__modes {
+    .shelf__row {
         display: flex;
-        padding: 2px;
-        border: 1px solid color-mix(in srgb, var(--text-primary) 14%, transparent);
-        border-radius: 999px;
-        background: color-mix(in srgb, var(--surface-panel) 84%, transparent);
-        box-shadow: 0 2px 8px rgba(31, 26, 19, 0.08);
+        align-items: center;
+        max-width: 100%;
     }
 
-    .shelf__modes button {
-        padding: 4px 10px;
-        border: 0;
-        border-radius: 999px;
-        background: transparent;
+    .shelf__prompt {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        white-space: nowrap;
         color: var(--text-secondary);
-        font: inherit;
-        font-size: 11px;
-        cursor: var(--cursor-pointer, pointer);
+        font-size: 13px;
+        padding-right: 8px;
     }
 
-    .shelf__modes button.active {
-        background: var(--surface-panel);
-        color: var(--text-primary);
-        box-shadow: 0 1px 4px rgba(31, 26, 19, 0.13);
+    .shelf__prompt svg {
+        width: 30px;
+        height: 16px;
+        flex: none;
     }
 
     /*
@@ -481,16 +449,16 @@
 
     .pile__stack {
         position: relative;
-        width: 62px;
-        height: 56px;
+        width: 93px;
+        height: 84px;
     }
 
     .pile__stack img {
         position: absolute;
         inset: 0;
         margin: auto;
-        max-width: 54px;
-        max-height: 50px;
+        max-width: 81px;
+        max-height: 75px;
         filter: drop-shadow(0 1px 1.5px rgba(20, 24, 18, 0.35));
         transition: filter 0.16s;
     }

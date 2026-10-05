@@ -21,6 +21,8 @@ export interface PlaySummary {
     seconds: number;
     /** Troupe packs the cast and scenery come from, for "find me a sea story". */
     themes: string[];
+    /** At least one chapter contains a scripted beat. */
+    scripted: boolean;
 }
 
 /**
@@ -37,6 +39,10 @@ const inhabited = (stage: Stage) =>
 
 export function chaptersOf(doc: StoredDoc): number {
     return (doc?.stages ?? []).filter(inhabited).length;
+}
+
+export function scriptedOf(doc: StoredDoc): boolean {
+    return (doc?.stages ?? []).some(stage => Array.isArray(stage?.script) && stage.script.length > 0);
 }
 
 /**
@@ -83,7 +89,7 @@ export function themesOf(doc: StoredDoc): string[] {
 }
 
 export function summarize(doc: StoredDoc): PlaySummary {
-    return { chapters: chaptersOf(doc), seconds: secondsOf(doc), themes: themesOf(doc) };
+    return { chapters: chaptersOf(doc), seconds: secondsOf(doc), themes: themesOf(doc), scripted: scriptedOf(doc) };
 }
 
 /**
@@ -101,7 +107,7 @@ export function summarize(doc: StoredDoc): PlaySummary {
  * a second and gets truncated after that — whoever sees it should learn what
  * this particular play is before they learn what the site is.
  */
-export function describePlay(summary: PlaySummary, story = ""): string {
+export function describePlay(summary: Pick<PlaySummary, "chapters" | "seconds" | "themes">, story = ""): string {
     const telling = story.trim().replace(/[.\s]+$/, "");
     const facts: string[] = [];
     if (summary.chapters > 0) {

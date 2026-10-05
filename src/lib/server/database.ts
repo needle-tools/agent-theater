@@ -31,6 +31,7 @@ export function database() {
          * to count chapters would make the cheap query the expensive one.
          */
         await client!`alter table plays add column if not exists chapters integer`;
+        await client!`alter table plays add column if not exists scripted boolean`;
         await client!`alter table plays add column if not exists duration_seconds integer`;
         await client!`alter table plays add column if not exists themes text[] not null default '{}'`;
 
@@ -67,6 +68,18 @@ export function database() {
 
         await client!`create index if not exists plays_public_playable
             on plays (chapters, created_at desc) where visibility = 'public'`;
+
+        // Existing public rows can include tableaux with cast but no story.
+        await client!`update plays set scripted = exists (
+            select 1 from jsonb_array_elements(
+                case when jsonb_typeof(doc->'stages') = 'array'
+                     then doc->'stages' else '[]'::jsonb end) as stage
+            where jsonb_array_length(
+                case when jsonb_typeof(stage->'script') = 'array'
+                     then stage->'script' else '[]'::jsonb end) > 0
+        ) where scripted is null`;
+        await client!`create index if not exists plays_public_scripted_recent
+            on plays (created_at desc) where visibility = 'public' and scripted = true`;
 
         await client!`
             create table if not exists play_publish_events (

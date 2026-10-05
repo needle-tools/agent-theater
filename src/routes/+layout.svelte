@@ -208,6 +208,11 @@
         animation: github-intro 0.5s 5.1s both;
     }
 
+    :global(html:has(.page--intro-pending)) .github-corner {
+        opacity: 0;
+        visibility: hidden;
+    }
+
     @keyframes github-intro {
         from { opacity: 0; visibility: hidden; }
         to { opacity: 1; visibility: visible; }

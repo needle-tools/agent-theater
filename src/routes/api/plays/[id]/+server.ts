@@ -44,7 +44,8 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
         // has to be findable as what it now is, not as what it was published as.
         const summary = summarize(body.doc);
         await sql`update plays set title=${title}, visibility=${visibility}, doc=${sql.json(body.doc)}, assets=${sql.json(assets)},
-            chapters=${summary.chapters}, duration_seconds=${summary.seconds}, themes=${summary.themes}::text[], updated_at=now() where id=${params.id}`;
+            chapters=${summary.chapters}, duration_seconds=${summary.seconds}, themes=${summary.themes}::text[],
+            scripted=${summary.scripted}, updated_at=now() where id=${params.id}`;
         return json({ id: params.id, title, visibility, ...summary, url: `${url.origin}/p/${params.id}` });
     } catch (error) { console.error(error); return json({ error: "Could not update the play." }, { status: 503 }); }
 }

@@ -43,6 +43,7 @@
     const collage = studio.collage;
     const toasts = createToasts();
     let suggestedPlays = $state<Array<{ id: string; title: string }>>([]);
+    let suggestedPlaysLoaded = $state(false);
     let storyReadyFor = $state<string | null>(null);
     let storyLinkReadyFor = $state<string | null>(null);
 
@@ -60,6 +61,8 @@
             suggestedPlays = shuffled.slice(0, Math.min(plays.length, 1 + Math.floor(Math.random() * 3)));
         } catch {
             // The stage remains usable when the public library is offline.
+        } finally {
+            suggestedPlaysLoaded = true;
         }
     }
 
@@ -565,6 +568,8 @@
          * arrangement, not decoration, and the restock must not tidy it away.
          */
         touched?: boolean;
+        /** Carries the video bubble in the opening scene. */
+        videoHost?: boolean;
     }>>([]);
 
     /*
@@ -643,6 +648,28 @@
         // window, with the same floor.
         const px = (vmin: number) => Math.max(72, (vmin / 100) * Math.min(w, h));
         const out = props.map(prop => ({ ...prop }));
+        // Keep the opening stickers clear of the controls above and the
+        // sticker shelf below. Scale the reserved space on short windows.
+        const top = Math.min(h * 0.22, w <= 700 ? 100 : 125);
+        const bottom = Math.min(h * 0.46, w <= 700 ? 160 : 330);
+        const keepOnStage = (prop: typeof out[number]) => {
+            const radius = px(prop.size) / 2 + 8;
+            prop.x = Math.min(100 - (radius / w) * 100, Math.max((radius / w) * 100, prop.x));
+            prop.y = Math.min(100 - ((bottom + radius) / h) * 100,
+                Math.max(((top + radius) / h) * 100, prop.y));
+            if (prop.videoHost) {
+                const inset = Math.min(140, w / 2);
+                prop.x = Math.min(((w - inset) / w) * 100,
+                    Math.max((inset / w) * 100, prop.x));
+            }
+            // The making tools run down the upper-right corner.
+            if ((prop.y / 100) * h - radius < 290 && (prop.x / 100) * w + radius > w - 76) {
+                prop.x = ((w - 76 - radius) / w) * 100;
+            }
+        };
+        out.forEach(prop => {
+            if (!movable || movable.has(prop.key)) keepOnStage(prop);
+        });
         for (let pass = 0; pass < 40; pass++) {
             let crowded = false;
             for (let a = 0; a < out.length; a++) {
@@ -660,10 +687,11 @@
                     const uy = dy / gap;
                     for (const [prop, sign] of [[one, -1], [two, 1]] as const) {
                         if (movable && !movable.has(prop.key)) continue;
-                        prop.x = Math.min(94, Math.max(4, prop.x + ((ux * push * sign) / w) * 100));
+                        prop.x += ((ux * push * sign) / w) * 100;
                         if (!prop.say) {
-                            prop.y = Math.min(90, Math.max(6, prop.y + ((uy * push * sign) / h) * 100));
+                            prop.y += ((uy * push * sign) / h) * 100;
                         }
+                        keepOnStage(prop);
                     }
                 }
             }
@@ -978,6 +1006,12 @@
                 swingAt: Math.random() * 11,
             });
         }
+        // Give the video its own quiet sticker, below the spoken lines.
+        if (strewn[2]) {
+            strewn[2].videoHost = true;
+            strewn[2].x = (Math.max(140, window.innerWidth * 0.25) / window.innerWidth) * 100;
+            strewn[2].y = 65;
+        }
         // Nobody starts on top of anybody: overlap is fine once a person has
         // made it — that is theirs — but at spawn it just reads as a glitch.
         return separate(strewn);
@@ -1208,6 +1242,7 @@
     class="page"
     class:page--shared={sharedView}
     class:page--intro={empty && scatter.length > 0}
+    class:page--intro-pending={empty && scatter.length === 0}
     style:--paper={paperColour || null}
     bind:this={pageEl}
     role="region"
@@ -1374,6 +1409,26 @@
                     </ul>
                 </div>
             {/if}
+            {#if empty && scatter[2] && suggestedPlaysLoaded && storyReadyFor === scatter[0]?.key
+                && (!suggestedPlays.length || storyLinkReadyFor === scatter[0]?.key)}
+                {#key scatter[0].key}
+                    <div class="video-bubble" aria-label="Agent Theater video"
+                        style:left="{scatter[2].x}%"
+                        style:top="{scatter[2].y}%"
+                        style:--rise="calc(max(72px, {scatter[2].size}vmin) * {(scatter[2].aspect ?? 1) / 2} + 14px)"
+                    >
+                        <span>See the theater in action</span>
+                        <iframe
+                            src="https://www.youtube-nocookie.com/embed/L47n_Hej968"
+                            title="Agent Theater on YouTube"
+                            loading="lazy"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerpolicy="strict-origin-when-cross-origin"
+                            allowfullscreen
+                        ></iframe>
+                    </div>
+                {/key}
+            {/if}
         </div>
     {/if}
 
@@ -1390,6 +1445,15 @@
     {/if}
 
     <div class="file-tools" class:file-tools--watching={showing} aria-label="Play tools">
+        <button
+            class="file-tool reset-stage-tool"
+            disabled={clearing}
+            aria-label="Return to the starting stage"
+            use:hint={"Start over with fresh stickers and intro bubbles."}
+            onclick={resetStage}
+        >
+            <img src="/toolbar/loading-icon.webp" alt="" draggable="false" />
+        </button>
         <button
             class="eraser"
             class:eraser--armed={erasing}
@@ -1419,15 +1483,6 @@
             onclick={clearStage}
         >
             <img src="/toolbar/clear-bin.webp" alt="" draggable="false" />
-        </button>
-        <button
-            class="file-tool reset-stage-tool"
-            disabled={clearing}
-            aria-label="Return to the starting stage"
-            use:hint={"Start over with fresh stickers and intro bubbles."}
-            onclick={resetStage}
-        >
-            <img src="/toolbar/loading-icon.webp" alt="" draggable="false" />
         </button>
         <button class="file-tool file-tool--share" disabled={!layers.length || sharing} aria-label="Share play" use:hint={sharing ? "Making a share link…" : "Publish online and share a link."} onclick={sharePlay}>
             <img src="/toolbar/share.webp" alt="" draggable="false" />
@@ -1707,8 +1762,77 @@
     }
     .story-bubble a:hover { text-decoration-thickness: 2px; }
 
+    .video-bubble {
+        position: absolute;
+        translate: -50% calc(-100% - var(--rise, 60px));
+        width: min(260px, 32vw);
+        padding: 0.65em;
+        border: 1.5px solid var(--text-primary);
+        border-radius: 0.9em;
+        background: var(--surface-page-elevated, #fff);
+        color: var(--text-primary);
+        font-size: clamp(0.9rem, 0.85rem + 0.3vw, 1rem);
+        line-height: 1.4;
+        pointer-events: auto;
+        rotate: -3deg;
+        transform-origin: 50% calc(100% + 0.4em);
+        box-shadow: 0 4px 12px rgba(34, 44, 32, 0.1);
+        animation: bubble-pop 0.45s 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    :global(html.painterly) .video-bubble {
+        background-image:
+            paint(painterly-wash),
+            linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
+    }
+
+    .video-bubble::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -10px;
+        width: 17px;
+        height: 17px;
+        border-right: 1.5px solid var(--text-primary);
+        border-bottom: 1.5px solid var(--text-primary);
+        background: var(--surface-page-elevated, #fff);
+        translate: -50% 0;
+        rotate: 45deg;
+    }
+
+    .video-bubble span {
+        display: block;
+        margin-bottom: 0.45em;
+    }
+
+    .video-bubble iframe {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: 0;
+        border-radius: 0.35em;
+        background: #111;
+    }
+
+    @media (max-width: 700px) {
+        .video-bubble {
+            width: min(220px, calc(100vw - 110px));
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .video-bubble { animation-duration: 0.01ms; }
+    }
+
     .page--intro .file-tools {
         animation: intro-chrome 0.5s 4.15s both;
+    }
+
+    .page--intro-pending .file-tools,
+    .page--intro-pending .audio-tool,
+    :global(.page--intro-pending .shelf) {
+        opacity: 0;
+        visibility: hidden;
     }
 
     :global(.page--intro .shelf) {
@@ -1959,6 +2083,7 @@
         right: 16px;
         z-index: 45;
         display: flex;
+        flex-direction: column;
         align-items: center;
         gap: 6px;
         transition-property: opacity;
@@ -2013,8 +2138,8 @@
 
     .audio-tool {
         position: fixed;
-        right: 76px;
-        bottom: 12px;
+        right: 12px;
+        bottom: 76px;
         z-index: 30;
         width: 52px;
         height: 52px;
@@ -2048,7 +2173,7 @@
 
     .file-tool-error {
         position: absolute;
-        top: calc(100% + 10px);
+        right: calc(100% + 12px);
         z-index: 1;
         width: min(360px, calc(100vw - 32px));
         max-width: none;
@@ -2072,21 +2197,21 @@
             linear-gradient(var(--surface-page-elevated, #fff), var(--surface-page-elevated, #fff));
     }
 
-    .file-tool-error--share { right: 112px; }
-    .file-tool-error--save { right: 56px; }
+    .file-tool-error--share { top: 168px; }
+    .file-tool-error--save { top: 224px; }
 
     .file-tool-error::before {
         content: "";
         position: absolute;
-        top: -6px;
-        right: 18px;
+        top: 18px;
+        right: -6px;
         width: 11px;
         height: 11px;
         rotate: 45deg;
         background: inherit;
         border-top: 1.5px solid var(--accent-error, #D93A62);
-        border-left: 1.5px solid var(--accent-error, #D93A62);
-        border-top-left-radius: 3px;
+        border-right: 1.5px solid var(--accent-error, #D93A62);
+        border-top-right-radius: 3px;
     }
 
     .file-tool-error:active { scale: 0.96; }

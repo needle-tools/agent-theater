@@ -12,9 +12,8 @@ export const prerender = false;
 /**
  * The public shelf, and what an agent can ask of it.
  *
- * The default is the important part: `minChapters` is 1, so a canvas somebody
- * saved without ever scripting it is not offered as something to load. Asking
- * for 0 brings them back for a caller that genuinely wants everything.
+ * Public discovery requires a scripted beat. Saved arrangements and tableaux
+ * still have direct links, but are not suggested as community plays.
  *
  * Length filters skip rows written before durations were recorded, because
  * "unknown" is not "short" and answering a request for plays under a minute
@@ -50,6 +49,7 @@ export async function GET({ url }: { url: URL }) {
             select id, title, chapters, duration_seconds, themes, created_at, updated_at
             from plays
             where visibility = 'public'
+              and scripted = true
               and coalesce(chapters, 0) >= ${minChapters}
               ${maxChapters === null ? sql`` : sql`and coalesce(chapters, 0) <= ${Math.trunc(maxChapters)}`}
               ${minSeconds === null ? sql`` : sql`and duration_seconds >= ${Math.trunc(minSeconds)}`}
@@ -103,9 +103,9 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
         }
         const summary = summarize(body.doc);
         const { sql, ready } = database(); await ready;
-        await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, written_by, chapters, duration_seconds, themes)
+        await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, written_by, chapters, duration_seconds, themes, scripted)
             values (${id}, ${tokenHash(editToken)}, ${title}, ${visibility}, ${sql.json(body.doc)}, ${sql.json(assets)}, ${env.COMMIT_SHA || null},
-                    ${summary.chapters}, ${summary.seconds}, ${summary.themes}::text[])`;
+                    ${summary.chapters}, ${summary.seconds}, ${summary.themes}::text[], ${summary.scripted})`;
         return json({ id, editToken, title, visibility, ...summary, url: `${url.origin}/p/${id}` }, { status: 201 });
     } catch (error) { console.error(error); return json({ error: "Could not save the play." }, { status: 503 }); }
 }

@@ -130,8 +130,8 @@
         pointer-events: none;
     }
 
-    .help-trigger { right: 204px; }
-    .record-trigger { right: 140px; }
+    .help-trigger { right: 12px; bottom: 204px; }
+    .record-trigger { right: 12px; bottom: 140px; }
 
     .help-trigger:hover,
     .record-trigger:hover {
@@ -157,6 +157,12 @@
 
     :global(.canvas-shell:has(.page--intro)) .record-trigger {
         animation: intro-corner 0.5s 4.9s both;
+    }
+
+    :global(.canvas-shell:has(.page--intro-pending)) .help-trigger,
+    :global(.canvas-shell:has(.page--intro-pending)) .record-trigger {
+        opacity: 0;
+        visibility: hidden;
     }
 
     @keyframes intro-corner {
@@ -192,7 +198,7 @@
         }
 
         .help-trigger {
-            right: 140px;
+            bottom: 140px;
         }
     }
 

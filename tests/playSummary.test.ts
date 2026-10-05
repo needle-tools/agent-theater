@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { chaptersOf, describePlay, secondsOf, summarize, themesOf } from "../src/lib/collage/playSummary.js";
+import { chaptersOf, describePlay, scriptedOf, secondsOf, summarize, themesOf } from "../src/lib/collage/playSummary.js";
 import type { StoredDoc } from "../src/lib/collage/persistence.js";
 
 /**
@@ -42,6 +42,13 @@ describe("counting chapters", () => {
         expect(chaptersOf(doc({
             stages: [stage(), stage({ cast: [{ id: "a" }] }), stage(), stage({ script: [{ id: "b", do: "jump" }] })],
         }))).toBe(2);
+    });
+});
+
+describe("scripted plays", () => {
+    it("excludes an arranged tableau and includes a chapter with a scripted beat", () => {
+        expect(scriptedOf(doc({ stages: [stage({ cast: [{ id: "a" }] })] }))).toBe(false);
+        expect(scriptedOf(doc({ stages: [stage({ script: [{ id: "a", do: "walk" }] })] }))).toBe(true);
     });
 });
 
