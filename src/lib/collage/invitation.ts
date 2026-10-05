@@ -39,12 +39,14 @@ export function briefing(origin: string): string {
     return (
         `Open ${origin.replace(/\/$/, "")}/?new and load its WebMCP tools — it is a theatre and you are directing. ` +
         `Call theater_start first: it says what is already on the stage and what to do next. ` +
-        `Then look at theater_troupe (ready-cut art packs) and PITCH me 1–3 stories you could ` +
+        `If I have already given you a story, build that one. Otherwise look at theater_troupe ` +
+        `(ready-cut art packs) and PITCH me 1–3 stories you could ` +
         `stage with what is there — a line each, naming the pack — so I can pick or redirect. ` +
         `Classics work beautifully here: a Grimm or Andersen fairy tale, a fable, a folk tale ` +
         `retold with the pieces at hand is a fine pitch alongside your inventions; ` +
         `if you can generate images, one pitch may go beyond the packs, and the page will cut ` +
-        `whatever you make into pieces. Build only after I choose. ` +
+        `whatever you make into pieces. Build after I choose, or immediately if I have ` +
+        `already chosen. ` +
         `Get art from theater_troupe (instant) or theater_art_prompt + piece_sheet, ` +
         `name the piece with show_title, build each scene with stage_create and stage_cast, ` +
         `write it with stage_script — moves, lines, reactions, camera — ` +

@@ -115,7 +115,7 @@ function fakeStudio(options: FakeOptions = {}) {
         setSpeaker() { /* the fake is deaf */ },
         async narrate() { /* and mute: bubbles need a canvas */ },
         setNarrator() { /* nothing mounts one here */ },
-        async restoreFromWings() { return 0; },
+        async restoreFromWings() { return null; },
         get speaker() { return SILENT; },
         showing: null as string | null,
         holding: false,
@@ -1009,6 +1009,7 @@ describe("the guide", () => {
         const { studio } = fakeStudio();
         const { text } = await guideOf(studio);
         expect(text).toContain("NEXT: there is nothing to stage");
+        expect(text).toContain("If the person already chose a story");
         expect(text).toContain("theater_art_prompt");
     });
 
@@ -1020,6 +1021,7 @@ describe("the guide", () => {
         expect(text).toContain("EMPTY");
         expect(text).toContain(`"Der Waldweg"`);
         expect(text).toContain("still picture");
+        expect(text).toContain("IF CONTINUING THIS PLAY:");
         expect(text).toContain("stage_cast");
         expect(data.stages[0].cast).toBe(0);
     });
@@ -1241,6 +1243,8 @@ describe("arriving at a page that already has a play on it", () => {
         const text = await first(studio, "theater_start");
         expect(text).toContain("IT REMEMBERS");
         expect(text).toContain("CHECK BEFORE YOU BUILD");
+        expect(text).toContain("NEW, separate play");
+        expect(text).toContain("Do not save or publish the previous play as a precaution");
     });
 
     it("says it again on the way past, for an agent that never asked", async () => {

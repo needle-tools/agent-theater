@@ -228,8 +228,10 @@ function reportChanges(studio: CollageStudio, tool: WebMcpToolDef): WebMcpToolDe
                             `This page is a theatre and you are directing it. Call theater_start before ` +
                             `you build anything: it says what the page can do, and — more importantly — ` +
                             `what is already on it. This canvas is saved in the browser and comes back ` +
-                            `by itself, so there may be a play here from another conversation that you ` +
-                            `should be continuing rather than starting a second one beside.`,
+                            `by itself, so there may be a play here from another conversation. Continue ` +
+                            `it only if that is what the person asked for. For a new, separate play, ` +
+                            `theater_clear keeps a local undo and opens a blank canvas; do not upload ` +
+                            `the previous play as a precaution.`,
                     }] : []),
                     ...(theirs.length ? [{
                         type: "text" as const,
@@ -602,12 +604,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
 
                 const next =
                     !layers.length
-                        ? `NEXT: there is nothing to stage. Look at theater_troupe, then PITCH the ` +
-                          `person 1–3 stories you could stage with what is in the drawer — one line ` +
-                          `each, naming the pack. Classics are welcome pitches too: a Grimm or ` +
-                          `Andersen fairy tale or a folk tale retold with the pieces at hand. If you ` +
-                          `can generate images, one pitch may go beyond the packs. Build only after ` +
-                          `they have picked.`
+                        ? `NEXT: there is nothing to stage. If the person already chose a story, ` +
+                          `use that story and start building it. Otherwise look at theater_troupe, ` +
+                          `then pitch 1–3 stories using its packs and let the person choose. ` +
+                          `Classics are welcome too; generate only art the chosen story still needs.`
                     : !stages.length
                         ? `NEXT: there are pieces but no scenes — and the pieces may BE the brief. The ` +
                           `person can arrange stickers on the canvas themselves, and an arrangement is a ` +
@@ -633,6 +633,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     : !billing.title
                         ? `NEXT: the play works but has no name. Call show_title, then show_play.`
                         : `NEXT: it is ready. Call show_play and narrate over the top of it.`;
+                const nextForThisPlay = layers.length || stages.length || billing.title
+                    ? next.replace(/^NEXT:/, "IF CONTINUING THIS PLAY:") : next;
 
                 return ok([
                     `This is a theatre. The canvas is one infinite flat world seen from above —`,
@@ -684,20 +686,24 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  pieces, the scenes, the script, the title. The tools you are reading did not exist`,
                     `  until the saved play had finished loading, so what is listed under RIGHT NOW is`,
                     `  everything there is, and it is already here.`,
-                    `  So when you arrive at this page, CHECK BEFORE YOU BUILD. If there is a play, carry`,
-                    `  it on — add the scene it is missing, fix the thing that is wrong — rather than`,
-                    `  starting another one beside it. Nothing is cleared between conversations, and two`,
-                    `  half-finished plays on one canvas is the usual way this goes wrong.`,
+                    `  CHECK BEFORE YOU BUILD. If the person asks to continue the play on this page,`,
+                    `  carry it on. If they ask for a NEW, separate play, use theater_clear first, then`,
+                    `  build the new play on the empty canvas. Clearing keeps a local undo in the wings;`,
+                    `  theater_restore can bring the previous set back while this canvas is empty.`,
+                    `  Do not save or publish the previous play as a precaution: show_save and`,
+                    `  show_publish upload it online. Use those only when the person asks to save or`,
+                    `  share. A new play must not be mixed into an unrelated earlier one.`,
                     ``,
                     `THE STORY COMES FIRST — OPEN BY PITCHING`,
-                    `  Do not ask an empty question; bring ideas. Look at what the troupe holds`,
+                    `  If the person has already chosen a story, start making that story. Do not ask`,
+                    `  them to choose again. Otherwise bring ideas: look at what the troupe holds`,
                     `  (theater_troupe) and pitch 1–3 stories you could stage with it — one line`,
                     `  each: who wants what, what stands in the way, what changes. Name the pack`,
                     `  each pitch would use, so choosing a story is choosing a look. If you can`,
                     `  generate images yourself, one pitch may go beyond the packs — say so; the`,
                     `  page cuts whatever you generate into pieces (theater_art_prompt writes the`,
                     `  prompt, piece_sheet does the cutting).`,
-                    `  Let the person pick or redirect BEFORE you build anything. Every later`,
+                    `  If pitching, let the person pick or redirect BEFORE you build anything. Every later`,
                     `  choice — which backdrops, which cast, what each scene is for — follows from`,
                     `  the story. A play built art-first is a slideshow with a plot attached, and`,
                     `  that is what every shallow play so far has been.`,
@@ -752,7 +758,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                            `is why: check this id against the one in the last reply.`]
                         : []),
                     `  ${state}`,
-                    `  ${next}`,
+                    `  ${nextForThisPlay}`,
                     ...strewn,
                 ].join("\n"), {
                     layers: layers.length,
@@ -764,7 +770,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         beats: stage.script.length,
                     })),
                     billing,
-                    next,
+                    next: nextForThisPlay,
                     page: where.id,
                     visible: !where.hidden,
                     avatar: avatarState,
@@ -821,18 +827,25 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             title: "Clear the whole stage",
             annotations: { readOnlyHint: false, destructiveHint: true },
             description:
-                "Clear the canvas: removes all pieces, scenes, scripts and the title. Safe — " +
-                "theater_restore brings everything back. The canvas stays empty for 30 seconds; " +
-                "if nothing is added by then, a fresh random scatter of stickers appears.",
+                "Start a separate new play on this canvas. The current pieces, scenes, script and " +
+                "title are saved locally in the wings before the canvas is cleared; theater_restore " +
+                "can bring them back while the canvas is empty. This does not upload or publish " +
+                "anything. If the browser cannot keep the local undo, clearing is refused. " +
+                "The canvas stays empty for 30 seconds, then a fresh sticker scatter appears.",
             inputSchema: { type: "object", properties: {} },
             async execute() {
-                if (studio.showing) studio.stopShow("agent");
-                idleSet.clearedBy = "agent";
-                await studio.clear();
-                return ok(
-                    `Cleared — the old set waits in the wings (theater_restore brings it back). The ` +
-                    `paper stays bare for half a minute of building room; after that the idle page ` +
-                    `deals a fresh random scatter as a new starting point.`);
+                try {
+                    if (studio.showing) studio.stopShow("agent");
+                    await studio.clear();
+                    idleSet.clearedBy = "agent";
+                    return ok(
+                        `Ready for a new play. The previous set is kept locally in the wings; ` +
+                        `theater_restore can bring it back while this canvas is empty. The ` +
+                        `paper stays bare for half a minute of building room; after that the idle page ` +
+                        `deals a fresh random scatter as a new starting point.`);
+                } catch (error) {
+                    return fail(error instanceof Error ? error.message : String(error));
+                }
             },
         },
         {
@@ -845,7 +858,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             async execute() {
                 try {
                     const count = await studio.restoreFromWings();
-                    if (!count) {
+                    if (count === null) {
                         return fail(`The wings are empty — nothing has been cleared to bring back.`);
                     }
                     return ok(

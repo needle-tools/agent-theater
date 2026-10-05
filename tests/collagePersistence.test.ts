@@ -34,6 +34,27 @@ beforeEach(() => {
     vi.stubGlobal("localStorage", new MemoryStorage());
 });
 
+describe("starting a separate play", () => {
+    it("keeps even a title-only play locally and restores it without an upload", async () => {
+        const studio = createStudio();
+        studio.collage.setBilling({ title: "Previous play" });
+
+        await studio.clear();
+        expect(studio.collage.billing.title).toBeUndefined();
+        expect(await studio.restoreFromWings()).toBe(0);
+        expect(studio.collage.billing.title).toBe("Previous play");
+    });
+
+    it("leaves the current play in place if the local undo cannot be saved", async () => {
+        vi.stubGlobal("localStorage", new MemoryStorage(0));
+        const studio = createStudio();
+        studio.collage.setBilling({ title: "Keep this" });
+
+        await expect(studio.clear()).rejects.toThrow("could not keep a local undo");
+        expect(studio.collage.billing.title).toBe("Keep this");
+    });
+});
+
 function collageWithImages(count: number, src: string, storageKey: (i: number) => string | null) {
     let n = 0;
     const collage = new Collage({ newId: prefix => `${prefix}-${++n}` });

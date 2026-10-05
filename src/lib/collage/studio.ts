@@ -26,7 +26,7 @@ import {
     type CutPiece, type CutRegion, type CutResult, type Progress,
 } from "./background.js";
 import {
-    collectGarbage, clearDoc, clearImages, clearWings, getImage, loadDoc, loadWings,
+    collectGarbage, clearDoc, clearWings, getImage, loadDoc, loadWings,
     newImageKey, putImage, saveDoc, stashDoc,
     type StoredDoc, type StoredView,
 } from "./persistence.js";
@@ -409,13 +409,8 @@ export interface CollageStudio {
     openFile(file: Blob, options?: { replace?: boolean }): Promise<number>;
     save(view?: StoredView): void;
     clear(): Promise<void>;
-    /**
-     * Walk the last struck set back on from the wings. A clear is a stash,
-     * not a deletion — this is the other half. Only onto an empty canvas:
-     * restoring on top of new work would trade one loss for another.
-     * Returns how many layers came back; 0 when the wings are empty.
-     */
-    restoreFromWings(): Promise<number>;
+    /** Restore the last locally stashed set onto an empty canvas. Null means no stash. */
+    restoreFromWings(): Promise<number | null>;
     /** The decoded images, for the canvas component to draw with. */
     readonly images: Map<string, LoadedImage>;
 }
@@ -2373,8 +2368,6 @@ export function createStudio(collage = new Collage()): CollageStudio {
         },
 
         async clear() {
-            if (saveTimer) clearTimeout(saveTimer);
-            saveTimer = null;
             /*
              * The set steps into the wings before the stage is struck: the
              * document goes to localStorage, and the garbage collection below
@@ -2383,10 +2376,17 @@ export function createStudio(collage = new Collage()): CollageStudio {
              * button marked "not undoable".
              */
             const struck = collage.listAll();
-            const stashed = struck.length
-                ? stashDoc(struck, collage.listFrames(), collage.listStages(), collage.billing,
-                    collage.background)
-                : false;
+            const stages = collage.listStages();
+            const billing = collage.billing;
+            const hasContent = !!(struck.length || stages.length || billing.title || billing.byline
+                || billing.credits?.length || collage.background);
+            const stashed = hasContent && stashDoc(struck, collage.listFrames(), stages, billing,
+                collage.background);
+            if (hasContent && !stashed) {
+                throw new Error("The browser could not keep a local undo, so the stage was not cleared.");
+            }
+            if (saveTimer) clearTimeout(saveTimer);
+            saveTimer = null;
             for (const url of objectUrls) URL.revokeObjectURL(url);
             objectUrls.clear();
             images.clear();
@@ -2396,8 +2396,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
             forgetCurrentPlay();
             pagePreset = FREE_PAGE;
             clearDoc();
-            if (stashed) await collectGarbage(struck);
-            else await clearImages();
+            await collectGarbage(stashed ? struck : loadWings()?.layers ?? []);
             record("cleared", stashed
                 ? "The canvas was cleared — the set waits in the wings."
                 : "The canvas was cleared.");
@@ -2405,7 +2404,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
         async restoreFromWings() {
             const doc = loadWings();
-            if (!doc?.layers.length) return 0;
+            if (!doc) return null;
             if (collage.listAll().length) {
                 throw new Error("The canvas is not empty — restoring would bury the new work.");
             }
