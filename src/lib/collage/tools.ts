@@ -1046,7 +1046,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     url: {
                         type: "string",
                         description:
-                            "http(s) or data: URL of the sheet. For art served from a LOCAL or " +
+                            "http(s), data:, or /api/sheets/ URL of the sheet. To keep large image bytes " +
+                            "out of a WebMCP tool call, upload the raw PNG/WebP bytes to POST /api/sheets first " +
+                            "(Content-Type: image/png or image/webp; 5 MB maximum). Pass the short url " +
+                            "from its JSON response here. It expires after two hours. For art served from a LOCAL or " +
                             "temporary server (127.0.0.1, localhost tunnels), pass a data: URL " +
                             "instead — a local http image often loads but cannot be read back " +
                             "for cutting (CORS), and the cut dies after this call has answered.",
@@ -1074,9 +1077,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 url?: string; columns?: number; rows?: number; as?: string; labels?: string[];
             }) {
                 const url = str(args?.url);
-                if (!url) return fail(`Pass a "url" — http(s) or data:.`);
-                if (!/^(https?:|data:image\/)/i.test(url)) {
-                    return fail(`"${truncate(url, 60)}" is not an image URL. Use http(s), or a data:image/… URL.`);
+                if (!url) return fail(`Pass a "url" — http(s), data:, or /api/sheets/.`);
+                if (!/^(https?:|data:image\/|\/api\/sheets\/[0-9a-f]{32}\.(?:png|webp)$)/i.test(url)) {
+                    return fail(`"${truncate(url, 60)}" is not an image URL. Use http(s), data:image/…, or /api/sheets/….`);
                 }
 
                 const columns = num(args?.columns) ? Math.round(args.columns) : 0;

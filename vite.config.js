@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 
 export default defineConfig(async () => {
     return {
         plugins: [
             sveltekit(),
+            basicSsl(),
         ],
         server: {
             // Deliberately not a common dev port (3000/5173 are often blocked or taken).

@@ -54,6 +54,9 @@ This is a good fit for WebMCP because a direction such as *"walk stage left, loo
 
 Nothing to install, no API key, no server. The tools are there when the page loads.
 
+Run `npm run dev` for local HTTPS from Vite's basic SSL plugin, then open
+`https://localhost:6277/?new`. The plugin manages its own development certificate.
+
 **Drive it from:**
 
 | | |
@@ -92,6 +95,10 @@ The tools cover the full production workflow:
 Shows save, publish and share: `show_save`, `show_publish`, `show_list`, `show_load`. Share URLs are `/p/<id>`.
 
 For custom artwork, `theater_art_prompt` creates an image-generation prompt in the project's paper-cut style, including the layout constraints needed for animation and spritesheet cutting.
+
+To bring a generated sheet into `piece_sheet` without a large base64 tool argument, send the raw PNG or WebP bytes to `POST /api/sheets` with the matching `Content-Type`. The upload is limited to 5 MB and uses the configured S3/B2 bucket. The response contains a same-origin `url` such as `/api/sheets/<id>.png`; pass that URL to `piece_sheet`. It remains available for two hours, then the server rejects reads and removes expired objects from storage during cleanup (at startup and every 30 minutes). Base64 `data:image/…` URLs remain supported for smaller sheets.
+
+For example, `curl --data-binary @sheet.png -H "Content-Type: image/png" https://theater.needle.tools/api/sheets` returns the short URL. Uploads require the server's `B2_*` settings; the browser's WebMCP tool call only needs the returned URL.
 
 ## What is counted
 
