@@ -93,6 +93,7 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
         const assets = body.assets;
         const id = newId(); const editToken = newToken();
         const title = String(body.title || "Untitled play").slice(0, 160);
+        const cardSha = typeof body.cardSha === "string" && /^[a-f0-9]{64}$/.test(body.cardSha) ? body.cardSha : null;
         const visibility = "public";
         const limit = await claimPublishSlot(getClientAddress());
         if (!limit.allowed) return json({
@@ -101,8 +102,8 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
         }, { status: 429, headers: { "retry-after": String(limit.retryAfter) } });
         const summary = summarize(body.doc);
         const { sql, ready } = database(); await ready;
-        await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, written_by, chapters, duration_seconds, themes, scripted)
-            values (${id}, ${tokenHash(editToken)}, ${title}, ${visibility}, ${sql.json(body.doc)}, ${sql.json(assets)}, ${env.COMMIT_SHA || null},
+        await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, card_sha, written_by, chapters, duration_seconds, themes, scripted)
+            values (${id}, ${tokenHash(editToken)}, ${title}, ${visibility}, ${sql.json(body.doc)}, ${sql.json(assets)}, ${cardSha}, ${env.COMMIT_SHA || null},
                     ${summary.chapters}, ${summary.seconds}, ${summary.themes}::text[], ${summary.scripted})`;
         return json({ id, editToken, title, visibility, ...summary, url: `${url.origin}/p/${id}` }, { status: 201 });
     } catch (error) { console.error(error); return json({ error: "Could not save the play." }, { status: 503 }); }

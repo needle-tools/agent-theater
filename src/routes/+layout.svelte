@@ -38,14 +38,14 @@
      * not an override — it is two titles, and which one wins is up to whoever
      * is reading. One place decides, and a page only has to hand it a card.
      *
-     * The picture stays the house card either way: a play's own poster lives
-     * in the file somebody downloads, not on the server, so there is nothing
-     * per-play to point a crawler at.
+     * Published plays can supply their own image; older plays use the house card.
      */
     const card = $derived({
         title: CARD_TITLE,
         description: CARD_DESCRIPTION,
         url: SITE,
+        image: `${SITE}/og.webp`,
+        imageAlt: CARD_ALT,
         ...(page.data?.card ?? {}),
     });
 
@@ -83,16 +83,16 @@
     <meta property="og:url" content={card.url} />
     <meta property="og:title" content={card.title} />
     <meta property="og:description" content={card.description} />
-    <meta property="og:image" content={`${SITE}/og.webp`} />
+    <meta property="og:image" content={card.image} />
     <meta property="og:image:type" content="image/webp" />
     <meta property="og:image:width" content="1672" />
     <meta property="og:image:height" content="941" />
-    <meta property="og:image:alt" content={CARD_ALT} />
+    <meta property="og:image:alt" content={card.imageAlt} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={card.title} />
     <meta name="twitter:description" content={card.description} />
-    <meta name="twitter:image" content={`${SITE}/og.webp`} />
-    <meta name="twitter:image:alt" content={CARD_ALT} />
+    <meta name="twitter:image" content={card.image} />
+    <meta name="twitter:image:alt" content={card.imageAlt} />
 </svelte:head>
 
 <AnimatedCursor />

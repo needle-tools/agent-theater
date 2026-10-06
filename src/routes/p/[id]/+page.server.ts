@@ -3,6 +3,7 @@ import { database } from "$lib/server/database";
 import { describePlay } from "$lib/collage/playSummary";
 import { devPlayDoc, devPlays } from "$lib/server/devPlay";
 import { dev } from "$app/environment";
+import { assetUrl } from "$lib/server/storage";
 
 export const prerender = false;
 
@@ -19,9 +20,7 @@ export const prerender = false;
  * The bounce to the app therefore happens on the client instead. It costs a
  * person nothing they can see and gains the card everything.
  *
- * Unlisted plays get a card too. Unlisted means "whoever has the link", and a
- * link is exactly what is being pasted; a preview that refused to say what it
- * was would be protecting nobody from anything.
+ * Legacy direct links get a card too; a pasted link should identify its play.
  */
 export const load: PageServerLoad = async ({ params, url }) => {
     const sample = dev ? devPlayDoc(params.id) : null;
@@ -36,10 +35,15 @@ export const load: PageServerLoad = async ({ params, url }) => {
     try {
         const { sql, ready } = database(); await ready;
         const [play] = await sql`
-            select title, chapters, duration_seconds, themes,
+            select title, chapters, duration_seconds, themes, card_sha,
                    doc #>> '{billing,byline}' as byline
             from plays where id = ${params.id}`;
         if (play) {
+            let image: string | undefined;
+            if (play.card_sha) {
+                try { image = assetUrl(String(play.card_sha)); }
+                catch { /* The title and fallback house image still make a valid card. */ }
+            }
             return {
                 id: params.id,
                 card: {
@@ -53,6 +57,10 @@ export const load: PageServerLoad = async ({ params, url }) => {
                         themes: Array.isArray(play.themes) ? play.themes.map(String) : [],
                     }, String(play.byline ?? "")),
                     url: `${url.origin}/p/${encodeURIComponent(params.id)}`,
+                    ...(image ? {
+                        image,
+                        imageAlt: `Paper theater poster for ${String(play.title || "Untitled play")}.`,
+                    } : {}),
                 },
             };
         }

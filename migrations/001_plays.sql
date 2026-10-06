@@ -5,6 +5,7 @@ create table if not exists plays (
     visibility text not null default 'public' check (visibility in ('unlisted', 'public')),
     doc jsonb not null,
     assets jsonb not null default '{}'::jsonb,
+    card_sha text,
     written_by text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()

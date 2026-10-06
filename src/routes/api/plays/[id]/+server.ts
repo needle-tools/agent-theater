@@ -31,6 +31,7 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
         if (!existing) return json({ error: "Play not found." }, { status: 404 });
         if (!owns(token, existing.edit_token_hash)) return json({ error: "The edit token is missing or invalid." }, { status: 403 });
         const title = String(body.title || "Untitled play").slice(0, 160);
+        const cardSha = typeof body.cardSha === "string" && /^[a-f0-9]{64}$/.test(body.cardSha) ? body.cardSha : null;
         const visibility = "public";
         if (existing.visibility !== "public") {
             const limit = await claimPublishSlot(getClientAddress());
@@ -43,7 +44,7 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
         // Recomputed, not carried over: an edit that adds a chapter or cuts one
         // has to be findable as what it now is, not as what it was published as.
         const summary = summarize(body.doc);
-        await sql`update plays set title=${title}, visibility=${visibility}, doc=${sql.json(body.doc)}, assets=${sql.json(assets)},
+        await sql`update plays set title=${title}, visibility=${visibility}, doc=${sql.json(body.doc)}, assets=${sql.json(assets)}, card_sha=${cardSha},
             chapters=${summary.chapters}, duration_seconds=${summary.seconds}, themes=${summary.themes}::text[],
             scripted=${summary.scripted}, updated_at=now() where id=${params.id}`;
         return json({ id: params.id, title, visibility, ...summary, url: `${url.origin}/p/${params.id}` });

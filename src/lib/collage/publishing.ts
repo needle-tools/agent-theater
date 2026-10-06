@@ -3,6 +3,7 @@ import type { StoredDoc } from "./persistence.js";
 import type { WebMcpToolDef } from "./tools.js";
 import { MissingImageAssetError } from "./persistence.js";
 import { track } from "../telemetry.js";
+import { unfurlCharacters, unfurlWebp } from "./shareCard.js";
 
 export const TOKEN_PREFIX = "needle-play/edit/";
 export const CURRENT_PLAY_KEY = "needle-play/current";
@@ -117,6 +118,7 @@ export async function savePlayOnline(
     });
     const local = prepared.local;
     if (local.length > 40) throw new Error("A play can publish at most 40 custom images.");
+    const title = (options.title || studio.collage.billing.title || "Untitled play").slice(0, 160);
     let total = 0;
     for (const asset of local) {
         phase = "encode_image";
@@ -129,6 +131,20 @@ export async function savePlayOnline(
         }));
         assets[asset.key] = uploaded.sha;
     }
+    let cardSha: string | undefined;
+    if (typeof FontFace !== "undefined" && document.fonts) {
+        try {
+            const characters = unfurlCharacters({ ...prepared.doc, layers: studio.collage.listAll() });
+            const card = await unfurlWebp(title, characters);
+            const uploaded = await json(await fetch("/api/assets", {
+                method: "POST", headers: { "content-type": "image/webp" }, body: card,
+            }));
+            cardSha = uploaded.sha;
+        } catch (error) {
+            console.warn("[unfurl] Could not publish the share image.", error);
+            track("play_unfurl_failed", { by, phase: "generate_or_upload" });
+        }
+    }
     const id = options.id;
     const token = id ? localStorage.getItem(TOKEN_PREFIX + id) : null;
     phase = "save_play";
@@ -136,9 +152,9 @@ export async function savePlayOnline(
         method: id ? "PUT" : "POST",
         headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
-            title: options.title || studio.collage.billing.title || "Untitled play",
+            title,
             visibility: "public",
-            doc: prepared.doc, assets,
+            doc: prepared.doc, assets, cardSha,
         }),
     }), by) as PublishedPlay & { editToken?: string };
     if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);
