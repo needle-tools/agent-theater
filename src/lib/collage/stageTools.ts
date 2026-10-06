@@ -310,17 +310,19 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             name: "show_play",
             title: "Put the show on",
             description:
-                "Run scenes. Pass hold:true to play SOME scenes and then HOLD — the stage stays lit, the " +
+                "Run scenes. In text chat, omit stages and hold to play the full show without live " +
+                "narration. In voice mode, pass one stage id with hold:true to play that scene and HOLD — " +
+                "the stage stays lit, the " +
                 "music keeps playing, and the last frame stands — so you can narrate what happened and " +
                 "write the next scene AFTER seeing this one. Call again with the next stage to continue; " +
-                "a call without hold ends with the curtain call and credits. This scene-by-scene loop is " +
-                "how a play stays in step with a story being told aloud, and it is the better default. " +
+                "a call without hold ends with the curtain call and credits. This scene-by-scene loop " +
+                "keeps voice narration in step with the story. " +
                 "Run the scenes one after another. Each one builds up — everybody with an entrance arrives — " +
                 "then its script plays, then they leave and the next scene begins. Returns the whole timetable " +
-                "at once and keeps playing, so you know when each scene starts and can narrate to it rather " +
+                "at once and keeps playing, so in voice mode you can narrate to it rather " +
                 "than waiting. The build-up and the exits are made for you; you only write what happens in " +
                 "between, with stage_script. Narration saved on beats is returned in the play document; " +
-                "if you are the live narrator, speak those passages alongside their moments.",
+                "if using voice mode, speak those passages alongside their moments.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -391,10 +393,10 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 const speechOff = prompter.mute;
                 return ok(
                     [`The show is running — ${timings.length} scene(s), ${(duration / 1000).toFixed(1)}s. ` +
-                     `Narrate along with it; do not wait for it.`,
+                     `In voice mode, narrate along with it; otherwise let the theatre perform.`,
                      ...(hold
                          ? [`It will HOLD after "${timings[timings.length - 1].name}" — lights down, ` +
-                            `music playing, last frame standing. Narrate, write the next scene now that ` +
+                            `music playing, last frame standing. In voice mode, narrate; write the next scene now that ` +
                             `you have seen this one, then show_play again with the next stage. Leave ` +
                             `"hold" off on the last call to bring the curtain down.`]
                          : []),
@@ -457,7 +459,7 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             description:
                 "Play a scene: who does what, and what they say, in order. Hand over the WHOLE scene in one " +
                 "call — you cannot animate by calling a tool per frame, and you do not need to. The page " +
-                "plays it and this returns at once with the timings, so you are free to narrate over the top. " +
+                "plays it and this returns at once with the timings, so in voice mode you can narrate over the top. " +
                 "One thing happens at a time: a beat starts when the last one ends, and there is no timing to " +
                 "work out. The scene KEEPS its script, so show_play can run it again as part of the whole " +
                 "show — pass rehearse:false to write it without playing it now. " +

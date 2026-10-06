@@ -651,7 +651,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                           `for what there is. It is the cheapest way to make four scenes feel like four.`
                     : !billing.title
                         ? `NEXT: the play works but has no name. Call show_title, then show_play.`
-                        : `NEXT: it is ready. Call show_play and narrate over the top of it.`;
+                        : `NEXT: it is ready. Call show_play; narrate alongside it only in voice mode.`;
                 const nextForThisPlay = layers.length || stages.length || billing.title
                     ? next.replace(/^NEXT:/, "IF CONTINUING THIS PLAY:") : next;
 
@@ -745,14 +745,15 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `     play.`,
                     `  6. stage_script with rehearse:false — moves, lines, sounds and camera moves,`,
                     `     in order. Put short storyteller passages in beats' narration field so`,
-                    `     they are saved with the play; narrate them live during playback.`,
+                    `     they are saved with the play; narrate them live only in voice mode.`,
                     `     Keep the cast in view with camera on:"all" or a group. A single-id shot`,
                     `     hides everyone else; make it brief and return to the group before dialogue`,
                     `     continues. End each scene with an on:"all" shot.`,
-                    `  7. show_play with stages:[sceneId], hold:true for ONE scene at a time. It`,
-                    `     returns immediately with timings; narrate while that scene runs. Once`,
-                    `     it reaches its hold, play the next scene. Omit hold on the last scene`,
-                    `     so the curtain call can finish. Do not read voiced dialogue twice.`,
+                    `  7. In VOICE MODE, show_play with stages:[sceneId], hold:true for ONE scene`,
+                    `     at a time. It returns immediately with timings; narrate while the scene`,
+                    `     runs. After its hold, play the next. Omit hold on the last scene for the`,
+                    `     curtain call. Do not read voiced dialogue twice. In text chat, call`,
+                    `     show_play once without hold for the whole play and skip live narration.`,
                     ``,
                     `WHAT ELSE TO KNOW`,
                     `  - One call, whole scene. You cannot animate by calling a tool per frame, and you`,

@@ -52,13 +52,15 @@ export function briefing(origin: string): string {
         `name the play with show_title, build each scene with stage_create and stage_cast, ` +
         `and write its moves, dialogue, camera, and brief storyteller passages with ` +
         `stage_script (rehearse:false). Put each storyteller passage in a beat's narration ` +
-        `field so it stays with the saved play. Then play ONE scene at a time with ` +
-        `show_play({stages:[sceneId], hold:true}). The call returns immediately with ` +
-        `timings: narrate alongside the action while it runs. Once that scene reaches ` +
-        `its hold, continue with the next scene. On the last scene, omit hold so the ` +
-        `show reaches its curtain call. Give cast members voices in stage_cast if ` +
-        `their dialogue should be audible; narrate around voiced dialogue rather ` +
-        `than reading those lines aloud again.`
+        `field so it stays with the saved play. If this chat is in VOICE MODE, ` +
+        `play ONE scene at a time with show_play({stages:[sceneId], hold:true}). ` +
+        `Each call returns immediately with timings: narrate alongside the action ` +
+        `while it runs, continue after the scene reaches its hold, and omit hold ` +
+        `on the last scene for the curtain call. Otherwise call show_play once ` +
+        `without hold to perform the whole finished play; let the theatre perform ` +
+        `without live narration. Give cast members voices in stage_cast if their ` +
+        `dialogue should be audible; in voice mode, narrate around voiced dialogue ` +
+        `rather than reading those lines aloud again.`
     );
 }
 
