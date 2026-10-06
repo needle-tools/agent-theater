@@ -306,6 +306,7 @@ describe("putting the show on", () => {
             expect(filmedBeats[pushIn].camera?.on).toEqual(["b"]);
             // Immediately before the line it is pushing in on.
             expect(filmedBeats[pushIn + 1].say).toBe("Who is there?");
+            expect(filmedBeats[pushIn + 2].camera?.on).toBe("all");
         });
 
         it("leaves a scene alone once it has a camera of its own", () => {

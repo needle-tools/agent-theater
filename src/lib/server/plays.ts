@@ -23,7 +23,10 @@ export function validateAssets(doc: StoredDoc, value: unknown): value is Record<
     const assets = value as Record<string, unknown>;
     if (Object.keys(assets).length > 40 || Object.values(assets).some(sha =>
         typeof sha !== "string" || !/^[a-f0-9]{64}$/.test(sha))) return false;
-    return doc.layers.every(layer => layer.kind !== "image" || !layer.storageKey || typeof assets[layer.storageKey] === "string");
+    return doc.layers.every(layer => layer.kind !== "image" ||
+        (layer.storageKey
+            ? typeof assets[layer.storageKey] === "string"
+            : !/^(blob:|data:)/i.test(layer.src)));
 }
 
 export function resolveAssets(doc: StoredDoc, assets: Record<string, string>): StoredDoc {

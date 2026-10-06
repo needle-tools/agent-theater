@@ -150,7 +150,8 @@ export interface Stage {
     /**
      * Put the cast back where this chapter was blocked before it starts.
      *
-     * Off by default, because the world is continuous on purpose: a hero who
+     * The first chapter of a fresh run always returns to its marks. Later
+     * chapters are off by default, because the world is continuous: a hero who
      * walked across the paper in chapter one is still there in chapter two,
      * and that is the whole point. It stops being the point when a chapter was
      * written against an arrangement the earlier chapters have since moved —

@@ -301,6 +301,24 @@ describe("where a chapter opens", () => {
         });
         expect(studio.openingPositions(two.id).get(wolf.id)).toEqual({ x: 1200, y: 40 });
     });
+
+    it("starts chapter one at its recorded marks after chapter two was arranged", async () => {
+        const { studio, wolf, one } = play();
+        // Authoring the later chapter moved the one shared canvas.
+        studio.collage.update(wolf.id, { x: 2400 });
+        expect(studio.openingPositions(one.id).get(wolf.id)).toEqual({ x: 1200, y: 40 });
+        const starts: number[] = [];
+        studio.setPerformer(async plan => {
+            if (plan.beats.some(beat => beat.move === "walk"))
+                starts.push(studio.collage.get(wolf.id)!.x);
+        });
+        vi.useFakeTimers();
+        try {
+            const { duration } = await studio.playShow();
+            await vi.advanceTimersByTimeAsync(duration + 120_000);
+        } finally { vi.useRealTimers(); }
+        expect(starts[0]).toBe(1200);
+    });
 });
 
 describe("a chapter that asks for its own blocking back", () => {

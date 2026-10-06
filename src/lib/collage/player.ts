@@ -140,7 +140,12 @@ export function play(plan: Plan, hand: Stagehand): Playing {
                 group.push(plan.beats[++at]);
             }
             await Promise.all(group.map(beat => playBeat(beat)));
+            const light = group.findLast(beat => beat.spotlight);
+            if (light?.spotlight && light.spotlight !== "off" && !light.spotlightHold)
+                hand.spotlight?.([], 1);
         }
+        // A held cue belongs to this scene, never to the next one.
+        hand.spotlight?.([], 1);
     })();
 
     async function playBeat(beat: PlannedBeat): Promise<void> {
@@ -292,6 +297,7 @@ export function play(plan: Plan, hand: Stagehand): Playing {
         finished,
         stop() {
             stopped = true;
+            hand.spotlight?.([], 1);
             for (const animation of [...animations]) animation.cancel();
             animations.clear();
             // Anything still being said is NOT cancelled here, because the

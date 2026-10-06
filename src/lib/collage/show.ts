@@ -160,8 +160,9 @@ export function sceneBeats(stage: Stage, sizeOf: (id: string) => number): BuildU
 export function filmed(script: Beat[]): Beat[] {
     if (script.some(beat => beat.camera)) return script;
 
-    // Establish, then find whoever speaks first. Two moves is the minimum that
-    // reads as a camera rather than as a glitch.
+    // Establish, find whoever speaks first, then return to the group. Without
+    // the return shot the automatic close-up hid everyone else for the rest of
+    // the scene, even though nobody directed that sustained framing.
     const opening: Beat = { camera: { on: "all", tight: 0.95 }, duration: 1600 };
     const firstLine = script.findIndex(beat => beat.say && beat.id);
     if (firstLine < 0) return [opening, ...script];
@@ -173,7 +174,9 @@ export function filmed(script: Beat[]): Beat[] {
         // Pushed in a little past snug, so it is closer than the establishing
         // shot without cropping anybody.
         { camera: { on: [speaker], tight: 1.15 }, duration: 1800 },
-        ...script.slice(firstLine),
+        script[firstLine],
+        { camera: { on: "all", tight: 0.75 }, duration: 1200 },
+        ...script.slice(firstLine + 1),
     ];
 }
 

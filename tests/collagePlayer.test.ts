@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { play } from "../src/lib/collage/player.js";
 import { plan as planScene } from "../src/lib/collage/perform.js";
 
@@ -16,9 +16,11 @@ const element = () => ({
 function stagehand() {
     const gone = new Set<string>();
     const said: string[] = [];
+    const lights: string[] = [];
     return {
         gone,
         said,
+        lights,
         hand: {
             elementFor: () => element(),
             stateOf: () => ({ size: 100, rotation: 0, opacity: 1, flip: false }),
@@ -38,6 +40,7 @@ function stagehand() {
             riders: () => [],
             async effect() {},
             async camera() {},
+            spotlight(ids: string[]) { lights.push(ids.join(",") || "off"); },
         },
     };
 }
@@ -75,5 +78,33 @@ describe("who is on stage when a scene starts", () => {
         const { plan } = planScene([{ id: "wolf", do: "exit" }]);
         await play({ ...plan, present: ["wolf"] }, hand).finished;
         expect(gone.has("wolf")).toBe(true);
+    });
+});
+
+describe("spotlight cues", () => {
+    it("brings the house lights back after the beat by default", async () => {
+        const { hand, lights } = stagehand();
+        const { plan } = planScene([{ id: "wolf", say: "I found it!", spotlight: "wolf" }]);
+        await play(plan, hand).finished;
+        expect(lights).toEqual(["wolf", "off", "off"]);
+    });
+
+    it("holds a cue when asked, then clears it when the scene ends", async () => {
+        const { hand, lights } = stagehand();
+        let finishLine!: () => void;
+        hand.voice = async () => new Promise<void>(resolve => { finishLine = resolve; });
+        const { plan } = planScene([
+            { spotlight: "wolf", spotlightHold: true, duration: 1 },
+            { id: "wolf", say: "I am here." },
+        ]);
+        vi.useFakeTimers();
+        try {
+            const playing = play(plan, hand);
+            await vi.advanceTimersByTimeAsync(2);
+            expect(lights).toEqual(["wolf"]);
+            finishLine();
+            await playing.finished;
+            expect(lights).toEqual(["wolf", "off"]);
+        } finally { vi.useRealTimers(); }
     });
 });

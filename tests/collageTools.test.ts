@@ -1554,6 +1554,19 @@ describe("casting touches the world only when asked", () => {
         expect(member.entrance).toBe("fade");
     });
 
+    it("keeps the first chapter's marks when a later edit changes its cast", async () => {
+        const { collage, stage, cast } = staged();
+        const hero = collage.addImage({ src: "hero", natural: { width: 100, height: 100 },
+            width: 100, x: 100, y: 80 });
+        const friend = collage.addImage({ src: "friend", natural: { width: 100, height: 100 },
+            width: 100, x: 500, y: 80 });
+        await cast.execute({ stage: stage.id, cast: [{ id: hero.id }] });
+        collage.update(hero.id, { x: 900 }); // blocked for a later chapter
+        await cast.execute({ stage: stage.id, cast: [{ id: friend.id }] });
+        expect(collage.getStage(stage.id)!.cast.find(member => member.id === hero.id))
+            .toMatchObject({ x: 100, y: 80 });
+    });
+
     it("gives troupe actors a fitting voice unless MCP supplies one", async () => {
         const { collage, stage, cast } = staged();
         const giant = collage.addImage({

@@ -32,6 +32,7 @@
     import { MENU_MUSIC_LEVEL, takeNames } from "$lib/collage/audio";
     import { beginAgentActivity, completeAgentActivity } from "$lib/room/activity";
     import { canEditPlay, CURRENT_PLAY_KEY, savePlayOnline, type PublishedPlay } from "$lib/collage/publishing.js";
+    import { MissingImageAssetError } from "$lib/collage/persistence.js";
     import { briefing } from "$lib/collage/invitation";
     import { copyText } from "$lib/collage/clipboard";
     import { prewarm } from "$lib/collage/background";
@@ -250,8 +251,8 @@
             announce("Saved publicly online.", { voiced: false });
         } catch (error) {
             toast.close();
-            track("play_save_failed", { by: "human", where: "online", reason: message(error).slice(0, 120) });
-            showFileToolError("save", "We couldn’t save the play online. Please try again.");
+            showFileToolError("save", error instanceof MissingImageAssetError
+                ? error.message : "We couldn’t save the play online. Please try again.");
         } finally {
             sharing = false;
         }
@@ -260,9 +261,11 @@
     async function sharePlay() {
         if (!collage.listAll().length || sharing) return;
         sharing = true;
+        let saved = false;
         const toast = toasts.push("Making a share link…", "busy");
         try {
             const play = await persistPlay();
+            saved = true;
             toast.close();
 
             if (navigator.share) {
@@ -281,8 +284,11 @@
             announce("Share link copied.", { voiced: false });
         } catch (error) {
             toast.close();
-            track("play_save_failed", { by: "human", where: "online", reason: message(error).slice(0, 120) });
-            showFileToolError("share", "We couldn’t save the play just now. Maybe try again in a little while.");
+            if (saved) track("play_share_failed", { by: "human", phase: "share_or_copy" });
+            showFileToolError("share", saved
+                ? "The play was saved, but we couldn’t open or copy its share link. Please try sharing again."
+                : error instanceof MissingImageAssetError ? error.message
+                : "We couldn’t save the play just now. Maybe try again in a little while.");
         } finally {
             sharing = false;
         }

@@ -17,6 +17,7 @@
  */
 import type { Clip } from "./clips.js";
 import type { Billing, Frame, Layer, Stage } from "./model.js";
+import { track } from "../telemetry.js";
 
 const DOC_KEY = "needle-collage/doc/v1";
 const DB_NAME = "needle-collage";
@@ -202,8 +203,66 @@ function transact<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => I
     });
 }
 
-export function putImage(key: string, blob: Blob): Promise<unknown> {
-    return transact("readwrite", store => store.put(blob, key));
+export async function putImage(key: string, blob: Blob): Promise<void> {
+    const db = await openDb();
+    if (!db) {
+        track("image_storage_failed", { phase: "open" });
+        throw new Error("The browser could not store this image locally.");
+    }
+    await new Promise<void>((resolve, reject) => {
+        let transaction: IDBTransaction;
+        try {
+            transaction = db.transaction(IMAGE_STORE, "readwrite");
+            transaction.objectStore(IMAGE_STORE).put(blob, key);
+        } catch {
+            track("image_storage_failed", { phase: "write" });
+            reject(new Error("The browser could not store this image locally."));
+            return;
+        }
+        // Request success is too early: a transaction can still abort before
+        // its bytes are committed. Only then may a layer claim this storageKey.
+        let failed = false;
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = transaction.onabort = () => {
+            if (failed) return;
+            failed = true;
+            track("image_storage_failed", { phase: "commit" });
+            reject(new Error("The browser could not store this image locally."));
+        };
+    });
+}
+
+export class MissingImageAssetError extends Error {
+    constructor() {
+        super("A local image is no longer available. Re-add that image before sharing this play.");
+        this.name = "MissingImageAssetError";
+    }
+}
+
+/** All local images a published document names, including recoverable live blobs. */
+export async function imageAssetsFor(
+    layers: Layer[],
+    fetchSource: (url: string) => Promise<Blob | null>,
+    readStored: (key: string) => Promise<Blob | null> = getImage,
+): Promise<Array<{ key: string; blob: Blob }>> {
+    const sources = new Map<string, string>();
+    for (const layer of layers) {
+        if (layer.kind === "image" && layer.storageKey && !sources.has(layer.storageKey))
+            sources.set(layer.storageKey, layer.src);
+    }
+    const assets: Array<{ key: string; blob: Blob }> = [];
+    for (const [key, src] of sources) {
+        let blob = await readStored(key);
+        // Older sessions could accept a blob after an IndexedDB write failed.
+        // While this tab still has its object URL, Share can recover its bytes.
+        if (!blob?.size && src) {
+            blob = await fetchSource(src);
+            if (blob?.size) track("play_asset_recovered", { source: "live_image" });
+        }
+        if (!blob?.size) throw new MissingImageAssetError();
+        assets.push({ key, blob });
+    }
+    return assets;
 }
 
 export function getImage(key: string): Promise<Blob | null> {

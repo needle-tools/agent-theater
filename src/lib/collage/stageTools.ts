@@ -644,8 +644,14 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "Put a spotlight on a layer id (or an array of ids, or 'off'). " +
                                         "Everything else dims; the lit pieces stay fully visible and " +
                                         "the beam follows them when they move. Can ride along with " +
-                                        "another beat; alone it takes no time and needs no id. Lasts " +
-                                        "until changed or the scene ends.",
+                                        "another beat; alone it lasts 1.6 seconds and needs no id. " +
+                                        "By default it ends with this beat, so later dialogue is lit normally. " +
+                                        "Use spotlightHold:true only when the light should span later beats; " +
+                                        "then send spotlight:'off' when the moment ends.",
+                                },
+                                spotlightHold: {
+                                    type: "boolean",
+                                    description: "Keep a spotlight across later beats until spotlight:'off'. Default false: this beat only.",
                                 },
                                 range: {
                                     type: "number",
@@ -981,7 +987,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         type: "boolean",
                         description:
                             "Put this chapter's cast back where it was blocked before the chapter " +
-                            "starts. Off by default, and worth turning on for a chapter you wrote " +
+                            "starts. The first chapter of a fresh run does this automatically; " +
+                            "later chapters leave it off by default. Turn it on for a chapter you wrote " +
                             "before the earlier ones were played: walks and jumps really move the " +
                             "pieces, so by chapter three everybody is somewhere else. Whoever has " +
                             "drifted fades out, moves, and fades back in.",
@@ -1179,7 +1186,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                         `what is on the canvas.`);
                 }
 
-                const cast = stage.cast.filter(member => !dropped.has(member.id));
+                const previousCast = stage.cast;
+                const cast = previousCast.filter(member => !dropped.has(member.id));
 
                 for (const member of wanted) {
                     const id = str(member?.id);
@@ -1219,6 +1227,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
 
                     const placement: Placement = {
                         id,
+                        ...(typeof previous?.x === "number" && typeof previous?.y === "number"
+                            ? { x: previous.x, y: previous.y } : {}),
                         ...(member.entrance && (ENTRANCES as readonly string[]).includes(member.entrance)
                             ? { entrance: member.entrance }
                             : previous?.entrance ? { entrance: previous.entrance } : {}),
@@ -1272,9 +1282,15 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                  * world owns positions — but a chapter that asks to be
                  * restaged needs to know what it was written against.
                  */
+                const reblocked = new Set(wanted
+                    .filter(member => num(member?.x) || num(member?.y))
+                    .map(member => str(member.id)));
                 const blocked = cast.map(member => {
                     const layer = collage.own(member.id);
-                    return layer
+                    // Editing a voice or adding someone else must not overwrite
+                    // this member's opening marks with today's canvas position.
+                    const recorded = previousCast.find(earlier => earlier.id === member.id);
+                    return layer && (!recorded || reblocked.has(member.id))
                         ? { ...member, x: Math.round(layer.x), y: Math.round(layer.y) }
                         : member;
                 });

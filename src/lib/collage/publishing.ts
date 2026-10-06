@@ -1,6 +1,7 @@
 import type { CollageStudio } from "./studio.js";
 import type { StoredDoc } from "./persistence.js";
 import type { WebMcpToolDef } from "./tools.js";
+import { MissingImageAssetError } from "./persistence.js";
 import { track } from "../telemetry.js";
 
 export const TOKEN_PREFIX = "needle-play/edit/";
@@ -41,8 +42,42 @@ async function webp(blob: Blob): Promise<Blob> {
 
 async function json(response: Response) {
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || `Server returned ${response.status}.`);
+    if (!response.ok) throw new PublishHttpError(body.error || `Server returned ${response.status}.`, response.status);
     return body;
+}
+
+class PublishHttpError extends Error {
+    constructor(message: string, readonly status: number) { super(message); }
+}
+
+/** Upgrade old browser-only layers into uploadable assets for this publication. */
+export async function preparePlayAssets(
+    doc: StoredDoc,
+    local: Array<{ key: string; blob: Blob }>,
+    fetchSource: (url: string) => Promise<Blob | null>,
+): Promise<{ doc: StoredDoc; local: Array<{ key: string; blob: Blob }> }> {
+    const assets = [...local];
+    const keys = new Set(assets.map(asset => asset.key));
+    const sources = new Map<string, string>();
+    const layers = [] as StoredDoc["layers"];
+    for (const layer of doc.layers) {
+        if (layer.kind !== "image" || layer.storageKey || !/^(blob:|data:image\/)/i.test(layer.src)) {
+            layers.push(layer);
+            continue;
+        }
+        let key = sources.get(layer.src);
+        if (!key) {
+            const blob = await fetchSource(layer.src);
+            if (!blob?.size) throw new MissingImageAssetError();
+            key = `publish-local-${sources.size}`;
+            while (keys.has(key)) key += "-";
+            sources.set(layer.src, key);
+            keys.add(key);
+            assets.push({ key, blob });
+        }
+        layers.push({ ...layer, src: "", storageKey: key });
+    }
+    return { doc: { ...doc, layers }, local: assets };
 }
 
 async function publishResponse(response: Response, by: "human" | "agent", published: boolean) {
@@ -69,15 +104,26 @@ export function canEditPlay(id: string): boolean {
 export async function savePlayOnline(
     studio: CollageStudio,
     options: { published: boolean; id?: string; title?: string },
+    by: "human" | "agent" = "human",
 ): Promise<PublishedPlay> {
+    let phase = "collect_assets";
+    try {
     const assets: Record<string, string> = {};
-    const local = await studio.storedAssets!();
+    const prepared = await preparePlayAssets(studio.storedDoc!(), await studio.storedAssets!(), async src => {
+        try {
+            const response = await fetch(src);
+            return response.ok ? response.blob() : null;
+        } catch { return null; }
+    });
+    const local = prepared.local;
     if (local.length > 40) throw new Error("A play can publish at most 40 custom images.");
     let total = 0;
     for (const asset of local) {
+        phase = "encode_image";
         const encoded = await webp(asset.blob);
         total += encoded.size;
         if (total > 12_582_912) throw new Error("Custom images exceed the 12 MB per-play limit.");
+        phase = "upload_image";
         const uploaded = await json(await fetch("/api/assets", {
             method: "POST", headers: { "content-type": "image/webp" }, body: encoded,
         }));
@@ -85,20 +131,21 @@ export async function savePlayOnline(
     }
     const id = options.id;
     const token = id ? localStorage.getItem(TOKEN_PREFIX + id) : null;
+    phase = "save_play";
     const result = await publishResponse(await fetch(id ? `/api/plays/${encodeURIComponent(id)}` : "/api/plays", {
         method: id ? "PUT" : "POST",
         headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
             title: options.title || studio.collage.billing.title || "Untitled play",
             visibility: options.published ? "public" : "unlisted",
-            doc: studio.storedDoc!(), assets,
+            doc: prepared.doc, assets,
         }),
-    }), "human", options.published) as PublishedPlay & { editToken?: string };
+    }), by, options.published) as PublishedPlay & { editToken?: string };
     if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);
     // A play leaving the tab is the moment somebody decided it was worth
     // keeping. Its shape, never its title — that is theirs.
     track("play_saved", {
-        by: "human",
+        by,
         published: options.published,
         updated: !!id,
         images: local.length,
@@ -106,6 +153,22 @@ export async function savePlayOnline(
         pieces: studio.collage.listAll().length,
     });
     return result;
+    } catch (error) {
+        // Rybbit receives a category and phase, never a server message, title,
+        // image URL, or other content from the person's play.
+        track("play_save_failed", {
+            by, published: options.published, phase,
+            reason: error instanceof MissingImageAssetError ? "missing_local_image"
+                : error instanceof PublishHttpError && error.message === "Invalid or incomplete asset map."
+                    ? "asset_map_rejected"
+                : error instanceof Error && /limit|exceed/i.test(error.message) ? "limit"
+                : phase === "collect_assets" ? "local_asset_error"
+                : phase === "encode_image" ? "encode_error"
+                : phase === "upload_image" ? "image_upload_error" : "play_request_error",
+            ...(error instanceof PublishHttpError ? { status: error.status } : {}),
+        });
+        throw error;
+    }
 }
 
 export async function listPublicPlays(limit = 20): Promise<PublishedPlay[]> {
@@ -143,43 +206,11 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
         },
         async execute(args: { id?: string; title?: string }) {
             try {
-                const assets: Record<string, string> = {};
-                const local = await studio.storedAssets!();
-                if (local.length > 40) throw new Error("A play can publish at most 40 custom images.");
-                let total = 0;
-                for (const asset of local) {
-                    const encoded = await webp(asset.blob);
-                    total += encoded.size;
-                    if (total > 12_582_912) throw new Error("Custom images exceed the 12 MB per-play limit.");
-                    const uploaded = await json(await fetch("/api/assets", {
-                        method: "POST", headers: { "content-type": "image/webp" }, body: encoded,
-                    }));
-                    assets[asset.key] = uploaded.sha;
-                }
                 const id = typeof args?.id === "string" ? args.id : undefined;
-                const token = id ? localStorage.getItem(TOKEN_PREFIX + id) : null;
-                const result = await publishResponse(await fetch(id ? `/api/plays/${encodeURIComponent(id)}` : "/api/plays", {
-                    method: id ? "PUT" : "POST",
-                    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-                    body: JSON.stringify({
-                        title: args?.title || studio.collage.billing.title || "Untitled play",
-                        visibility: published ? "public" : "unlisted",
-                        doc: studio.storedDoc!(), assets,
-                    }),
-                }), "agent", published);
-                if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);
-                track("play_saved", {
-                    by: "agent",
-                    published,
-                    updated: !!id,
-                    images: local.length,
-                    chapters: studio.collage.listStages().length,
-                    pieces: studio.collage.listAll().length,
-                });
+                const result = await savePlayOnline(studio, { published, id, title: args?.title }, "agent");
                 return { content: [{ type: "text", text: `${published ? "Published" : "Saved"} “${result.title}”. Share: ${result.url}` }], structuredContent: result };
             } catch (error) {
                 const reason = error instanceof Error ? error.message : String(error);
-                track("play_save_failed", { by: "agent", published, reason: reason.slice(0, 120) });
                 return { content: [{ type: "text", text: `Could not save the play: ${reason}` }], isError: true };
             }
         },

@@ -791,9 +791,11 @@ export interface Beat {
      * Aim the spotlight: a layer id, several for a shared pool of light, or
      * "off" to bring the house lights back. Everything else dims gently; the
      * lit pieces are never covered and the beam follows them as they move.
-     * Lasts until changed or the chapter ends. Rides along like a sound.
+     * Lasts for this beat unless spotlightHold asks for a longer cue.
      */
     spotlight?: string | string[];
+    /** Keep the beam after this beat, until an "off" cue or the scene ends. */
+    spotlightHold?: boolean;
     /** Beam size as a multiple of the piece: 1 hugs it, 2.5 is a pool. */
     range?: number;
     duration?: number;
@@ -824,6 +826,7 @@ export interface PlannedBeat {
     background: string | null;
     /** Where the light goes: ids and beam size, "off", or null for no change. */
     spotlight: { ids: string[]; range: number } | "off" | null;
+    spotlightHold: boolean;
     duration: number;
 }
 
@@ -987,6 +990,7 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
                         // A camera move takes real time and is the point of the
                         // beat, so it gets a length worth watching.
                         : camera ? DEFAULT_CAMERA_MS
+                            : spotlight && spotlight !== "off" ? 1600
                             // A sound on its own takes no time: it fires and the
                             // scene carries on over it, which is what a sting is.
                             : 0));
@@ -1005,14 +1009,17 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
             planned.push({
                 id: "", with: false, becomes: null, take: null, drop: null, effect: null,
                 move: null, say: null, sound: null, camera: null, travel: null,
-                background: null, spotlight: null, duration: BREATH_MS,
+                background: null, spotlight: null, spotlightHold: false, duration: BREATH_MS,
             });
         }
         if (say) lastSpeaker = id;
 
         planned.push({
             id, with: together, becomes, take, drop, effect, move, say, sound, camera, travel,
-            background, spotlight, duration,
+            background, spotlight,
+            spotlightHold: spotlight !== "off" && (beat?.spotlightHold === true
+                || String(beat?.spotlightHold ?? "").trim().toLowerCase() === "true"),
+            duration,
         });
     }
 

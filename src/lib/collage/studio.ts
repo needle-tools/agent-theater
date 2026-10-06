@@ -26,7 +26,7 @@ import {
     type CutPiece, type CutRegion, type CutResult, type Progress,
 } from "./background.js";
 import {
-    collectGarbage, clearDoc, clearWings, getImage, loadDoc, loadWings,
+    collectGarbage, clearDoc, clearWings, getImage, imageAssetsFor, loadDoc, loadWings,
     newImageKey, putImage, saveDoc, stashDoc,
     type StoredDoc, type StoredView,
 } from "./persistence.js";
@@ -820,7 +820,10 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 collage.setBackground(stage.background);
             }
 
-            if (stage.restage) await restage(stage);
+            // A fresh run always starts at its first chapter's recorded marks.
+            // Authoring a later chapter may have moved the shared canvas, but
+            // that must not silently rewrite the opening of an earlier one.
+            if (stage.restage || (!resuming && stage === stages[0])) await restage(stage);
 
             const { approach, beats, hidden } = sceneBeats(stage, id => collage.get(id)?.height ?? 100);
             // Arrivals start off stage, then walk the same distance back on.
@@ -1564,6 +1567,9 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
             const isLocal = url.startsWith("data:") || url.startsWith("blob:");
             const blob = isLocal || wantsCut ? await fetchBlob(url) : null;
+            if (isLocal && !blob) {
+                throw new Error("The browser image is no longer available. Add it again before using it in a play.");
+            }
 
             if (wantsCut) {
                 // Said out loud, because the first cut on a cold cache pulls
@@ -1966,14 +1972,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
         },
 
         async storedAssets() {
-            const keys = new Set(collage.listAll().flatMap(layer =>
-                layer.kind === "image" && layer.storageKey ? [layer.storageKey] : []));
-            const assets: Array<{ key: string; blob: Blob }> = [];
-            for (const key of keys) {
-                const blob = await getImage(key);
-                if (blob) assets.push({ key, blob });
-            }
-            return assets;
+            return imageAssetsFor(collage.listAll(), fetchBlob);
         },
 
         async saveFile() {
@@ -2276,6 +2275,11 @@ export function createStudio(collage = new Collage()): CollageStudio {
 
         openingPositions(stageId) {
             const where = new Map<string, { x: number; y: number }>();
+            const stages = collage.listStages();
+            for (const member of stages[0]?.cast ?? []) {
+                if (typeof member.x === "number" && typeof member.y === "number")
+                    where.set(member.id, { x: member.x, y: member.y });
+            }
             const spot = (id: string) => {
                 const known = where.get(id);
                 if (known) return known;
@@ -2292,8 +2296,14 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 at.y += dy;
             };
 
-            for (const stage of collage.listStages()) {
+            for (const stage of stages) {
                 if (stage.id === stageId) break;
+                if (stage.restage) {
+                    for (const member of stage.cast) {
+                        if (typeof member.x === "number" && typeof member.y === "number")
+                            where.set(member.id, { x: member.x, y: member.y });
+                    }
+                }
                 // Exactly what the show does to the world, in the same order:
                 // the arrivals are put off stage, then every travelling beat
                 // commits. An entrance and its walk cancel out, which is why
@@ -2307,6 +2317,12 @@ export function createStudio(collage = new Collage()): CollageStudio {
             }
 
             const stage = collage.getStage(stageId);
+            if (stage?.restage && stage !== stages[0]) {
+                for (const member of stage.cast) {
+                    if (typeof member.x === "number" && typeof member.y === "number")
+                        where.set(member.id, { x: member.x, y: member.y });
+                }
+            }
             const opening = new Map<string, { x: number; y: number }>();
             for (const member of stage?.cast ?? []) {
                 const at = spot(member.id);
