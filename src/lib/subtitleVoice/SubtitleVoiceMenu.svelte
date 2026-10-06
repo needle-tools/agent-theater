@@ -7,7 +7,7 @@
         playGibberish,
         type GibberishPlayback,
         type GibberishVoiceOptions,
-    } from "./synth.js";
+    } from "@needle-tools/gibberish";
 
     interface Props {
         text: string;

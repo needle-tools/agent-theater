@@ -14,8 +14,8 @@
         recordGibberish,
         type GibberishPlayback,
         type GibberishVoiceOptions,
-    } from "$lib/subtitleVoice/synth";
-    import { estimateSubtitleTextDuration } from "$lib/subtitleVoice/timing";
+    } from "@needle-tools/gibberish";
+    import { estimateSubtitleTextDuration } from "@needle-tools/gibberish";
 
     let text = $state("Hello there! This little paper theater can talk now.");
     let profile = $state<GibberishVoiceOptions>({ ...DEFAULT_GIBBERISH_VOICE });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateSubtitleTextDuration, timeSubtitleTokens } from "../src/lib/subtitleVoice/timing.js";
+import { estimateSubtitleTextDuration, timeSubtitleTokens } from "@needle-tools/gibberish/timing";
 import {
     articulationGroups,
     normalizeGibberishVoice,
@@ -18,9 +18,9 @@ import {
     vowelVoiceProfile,
     wordNuclei,
     wordReleaseGap,
-} from "../src/lib/subtitleVoice/synth.js";
-import { vowelKind, vowelNuclei } from "../src/lib/subtitleVoice/vowels.js";
-import { pronounceToken, pronunciationVowels } from "../src/lib/subtitleVoice/phonemes.js";
+} from "@needle-tools/gibberish/synth";
+import { vowelKind, vowelNuclei } from "@needle-tools/gibberish/vowels";
+import { pronounceToken, pronunciationVowels } from "@needle-tools/gibberish/phonemes";
 import {
     DEFAULT_SUBTITLE_VOICE,
     normalizeSubtitleVoice,

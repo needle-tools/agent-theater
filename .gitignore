@@ -10,6 +10,7 @@ dist
 .DS_Store
 custom-elements.json
 .svelte-kit/
+.npm-cache/
 build/
 .env
 .env.*

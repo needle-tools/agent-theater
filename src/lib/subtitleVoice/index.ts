@@ -5,8 +5,8 @@ import {
     wordReleaseGap,
     type GibberishPlayback,
     type GibberishVoiceOptions,
-} from "./synth.js";
-import { estimateSubtitleTextDuration, timeSubtitleTokens, type TimedToken } from "./timing.js";
+} from "@needle-tools/gibberish";
+import { estimateSubtitleTextDuration, timeSubtitleTokens, type TimedToken } from "@needle-tools/gibberish";
 
 /** The complete public character-voice API. */
 export interface SubtitleVoice {
