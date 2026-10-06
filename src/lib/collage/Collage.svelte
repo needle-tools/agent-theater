@@ -1749,9 +1749,6 @@
         <button class="file-tool" disabled={!layers.length || sharing} aria-label="Save play publicly online" use:hint={sharing ? "Saving online…" : "Save this play publicly online."} onclick={saveOnline}>
             <img src={layers.length ? "/toolbar/save.webp" : "/toolbar/save-disabled.webp"} alt="" draggable="false" />
         </button>
-        <a class="file-tool file-tool--plays" href="/plays" aria-label="Browse community plays" use:hint={"Browse the play library."}>
-            <img src="/toolbar/community-plays.webp" alt="" draggable="false" />
-        </a>
         {#if fileToolError}
             <button
                 class="file-tool-error file-tool-error--{fileToolError.tool}"
@@ -2328,7 +2325,7 @@
         }
 
         /* Watching somebody's play: the making tools step out. */
-        .page--shared .file-tools > :not(.file-tool--share):not(.file-tool--plays),
+        .page--shared .file-tools > :not(.file-tool--share),
         .page--shared :global(.shelf) {
             display: none;
         }
@@ -2410,8 +2407,6 @@
         object-fit: contain;
         pointer-events: none;
     }
-    .file-tool--plays { margin-top: 8px; }
-    .file-tool--plays img { width: 68px; height: 68px; max-width: none; }
 
     .audio-tool {
         position: fixed;

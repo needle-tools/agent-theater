@@ -3393,6 +3393,7 @@
         border: 0;
         border-radius: 0.65em;
         background: var(--accent-brand);
+        font: inherit;
         cursor: pointer;
         box-shadow: 0 1px 2px rgba(34, 44, 32, 0.08), 0 6px 16px rgba(34, 44, 32, 0.1);
         transition: scale 150ms ease, background-color 150ms ease;
