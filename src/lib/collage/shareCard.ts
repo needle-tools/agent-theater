@@ -11,15 +11,53 @@ const TITLE_COLORS = ["#ad262d", "#e39a2a", "#123055", "#5e6336", "#dd735e", "#d
 const TITLE_OUTLINE = "#f8e8c8";
 let fontReady: Promise<void> | undefined;
 
-function tintedMask(mask: HTMLCanvasElement, color: string): HTMLCanvasElement {
+type CardImage = { width: number; height: number; close?: () => void };
+export interface UnfurlRenderer {
+    createCanvas(width: number, height: number): HTMLCanvasElement;
+    loadImage(src: string): Promise<CardImage>;
+    loadFont(): Promise<void>;
+    skipBrokenImages?: boolean;
+}
+
+const browserCanvas = (width: number, height: number) => {
     const canvas = document.createElement("canvas");
-    canvas.width = mask.width;
-    canvas.height = mask.height;
+    canvas.width = width;
+    canvas.height = height;
+    return canvas;
+};
+
+function tintedMask(mask: HTMLCanvasElement, color: string, createCanvas: UnfurlRenderer["createCanvas"]): HTMLCanvasElement {
+    const canvas = createCanvas(mask.width, mask.height);
     const ctx = canvas.getContext("2d")!;
     ctx.drawImage(mask, 0, 0);
     ctx.globalCompositeOperation = "source-in";
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas;
+}
+
+function feltTexture(canvas: HTMLCanvasElement, seed: number): HTMLCanvasElement {
+    const ctx = canvas.getContext("2d")!;
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const hash = (x: number, y: number) => {
+        let value = Math.imul(x + seed * 31, 374761393) + Math.imul(y + seed * 17, 668265263);
+        value = Math.imul(value ^ (value >>> 13), 1274126177);
+        return ((value ^ (value >>> 16)) >>> 0) / 4294967295;
+    };
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            const offset = (y * canvas.width + x) * 4;
+            if (pixels.data[offset + 3] < 8) continue;
+            const grain = (hash(x, y) - 0.5) * 22
+                + (hash(x >> 2, y >> 2) - 0.5) * 16
+                + (hash(x >> 3, y >> 3) - 0.5) * 8;
+            const fiber = hash(x * 3, y * 7) > 0.991 ? -18 : 0;
+            for (let channel = 0; channel < 3; channel++) {
+                pixels.data[offset + channel] = Math.max(0, Math.min(255, pixels.data[offset + channel] + grain + fiber));
+            }
+        }
+    }
+    ctx.putImageData(pixels, 0, 0);
     return canvas;
 }
 
@@ -64,7 +102,7 @@ async function bitmap(src: string): Promise<ImageBitmap> {
     return createImageBitmap(await response.blob());
 }
 
-function drawCharacter(ctx: CanvasRenderingContext2D, image: ImageBitmap, layer: ImageLayer,
+function drawCharacter(ctx: CanvasRenderingContext2D, image: CardImage, layer: ImageLayer,
     slot: { x: number; y: number; width: number; height: number }) {
     const crop = layer.crop ?? { x: 0, y: 0, width: 1, height: 1 };
     const sx = crop.x * image.width;
@@ -78,12 +116,12 @@ function drawCharacter(ctx: CanvasRenderingContext2D, image: ImageBitmap, layer:
     const x = slot.x + (slot.width - width) / 2;
     const y = slot.y + slot.height - height;
     ctx.save();
-    if (layer.flip) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image, sx, sy, sw, sh, 0, y, width, height); }
-    else ctx.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+    if (layer.flip) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image as CanvasImageSource, sx, sy, sw, sh, 0, y, width, height); }
+    else ctx.drawImage(image as CanvasImageSource, sx, sy, sw, sh, x, y, width, height);
     ctx.restore();
 }
 
-function drawTitle(ctx: CanvasRenderingContext2D, title: string) {
+function drawTitle(ctx: CanvasRenderingContext2D, title: string, createCanvas: UnfurlRenderer["createCanvas"]) {
     const words = title.trim().replace(/\s+/g, " ").split(" ").filter(Boolean);
     type Row = { text: string; y: number; width: number; max: number; colorful: boolean; size: number };
     const layouts = [
@@ -151,9 +189,10 @@ function drawTitle(ctx: CanvasRenderingContext2D, title: string) {
         // Pantomime Chaos is a COLR font: canvas fillStyle and strokeText do
         // not recolor or outline its baked-in glyphs. Use their alpha instead.
         const padding = 36;
-        const mask = document.createElement("canvas");
-        mask.width = Math.ceil(widths.reduce((sum, width) => sum + width, 0) + padding * 2);
-        mask.height = Math.ceil(row.size * 1.8 + padding * 2);
+        const mask = createCanvas(
+            Math.ceil(widths.reduce((sum, width) => sum + width, 0) + padding * 2),
+            Math.ceil(row.size * 1.8 + padding * 2),
+        );
         const maskCtx = mask.getContext("2d")!;
         maskCtx.font = ctx.font;
         maskCtx.textBaseline = "middle";
@@ -162,65 +201,80 @@ function drawTitle(ctx: CanvasRenderingContext2D, title: string) {
         for (let index = 0; index < glyphs.length; index++) {
             if (glyphs[index].trim()) maskCtx.fillText(glyphs[index], positions[index] - maskX, mask.height / 2);
         }
-        const stampOutline = (radius: number, color: string) => {
-            const tinted = tintedMask(mask, color);
-            for (let step = 0; step < 32; step++) {
-                const angle = step * Math.PI / 16;
-                ctx.drawImage(tinted, maskX + Math.cos(angle) * radius, maskY + Math.sin(angle) * radius);
-            }
-            ctx.drawImage(tinted, maskX, maskY);
-        };
-        stampOutline(14, TITLE_OUTLINE);
+        const outline = createCanvas(mask.width, mask.height);
+        const outlineCtx = outline.getContext("2d")!;
+        const cream = tintedMask(mask, TITLE_OUTLINE, createCanvas);
+        for (let step = 0; step < 32; step++) {
+            const angle = step * Math.PI / 16;
+            outlineCtx.drawImage(cream, Math.cos(angle) * 14, Math.sin(angle) * 14);
+        }
+        outlineCtx.drawImage(cream, 0, 0);
+        ctx.drawImage(outline, maskX, maskY);
+        const text = createCanvas(mask.width, mask.height);
+        const textCtx = text.getContext("2d")!;
         for (let index = 0; index < glyphs.length; index++) {
             const char = glyphs[index];
             if (!char.trim()) continue;
             const paletteIndex = colorIndex === coloredLetters - 1 && coloredLetters > 3
                 ? 6 : colorIndex % TITLE_COLORS.length;
-            const glyph = document.createElement("canvas");
-            glyph.width = Math.ceil(widths[index] + padding * 2);
-            glyph.height = mask.height;
+            const glyph = createCanvas(Math.ceil(widths[index] + padding * 2), mask.height);
             const glyphCtx = glyph.getContext("2d")!;
             glyphCtx.font = ctx.font;
             glyphCtx.textBaseline = "middle";
             glyphCtx.fillText(char, padding, glyph.height / 2);
             const color = row.colorful ? TITLE_COLORS[paletteIndex] : TITLE_INK;
-            ctx.drawImage(tintedMask(glyph, color), positions[index] - padding, maskY);
+            textCtx.drawImage(feltTexture(tintedMask(glyph, color, createCanvas), index + row.y), positions[index] - padding - maskX, 0);
             colorIndex++;
         }
+        ctx.save();
+        ctx.shadowColor = "rgba(50, 32, 25, 0.27)";
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 4;
+        ctx.drawImage(text, maskX, maskY);
+        ctx.restore();
     }
 }
 
-/** Build the card from cut-outs; the title stays editable text until rasterized here. */
-export async function renderUnfurl(title: string, characters: ImageLayer[]): Promise<HTMLCanvasElement> {
+/** Build the card with either browser or Node Canvas; both use the same layout. */
+export async function renderUnfurlWith(title: string, characters: ImageLayer[], renderer: UnfurlRenderer): Promise<HTMLCanvasElement> {
     const featured = characters.slice(0, BACK_SLOTS.length + 1);
     const [template, loaded] = await Promise.all([
-        bitmap("/unfurl/theater-template-v2.png"),
-        Promise.all(featured.map(character => bitmap(character.src).catch(error => {
+        renderer.loadImage("/unfurl/theater-template-v2.png"),
+        Promise.all(featured.map(character => renderer.loadImage(character.src).catch(error => {
+            if (renderer.skipBrokenImages === false) throw error;
             console.warn("[unfurl] Could not draw a character.", error);
             return null;
         }))),
-        loadFont(),
+        renderer.loadFont(),
     ]);
-    const canvas = document.createElement("canvas");
-    canvas.width = UNFURL_WIDTH;
-    canvas.height = UNFURL_HEIGHT;
+    const canvas = renderer.createCanvas(UNFURL_WIDTH, UNFURL_HEIGHT);
     const ctx = canvas.getContext("2d")!;
     for (let index = 0; index < Math.min(featured.length, BACK_SLOTS.length); index++) {
         const image = loaded[index];
         if (!image) continue;
         drawCharacter(ctx, image, featured[index], BACK_SLOTS[index]);
-        image.close();
+        image.close?.();
     }
-    ctx.drawImage(template, 0, 0, canvas.width, canvas.height);
-    template.close();
+    ctx.drawImage(template as CanvasImageSource, 0, 0, canvas.width, canvas.height);
+    template.close?.();
     const bookCharacter = featured[BACK_SLOTS.length];
     const bookImage = loaded[BACK_SLOTS.length];
     if (bookCharacter && bookImage) {
         drawCharacter(ctx, bookImage, bookCharacter, BOOK_SLOT);
-        bookImage.close();
+        bookImage.close?.();
     }
-    drawTitle(ctx, title);
+    drawTitle(ctx, title, renderer.createCanvas);
     return canvas;
+}
+
+/** Build the card from cut-outs; the title stays editable text until rasterized here. */
+export function renderUnfurl(title: string, characters: ImageLayer[]): Promise<HTMLCanvasElement> {
+    return renderUnfurlWith(title, characters, {
+        createCanvas: browserCanvas,
+        loadImage: bitmap,
+        loadFont,
+    });
 }
 
 export async function unfurlWebp(title: string, characters: ImageLayer[]): Promise<Blob> {

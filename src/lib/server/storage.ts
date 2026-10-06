@@ -50,6 +50,15 @@ export function validWebp(bytes: Uint8Array): boolean {
         && ["VP8 ", "VP8L", "VP8X"].includes(word(12, 4));
 }
 
+export async function getAsset(sha: string): Promise<Uint8Array> {
+    if (!/^[a-f0-9]{64}$/.test(sha)) throw new Error("Invalid asset id.");
+    const result = await storage().send(new GetObjectCommand({
+        Bucket: env.B2_BUCKET, Key: `plays/assets/${sha}.webp`,
+    }));
+    if (!result.Body) throw new Error("Asset is empty.");
+    return result.Body.transformToByteArray();
+}
+
 export async function putSheet(bytes: Uint8Array, type: SheetType): Promise<string> {
     const id = `${randomBytes(16).toString("hex")}.${type}`;
     await storage().send(new PutObjectCommand({

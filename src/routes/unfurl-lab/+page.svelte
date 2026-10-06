@@ -14,7 +14,7 @@
     ];
     const actors = TROUPE.filter(piece => piece.kind === "actor");
 
-    const DRAFT = 16;
+    const DRAFT = 19;
     type Preview = { title: string; url: string; cast: string[]; draft: number };
     let previews = $state<Preview[]>([]);
     let busy = $state(false);
@@ -73,7 +73,7 @@
 <div class="lab">
     <header>
         <div>
-            <p class="eyebrow">Agent Theater · typography draft 16</p>
+            <p class="eyebrow">Agent Theater · typography draft 19</p>
             <h1>Share image lab</h1>
             <p>Three random titles and casts. The upper ribbon uses dark ink; the lower ribbon uses colors sampled from the original poster, with a thick cream outline.</p>
         </div>

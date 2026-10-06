@@ -35,6 +35,7 @@ export function database() {
         await client!`alter table plays add column if not exists scripted boolean`;
         await client!`alter table plays add column if not exists duration_seconds integer`;
         await client!`alter table plays add column if not exists card_sha text`;
+        await client!`alter table plays add column if not exists card_version integer not null default 0`;
         await client!`alter table plays add column if not exists themes text[] not null default '{}'`;
 
         /*

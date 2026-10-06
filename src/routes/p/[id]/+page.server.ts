@@ -4,6 +4,7 @@ import { describePlay } from "$lib/collage/playSummary";
 import { devPlayDoc, devPlays } from "$lib/server/devPlay";
 import { dev } from "$app/environment";
 import { assetUrl } from "$lib/server/storage";
+import { ensurePlayUnfurl, type UnfurlPlay } from "$lib/server/unfurlBackfill";
 
 export const prerender = false;
 
@@ -34,14 +35,19 @@ export const load: PageServerLoad = async ({ params, url }) => {
     }
     try {
         const { sql, ready } = database(); await ready;
-        const [play] = await sql`
-            select title, chapters, duration_seconds, themes, card_sha,
+        const [play] = await sql< (UnfurlPlay & {
+            chapters: number | null; duration_seconds: number | null;
+            themes: string[]; byline: string | null;
+        })[]>`
+            select id, title, chapters, duration_seconds, themes, card_sha, card_version,
+                   doc, assets, updated_at,
                    doc #>> '{billing,byline}' as byline
             from plays where id = ${params.id}`;
         if (play) {
             let image: string | undefined;
-            if (play.card_sha) {
-                try { image = assetUrl(String(play.card_sha)); }
+            const cardSha = await ensurePlayUnfurl(play);
+            if (cardSha) {
+                try { image = assetUrl(cardSha); }
                 catch { /* The title and fallback house image still make a valid card. */ }
             }
             return {

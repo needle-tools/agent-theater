@@ -2,7 +2,9 @@
   "name": "needle-webmcp",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "type": "module",
   "description": "Registry and hub of WebMCP tools across Needle web apps — built for 3D web development.",
   "scripts": {
@@ -26,8 +28,9 @@
     "deploy": "npm run build:static && npx --yes needle-cloud deploy dist --token"
   },
   "dependencies": {
-    "@needle-tools/gibberish": "file:packages/gibberish",
     "@aws-sdk/client-s3": "^3.1125.0",
+    "@napi-rs/canvas": "^1.0.10",
+    "@needle-tools/gibberish": "file:packages/gibberish",
     "@sveltejs/adapter-node": "^5.5.7",
     "postgres": "^3.4.9"
   },

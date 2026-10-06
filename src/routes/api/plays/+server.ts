@@ -6,6 +6,7 @@ import { summarize } from "$lib/collage/playSummary";
 import { env } from "$env/dynamic/private";
 import { dev } from "$app/environment";
 import { devPlays } from "$lib/server/devPlay";
+import { UNFURL_STYLE_VERSION } from "$lib/server/unfurlBackfill";
 
 export const prerender = false;
 
@@ -102,8 +103,8 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
         }, { status: 429, headers: { "retry-after": String(limit.retryAfter) } });
         const summary = summarize(body.doc);
         const { sql, ready } = database(); await ready;
-        await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, card_sha, written_by, chapters, duration_seconds, themes, scripted)
-            values (${id}, ${tokenHash(editToken)}, ${title}, ${visibility}, ${sql.json(body.doc)}, ${sql.json(assets)}, ${cardSha}, ${env.COMMIT_SHA || null},
+        await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, card_sha, card_version, written_by, chapters, duration_seconds, themes, scripted)
+            values (${id}, ${tokenHash(editToken)}, ${title}, ${visibility}, ${sql.json(body.doc)}, ${sql.json(assets)}, ${cardSha}, ${cardSha ? UNFURL_STYLE_VERSION : 0}, ${env.COMMIT_SHA || null},
                     ${summary.chapters}, ${summary.seconds}, ${summary.themes}::text[], ${summary.scripted})`;
         return json({ id, editToken, title, visibility, ...summary, url: `${url.origin}/p/${id}` }, { status: 201 });
     } catch (error) { console.error(error); return json({ error: "Could not save the play." }, { status: 503 }); }

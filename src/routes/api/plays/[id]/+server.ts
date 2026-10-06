@@ -5,6 +5,7 @@ import { owns, resolveAssets, validateAssets, validateDoc } from "$lib/server/pl
 import { summarize } from "$lib/collage/playSummary";
 import { devPlayDoc, devPlays } from "$lib/server/devPlay";
 import { dev } from "$app/environment";
+import { UNFURL_STYLE_VERSION } from "$lib/server/unfurlBackfill";
 
 export const prerender = false;
 
@@ -45,6 +46,7 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
         // has to be findable as what it now is, not as what it was published as.
         const summary = summarize(body.doc);
         await sql`update plays set title=${title}, visibility=${visibility}, doc=${sql.json(body.doc)}, assets=${sql.json(assets)}, card_sha=${cardSha},
+            card_version=${cardSha ? UNFURL_STYLE_VERSION : 0},
             chapters=${summary.chapters}, duration_seconds=${summary.seconds}, themes=${summary.themes}::text[],
             scripted=${summary.scripted}, updated_at=now() where id=${params.id}`;
         return json({ id: params.id, title, visibility, ...summary, url: `${url.origin}/p/${params.id}` });
