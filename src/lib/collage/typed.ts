@@ -128,6 +128,8 @@ export function said(
     node: HTMLElement,
     options: {
         voice?: SubtitleVoice; strong?: string; after?: number; fallback?: number;
+        /** Faster visual reveal without changing the narration's voice. */
+        visualPace?: number;
         complete?: () => void;
         /**
          * Say it again, aloud, once there is somebody to hear it.
@@ -146,6 +148,7 @@ export function said(
     } = {},
 ) {
     const full = node.textContent ?? "";
+    const visualPace = Number.isFinite(options.visualPace) ? Math.max(1, options.visualPace!) : 1;
     node.setAttribute("aria-label", full);
     const strong = boldOf(full, options.strong);
     node.dataset.said = "waiting";
@@ -183,7 +186,7 @@ export function said(
     let ticking: ReturnType<typeof setTimeout> | undefined;
     const typeAlone = () => {
         node.dataset.said = "said";
-        const perChar = 1000 / 45;
+        const perChar = 1000 / (45 * visualPace);
         let at = 0;
         const step = () => {
             if (gone) return;
@@ -193,13 +196,25 @@ export function said(
                 options.complete?.();
                 return;
             }
-            ticking = setTimeout(step, delayAfter(full[at - 1], perChar, 300));
+            ticking = setTimeout(step, delayAfter(full[at - 1], perChar, 300 / visualPace));
         };
         ticking = setTimeout(step, perChar);
     };
 
     const join = setTimeout(() => {
         if (gone) return;
+        if (visualPace > 1) {
+            // Returning visitors see the copy at its own faster pace. If
+            // sound is available, narrate alongside it without rewinding the
+            // already-visible text or holding up the next piece of UI.
+            typeAlone();
+            if (options.replay && options.voice && !prompter.mute) {
+                stopWaiting = prompter.onTouch(() => {
+                    if (!gone) void prompter.speak(line, { dropped: () => gone });
+                });
+            }
+            return;
+        }
         // Audio cannot start before a gesture. Show each intro line on its own
         // fast text clock instead of putting it through the speech queue's
         // much longer reading-time fallback. The voice can replay on touch.

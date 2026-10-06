@@ -181,6 +181,18 @@
         animation: intro-corner 0.5s 4.9s both;
     }
 
+    :global(.canvas-shell:has(.page--intro-fast)) .library-trigger {
+        animation: none;
+    }
+
+    :global(.canvas-shell:has(.page--intro-fast)) .help-trigger {
+        animation: none;
+    }
+
+    :global(.canvas-shell:has(.page--intro-fast)) .record-trigger {
+        animation: none;
+    }
+
     :global(.canvas-shell:has(.page--intro-pending)) .library-trigger,
     :global(.canvas-shell:has(.page--intro-pending)) .help-trigger,
     :global(.canvas-shell:has(.page--intro-pending)) .record-trigger {

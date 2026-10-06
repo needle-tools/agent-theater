@@ -47,6 +47,8 @@
     let suggestedPlaysLoaded = $state(false);
     let storyReadyFor = $state<string | null>(null);
     let storyLinkReadyFor = $state<string | null>(null);
+    let repeatVisit = $state(false);
+    const introDelay = (ms: number) => repeatVisit ? ms / 2 : ms;
 
     async function loadSuggestedPlays() {
         try {
@@ -395,6 +397,13 @@
     });
 
     onMount(async () => {
+        try {
+            const key = "agent-theater:intro-visited";
+            repeatVisit = sessionStorage.getItem(key) === "1";
+            sessionStorage.setItem(key, "1");
+        } catch {
+            // Storage can be unavailable; the normal intro still works.
+        }
         void loadSuggestedPlays();
         const params = new URL(location.href).searchParams;
         const shared = params.get("play");
@@ -1498,6 +1507,7 @@
     class="page"
     class:page--shared={sharedView}
     class:page--intro={introActive && scatter.length > 0}
+    class:page--intro-fast={introActive && repeatVisit}
     class:page--intro-pending={!restored || (introActive && scatter.length === 0)}
     style:--paper={paperColour || null}
     bind:this={pageEl}
@@ -1548,7 +1558,7 @@
                     style:--tilt="{prop.tilt}deg"
                     style:--drift="{prop.drift}s"
                     style:--drift-at="-{prop.delay}s"
-                    style:--enter="{prop.enterAt ?? 0}ms"
+                    style:--enter="{introDelay(prop.enterAt ?? 0)}ms"
                     onpointerdown={event => grabProp(event, prop.id)}
                     onpointermove={event => dragProp(event, prop.id)}
                     onpointerup={dropProp}
@@ -1637,7 +1647,8 @@
                         voice: prop.sayVoice,
                         // An answer to a click waits for nothing; the page's
                         // own lines still arrive one after another.
-                        after: prop.copied ? 0 : Math.max(...scatter.map(piece => piece.enterAt ?? 0)) + 500 + (prop.sayOrder ?? 0) * 700,
+                        after: prop.copied ? 0 : introDelay(Math.max(...scatter.map(piece => piece.enterAt ?? 0)) + 500 + (prop.sayOrder ?? 0) * 700),
+                        visualPace: repeatVisit ? 2 : 1,
                         replay: true,
                         complete: () => {
                             if (prop.sayOrder === PAGE_LINES.length - 1)
@@ -1657,6 +1668,7 @@
                 >
                     <span use:said={{
                         voice: { speed: 1.1, age: 0.22, tone: 0.68 },
+                        visualPace: repeatVisit ? 2 : 1,
                         replay: true,
                         complete: () => { storyLinkReadyFor = scatter[0]?.key ?? null; },
                     }}>Or watch a community play:</span>
@@ -1903,6 +1915,8 @@
         animation-delay: var(--enter, 0ms), var(--drift-at, 0s);
     }
 
+    .page--intro-fast .strewn__prop { animation-duration: 0.225s, var(--drift, 6s); }
+
     @keyframes prop-in {
         from { opacity: 0; scale: 0.6; }
     }
@@ -2029,6 +2043,10 @@
     }
     .story-bubble__library--ready { visibility: visible; opacity: 1; }
 
+    .page--intro-fast .story-bubble { animation-duration: 0.225s; }
+    .page--intro-fast .story-bubble ul,
+    .page--intro-fast .story-bubble__library { transition-duration: 0.1s; }
+
     .video-bubble {
         position: absolute;
         translate: -50% calc(-100% - var(--rise, 60px));
@@ -2046,6 +2064,8 @@
         box-shadow: 0 4px 12px rgba(34, 44, 32, 0.1);
         animation: bubble-pop 0.45s 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
+
+    .page--intro-fast .video-bubble { animation-duration: 0.225s; animation-delay: 0.175s; }
 
     :global(html.painterly) .video-bubble {
         background-image:
@@ -2099,6 +2119,8 @@
         animation: intro-chrome 0.5s 4.15s both;
     }
 
+    .page--intro-fast .file-tools { animation: none; }
+
     .page--intro-pending .file-tools,
     .page--intro-pending .audio-tool,
     :global(.page--intro-pending .shelf) {
@@ -2109,6 +2131,8 @@
     :global(.page--intro .shelf) {
         animation: intro-chrome 0.5s 7s both;
     }
+
+    :global(.page--intro-fast .shelf) { animation: none; }
 
     @keyframes intro-chrome {
         from { opacity: 0; visibility: hidden; }
@@ -2180,6 +2204,10 @@
             bubble-swing var(--swing-cycle, 8s) ease-in-out infinite,
             bubble-paper 0.42s step-end infinite;
         animation-delay: 0ms, var(--swing-at, 0s), 0ms;
+    }
+
+    .page--intro-fast .strewn__bubble:global([data-said="said"]) {
+        animation-duration: 0.225s, var(--swing-cycle, 8s), 0.42s;
     }
 
     @keyframes bubble-paper {
@@ -2419,6 +2447,7 @@
     }
 
     .page--intro .audio-tool { animation: intro-chrome 0.5s 4.65s both; }
+    .page--intro-fast .audio-tool { animation: none; }
     :global(html.theatre-watching) .audio-tool { opacity: 0.3; }
     :global(html.theatre-watching) .audio-tool:hover { opacity: 1; }
     :global(html.theatre-card) .audio-tool { opacity: 0; pointer-events: none; }
