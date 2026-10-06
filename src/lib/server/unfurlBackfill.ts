@@ -16,7 +16,7 @@ export interface UnfurlPlay {
     assets: Record<string, string>;
     card_sha: string | null;
     card_version: number;
-    updated_at: Date;
+    row_version: string;
 }
 
 const pending = new Map<string, Promise<string | null>>();
@@ -50,14 +50,11 @@ export async function ensurePlayUnfurl(play: UnfurlPlay): Promise<string | null>
             const sha = await putAsset(bytes);
             phase = "database_update";
             const { sql, ready } = database(); await ready;
-            // Compare the source snapshot, not updated_at: PostgreSQL keeps
-            // microseconds that are lost when its timestamp becomes a JS Date.
-            // An edit made while the poster rendered still wins.
+            // xmin is PostgreSQL's version of this row. It changes on any
+            // update, including edits made while the poster is rendering.
             const [updated] = await sql`
                 update plays set card_sha = ${sha}, card_version = ${UNFURL_STYLE_VERSION}
-                where id = ${play.id} and title = ${play.title}
-                  and doc = ${JSON.stringify(play.doc)}::jsonb
-                  and assets = ${JSON.stringify(play.assets)}::jsonb
+                where id = ${play.id} and xmin::text = ${play.row_version}
                   and card_version < ${UNFURL_STYLE_VERSION}
                 returning card_sha`;
             if (updated) {
@@ -70,10 +67,14 @@ export async function ensurePlayUnfurl(play: UnfurlPlay): Promise<string | null>
                 return sha;
             }
             phase = "read_current";
-            const [current] = await sql`select card_sha, card_version from plays where id = ${play.id}`;
+            const [current] = await sql`
+                select card_sha, card_version, xmin::text as row_version
+                from plays where id = ${play.id}`;
             console.warn("[unfurl] Rendered card did not match the current play snapshot.", {
                 id: play.id, hasCurrentCard: Boolean(current?.card_sha),
                 currentVersion: current?.card_version ?? null,
+                snapshotVersion: play.row_version,
+                currentRowVersion: current?.row_version ?? null,
                 durationMs: Date.now() - startedAt,
             });
             failedAt.delete(play.id);
@@ -109,7 +110,8 @@ export async function backfillPlayUnfurls(): Promise<void> {
         const { sql, ready } = database(); await ready;
         while (true) {
             const rows = await sql<UnfurlPlay[]>`
-                select id, title, doc, assets, card_sha, card_version, updated_at
+                select id, title, doc, assets, card_sha, card_version,
+                       xmin::text as row_version
                 from plays where id > ${cursor} and card_version < ${UNFURL_STYLE_VERSION}
                 order by id limit 20`;
             if (!rows.length) break;

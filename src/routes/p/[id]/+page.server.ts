@@ -40,7 +40,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
             themes: string[]; byline: string | null;
         })[]>`
             select id, title, chapters, duration_seconds, themes, card_sha, card_version,
-                   doc, assets, updated_at,
+                   doc, assets, xmin::text as row_version,
                    doc #>> '{billing,byline}' as byline
             from plays where id = ${params.id}`;
         if (play) {
