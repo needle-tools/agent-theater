@@ -94,6 +94,10 @@ The tools cover the full production workflow:
 
 Shows publish and share: `show_publish`, `show_list`, `show_load`. Share URLs are `/p/<id>`. Published plays with a script appear in the community list; arrangements without a script remain accessible by direct link.
 
+New public plays are limited to **5 per hour and 10 per 8 hours per client IP**. The server stores a hash of the address in PostgreSQL, logs rejected attempts with a short hash prefix, and returns `429` with `Retry-After` when a limit is reached. Set `ADDRESS_HEADER` and `XFF_DEPTH` for the trusted reverse proxy as shown in `.env.example`; keep the app from being reached directly when trusting forwarded addresses. Saving edits to an already public play does not use a new-play slot.
+
+To announce a successful new publication in Discord, set the server-only `DISCORD_PLAY_WEBHOOK_URL` environment variable. The notice contains the play title, link, scene count and language. Webhook failures are logged and do not undo the publication.
+
 For custom artwork, `theater_art_prompt` creates an image-generation prompt in the project's paper-cut style, including the layout constraints needed for animation and spritesheet cutting.
 
 To bring a generated sheet into `piece_sheet` without a large base64 tool argument, send the raw PNG or WebP bytes to `POST /api/sheets` with the matching `Content-Type`. The upload is limited to 5 MB and uses the configured S3/B2 bucket. The response contains a same-origin `url` such as `/api/sheets/<id>.png`; pass that URL to `piece_sheet`. It remains available for two hours, then the server rejects reads and removes expired objects from storage during cleanup (at startup and every 30 minutes). Base64 `data:image/…` URLs remain supported for smaller sheets.

@@ -1,6 +1,8 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { claimPublishSlot, database } from "$lib/server/database";
+import { publishLimitMessage } from "$lib/server/publishLimit";
+import { notifyNewPlayPublished } from "$lib/server/discordPlayWebhook";
 import { newId, newToken, tokenHash, validateAssets, validateDoc } from "$lib/server/plays";
 import { summarize } from "$lib/collage/playSummary";
 import { env } from "$env/dynamic/private";
@@ -104,7 +106,7 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
         const visibility = "public";
         const limit = await claimPublishSlot(getClientAddress());
         if (!limit.allowed) return json({
-            error: `Publishing is limited to 5 times per minute and 20 times per 30 minutes. Try again in ${limit.retryAfter} seconds.`,
+            error: publishLimitMessage(limit.retryAfter),
             retryAfter: limit.retryAfter,
         }, { status: 429, headers: { "retry-after": String(limit.retryAfter) } });
         const summary = summarize(doc);
@@ -112,6 +114,7 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
         await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, card_sha, card_version, language, written_by, chapters, duration_seconds, themes, scripted)
             values (${id}, ${tokenHash(editToken)}, ${title}, ${visibility}, ${sql.json(doc)}, ${sql.json(assets)}, ${cardSha}, ${cardSha ? UNFURL_STYLE_VERSION : 0}, ${language}, ${env.COMMIT_SHA || null},
                     ${summary.chapters}, ${summary.seconds}, ${summary.themes}::text[], ${summary.scripted})`;
+        await notifyNewPlayPublished({ id, title, url: `${url.origin}/p/${id}`, chapters: summary.chapters, language }, env.DISCORD_PLAY_WEBHOOK_URL);
         return json({ id, editToken, title, visibility, language, ...summary, url: `${url.origin}/p/${id}` }, { status: 201 });
     } catch (error) { console.error(error); return json({ error: "Could not save the play." }, { status: 503 }); }
 }

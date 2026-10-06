@@ -1,10 +1,13 @@
 import type { RequestHandler } from "./$types";
 import { json } from "@sveltejs/kit";
 import { claimPublishSlot, database } from "$lib/server/database";
+import { publishLimitMessage } from "$lib/server/publishLimit";
+import { notifyNewPlayPublished } from "$lib/server/discordPlayWebhook";
 import { owns, resolveAssets, validateAssets, validateDoc } from "$lib/server/plays";
 import { summarize } from "$lib/collage/playSummary";
 import { devPlayDoc, devPlays } from "$lib/server/devPlay";
 import { dev } from "$app/environment";
+import { env } from "$env/dynamic/private";
 import { UNFURL_STYLE_VERSION } from "$lib/server/unfurlBackfill";
 import { playLanguage } from "$lib/collage/language";
 
@@ -40,7 +43,7 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
         if (existing.visibility !== "public") {
             const limit = await claimPublishSlot(getClientAddress());
             if (!limit.allowed) return json({
-                error: `Publishing is limited to 5 times per minute and 20 times per 30 minutes. Try again in ${limit.retryAfter} seconds.`,
+                error: publishLimitMessage(limit.retryAfter),
                 retryAfter: limit.retryAfter,
             }, { status: 429, headers: { "retry-after": String(limit.retryAfter) } });
         }
@@ -53,6 +56,8 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
             language=${language},
             chapters=${summary.chapters}, duration_seconds=${summary.seconds}, themes=${summary.themes}::text[],
             scripted=${summary.scripted}, updated_at=now() where id=${params.id}`;
+        if (existing.visibility !== "public")
+            await notifyNewPlayPublished({ id: params.id, title, url: `${url.origin}/p/${params.id}`, chapters: summary.chapters, language }, env.DISCORD_PLAY_WEBHOOK_URL);
         return json({ id: params.id, title, visibility, language, ...summary, url: `${url.origin}/p/${params.id}` });
     } catch (error) { console.error(error); return json({ error: "Could not update the play." }, { status: 503 }); }
 }

@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { createHash } from "node:crypto";
 import { env } from "$env/dynamic/private";
+import { publishRetryAfter } from "./publishLimit.js";
 
 let client: ReturnType<typeof postgres> | null = null;
 let ready: Promise<void> | null = null;
@@ -146,22 +147,19 @@ export async function claimPublishSlot(address: string): Promise<{ allowed: bool
         // requests cannot all observe a free final slot.
         await transaction`select pg_advisory_xact_lock(hashtext(${key}))`;
         await transaction`delete from play_publish_events
-            where client_key = ${key} and published_at <= now() - interval '30 minutes'`;
+            where client_key = ${key} and published_at <= now() - interval '8 hours'`;
         const events = await transaction<{ age_seconds: number }[]>`
             select extract(epoch from (now() - published_at))::float8 as age_seconds
             from play_publish_events
-            where client_key = ${key} and published_at > now() - interval '30 minutes'
+            where client_key = ${key} and published_at > now() - interval '8 hours'
             order by published_at asc`;
-
-        const minute = events.filter(event => event.age_seconds < 60);
-        const minuteRetry = minute.length >= 5
-            ? Math.max(1, Math.ceil(60 - Math.max(...minute.map(event => event.age_seconds))))
-            : 0;
-        const halfHourRetry = events.length >= 20
-            ? Math.max(1, Math.ceil(1800 - Math.max(...events.map(event => event.age_seconds))))
-            : 0;
-        const retryAfter = Math.max(minuteRetry, halfHourRetry);
-        if (retryAfter) return { allowed: false, retryAfter };
+        const retryAfter = publishRetryAfter(events.map(event => event.age_seconds));
+        if (retryAfter) {
+            console.warn("[plays] Publish rate limit reached.", {
+                client: key.slice(0, 12), recentAttempts: events.length, retryAfter,
+            });
+            return { allowed: false, retryAfter };
+        }
 
         await transaction`insert into play_publish_events (client_key) values (${key})`;
         return { allowed: true, retryAfter: 0 };
