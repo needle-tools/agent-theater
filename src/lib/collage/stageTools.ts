@@ -11,6 +11,7 @@
  * scene three at different places, and recolouring it changes it in both.
  */
 import { aimed, MOVES, plan as planScene, type Beat } from "./perform.js";
+import { playLanguage } from "./language.js";
 import { creditsFor } from "./billboard.js";
 import { spokenBy } from "./show.js";
 import { findSound, soundCatalogue, soundNames } from "./audio.js";
@@ -177,14 +178,16 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
             title: "Name the piece",
             annotations: { readOnlyHint: false },
             description:
-                "Set the show's title, byline and maker credits. The title shows on a card before the " +
+                "Set the show's title, language, byline and maker credits. The title shows on a card before the " +
                 "first scene and heads the end credits. Always set one. Cast credits come from " +
                 "stage_cast \"as\" values; pass \"credits\" for the maker lines and always include " +
-                "\"directed by <your model or product name>\".",
+                "\"directed by <your model or product name>\". Set language to the language of the " +
+                "dialogue and narration, such as en or de; it is saved with the published play.",
             inputSchema: {
                 type: "object",
                 properties: {
                     title: { type: "string", description: "What the piece is called. Pass '' to drop the card." },
+                    language: { type: "string", description: "Language code for dialogue and narration, e.g. en, de, or fr." },
                     byline: {
                         type: "string",
                         description:
@@ -205,17 +208,21 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                     },
                 },
             },
-            async execute(args: { title?: string; byline?: string; credits?: string[] }) {
+            async execute(args: { title?: string; language?: string; byline?: string; credits?: string[] }) {
                 const title = typeof args?.title === "string" ? args.title.trim() : undefined;
+                const language = typeof args?.language === "string" ? playLanguage(args.language) : undefined;
+                if (args?.language !== undefined && language === "und" && args.language.trim().toLowerCase() !== "und")
+                    return fail("Pass a language code such as en, de or fr.");
                 const byline = typeof args?.byline === "string" ? args.byline.trim() : undefined;
                 const makers = Array.isArray(args?.credits)
                     ? args.credits.map(str).filter(Boolean)
                     : undefined;
-                if (title === undefined && byline === undefined && makers === undefined) {
-                    return fail(`Pass "title" — what the piece is called.`);
+                if (title === undefined && byline === undefined && makers === undefined && language === undefined) {
+                    return fail(`Pass "title" or another title-card field to change.`);
                 }
                 const billing = collage.setBilling({
                     ...(title !== undefined ? { title } : {}),
+                    ...(language !== undefined ? { language } : {}),
                     ...(byline !== undefined ? { byline } : {}),
                     ...(makers !== undefined ? { credits: makers } : {}),
                 });
@@ -312,7 +319,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "then its script plays, then they leave and the next scene begins. Returns the whole timetable " +
                 "at once and keeps playing, so you know when each scene starts and can narrate to it rather " +
                 "than waiting. The build-up and the exits are made for you; you only write what happens in " +
-                "between, with stage_script.",
+                "between, with stage_script. Narration saved on beats is returned in the play document; " +
+                "if you are the live narrator, speak those passages alongside their moments.",
             inputSchema: {
                 type: "object",
                 properties: {
@@ -453,6 +461,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 "One thing happens at a time: a beat starts when the last one ends, and there is no timing to " +
                 "work out. The scene KEEPS its script, so show_play can run it again as part of the whole " +
                 "show — pass rehearse:false to write it without playing it now. " +
+                "Use narration on beats for short storyteller passages. They are saved and timed with " +
+                "the play; the theatre does not speak them yet, so narrate them live when connected. " +
                 `Moves: ${MOVES.join(", ")}. "walk" and "jump" leave the layer where they end: give them ` +
                 "\"at\" to say WHERE on the canvas to end up (the coordinates piece_list and stage_describe " +
                 "report), or \"by\" to say HOW FAR to travel. \"at\" is almost always the one you want. " +
@@ -648,6 +658,14 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                                         "By default it ends with this beat, so later dialogue is lit normally. " +
                                         "Use spotlightHold:true only when the light should span later beats; " +
                                         "then send spotlight:'off' when the moment ends.",
+                                },
+                                narration: {
+                                    type: "string",
+                                    description:
+                                        "A short line for the AI narrator at this moment. Saved with the beat " +
+                                        "for future voice playback; it is not character dialogue and the " +
+                                        "theatre does not speak it yet. Can stand alone without an id, or " +
+                                        "accompany a move or camera shot. Keep each passage brief.",
                                 },
                                 spotlightHold: {
                                     type: "boolean",

@@ -26,7 +26,7 @@ export function validateAssets(doc: StoredDoc, value: unknown): value is Record<
     return doc.layers.every(layer => layer.kind !== "image" ||
         (layer.storageKey
             ? typeof assets[layer.storageKey] === "string"
-            : !/^(blob:|data:)/i.test(layer.src)));
+            : !/^(blob:|data:|(?:https?:\/\/[^/]+)?\/api\/sheets\/)/i.test(layer.src)));
 }
 
 export function resolveAssets(doc: StoredDoc, assets: Record<string, string>): StoredDoc {

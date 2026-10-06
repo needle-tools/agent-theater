@@ -7,6 +7,7 @@ create table if not exists plays (
     assets jsonb not null default '{}'::jsonb,
     card_sha text,
     card_version integer not null default 0,
+    language text not null default 'und',
     written_by text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()

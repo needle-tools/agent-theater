@@ -18,6 +18,14 @@ function bundledFile(pathname: string): string {
     throw new Error(`Bundled theater asset is missing: ${pathname}`);
 }
 
+/** Legacy plays may still mention short-lived sheet uploads. Skip those when selecting poster actors. */
+export function serverRenderableSource(src: string): boolean {
+    if (/^\/(troupe|unfurl)\/[a-zA-Z0-9/_-]+\.(png|webp)$/.test(src) && !src.includes("..")) return true;
+    const match = /\/plays\/assets\/([a-f0-9]{64})\.webp$/.exec(src);
+    if (!match) return false;
+    try { return src === assetUrl(match[1]); } catch { return false; }
+}
+
 function registerFont() {
     if (fontReady) return;
     if (!GlobalFonts.registerFromPath(bundledFile("/fonts/Pantomime-Chaos.ttf"), "Pantomime Chaos"))

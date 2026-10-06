@@ -6,6 +6,7 @@ import { summarize } from "$lib/collage/playSummary";
 import { devPlayDoc, devPlays } from "$lib/server/devPlay";
 import { dev } from "$app/environment";
 import { UNFURL_STYLE_VERSION } from "$lib/server/unfurlBackfill";
+import { playLanguage } from "$lib/collage/language";
 
 export const prerender = false;
 
@@ -15,7 +16,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
         return json({ ...devPlays(url.origin).find(play => play.id === params.id), doc: sample });
     try {
         const { sql, ready } = database(); await ready;
-        const [play] = await sql`select id, title, visibility, doc, assets, chapters, duration_seconds, themes, created_at, updated_at from plays where id = ${params.id}`;
+        const [play] = await sql`select id, title, visibility, doc, assets, chapters, duration_seconds, themes, language, created_at, updated_at from plays where id = ${params.id}`;
         if (!play) return json({ error: "Play not found." }, { status: 404 });
         return json({ ...play, doc: resolveAssets(play.doc, play.assets) });
     } catch (error) { console.error(error); return json({ error: "Play library is unavailable." }, { status: 503 }); }
@@ -28,10 +29,12 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
         if (!validateDoc(body.doc)) return json({ error: "Invalid play document." }, { status: 400 });
         if (!validateAssets(body.doc, body.assets)) return json({ error: "Invalid or incomplete asset map." }, { status: 400 });
         const { sql, ready } = database(); await ready;
-        const [existing] = await sql`select edit_token_hash, visibility from plays where id = ${params.id}`;
+        const [existing] = await sql`select edit_token_hash, visibility, language from plays where id = ${params.id}`;
         if (!existing) return json({ error: "Play not found." }, { status: 404 });
         if (!owns(token, existing.edit_token_hash)) return json({ error: "The edit token is missing or invalid." }, { status: 403 });
         const title = String(body.title || "Untitled play").slice(0, 160);
+        const language = playLanguage(body.language ?? body.doc.billing?.language ?? existing.language);
+        const doc = { ...body.doc, billing: { ...body.doc.billing, language } };
         const cardSha = typeof body.cardSha === "string" && /^[a-f0-9]{64}$/.test(body.cardSha) ? body.cardSha : null;
         const visibility = "public";
         if (existing.visibility !== "public") {
@@ -44,11 +47,12 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
         const assets = body.assets;
         // Recomputed, not carried over: an edit that adds a chapter or cuts one
         // has to be findable as what it now is, not as what it was published as.
-        const summary = summarize(body.doc);
-        await sql`update plays set title=${title}, visibility=${visibility}, doc=${sql.json(body.doc)}, assets=${sql.json(assets)}, card_sha=${cardSha},
+        const summary = summarize(doc);
+        await sql`update plays set title=${title}, visibility=${visibility}, doc=${sql.json(doc)}, assets=${sql.json(assets)}, card_sha=${cardSha},
             card_version=${cardSha ? UNFURL_STYLE_VERSION : 0},
+            language=${language},
             chapters=${summary.chapters}, duration_seconds=${summary.seconds}, themes=${summary.themes}::text[],
             scripted=${summary.scripted}, updated_at=now() where id=${params.id}`;
-        return json({ id: params.id, title, visibility, ...summary, url: `${url.origin}/p/${params.id}` });
+        return json({ id: params.id, title, visibility, language, ...summary, url: `${url.origin}/p/${params.id}` });
     } catch (error) { console.error(error); return json({ error: "Could not update the play." }, { status: 503 }); }
 }

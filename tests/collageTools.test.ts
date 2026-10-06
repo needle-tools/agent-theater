@@ -1454,6 +1454,25 @@ describe("the troupe drawer", () => {
     });
 });
 
+describe("story metadata", () => {
+    it("keeps the story language and narrator lines in the saved play", async () => {
+        const { studio, collage } = fakeStudio();
+        const title = createCollageTools(studio).find(tool => tool.name === "show_title")!;
+        const named = await title.execute({ title: "Der Mond wartet", language: "de" });
+        expect(named.isError).toBeUndefined();
+        expect(collage.billing.language).toBe("de");
+
+        const stage = collage.addStage({ name: "Am Fenster" });
+        const script = createCollageTools(studio).find(tool => tool.name === "stage_script")!;
+        const written = await script.execute({
+            stage: stage.id, rehearse: false,
+            beats: [{ narration: "Der Mond wartete am Fenster." }],
+        });
+        expect(written.isError).toBeUndefined();
+        expect(collage.getStage(stage.id)?.script[0].narration).toBe("Der Mond wartete am Fenster.");
+    });
+});
+
 describe("fullscreen playback", () => {
     it("explains when the embedded browser forbids fullscreen", async () => {
         const { studio } = fakeStudio();

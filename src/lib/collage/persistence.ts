@@ -71,7 +71,7 @@ export function saveDoc(
             layer.kind === "image" && layer.storageKey ? { ...layer, src: "" } : layer),
         frames,
         ...(stages.length ? { stages } : {}),
-        ...(billing.title || billing.byline || billing.credits?.length ? { billing } : {}),
+        ...(billing.title || billing.byline || billing.language || billing.credits?.length ? { billing } : {}),
         ...(background ? { background } : {}),
         ...(view ? { view } : {}),
     };
@@ -131,7 +131,7 @@ export function stashDoc(
             layer.kind === "image" && layer.storageKey ? { ...layer, src: "" } : layer),
         frames,
         ...(stages.length ? { stages } : {}),
-        ...(billing.title || billing.byline || billing.credits?.length ? { billing } : {}),
+        ...(billing.title || billing.byline || billing.language || billing.credits?.length ? { billing } : {}),
         ...(background ? { background } : {}),
     };
     try {

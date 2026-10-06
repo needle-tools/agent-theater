@@ -435,6 +435,8 @@ interface Snapshot {
  */
 export interface Billing {
     title?: string;
+    /** BCP 47 language of the script and narration, such as "en" or "de". */
+    language?: string;
     /** The line under the title — "a play in two scenes", "after Grimm". */
     byline?: string;
     /**
@@ -753,6 +755,7 @@ export class Collage {
         this.billed = {
             ...this.billed,
             ...(patch.title !== undefined ? { title: patch.title } : {}),
+            ...(patch.language !== undefined ? { language: patch.language } : {}),
             ...(patch.byline !== undefined ? { byline: patch.byline } : {}),
             ...(patch.credits !== undefined ? { credits: [...patch.credits] } : {}),
         };

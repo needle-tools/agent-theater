@@ -95,6 +95,7 @@ export function devPlayDoc(id: string): StoredDoc | null {
 export function devPlays(origin: string) {
     return Object.entries(DEV_PLAY_DOCS).map(([id, doc]) => ({
         id, title: doc.billing?.title ?? "Untitled story", visibility: "public" as const,
+        language: doc.billing?.language ?? "en",
         ...summarize(doc), url: `${origin}/p/${id}`,
         created_at: new Date(0).toISOString(), updated_at: new Date(0).toISOString(),
     }));

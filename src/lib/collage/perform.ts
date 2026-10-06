@@ -740,6 +740,8 @@ export interface Beat {
      */
     by?: { x?: number; y?: number };
     say?: string;
+    /** Narrator's line at this beat, stored for live narration or future voice playback. */
+    narration?: string;
     /** A noise, fired as the beat starts. Rides along with whatever else it does. */
     sound?: string;
     /** Move the view rather than anybody in it. */
@@ -818,6 +820,7 @@ export interface PlannedBeat {
     /** A built-in move, or "clip:<name>" routed to the gesture hand. */
     move: MoveName | (string & {}) | null;
     say: string | null;
+    narration: string | null;
     sound: string | null;
     camera: CameraMove | null;
     /** Where this beat leaves the layer, relative to where it started. */
@@ -903,8 +906,10 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
         const weather = typeof beat?.background === "string" && beat.background.trim();
         const lights = (typeof beat?.spotlight === "string" && beat.spotlight.trim())
             || (Array.isArray(beat?.spotlight) && beat.spotlight.length);
-        if (!id && !camera && !wait && !weather && !lights) {
-            problems.push({ index, reason: `every beat needs an "id" naming who it is about` });
+        const narration = typeof beat?.narration === "string" && beat.narration.trim()
+            ? beat.narration.trim() : null;
+        if (!id && !camera && !wait && !weather && !lights && !narration) {
+            problems.push({ index, reason: `every beat needs an "id" naming who it is about, or a camera, pause, narration or stage cue` });
             continue;
         }
         const move = beat?.do ?? null;
@@ -958,18 +963,19 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
         // first beat has nothing to ride along with, so it can never be `with`.
         const together = planned.length > 0 &&
             (beat?.with === true || String(beat?.with ?? "").trim().toLowerCase() === "true");
-        if (!move && !say && !sound && !camera && !wait && !becomes && !take && !drop && !effect
+        if (!move && !say && !narration && !sound && !camera && !wait && !becomes && !take && !drop && !effect
             && !background && !spotlight) {
             problems.push({
                 index,
                 reason:
-                    `a beat must have a "do", a "say", a "sound", a "camera", a "wait", a "becomes", ` +
+                    `a beat must have a "do", a "say", a "narration", a "sound", a "camera", a "wait", a "becomes", ` +
                     `a "take", a "drop", an "effect", a "background" or a "spotlight"`,
             });
             continue;
         }
 
-        const duration = Math.min(30_000, Math.max(0,
+        const duration = Math.min(30_000, Math.max(
+            typeof beat?.duration === "number" && beat.duration > 0 ? 0 : narration ? readingTime(narration) : 0,
             typeof beat?.duration === "number" && beat.duration > 0
                 ? beat.duration
                 : wait ? wait
@@ -1008,14 +1014,14 @@ export function plan(beats: Beat[], timings?: Timings): { plan: Plan; problems: 
         if (say && lastSpeaker && lastSpeaker !== id && !together) {
             planned.push({
                 id: "", with: false, becomes: null, take: null, drop: null, effect: null,
-                move: null, say: null, sound: null, camera: null, travel: null,
+                move: null, say: null, narration: null, sound: null, camera: null, travel: null,
                 background: null, spotlight: null, spotlightHold: false, duration: BREATH_MS,
             });
         }
         if (say) lastSpeaker = id;
 
         planned.push({
-            id, with: together, becomes, take, drop, effect, move, say, sound, camera, travel,
+            id, with: together, becomes, take, drop, effect, move, say, narration, sound, camera, travel,
             background, spotlight,
             spotlightHold: spotlight !== "off" && (beat?.spotlightHold === true
                 || String(beat?.spotlightHold ?? "").trim().toLowerCase() === "true"),

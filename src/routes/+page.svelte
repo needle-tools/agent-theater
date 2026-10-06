@@ -33,6 +33,8 @@
 <section class="canvas-shell">
     <Collage />
 
+    <a class="plays-trigger" href="/plays" aria-label="Browse community plays">Community plays <span aria-hidden="true">↗</span></a>
+
     <!-- No wordmark. It sat over the top left corner of the stage and was the
          only thing on the page that was about the page rather than about the
          play — and a theatre does not print its own name across the set. The
@@ -131,6 +133,24 @@
 
     .help-trigger { right: 12px; bottom: 140px; }
     .record-trigger { display: none; }
+
+    .plays-trigger {
+        position: fixed;
+        z-index: 30;
+        left: 20px;
+        bottom: 22px;
+        padding: 8px 11px;
+        border-radius: 100px;
+        background: #fbf7ecdf;
+        color: #233b58;
+        text-decoration: none;
+        font-size: 0.78rem;
+        font-weight: 700;
+        box-shadow: 0 1px 8px #37291916;
+    }
+    .plays-trigger:hover { background: #fffaf1; text-decoration: underline; text-underline-offset: 3px; }
+    .plays-trigger span { margin-left: 4px; }
+    :global(html.theatre-card) .plays-trigger { opacity: 0; pointer-events: none; }
 
     .help-trigger:hover,
     .record-trigger:hover {

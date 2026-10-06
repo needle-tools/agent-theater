@@ -36,6 +36,7 @@ export function database() {
         await client!`alter table plays add column if not exists duration_seconds integer`;
         await client!`alter table plays add column if not exists card_sha text`;
         await client!`alter table plays add column if not exists card_version integer not null default 0`;
+        await client!`alter table plays add column if not exists language text not null default 'und'`;
         await client!`alter table plays add column if not exists themes text[] not null default '{}'`;
 
         /*
@@ -83,6 +84,8 @@ export function database() {
         ) where scripted is null`;
         await client!`create index if not exists plays_public_scripted_recent
             on plays (created_at desc) where visibility = 'public' and scripted = true`;
+        await client!`create index if not exists plays_public_language_recent
+            on plays (language, created_at desc) where visibility = 'public' and scripted = true`;
 
         await client!`
             create table if not exists play_publish_events (

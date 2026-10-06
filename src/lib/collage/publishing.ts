@@ -4,6 +4,7 @@ import type { WebMcpToolDef } from "./tools.js";
 import { MissingImageAssetError } from "./persistence.js";
 import { track } from "../telemetry.js";
 import { unfurlCharacters, unfurlWebp } from "./shareCard.js";
+import { playLanguage } from "./language.js";
 
 export const TOKEN_PREFIX = "needle-play/edit/";
 export const CURRENT_PLAY_KEY = "needle-play/current";
@@ -20,6 +21,7 @@ export interface PublishedPlay {
     title: string;
     visibility: "public" | "unlisted";
     url: string;
+    language?: string;
     created_at?: string;
     updated_at?: string;
 }
@@ -62,7 +64,9 @@ export async function preparePlayAssets(
     const sources = new Map<string, string>();
     const layers = [] as StoredDoc["layers"];
     for (const layer of doc.layers) {
-        if (layer.kind !== "image" || layer.storageKey || !/^(blob:|data:image\/)/i.test(layer.src)) {
+        // Sheet URLs expire after two hours. A published play must own a
+        // permanent copy, just as it does for browser-only blob images.
+        if (layer.kind !== "image" || layer.storageKey || !/^(blob:|data:image\/|(?:https?:\/\/[^/]+)?\/api\/sheets\/)/i.test(layer.src)) {
             layers.push(layer);
             continue;
         }
@@ -155,6 +159,7 @@ export async function savePlayOnline(
             title,
             visibility: "public",
             doc: prepared.doc, assets, cardSha,
+            language: playLanguage(prepared.doc.billing?.language),
         }),
     }), by) as PublishedPlay & { editToken?: string };
     if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);

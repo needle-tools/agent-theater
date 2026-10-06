@@ -3,7 +3,7 @@ import { unfurlCharacters } from "../collage/shareCard.js";
 import { database } from "./database.js";
 import { resolveAssets } from "./plays.js";
 import { putAsset } from "./storage.js";
-import { serverUnfurlWebp } from "./unfurl.js";
+import { serverRenderableSource, serverUnfurlWebp } from "./unfurl.js";
 
 // Increment when the poster layout changes. Old cards are replaced once, then
 // the final WebP remains in object storage for subsequent crawler requests.
@@ -33,7 +33,9 @@ export async function ensurePlayUnfurl(play: UnfurlPlay): Promise<string | null>
     const work = (async () => {
         try {
             const doc = resolveAssets(play.doc, play.assets);
-            const bytes = await serverUnfurlWebp(play.title, unfurlCharacters(doc));
+            const characters = unfurlCharacters(doc).filter(layer => serverRenderableSource(layer.src));
+            if (!characters.length) throw new Error("No durable character images are available for this play.");
+            const bytes = await serverUnfurlWebp(play.title, characters);
             const sha = await putAsset(bytes);
             const { sql, ready } = database(); await ready;
             // An edit made while the poster rendered wins over this old snapshot.

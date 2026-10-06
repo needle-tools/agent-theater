@@ -2071,7 +2071,7 @@ export function createStudio(collage = new Collage()): CollageStudio {
                 // casting, staging and scripting is most of what is in a show,
                 // and it is the part that cannot be reconstructed by looking.
                 ...(collage.listStages().length ? { stages: collage.listStages() } : {}),
-                ...(collage.billing.title || collage.billing.byline || collage.billing.credits?.length
+                ...(collage.billing.title || collage.billing.byline || collage.billing.language || collage.billing.credits?.length
                     ? { billing: collage.billing } : {}),
                 ...(travelling.length ? { clips: travelling } : {}),
                 ...(collage.background ? { background: collage.background } : {}),

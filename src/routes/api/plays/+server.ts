@@ -7,6 +7,7 @@ import { env } from "$env/dynamic/private";
 import { dev } from "$app/environment";
 import { devPlays } from "$lib/server/devPlay";
 import { UNFURL_STYLE_VERSION } from "$lib/server/unfurlBackfill";
+import { playLanguage } from "$lib/collage/language";
 
 export const prerender = false;
 
@@ -35,8 +36,9 @@ export async function GET({ url }: { url: URL }) {
     const maxSeconds = number("maxSeconds");
     const title = (q.get("title") ?? "").trim().slice(0, 120);
     const theme = (q.get("theme") ?? "").trim().toLowerCase().slice(0, 40);
+    const language = q.has("language") ? playLanguage(q.get("language")) : "";
     const sampleFits = !title && !theme && minChapters <= 1
-        && maxChapters === null && minSeconds === null && maxSeconds === null;
+        && !language && maxChapters === null && minSeconds === null && maxSeconds === null;
 
     if (!env.DATABASE_URL) {
         console.warn("[plays] DATABASE_URL is not configured.");
@@ -47,7 +49,7 @@ export async function GET({ url }: { url: URL }) {
         const { sql, ready } = database(); await ready;
 
         const rows = await sql`
-            select id, title, chapters, duration_seconds, themes, created_at, updated_at
+            select id, title, chapters, duration_seconds, themes, language, created_at, updated_at
             from plays
             where visibility = 'public'
               and scripted = true
@@ -57,6 +59,7 @@ export async function GET({ url }: { url: URL }) {
               ${maxSeconds === null ? sql`` : sql`and duration_seconds <= ${Math.trunc(maxSeconds)}`}
               ${title ? sql`and title ilike ${"%" + title.replace(/[%_\\]/g, "\\$&") + "%"}` : sql``}
               ${theme ? sql`and ${theme} = any(themes)` : sql``}
+              ${language ? sql`and language = ${language}` : sql``}
             order by created_at desc limit ${limit}`;
 
         if (!rows.length) {
@@ -75,6 +78,7 @@ export async function GET({ url }: { url: URL }) {
                 chapters: row.chapters ?? 0,
                 seconds: "duration_seconds" in row ? row.duration_seconds : row.seconds,
                 themes: row.themes ?? [],
+                language: row.language ?? "und",
                 created_at: row.created_at,
                 updated_at: row.updated_at,
                 url: `${url.origin}/p/${row.id}`,
@@ -94,6 +98,8 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
         const assets = body.assets;
         const id = newId(); const editToken = newToken();
         const title = String(body.title || "Untitled play").slice(0, 160);
+        const language = playLanguage(body.language ?? body.doc.billing?.language);
+        const doc = { ...body.doc, billing: { ...body.doc.billing, language } };
         const cardSha = typeof body.cardSha === "string" && /^[a-f0-9]{64}$/.test(body.cardSha) ? body.cardSha : null;
         const visibility = "public";
         const limit = await claimPublishSlot(getClientAddress());
@@ -101,11 +107,11 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
             error: `Publishing is limited to 5 times per minute and 20 times per 30 minutes. Try again in ${limit.retryAfter} seconds.`,
             retryAfter: limit.retryAfter,
         }, { status: 429, headers: { "retry-after": String(limit.retryAfter) } });
-        const summary = summarize(body.doc);
+        const summary = summarize(doc);
         const { sql, ready } = database(); await ready;
-        await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, card_sha, card_version, written_by, chapters, duration_seconds, themes, scripted)
-            values (${id}, ${tokenHash(editToken)}, ${title}, ${visibility}, ${sql.json(body.doc)}, ${sql.json(assets)}, ${cardSha}, ${cardSha ? UNFURL_STYLE_VERSION : 0}, ${env.COMMIT_SHA || null},
+        await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, card_sha, card_version, language, written_by, chapters, duration_seconds, themes, scripted)
+            values (${id}, ${tokenHash(editToken)}, ${title}, ${visibility}, ${sql.json(doc)}, ${sql.json(assets)}, ${cardSha}, ${cardSha ? UNFURL_STYLE_VERSION : 0}, ${language}, ${env.COMMIT_SHA || null},
                     ${summary.chapters}, ${summary.seconds}, ${summary.themes}::text[], ${summary.scripted})`;
-        return json({ id, editToken, title, visibility, ...summary, url: `${url.origin}/p/${id}` }, { status: 201 });
+        return json({ id, editToken, title, visibility, language, ...summary, url: `${url.origin}/p/${id}` }, { status: 201 });
     } catch (error) { console.error(error); return json({ error: "Could not save the play." }, { status: 503 }); }
 }

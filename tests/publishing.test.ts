@@ -65,6 +65,21 @@ describe("shareable local images", () => {
         expect(fetchSource).toHaveBeenCalledTimes(1);
     });
 
+    it("copies temporary sheet images into the permanent play asset map", async () => {
+        const source = "/api/sheets/b4ce8a368438e914036f2863ce72ba39.webp";
+        const doc: StoredDoc = { version: 1, savedAt: 0, layers: [image(source, null)], frames: [] };
+        const blob = new Blob(["image"], { type: "image/webp" });
+        const prepared = await preparePlayAssets(doc, [], async () => blob);
+        expect(prepared.local).toHaveLength(1);
+        expect(prepared.doc.layers[0]).toMatchObject({ src: "", storageKey: prepared.local[0].key });
+    });
+
+    it("refuses to publish an expired temporary sheet", async () => {
+        const doc: StoredDoc = { version: 1, savedAt: 0,
+            layers: [image("/api/sheets/b4ce8a368438e914036f2863ce72ba39.webp", null)], frames: [] };
+        await expect(preparePlayAssets(doc, [], async () => null)).rejects.toBeInstanceOf(MissingImageAssetError);
+    });
+
 });
 
 describe("save failure telemetry", () => {
