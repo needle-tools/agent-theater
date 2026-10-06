@@ -34,9 +34,9 @@ function registerFont() {
 }
 
 async function sourceBytes(src: string): Promise<Uint8Array> {
-    if (src.startsWith("/")) return readFileSync(bundledFile(src));
     const match = /\/plays\/assets\/([a-f0-9]{64})\.webp$/.exec(src);
     if (match && src === assetUrl(match[1])) return getAsset(match[1]);
+    if (src.startsWith("/")) return readFileSync(bundledFile(src));
     throw new Error("Image source cannot be rendered on the server.");
 }
 

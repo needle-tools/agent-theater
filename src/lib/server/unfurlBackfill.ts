@@ -31,29 +31,61 @@ export async function ensurePlayUnfurl(play: UnfurlPlay): Promise<string | null>
     if (existing) return existing;
 
     const work = (async () => {
+        const startedAt = Date.now();
+        let phase = "resolve_assets";
+        let imageLayers = 0;
+        let usableImages = 0;
+        let temporarySheets = 0;
         try {
             const doc = resolveAssets(play.doc, play.assets);
-            const characters = unfurlCharacters(doc).filter(layer => serverRenderableSource(layer.src));
-            if (!characters.length) throw new Error("No durable character images are available for this play.");
+            const candidates = unfurlCharacters(doc);
+            const characters = candidates.filter(layer => serverRenderableSource(layer.src));
+            imageLayers = candidates.length;
+            usableImages = characters.length;
+            temporarySheets = candidates.filter(layer => /\/api\/sheets\//.test(layer.src)).length;
+            if (!characters.length) throw new Error(`No durable character images are available (${candidates.length} image layers checked).`);
+            phase = "render";
             const bytes = await serverUnfurlWebp(play.title, characters);
+            phase = "upload";
             const sha = await putAsset(bytes);
+            phase = "database_update";
             const { sql, ready } = database(); await ready;
-            // An edit made while the poster rendered wins over this old snapshot.
+            // Compare the source snapshot, not updated_at: PostgreSQL keeps
+            // microseconds that are lost when its timestamp becomes a JS Date.
+            // An edit made while the poster rendered still wins.
             const [updated] = await sql`
                 update plays set card_sha = ${sha}, card_version = ${UNFURL_STYLE_VERSION}
-                where id = ${play.id} and updated_at = ${play.updated_at}
+                where id = ${play.id} and title = ${play.title}
+                  and doc = ${JSON.stringify(play.doc)}::jsonb
+                  and assets = ${JSON.stringify(play.assets)}::jsonb
                   and card_version < ${UNFURL_STYLE_VERSION}
                 returning card_sha`;
             if (updated) {
                 failedAt.delete(play.id);
+                console.info("[unfurl] Card stored.", {
+                    id: play.id, cardVersion: UNFURL_STYLE_VERSION,
+                    imageLayers, usableImages, bytes: bytes.length,
+                    durationMs: Date.now() - startedAt,
+                });
                 return sha;
             }
-            const [current] = await sql`select card_sha from plays where id = ${play.id}`;
+            phase = "read_current";
+            const [current] = await sql`select card_sha, card_version from plays where id = ${play.id}`;
+            console.warn("[unfurl] Rendered card did not match the current play snapshot.", {
+                id: play.id, hasCurrentCard: Boolean(current?.card_sha),
+                currentVersion: current?.card_version ?? null,
+                durationMs: Date.now() - startedAt,
+            });
             failedAt.delete(play.id);
             return current?.card_sha ?? null;
         } catch (error) {
             failedAt.set(play.id, Date.now());
-            console.error("[unfurl] Server card generation failed.", { id: play.id, error });
+            console.error("[unfurl] Server card generation failed.", {
+                id: play.id, phase, imageLayers, usableImages, temporarySheets,
+                unsupportedImages: imageLayers - usableImages - temporarySheets,
+                hasExistingCard: Boolean(play.card_sha),
+                durationMs: Date.now() - startedAt, error,
+            });
             return play.card_sha;
         } finally {
             pending.delete(play.id);
@@ -72,6 +104,7 @@ export async function backfillPlayUnfurls(): Promise<void> {
     let cursor = "";
     let attempted = 0;
     let stored = 0;
+    let failed = 0;
     try {
         const { sql, ready } = database(); await ready;
         while (true) {
@@ -84,11 +117,12 @@ export async function backfillPlayUnfurls(): Promise<void> {
                 attempted++;
                 const sha = await ensurePlayUnfurl(play);
                 if (sha && !failedAt.has(play.id)) stored++;
+                else failed++;
             }
             cursor = rows[rows.length - 1].id;
             await new Promise(resolve => setTimeout(resolve, 250));
         }
-        console.info("[unfurl] Server backfill finished.", { attempted, stored });
+        console.info("[unfurl] Server backfill finished.", { attempted, stored, failed });
     } catch (error) {
         console.error("[unfurl] Server backfill stopped.", error);
     } finally {

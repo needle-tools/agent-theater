@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+const storageMock = vi.hoisted(() => ({ base: "https://assets.example" }));
 vi.mock("../src/lib/server/storage.js", () => ({
-    assetUrl: (sha: string) => `https://assets.example/plays/assets/${sha}.webp`,
-    getAsset: async () => { throw new Error("Unexpected remote asset in bundled test play."); },
+    assetUrl: (sha: string) => `${storageMock.base}/plays/assets/${sha}.webp`,
+    getAsset: async () => readFileSync("static/troupe/forest/tree-oak.webp"),
     validWebp: (bytes: Uint8Array) => Buffer.from(bytes.subarray(0, 4)).toString() === "RIFF"
         && Buffer.from(bytes.subarray(8, 12)).toString() === "WEBP",
 }));
@@ -28,5 +30,17 @@ describe("server share card", () => {
         const characters = unfurlCharacters(doc).filter(layer => serverRenderableSource(layer.src));
         expect(characters).toHaveLength(3);
         expect(validWebp(await serverUnfurlWebp("The Forest Hello", characters))).toBe(true);
+    });
+
+    it("loads storage assets when the public base URL is a relative path", async () => {
+        storageMock.base = "";
+        try {
+            const src = `/plays/assets/${"a".repeat(64)}.webp`;
+            expect(serverRenderableSource(src)).toBe(true);
+            const characters = [{ ...unfurlCharacters(DEV_PLAY_DOC)[0], src }];
+            expect(validWebp(await serverUnfurlWebp("The Forest Hello", characters))).toBe(true);
+        } finally {
+            storageMock.base = "https://assets.example";
+        }
     });
 });
