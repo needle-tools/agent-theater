@@ -66,24 +66,27 @@ export function buildUp(stage: Stage, sizeOf: (id: string) => number): BuildUp {
         if (!entrance || entrance === "none") continue;
         const size = Math.max(1, sizeOf(member.id));
         const away = size * OFF_STAGE;
+        // A cast arrives as an ensemble. Serial entrances can leave a long,
+        // silent gap before the first scripted line in a crowded chapter.
+        const together = beats.length > 0 ? { with: true } : {};
 
         switch (entrance) {
             case "left":
             case "right": {
                 const dx = entrance === "left" ? -away : away;
                 approach.push({ id: member.id, dx, dy: 0 });
-                beats.push({ id: member.id, do: "walk", to: { x: -dx } });
+                beats.push({ id: member.id, do: "walk", to: { x: -dx }, ...together });
                 break;
             }
             case "above": {
                 approach.push({ id: member.id, dx: 0, dy: -away });
-                beats.push({ id: member.id, do: "jump", to: { y: away } });
+                beats.push({ id: member.id, do: "jump", to: { y: away }, ...together });
                 break;
             }
             // fade, below and grow are all the same beat: it rises a little and
             // fades in, which covers every "just appear, but nicely" case.
             default:
-                beats.push({ id: member.id, do: "enter" });
+                beats.push({ id: member.id, do: "enter", ...together });
         }
     }
     return { approach, beats };

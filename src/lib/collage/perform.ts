@@ -97,10 +97,8 @@ export const DEFAULT_DURATION: Record<MoveName, number> = {
     bow: 1600,
     turn: 800,
     // Brisk, unlike the rest. An entrance is not the scene, it is the moment
-    // before it — and the build-up plays them one after another, so four
-    // characters arriving at a considered pace is five seconds of nothing
-    // happening before the first line. The slow numbers below are for acting;
-    // these two are stagecraft.
+    // before it. The build-up brings a cast on together. The slow numbers
+    // above are for acting; these two are stagecraft.
     enter: 650,
     exit: 650,
 };

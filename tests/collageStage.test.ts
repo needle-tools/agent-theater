@@ -234,6 +234,21 @@ describe("putting the show on", () => {
         expect(built.beats.map(b => b.id)).toEqual(["a"]);
     });
 
+    it("brings a large cast on together before its first line", () => {
+        const stage = scene([
+            { id: "a", entrance: "fade" },
+            { id: "b", entrance: "left" },
+            { id: "c", entrance: "right" },
+            { id: "d", entrance: "grow" },
+        ], [{ id: "a", say: "The scene begins." }]);
+        const { beats } = sceneBeats(stage, sizeOf);
+        expect(beats.slice(0, 4).map(beat => beat.with ?? false))
+            .toEqual([false, true, true, true]);
+        expect(beats[4].with ?? false).toBe(false);
+        expect(planBeats(beats).plan.duration - planBeats(beats.slice(4)).plan.duration)
+            .toBe(2400);
+    });
+
     it("starts a sliding arrival off stage and walks it back", () => {
         // A walk goes from where you are, so the arriver has to be put outside
         // first — and the walk then commits to exactly where the stage says.
