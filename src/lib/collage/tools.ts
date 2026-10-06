@@ -342,7 +342,7 @@ function batchTool(studio: CollageStudio, tools: WebMcpToolDef[]): WebMcpToolDef
     // Keep publication, replacement, deletion and large image arguments as
     // separate calls so their real effects are visible before they run.
     const separate = new Set([
-        "show_save", "show_publish", "show_load", "theater_clear", "theater_restore",
+        "show_publish", "show_load", "theater_clear", "theater_restore",
         "piece_remove", "stage_remove", "piece_add", "piece_sheet", "theater_avatar",
         "show_play", "show_stop", "piece_say",
     ]);
@@ -699,9 +699,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  carry it on. If they ask for a NEW, separate play, use theater_clear first, then`,
                     `  build the new play on the empty canvas. Clearing keeps a local undo in the wings;`,
                     `  theater_restore can bring the previous set back while this canvas is empty.`,
-                    `  Do not save or publish the previous play as a precaution: show_save and`,
-                    `  show_publish upload it online. Use those only when the person asks to save or`,
-                    `  share. A new play must not be mixed into an unrelated earlier one.`,
+                    `  Do not publish the previous play as a precaution: show_publish uploads it`,
+                    `  online. Use it only when the person asks to save or share. A new play`,
+                    `  must not be mixed into an unrelated earlier one.`,
                     ``,
                     `THE STORY COMES FIRST — OPEN BY PITCHING`,
                     `  If the person has already chosen a story, start making that story. Do not ask`,

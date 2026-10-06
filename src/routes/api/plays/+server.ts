@@ -93,14 +93,12 @@ export const POST: RequestHandler = async ({ request, url, getClientAddress }) =
         const assets = body.assets;
         const id = newId(); const editToken = newToken();
         const title = String(body.title || "Untitled play").slice(0, 160);
-        const visibility = body.visibility === "public" ? "public" : "unlisted";
-        if (visibility === "public") {
-            const limit = await claimPublishSlot(getClientAddress());
-            if (!limit.allowed) return json({
-                error: `Publishing is limited to 5 times per minute and 20 times per 30 minutes. Try again in ${limit.retryAfter} seconds.`,
-                retryAfter: limit.retryAfter,
-            }, { status: 429, headers: { "retry-after": String(limit.retryAfter) } });
-        }
+        const visibility = "public";
+        const limit = await claimPublishSlot(getClientAddress());
+        if (!limit.allowed) return json({
+            error: `Publishing is limited to 5 times per minute and 20 times per 30 minutes. Try again in ${limit.retryAfter} seconds.`,
+            retryAfter: limit.retryAfter,
+        }, { status: 429, headers: { "retry-after": String(limit.retryAfter) } });
         const summary = summarize(body.doc);
         const { sql, ready } = database(); await ready;
         await sql`insert into plays (id, edit_token_hash, title, visibility, doc, assets, written_by, chapters, duration_seconds, themes, scripted)

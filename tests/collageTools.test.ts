@@ -849,7 +849,7 @@ describe("running several tools at once", () => {
         const { studio, collage, id } = await withText();
         const batch = createCollageTools(studio).find(tool => tool.name === "theater_batch")!;
         const x = collage.get(id)!.x;
-        for (const restricted of ["show_save", "show_publish", "show_load", "theater_clear", "piece_sheet"]) {
+        for (const restricted of ["show_publish", "show_load", "theater_clear", "piece_sheet"]) {
             const result = await batch.execute({ steps: [
                 { tool: "piece_move", args: { id, x: 700 } },
                 { tool: restricted, args: {} },
@@ -902,7 +902,7 @@ describe("the surface an agent actually sees", () => {
         expect(names).toEqual([
             "piece_add", "piece_copy", "piece_list", "piece_move", "piece_remove", "piece_say",
             "piece_sheet", "piece_text",
-            "show_fullscreen", "show_list", "show_load", "show_look", "show_play", "show_publish", "show_save",
+            "show_fullscreen", "show_list", "show_load", "show_look", "show_play", "show_publish",
             "show_sounds", "show_stop", "show_title", "show_watch",
             "stage_cast", "stage_create", "stage_describe", "stage_remove", "stage_script",
             "theater_art_prompt", "theater_avatar", "theater_background", "theater_batch",
@@ -1273,7 +1273,7 @@ describe("arriving at a page that already has a play on it", () => {
         expect(text).toContain("IT REMEMBERS");
         expect(text).toContain("CHECK BEFORE YOU BUILD");
         expect(text).toContain("NEW, separate play");
-        expect(text).toContain("Do not save or publish the previous play as a precaution");
+        expect(text).toContain("Do not publish the previous play as a precaution");
     });
 
     it("marks the locally undoable fresh start as a write, not a destructive action", () => {

@@ -236,7 +236,7 @@
     async function persistPlay(): Promise<PublishedPlay> {
         const remembered = rememberedPlay();
         const owned = remembered && canEditPlay(remembered.id) ? remembered.id : undefined;
-        const play = await savePlayOnline(studio, { published: true, id: owned });
+        const play = await savePlayOnline(studio, { id: owned });
         try { localStorage.setItem(CURRENT_PLAY_KEY, JSON.stringify(play)); } catch { /* optional */ }
         return play;
     }

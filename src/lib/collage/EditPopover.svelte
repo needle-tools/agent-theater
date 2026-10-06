@@ -83,15 +83,15 @@
         try { localStorage.setItem(CURRENT_PLAY_KEY, JSON.stringify(play)); } catch { /* optional */ }
     }
 
-    async function saveOnline(published: boolean) {
+    async function saveOnline() {
         onlineBusy = true;
-        onlineMessage = published ? "Publishing…" : "Saving online…";
+        onlineMessage = "Publishing…";
         try {
             const owned = current && canEditPlay(current.id) ? current.id : undefined;
-            const play = await savePlayOnline(studio, { published, id: owned });
+            const play = await savePlayOnline(studio, { id: owned });
             remember(play);
             playUrl = play.url;
-            onlineMessage = published ? "Published." : "Saved as an unlisted link.";
+            onlineMessage = "Published.";
         } catch (error) {
             onlineMessage = error instanceof Error ? error.message : "Could not save the play.";
         } finally { onlineBusy = false; }
@@ -177,13 +177,10 @@
             </button>
             {#if onlineOpen}
                 <div class="online">
-                    <div class="grid">
-                        <button disabled={!hasLayers || onlineBusy} onclick={() => saveOnline(false)}>
-                            {current && canEditPlay(current.id) ? "Update link" : "Save link"}
-                        </button>
-                        <button class="publish icon-button" disabled={!hasLayers || onlineBusy} onclick={() => saveOnline(true)}>
+                    <div>
+                        <button class="publish icon-button" disabled={!hasLayers || onlineBusy} onclick={saveOnline}>
                             <img src="/toolbar/publish.webp" alt="" />
-                            <span>{current?.visibility === "public" && canEditPlay(current.id) ? "Update public" : "Publish"}</span>
+                            <span>{current && canEditPlay(current.id) ? "Update public play" : "Publish play"}</span>
                         </button>
                     </div>
 
@@ -192,11 +189,6 @@
                             <a href={current.url} target="_blank" rel="noopener">{current.title}</a>
                             <button class="compact" onclick={copyShareUrl}>Copy link</button>
                         </div>
-                        {#if canEditPlay(current.id)}
-                            <button class="manage" disabled={onlineBusy} onclick={() => saveOnline(current?.visibility !== "public")}>
-                                Make {current.visibility === "public" ? "unlisted" : "public"}
-                            </button>
-                        {/if}
                     {/if}
 
                     <form class="url-row" onsubmit={event => { event.preventDefault(); void loadFromUrl(); }}>

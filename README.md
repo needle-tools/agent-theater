@@ -92,7 +92,7 @@ The tools cover the full production workflow:
 | `show_play` | Runs it, and returns immediately with the timings so the agent can narrate on the beat. |
 | `piece_*` | Add, cut out, arrange, restyle and trace anything on the canvas. |
 
-Shows save, publish and share: `show_save`, `show_publish`, `show_list`, `show_load`. Share URLs are `/p/<id>`.
+Shows publish and share: `show_publish`, `show_list`, `show_load`. Share URLs are `/p/<id>`. Published plays with a script appear in the community list; arrangements without a script remain accessible by direct link.
 
 For custom artwork, `theater_art_prompt` creates an image-generation prompt in the project's paper-cut style, including the layout constraints needed for animation and spritesheet cutting.
 

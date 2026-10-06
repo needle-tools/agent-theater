@@ -80,8 +80,8 @@ export async function preparePlayAssets(
     return { doc: { ...doc, layers }, local: assets };
 }
 
-async function publishResponse(response: Response, by: "human" | "agent", published: boolean) {
-    if (published && response.status === 429) {
+async function publishResponse(response: Response, by: "human" | "agent") {
+    if (response.status === 429) {
         const retryAfter = Number(response.headers.get("retry-after"));
         track("play_publish_refused", {
             by,
@@ -103,7 +103,7 @@ export function canEditPlay(id: string): boolean {
 
 export async function savePlayOnline(
     studio: CollageStudio,
-    options: { published: boolean; id?: string; title?: string },
+    options: { id?: string; title?: string } = {},
     by: "human" | "agent" = "human",
 ): Promise<PublishedPlay> {
     let phase = "collect_assets";
@@ -137,16 +137,16 @@ export async function savePlayOnline(
         headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
             title: options.title || studio.collage.billing.title || "Untitled play",
-            visibility: options.published ? "public" : "unlisted",
+            visibility: "public",
             doc: prepared.doc, assets,
         }),
-    }), by, options.published) as PublishedPlay & { editToken?: string };
+    }), by) as PublishedPlay & { editToken?: string };
     if (result.editToken) localStorage.setItem(TOKEN_PREFIX + result.id, result.editToken);
     // A play leaving the tab is the moment somebody decided it was worth
     // keeping. Its shape, never its title — that is theirs.
     track("play_saved", {
         by,
-        published: options.published,
+        published: true,
         updated: !!id,
         images: local.length,
         chapters: studio.collage.listStages().length,
@@ -157,7 +157,7 @@ export async function savePlayOnline(
         // Rybbit receives a category and phase, never a server message, title,
         // image URL, or other content from the person's play.
         track("play_save_failed", {
-            by, published: options.published, phase,
+            by, published: true, phase,
             reason: error instanceof MissingImageAssetError ? "missing_local_image"
                 : error instanceof PublishHttpError && error.message === "Invalid or incomplete asset map."
                     ? "asset_map_rejected"
@@ -186,17 +186,13 @@ export async function loadPlayOnline(studio: CollageStudio, value: string): Prom
 }
 
 export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
-    const save = (published: boolean): WebMcpToolDef => ({
-        name: published ? "show_publish" : "show_save",
-        title: published ? "Publish this play" : "Save this play online",
+    const publish: WebMcpToolDef = {
+        name: "show_publish",
+        title: "Publish this play",
         annotations: { readOnlyHint: false, consequentialHint: true },
-        description: published
-            ? "Upload the current play and its custom images to the theater server as public, " +
-              "then return its share URL. Only plays with a script appear in the community " +
-              "library. This is an online publication, not a local backup."
-            : "Upload the current play and its custom images to the theater server as an unlisted " +
-              "shareable link. It is online and accessible to anyone with the link, but is not listed " +
-              "in the community library. Supply an existing id to update that online play.",
+        description: "Upload the current play and its custom images to the theater server as public, " +
+            "then return its share URL. Only plays with a script appear in the community " +
+            "library. Supply an existing id to update that play. This is an online publication.",
         inputSchema: {
             type: "object",
             properties: {
@@ -207,16 +203,16 @@ export function publishingTools(studio: CollageStudio): WebMcpToolDef[] {
         async execute(args: { id?: string; title?: string }) {
             try {
                 const id = typeof args?.id === "string" ? args.id : undefined;
-                const result = await savePlayOnline(studio, { published, id, title: args?.title }, "agent");
-                return { content: [{ type: "text", text: `${published ? "Published" : "Saved"} “${result.title}”. Share: ${result.url}` }], structuredContent: result };
+                const result = await savePlayOnline(studio, { id, title: args?.title }, "agent");
+                return { content: [{ type: "text", text: `Published “${result.title}”. Share: ${result.url}` }], structuredContent: result };
             } catch (error) {
                 const reason = error instanceof Error ? error.message : String(error);
                 return { content: [{ type: "text", text: `Could not save the play: ${reason}` }], isError: true };
             }
         },
-    });
+    };
 
-    return [save(false), save(true), {
+    return [publish, {
         name: "show_list",
         title: "List published plays",
         description: "Find public scripted plays made here — id, title, how many chapters, how long, "

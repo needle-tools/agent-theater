@@ -2,7 +2,7 @@ create table if not exists plays (
     id text primary key,
     edit_token_hash text not null,
     title text not null,
-    visibility text not null default 'unlisted' check (visibility in ('unlisted', 'public')),
+    visibility text not null default 'public' check (visibility in ('unlisted', 'public')),
     doc jsonb not null,
     assets jsonb not null default '{}'::jsonb,
     written_by text,

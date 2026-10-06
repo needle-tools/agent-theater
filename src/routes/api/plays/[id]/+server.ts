@@ -31,8 +31,8 @@ export const PUT: RequestHandler = async ({ params, request, url, getClientAddre
         if (!existing) return json({ error: "Play not found." }, { status: 404 });
         if (!owns(token, existing.edit_token_hash)) return json({ error: "The edit token is missing or invalid." }, { status: 403 });
         const title = String(body.title || "Untitled play").slice(0, 160);
-        const visibility = body.visibility === "public" ? "public" : "unlisted";
-        if (visibility === "public" && existing.visibility !== "public") {
+        const visibility = "public";
+        if (existing.visibility !== "public") {
             const limit = await claimPublishSlot(getClientAddress());
             if (!limit.allowed) return json({
                 error: `Publishing is limited to 5 times per minute and 20 times per 30 minutes. Try again in ${limit.retryAfter} seconds.`,

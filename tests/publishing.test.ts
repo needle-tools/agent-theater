@@ -90,8 +90,8 @@ describe("save failure telemetry", () => {
 
     it("reports missing local bytes to Rybbit without image names or URLs", async () => {
         const events = spy();
-        await expect(savePlayOnline(studio(async () => { throw new MissingImageAssetError(); }),
-            { published: true })).rejects.toBeInstanceOf(MissingImageAssetError);
+        await expect(savePlayOnline(studio(async () => { throw new MissingImageAssetError(); })))
+            .rejects.toBeInstanceOf(MissingImageAssetError);
         expect(events).toEqual([{ name: "play_save_failed", props: {
             by: "human", published: "true", phase: "collect_assets", reason: "missing_local_image",
         } }]);
@@ -103,10 +103,22 @@ describe("save failure telemetry", () => {
             JSON.stringify({ error: "Invalid or incomplete asset map." }),
             { status: 400, headers: { "content-type": "application/json" } },
         )));
-        await expect(savePlayOnline(studio(async () => []), { published: true }, "agent"))
+        await expect(savePlayOnline(studio(async () => []), {}, "agent"))
             .rejects.toThrow("Invalid or incomplete asset map.");
         expect(events).toEqual([{ name: "play_save_failed", props: {
             by: "agent", published: "true", phase: "save_play", reason: "asset_map_rejected", status: 400,
         } }]);
+    });
+
+    it("always publishes a shareable play as public", async () => {
+        spy();
+        const request = vi.fn(async (_url: string, init: RequestInit) => new Response(JSON.stringify({
+            id: "published-play", title: "A play", visibility: "public", url: "/p/published-play",
+        }), { status: 201, headers: { "content-type": "application/json" } }));
+        vi.stubGlobal("fetch", request);
+        vi.stubGlobal("localStorage", { getItem: () => null, setItem: vi.fn() });
+        await savePlayOnline(studio(async () => []));
+        expect(request).toHaveBeenCalledOnce();
+        expect(JSON.parse(String(request.mock.calls[0][1].body))).toMatchObject({ visibility: "public" });
     });
 });

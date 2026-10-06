@@ -298,12 +298,8 @@
           "description": "Wait for canvas changes and return the events with a picture, enabling live collaboration and narrator mode."
         },
         {
-          "name": "show_save",
-          "description": "Save the play online as an unlisted shareable link."
-        },
-        {
           "name": "show_publish",
-          "description": "Publish the play to the shared public library and return its URL."
+          "description": "Publish the play and return its share URL. Scripted plays appear in the community library."
         },
         {
           "name": "show_list",
@@ -311,7 +307,7 @@
         },
         {
           "name": "show_load",
-          "description": "Replace the current canvas with a published or unlisted play."
+          "description": "Replace the current canvas with a play from its share URL."
         },
         {
           "name": "theater_batch",
@@ -522,8 +518,8 @@
         {
           "app": "agent-theater",
           "url": "https://theater.needle.tools",
-          "tools": ["show_title", "show_play", "show_save", "show_publish"],
-          "instruction": "Name the play, perform it, then save it as an unlisted link or publish it to the shared library when the user asks."
+          "tools": ["show_title", "show_play", "show_publish"],
+          "instruction": "Name the play, perform it, then publish it with a share URL when the user asks. Scripted plays appear in the community library."
         }
       ],
       "note": "For live collaboration, show_watch waits for the person's canvas changes and returns a picture; piece_say lets a character react immediately. theater_batch can combine known setup steps into one call."

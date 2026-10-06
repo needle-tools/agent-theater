@@ -61,7 +61,6 @@
         show_look: ["Taking it all in…", "This is nice…", "Let's have a look…"],
         show_title: ["Every story needs a name…", "Putting a name on it…"],
         show_export: ["Wrapping it up nicely…", "Getting it ready for you…"],
-        show_save: ["Keeping this safe…", "Saving our place…"],
         show_publish: ["Sending it out into the world…", "Ready to share…"],
         show_list: ["What shall we watch?", "Looking through the playbill…"],
         show_load: ["Opening the curtain again…", "Let's return to this one…"],

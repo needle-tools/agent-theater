@@ -14,13 +14,14 @@ export function database() {
                 id text primary key,
                 edit_token_hash text not null,
                 title text not null,
-                visibility text not null default 'unlisted' check (visibility in ('unlisted', 'public')),
+                visibility text not null default 'public' check (visibility in ('unlisted', 'public')),
                 doc jsonb not null,
                 assets jsonb not null default '{}'::jsonb,
                 written_by text,
                 created_at timestamptz not null default now(),
                 updated_at timestamptz not null default now()
             )`;
+        await client!`alter table plays alter column visibility set default 'public'`;
         await client!`create index if not exists plays_public_recent on plays (created_at desc) where visibility = 'public'`;
 
         /*
@@ -92,7 +93,7 @@ export function database() {
         // One-time release of the nine unlisted plays reported on 2026-10-05.
         // Run only during October 5–6 in Berlin. The creation cutoff excludes
         // anything saved after that report, and the ledger stops later restarts
-        // from making a play public again if its owner makes it unlisted.
+        // from repeating the release on later restarts.
         const now = Date.now();
         if (now >= Date.parse("2026-10-04T22:00:00Z")
             && now < Date.parse("2026-10-06T22:00:00Z")) {
