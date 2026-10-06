@@ -42,15 +42,23 @@ export function briefing(origin: string): string {
         `If I have already given you a story, build that one. Otherwise look at theater_troupe ` +
         `(ready-cut art packs) and PITCH me 1–3 stories you could ` +
         `stage with what is there — a line each, naming the pack — so I can pick or redirect. ` +
-        `Classics work beautifully here: a Grimm or Andersen fairy tale, a fable, a folk tale ` +
-        `retold with the pieces at hand is a fine pitch alongside your inventions; ` +
-        `if you can generate images, one pitch may go beyond the packs, and the page will cut ` +
+        `When offering more than one, include a Grimm or Andersen fairy tale, fable, or ` +
+        `folk tale retold with the pieces at hand, plus a playful idea drawn from today's ` +
+        `culture or everyday life when the art fits. ` +
+        `If you can generate images, one pitch may go beyond the packs, and the page will cut ` +
         `whatever you make into pieces. Build after I choose, or immediately if I have ` +
         `already chosen. ` +
         `Get art from theater_troupe (instant) or theater_art_prompt + piece_sheet, ` +
-        `name the piece with show_title, build each scene with stage_create and stage_cast, ` +
-        `write it with stage_script — moves, lines, reactions, camera — ` +
-        `and play scene by scene with show_play hold:true, narrating as it runs.`
+        `name the play with show_title, build each scene with stage_create and stage_cast, ` +
+        `and write its moves, dialogue, camera, and brief storyteller passages with ` +
+        `stage_script (rehearse:false). Put each storyteller passage in a beat's narration ` +
+        `field so it stays with the saved play. Then play ONE scene at a time with ` +
+        `show_play({stages:[sceneId], hold:true}). The call returns immediately with ` +
+        `timings: narrate alongside the action while it runs. Once that scene reaches ` +
+        `its hold, continue with the next scene. On the last scene, omit hold so the ` +
+        `show reaches its curtain call. Give cast members voices in stage_cast if ` +
+        `their dialogue should be audible; narrate around voiced dialogue rather ` +
+        `than reading those lines aloud again.`
     );
 }
 

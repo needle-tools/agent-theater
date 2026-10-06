@@ -625,7 +625,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         ? `NEXT: there is nothing to stage. If the person already chose a story, ` +
                           `use that story and start building it. Otherwise look at theater_troupe, ` +
                           `then pitch 1–3 stories using its packs and let the person choose. ` +
-                          `Classics are welcome too; generate only art the chosen story still needs.`
+                          `Offer a fairy tale or fable and a playful idea from today's culture ` +
+                          `when the art fits; generate only art the chosen story still needs.`
                     : !stages.length
                         ? `NEXT: there are pieces but no scenes — and the pieces may BE the brief. The ` +
                           `person can arrange stickers on the canvas themselves, and an arrangement is a ` +
@@ -655,7 +656,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     ? next.replace(/^NEXT:/, "IF CONTINUING THIS PLAY:") : next;
 
                 return ok([
-                    `This is a theatre. The canvas is one infinite flat world seen from above —`,
+                    `This is a theatre. The canvas is one infinite flat world seen from the front —`,
                     `orthographic, no perspective; depth is pieces stacked in front of each other, never`,
                     `things shrinking into the distance. The pictures on it are the cast and the set,`,
                     `scenes are places on the paper, and you are directing. A person is watching the`,
@@ -684,11 +685,11 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  It is a paper theatre seen from the front, not a 3D world. Everything is drawn`,
                     `  straight on, with no perspective and no vanishing point — a backdrop with a path`,
                     `  winding into the distance cannot be layered or parallaxed, it can only be stared`,
-                    `  at. Depth comes from the three planes and nothing else.`,
-                    `  So people move LEFT and RIGHT. A "walk" takes a "to" in canvas units and should`,
-                    `  change x, not y: someone crossing the stage goes sideways, and someone walking`,
-                    `  "into" the scene has nowhere to go. To make somebody arrive from far away, put`,
-                    `  them on the back plane and move them forward a plane instead.`,
+                    `  at. Depth comes from the stacking order of separate cut-outs.`,
+                    `  So people move LEFT and RIGHT. A "walk" takes an "at" destination in canvas`,
+                    `  coordinates (or "by" for a relative distance). It should mostly change x, not y:`,
+                    `  someone crossing the stage goes sideways, and someone walking`,
+                    `  "into" the scene has nowhere to go. Do not use the retired "to" field.`,
                     ``,
                     `IT REMEMBERS`,
                     `  Everything on this page is saved in this browser and comes back on its own — the`,
@@ -708,12 +709,14 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  them to choose again. Otherwise bring ideas: look at what the troupe holds`,
                     `  (theater_troupe) and pitch 1–3 stories you could stage with it — one line`,
                     `  each: who wants what, what stands in the way, what changes. Name the pack`,
-                    `  each pitch would use, so choosing a story is choosing a look. If you can`,
-                    `  generate images yourself, one pitch may go beyond the packs — say so; the`,
+                    `  each pitch would use, so choosing a story is choosing a look. Mix a familiar`,
+                    `  fairy tale, fable or folk tale with a playful idea from today's culture or`,
+                    `  everyday life when the available pieces fit. If you can generate images`,
+                    `  yourself, one pitch may go beyond the packs — say so; the`,
                     `  page cuts whatever you generate into pieces (theater_art_prompt writes the`,
                     `  prompt, piece_sheet does the cutting).`,
                     `  If pitching, let the person pick or redirect BEFORE you build anything. Every later`,
-                    `  choice — which backdrops, which cast, what each scene is for — follows from`,
+                    `  choice — which set pieces, which cast, what each scene is for — follows from`,
                     `  the story. A play built art-first is a slideshow with a plot attached, and`,
                     `  that is what every shallow play so far has been.`,
                     ``,
@@ -732,7 +735,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `  2. piece_sheet brings each sheet in, one piece per cell.`,
                     `  3. show_title names the piece AND signs it: pass "credits" with the maker's`,
                     `     lines — story, direction, whose paper — rolled after the cast at the end.`,
-                    `  4. stage_create per scene, each at its own spot on the canvas, with its music.`,
+                    `  4. stage_create per scene, with its own music.`,
                     `     The play stays on the open paper; the camera does the framing. Walks really`,
                     `     move the pieces, so a chapter you write BEFORE the earlier ones have played`,
                     `     wants restage:true — it puts its own cast back on its marks first.`,
@@ -740,11 +743,16 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `     not move anybody — the arrangement on the paper IS the blocking; pass x/y only`,
                     `     to also rearrange the world. Give each an entrance and an "as" naming who they`,
                     `     play.`,
-                    `  6. stage_script — moves, lines, sounds and camera moves, in order.`,
+                    `  6. stage_script with rehearse:false — moves, lines, sounds and camera moves,`,
+                    `     in order. Put short storyteller passages in beats' narration field so`,
+                    `     they are saved with the play; narrate them live during playback.`,
                     `     Keep the cast in view with camera on:"all" or a group. A single-id shot`,
                     `     hides everyone else; make it brief and return to the group before dialogue`,
                     `     continues. End each scene with an on:"all" shot.`,
-                    `  7. show_play. It returns at once with the timings; narrate over the top of it.`,
+                    `  7. show_play with stages:[sceneId], hold:true for ONE scene at a time. It`,
+                    `     returns immediately with timings; narrate while that scene runs. Once`,
+                    `     it reaches its hold, play the next scene. Omit hold on the last scene`,
+                    `     so the curtain call can finish. Do not read voiced dialogue twice.`,
                     ``,
                     `WHAT ELSE TO KNOW`,
                     `  - One call, whole scene. You cannot animate by calling a tool per frame, and you`,
@@ -926,17 +934,11 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 "into whatever can draw. Ask for one SHEET — a grid of separate pictures in a single " +
                 "image — because that is what piece_sheet cuts apart, and because one sheet comes back " +
                 "looking like one set rather than nine unrelated drawings. " +
-                "THREE kinds, and a scene needs all three: 'backgrounds' is the far plane only — sky, " +
-                "distance, a ground line and nothing else; 'scenery' is the trees, bushes, doors and " +
-                "rocks that stand in FRONT of it, one per cell, cut out on white; 'actors' is the cast, " +
-                "full body with their feet visible. Do NOT ask for a finished-looking scene: a painting " +
-                "with the trees already in it cannot be stood in front of, animated, or parallaxed, and " +
-                "it is the single most common way a show ends up flat. " +
-                "'layers' is the fourth, and the one that gives a scene depth: 25 SEGMENTS of a " +
-                "midground band and a foreground band, each with open ragged ends so copies butt " +
-                "together into a band as wide as the camera ever travels. Ask for these rather than " +
-                "a full-width painted midground — a fixed-width strip has two hard edges, and a pan " +
-                "or a pull-back reveals them. " +
+                "For a new play, use 'scenery' for separate trees, bushes, doors and other set pieces, " +
+                "and 'actors' for the full-body cast. Import both as cut-out pieces. A finished-looking " +
+                "scene cannot be rearranged or animated. The legacy 'backgrounds' kind can still make " +
+                "wide pictures for old plays, but new scenes use the open canvas and stage_create no " +
+                "longer accepts a backdrop. " +
                 "All are written in one house style so the cast and the set match. Brand and " +
                 "studio names in your topic are replaced with what they actually describe, and the " +
                 "reply says which. " +
@@ -952,12 +954,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                 properties: {
                     kind: {
                         type: "string",
-                        enum: ["actors", "backgrounds", "scenery", "layers"],
+                        enum: ["actors", "scenery", "backgrounds"],
                         description:
-                            "The far backdrop, the cut-out scenery that stands in front of it, the " +
-                            "cast, or 'layers' — segments of a midground and a foreground band, made " +
-                            "to be repeated side by side. A scene is built from a backdrop, layers " +
-                            "for depth, scenery for detail and actors to play it.",
+                            "Use 'actors' for the cast or 'scenery' for separate set pieces. " +
+                            "'backgrounds' is for legacy plays; new scenes have no backdrop panel.",
                     },
                     topic: {
                         type: "string",
@@ -969,20 +969,16 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         type: "number",
                         description:
                             "Cells across, 1–5. Leave it alone: the defaults are 5 × 5 for actors and " +
-                            "scenery — 25 pieces from one generation — and a single column of 3 for " +
-                            "backdrops, so each one is a full-width strip and comes back the panorama " +
-                            "shape a stage needs rather than a square.",
+                            "scenery — 25 pieces from one generation. The legacy backgrounds kind " +
+                            "uses wide cells.",
                     },
                     rows: { type: "number", description: "Cells down, 1–5." },
                     shape: {
                         type: "string",
                         enum: ["wide", "square", "tall"],
                         description:
-                            "The shape of one cell. For backdrops this is a real decision: 'wide' is a " +
-                            "21:9 panorama for a scene people cross — a road, a forest, a hall — and is " +
-                            "the default; 'tall' is for a scene with height in it, a tower, a cliff, a " +
-                            "well. The camera pans across the one and up the other. Actors and scenery " +
-                            "are square and should stay that way.",
+                            "The shape of one cell. Actors and scenery usually stay square; use wide " +
+                            "or tall only when an individual cut-out needs that shape.",
                     },
                     subjects: {
                         type: "array",
@@ -1038,8 +1034,8 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     `Then bring the sheet back with piece_sheet(url, columns: ${written.columns}, ` +
                     `rows: ${written.rows}, as: "${kind === "backgrounds" ? "backgrounds" : "actors"}").`,
                     ...(kind === "backgrounds"
-                        ? [`This is only the far plane. Ask for a "scenery" sheet too, or the scene will ` +
-                           `be one flat card with nothing in front of it.`]
+                        ? [`This is a legacy background sheet. New scenes have no backdrop panel; ` +
+                           `use cut-out scenery and actors instead.`]
                         : []),
                     ``,
                     written.prompt,
@@ -1049,7 +1045,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                     rows: written.rows,
                     subjects: written.subjects,
                     removed: written.removed,
-                    as: kind,
+                    as: kind === "backgrounds" ? "backgrounds" : "actors",
                 });
             },
         },
@@ -1059,8 +1055,9 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
             description:
                 "Add a grid image to this canvas as separate pieces, one per cell. The image pixels " +
                 "are passed to a FastCut iframe on a separate Needle-hosted origin for background removal; this " +
-                "tool does not publish the play. Use 'actors' for movable characters or scenery and " +
-                "'backgrounds' for whole scene images. Pass labels in reading order to name the pieces. " +
+                "tool does not publish the play. Use 'actors' for movable characters and cut-out scenery. " +
+                "'backgrounds' is retained for legacy sheets; new scenes have no backdrop panel. " +
+                "Pass labels in reading order to name the pieces. " +
                 "For large sheets, upload the raw image to POST /api/sheets first and pass its short " +
                 "URL here; avoid putting multi-megabyte base64 data in a tool argument.",
             inputSchema: {
@@ -1082,8 +1079,7 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                         description:
                             "What is on it. 'actors' is for anything that stands on a stage — use it for " +
                             "scenery too, since a tree is cut out exactly as a person is. 'backgrounds' " +
-                            "is for the stages themselves: they are sized to fill a stage rather than " +
-                            "scaled against each other. Both have their white surround removed.",
+                            "is a legacy import mode and is not used by stage_create in new plays.",
                     },
                     labels: {
                         type: "array",
@@ -1200,10 +1196,10 @@ function buildTools(studio: CollageStudio): WebMcpToolDef[] {
                             ? `Cut into ${made.length} piece(s): ` +
                               `${made.map(layer => `"${layer.label}" [${layer.id}]`).join(", ")}. ` +
                               `Each is its own cut-out and can be cast, moved and animated. Look with show_look.`
-                            : `Cut into ${made.length} backdrop(s): ` +
+                            : `Cut into ${made.length} legacy background piece(s): ` +
                               `${made.map(layer => `"${layer.label}" [${layer.id}]`).join(", ")}. ` +
-                              `Each is ready to be a scene's backdrop — pass one to stage_create as ` +
-                              `"backdrop". Look with show_look.`),
+                              `New scenes have no backdrop panel: use cut-out scenery with ` +
+                              `piece_sheet as:"actors" instead. Look with show_look.`),
                         { layers: made, pieces: made.length, as: actors ? "actors" : "backgrounds",
                           ...(uncut ? { backgroundsRemoved: false } : {}) });
                 } catch (error) {

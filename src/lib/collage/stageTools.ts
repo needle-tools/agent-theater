@@ -1031,8 +1031,8 @@ export function createStageTools(studio: CollageStudio): WebMcpToolDef[] {
                 if (str(args?.backdrop) && str(args?.backdrop) !== "none") {
                     return fail(
                         `There are no backdrop panels: the play happens on the open canvas, with the ` +
-                        `pieces as they stand and the camera doing the framing. Cast big scenery on the ` +
-                        `"back" plane instead if the place needs marking out.`);
+                        `pieces as they stand and the camera doing the framing. Place large cut-out ` +
+                        `scenery behind the cast in the stacking order if the place needs marking out.`);
                 }
 
                 const music = str(args?.music);
