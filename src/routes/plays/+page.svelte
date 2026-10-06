@@ -1,8 +1,20 @@
 <script lang="ts">
+    import { onMount } from "svelte";
     import type { PageData } from "./$types";
     import { languageName } from "$lib/collage/language";
+    import { loadPainterly, PAINTERLY_CSS } from "$lib/collage/painted";
+    import { briefing } from "$lib/collage/invitation";
+    import { copyText } from "$lib/collage/clipboard";
 
     let { data }: { data: PageData } = $props();
+    let promptCopyState = $state<"idle" | "copied" | "failed">("idle");
+
+    onMount(() => { void loadPainterly(); });
+
+    async function copyPrompt() {
+        promptCopyState = await copyText(briefing(location.origin)) ? "copied" : "failed";
+        setTimeout(() => (promptCopyState = "idle"), 2200);
+    }
 
     const pageLink = (page: number) => {
         const query = new URLSearchParams();
@@ -21,12 +33,18 @@
     <title>{data.card.title}</title>
     <meta name="description" content="Browse every published Agent Theater story. Pick a paper play and watch its stage come to life." />
     <link rel="canonical" href={data.card.url} />
+    <link rel="stylesheet" href={PAINTERLY_CSS} />
 </svelte:head>
 
 <div class="programme">
     <header class="masthead">
         <div class="topline">
-            <a class="home" href="/" aria-label="Back to Agent Theater">← <span>Agent Theater</span></a>
+            <a class="home" href="/" aria-label="Back to Agent Theater">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5m7 7-7-7 7-7" />
+                </svg>
+                <span>Agent Theater</span>
+            </a>
             <span class="edition">THE COMMUNITY PROGRAMME</span>
         </div>
         <div class="heading">
@@ -97,7 +115,34 @@
             {#if data.page < data.pages}<a href={pageLink(data.page + 1)}>Older plays →</a>{:else}<span></span>{/if}
         </nav>
     {/if}
-    <footer><a href="/">Make a play on the stage <span aria-hidden="true">→</span></a></footer>
+    <section class="make-play" aria-labelledby="make-play-title">
+        <div class="make-copy">
+            <p class="eyebrow">How to</p>
+            <h2 id="make-play-title">Make a play on the stage.</h2>
+            <p>Start with a few paper characters or let ChatGPT pick from the theatre’s art. You choose the story; your AI director builds the scenes and plays them with you.</p>
+        </div>
+        <ol class="how-steps">
+            <li><strong>Arrange the pieces</strong><span>Drag stickers onto the stage, or begin with what is already there.</span></li>
+            <li><strong>Give ChatGPT the prompt</strong><span>Paste it into ChatGPT so it can open the theatre and pitch a story.</span></li>
+            <li><strong>Watch and direct</strong><span>Choose a story, then steer the scenes as your AI director performs them.</span></li>
+        </ol>
+        <div class="make-actions">
+            <button class="make-button make-button--secondary painted grained" type="button" onclick={copyPrompt}>
+                <span>{promptCopyState === "copied" ? "Copied!" : promptCopyState === "failed" ? "Try again" : "Copy prompt"}</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="8" y="8" width="11" height="11" rx="2" />
+                    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+                </svg>
+            </button>
+            <a class="make-button make-button--primary painted grained" href="/">
+                <span>Make your own</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14m-7-7 7 7-7 7" />
+                </svg>
+            </a>
+        </div>
+        <span class="copy-status" role="status" aria-live="polite">{promptCopyState === "copied" ? "Prompt copied. Paste it into ChatGPT to start." : promptCopyState === "failed" ? "Could not copy the prompt. Please try again." : ""}</span>
+    </section>
 </div>
 
 <style>
@@ -107,11 +152,11 @@
         color: #252a31;
         background: radial-gradient(#dcd5c7 0.8px, transparent 0.8px) 0 0 / 23px 23px, #f6f0e5;
     }
-    .masthead, .filters, .play-grid, .pagination, footer, .empty { max-width: 1400px; margin-inline: auto; }
+    .masthead, .filters, .play-grid, .pagination, .make-play, .empty { max-width: 1400px; margin-inline: auto; }
     .topline { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 22px; border-bottom: 1px solid #cfc3ac; }
-    .home { color: #213b58; text-decoration: none; font-weight: 750; font-size: 0.95rem; }
-    .home span { margin-left: 8px; }
-    .home:hover, footer a:hover { text-decoration: underline; text-underline-offset: 4px; }
+    .home { display: inline-flex; align-items: center; gap: 8px; color: #213b58; text-decoration: none; font-weight: 750; font-size: 0.95rem; }
+    .home svg { width: 20px; height: 20px; flex: none; }
+    .home:hover { text-decoration: underline; text-underline-offset: 4px; }
     .edition, .eyebrow, .filter-label { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.17em; text-transform: uppercase; }
     .edition { color: #aa5736; }
     .heading { display: flex; justify-content: space-between; align-items: end; gap: 30px; padding: clamp(50px, 8vw, 108px) 0 clamp(40px, 5vw, 68px); }
@@ -147,9 +192,61 @@
     .empty h2 { margin: 5px 0 8px; font-family: Georgia, serif; font-size: 2rem; }
     .empty p { color: #665f55; }
     .empty a { color: #213b58; }
-    footer { padding: 48px 0 20px; text-align: center; border-top: 1px solid #cfc3ac; }
-    footer a { color: #213b58; font-family: Georgia, serif; font-size: 1.15rem; text-decoration: none; }
-    footer span { margin-left: 8px; }
+    .make-play { display: flex; align-items: center; flex-direction: column; padding: 48px 0 28px; border-top: 1px solid #cfc3ac; text-align: center; }
+    .make-copy { max-width: 690px; }
+    .make-copy .eyebrow { margin-bottom: 9px; }
+    .make-copy h2 { margin: 0; font-family: Georgia, 'Iowan Old Style', serif; font-size: clamp(1.7rem, 3vw, 2.45rem); line-height: 1.12; letter-spacing: -0.035em; }
+    .make-copy > p:last-child { margin: 14px 0 0; color: #635f57; line-height: 1.55; }
+    .how-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; width: min(100%, 880px); margin: 32px 0 48px; padding: 0; list-style: none; counter-reset: step; text-align: left; }
+    .how-steps li { position: relative; display: grid; align-content: start; gap: 7px; padding-left: 40px; counter-increment: step; }
+    .how-steps li::before { content: counter(step); position: absolute; top: -2px; left: 0; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #e8c881; color: #213b58; font-size: 0.82rem; font-weight: 900; }
+    .how-steps strong { color: #213b58; font-size: 0.94rem; }
+    .how-steps span { color: #635f57; font-size: 0.88rem; line-height: 1.45; }
+    .make-actions { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 16px; width: 100%; }
+    .make-button {
+        --grain-size: 1.2;
+        --grain-density: 3.6;
+        --grain-contrast: 1.25;
+        --grain-amount: 0.95;
+        --grain-tile: 72px;
+        --grain-hold: 0.72s;
+        --paint-shift: 0.45%;
+        --paint-turn: 0.4deg;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        height: 58px;
+        padding: 0 24px;
+        overflow: hidden;
+        flex: none;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        appearance: none;
+        font: inherit;
+        font-weight: 800;
+        line-height: 1.15;
+        text-decoration: none;
+        cursor: pointer;
+        animation: paint-boil 1.5s step-end infinite, grain-shift var(--grain-hold) step-end infinite;
+        animation-delay: var(--paint-at), var(--grain-at);
+        transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+    }
+    .make-button--primary { --paint-at: -0.37s; --grain-at: -0.19s; --grain-seed: 11; --grain-contrast: 1.7; background: #213b58; color: #fff7e8; box-shadow: 0 4px 0 #10253c, 0 10px 17px -10px #152236; }
+    .make-button--secondary { --paint-at: -1.07s; --grain-at: -0.48s; --grain-seed: 31; border-color: #aa9375; background: #e8d9bd; color: #213b58; box-shadow: 0 4px 0 #b8a382, 0 10px 17px -10px #715c42; }
+    :global(.painterly) .make-button--primary.grained::after { mix-blend-mode: normal; opacity: 1; }
+    .make-button span, .make-button svg { position: relative; z-index: 1; }
+    .make-button svg { width: 20px; height: 20px; flex: none; transition: translate 150ms ease; }
+    .make-button:hover { transform: translateY(-2px); }
+    .make-button--primary:hover { background: #294969; box-shadow: 0 6px 0 #10253c, 0 14px 20px -10px #152236; }
+    .make-button--secondary:hover { background: #f0e0c2; box-shadow: 0 6px 0 #b8a382, 0 14px 20px -10px #715c42; }
+    .make-button:hover svg { translate: 3px 0; }
+    .make-button:active { transform: translateY(3px) scale(0.96); }
+    .make-button--primary:active { box-shadow: 0 1px 0 #10253c, 0 4px 7px -5px #152236; }
+    .make-button--secondary:active { box-shadow: 0 1px 0 #b8a382, 0 4px 7px -5px #715c42; }
+    .make-button:focus-visible { outline: 3px solid #b55b3b; outline-offset: 5px; }
+    .copy-status { min-height: 1.4em; margin-top: 15px; color: #635f57; font-size: 0.85rem; }
     @keyframes arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 900px) { .play-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 650px) {
@@ -160,6 +257,8 @@
         .filter-options { margin-top: 12px; }
         .play-grid { grid-template-columns: 1fr; gap: 36px; }
         .edition { font-size: 0.56rem; }
+        .make-play { padding-top: 34px; }
+        .how-steps { grid-template-columns: 1fr; gap: 20px; max-width: 400px; margin: 28px 0 42px; }
     }
-    @media (prefers-reduced-motion: reduce) { .play-card { animation: none; } .artwork img, .play-arrow { transition: none; } }
+    @media (prefers-reduced-motion: reduce) { .play-card, .make-button { animation: none; } .artwork img, .play-arrow, .make-button, .make-button svg { transition: none; } }
 </style>

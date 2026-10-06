@@ -503,8 +503,14 @@
     let scene: Playing | null = null;
     /** Who is speaking and how far through, keyed by layer. */
     let spoken = $state(new Map<string, { line: string; progress: number }>());
+    /** The welcome on a shared play stays until its audience presses Play. */
+    let playInvitation = $state<{ id: string; text: string } | null>(null);
     /** Layers that have exited and should stay gone. */
     let gone = $state(new Set<string>());
+
+    $effect(() => {
+        if (showing && playInvitation) playInvitation = null;
+    });
 
     /**
      * Who is speaking, and where the bubble goes.
@@ -519,12 +525,16 @@
         void version;
         const said: Array<{
             id: string; text: string; shown: string;
-            x: number; y: number; size: number; below: boolean;
+            x: number; y: number; size: number; below: boolean; invite: boolean;
         }> = [];
         const seen = visibleRect();
         const zoom = view.zoom;
 
-        for (const [id, state] of spoken) {
+        const messages = new Map(spoken);
+        if (playInvitation && !showing && !messages.has(playInvitation.id))
+            messages.set(playInvitation.id, { line: playInvitation.text, progress: 1 });
+
+        for (const [id, state] of messages) {
             const layer = studio.collage.get(id);
             if (!layer || gone.has(id)) continue;
 
@@ -593,6 +603,7 @@
                 y: below ? layer.y + layer.height : layer.y,
                 size,
                 below,
+                invite: playInvitation?.id === id && !showing,
             });
         }
         return said;
@@ -1283,6 +1294,23 @@
         const pool = onScreen.length ? onScreen : candidates;
         const pick = pool[Math.floor(Math.random() * pool.length)];
         void stagehand.voice(pick.id, text, readingTime(text));
+        return true;
+    }
+
+    /** A shared play's welcome remains attached to a visible piece until playback. */
+    export function inviteToPlay(text: string): boolean {
+        const candidates = placed.filter(layer =>
+            layer.kind === "image" && !gone.has(layer.id) && !layer.held);
+        if (!candidates.length) return false;
+        const seen = visibleRect();
+        const onScreen = seen
+            ? candidates.filter(layer =>
+                layer.x < seen.x + seen.width && layer.x + layer.width > seen.x &&
+                layer.y < seen.y + seen.height && layer.y + layer.height > seen.y)
+            : [];
+        const pool = onScreen.length ? onScreen : candidates;
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        playInvitation = { id: pick.id, text };
         return true;
     }
 
@@ -2928,6 +2956,7 @@
             <div
                 class="bubble"
                 class:bubble--below={line.below}
+                class:bubble--invite={line.invite}
                 style:left="{line.x}px"
                 style:top="{line.y}px"
                 style:font-size="{line.size}px"
@@ -2943,8 +2972,25 @@
                      from the finished line and words hopped between lines as
                      they were typed. Invisible-in-place cannot re-wrap,
                      because nothing about the layout ever changes. -->
-                <span>{line.shown}</span><span class="bubble__rest" aria-hidden="true">{line.text.slice(line.shown.length)}</span>
-                <SubtitleVoiceMenu text={line.text} voiceKey={line.id} />
+                {#if line.invite}
+                    <div class="bubble__invite-content">
+                        <span>{line.text}</span>
+                        <button
+                            class="bubble__play"
+                            type="button"
+                            aria-label="Play the loaded show"
+                            onpointerdown={event => event.stopPropagation()}
+                            onclick={event => {
+                                event.stopPropagation();
+                                playInvitation = null;
+                                void studio.playShow(undefined, { by: "human" });
+                            }}
+                        ><img class="painted painted--calm painted--boil" src="/icons/playback/play.webp" alt="" /></button>
+                    </div>
+                {:else}
+                    <span>{line.shown}</span><span class="bubble__rest" aria-hidden="true">{line.text.slice(line.shown.length)}</span>
+                    <SubtitleVoiceMenu text={line.text} voiceKey={line.id} />
+                {/if}
             </div>
         {/each}
     </div>
@@ -3329,6 +3375,40 @@
         --paint-wash-strength: 1;
         --paint-scale: 2.2;
     }
+
+    .bubble--invite { pointer-events: auto; }
+    .bubble__invite-content {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.7em;
+        min-width: min(27ch, 75vw);
+    }
+    .bubble__play {
+        display: grid;
+        place-items: center;
+        width: 2.25em;
+        height: 2.25em;
+        padding: 0;
+        border: 0;
+        border-radius: 0.65em;
+        background: var(--accent-brand);
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(34, 44, 32, 0.08), 0 6px 16px rgba(34, 44, 32, 0.1);
+        transition: scale 150ms ease, background-color 150ms ease;
+    }
+    .bubble__play img {
+        width: 1.55em;
+        height: 1.55em;
+        object-fit: contain;
+        pointer-events: none;
+        --paint-scale: 3.2;
+        --paint-seed: 41;
+        --paint-at: -0.37s;
+    }
+    .bubble__play:hover { scale: 1.06; background: var(--accent-brand-deep, var(--accent-brand)); }
+    .bubble__play:active { scale: 0.96; }
+    .bubble__play:focus-visible { outline: 0.14em solid #b55b3b; outline-offset: 0.12em; }
 
     :global(html.painterly) .bubble {
         background-image:

@@ -59,7 +59,7 @@
                 const j = Math.floor(Math.random() * (i + 1));
                 [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
-            suggestedPlays = shuffled.slice(0, Math.min(plays.length, 1 + Math.floor(Math.random() * 3)));
+            suggestedPlays = shuffled.slice(0, 2);
         } catch {
             // The stage remains usable when the public library is offline.
         } finally {
@@ -431,8 +431,10 @@
                 if (new URL(location.href).searchParams.get("autoplay") === "1" && collage.listStages().length) {
                     void studio.playShow(undefined, { by: "human" });
                 } else if (collage.listStages().length) {
-                    // A normal shared link opens ready to watch, with a welcome.
-                    announce(welcome(play.title));
+                    // Keep the welcome attached to a visible piece until the
+                    // audience starts the play, with Play inside the bubble.
+                    const greeting = welcome(play.title);
+                    if (!canvas?.inviteToPlay(greeting)) toasts.push(greeting);
                 }
             } catch (error) {
                 track("play_load_failed", { by: "human", source: "link" });
@@ -1663,6 +1665,7 @@
                             <li><a href="/p/{encodeURIComponent(play.id)}?autoplay=1">{play.title || "Untitled story"}</a></li>
                         {/each}
                     </ul>
+                    <a class="story-bubble__library" class:story-bubble__library--ready={storyLinkReadyFor === scatter[0]?.key} href="/plays">or browse the library</a>
                 </div>
             {/if}
             {#if introActive && scatter.length >= 4 && suggestedPlaysLoaded && storyReadyFor === scatter[0]?.key
@@ -1746,6 +1749,9 @@
         <button class="file-tool" disabled={!layers.length || sharing} aria-label="Save play publicly online" use:hint={sharing ? "Saving online…" : "Save this play publicly online."} onclick={saveOnline}>
             <img src={layers.length ? "/toolbar/save.webp" : "/toolbar/save-disabled.webp"} alt="" draggable="false" />
         </button>
+        <a class="file-tool file-tool--plays" href="/plays" aria-label="Browse community plays" use:hint={"Browse the play library."}>
+            <img src="/toolbar/community-plays.webp" alt="" draggable="false" />
+        </a>
         {#if fileToolError}
             <button
                 class="file-tool-error file-tool-error--{fileToolError.tool}"
@@ -2017,6 +2023,14 @@
         text-decoration: underline;
     }
     .story-bubble a:hover { text-decoration-thickness: 2px; }
+    .story-bubble__library {
+        display: block;
+        margin-top: 0.65em;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .story-bubble__library--ready { visibility: visible; opacity: 1; }
 
     .video-bubble {
         position: absolute;
@@ -2314,7 +2328,7 @@
         }
 
         /* Watching somebody's play: the making tools step out. */
-        .page--shared .file-tools > :not(.file-tool--share),
+        .page--shared .file-tools > :not(.file-tool--share):not(.file-tool--plays),
         .page--shared :global(.shelf) {
             display: none;
         }
@@ -2396,6 +2410,8 @@
         object-fit: contain;
         pointer-events: none;
     }
+    .file-tool--plays { margin-top: 8px; }
+    .file-tool--plays img { width: 68px; height: 68px; max-width: none; }
 
     .audio-tool {
         position: fixed;
